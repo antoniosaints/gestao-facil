@@ -1,0 +1,65 @@
+<div class="min-h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md w-full max-w-xl">
+        <h2 class="text-2xl font-bold mb-4 dark:text-white" id="titulo_detalhes_produto">Detalhes do Produto</h2>
+
+        <div class="grid grid-cols-2 gap-4 text-sm dark:text-white">
+            <div>
+                <span class="font-semibold">Nome:</span>
+                <span class="ml-2">Memória Kingston 16GB DDR4</span>
+            </div>
+            <div>
+                <span class="font-semibold">Código:</span>
+                <span class="ml-2">123456</span>
+            </div>
+            <div>
+                <span class="font-semibold">Preço:</span>
+                <span class="ml-2 text-green-600 font-medium">R$ 280,00</span>
+            </div>
+            <div>
+                <span class="font-semibold">Estoque:</span>
+                <span class="ml-2">45 unidades</span>
+            </div>
+            <div>
+                <span class="font-semibold">Mínimo em estoque:</span>
+                <span class="ml-2">10</span>
+            </div>
+            <div>
+                <span class="font-semibold">Unidade:</span>
+                <span class="ml-2">Peça</span>
+            </div>
+            <div class="col-span-2">
+                <span class="font-semibold">Descrição:</span>
+                <p class="mt-1 dark:text-gray-200">
+                    Memória RAM Kingston 16GB DDR4 3200MHz, ideal para upgrades em desktops de alto desempenho.
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-6">
+            <button type="button" onclick="loadPage('partials/produtos/index.html')"
+                class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-backward"></i> Voltar
+            </button>
+            <button onclick="editarProduto()" class="bg-primary-dark text-sm text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-pen-to-square"></i>
+                Editar
+            </button>
+            <button class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-trash-can"></i>
+                Excluir
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (() => {
+        $("#titulo_detalhes_produto").text(`Detalhes do Produto #${localStorage.getItem("produtoId")}`);
+    })();
+    function editarProduto(produtoId) {
+        htmx.ajax("GET", "partials/produtos/formulario.html", {
+            target: "#content",
+            swap: "innerHTML",
+        });
+    }
+</script>

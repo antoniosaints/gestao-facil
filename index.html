@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestão Fácil</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="css/datatables.main.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/datatables.css" />
+  <link rel="stylesheet" href="./css/swalert.css" />
+  <script src="js/fontawesome.js"></script>
+  <script src="js/htmx.js"></script>
+  <script src="js/tailwind.js"></script>
+  <script src="js/jquery.js"></script>
+  <script src="js/datatables.min.js"></script>
+  <script src="js/swalert.js"></script>
+  <script src="tailwind.js"></script>
+  <script src="theme.js" defer></script>
+  <script src="global.js" defer></script>
+</head>
+
+<body class="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen flex flex-col md:flex-row">
+  <button onclick="document.getElementById('sidebar').classList.toggle('hidden')"
+    class="p-4 md:hidden bg-primary text-white flex items-center">
+    ☰ Menu
+  </button>
+  <!-- Sidebar -->
+  <aside id="sidebar" class="hidden md:block w-full md:w-64 bg-gray-100 dark:bg-gray-800 p-4 space-y-4">
+    <h1 class="text-2xl font-bold text-primary">
+      <i class="fa-solid fa-chart-pie"></i> Gestão Fácil
+    </h1>
+
+    <nav class="flex flex-col space-y-2">
+      <a onclick="loadPage('partials/dashboard.html')"
+        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+          class="fa-solid fa-chart-simple px-2"></i> Dashboard</a>
+      <a onclick="loadPage('partials/produtos/index.html')"
+        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+          class="fa-solid fa-boxes-stacked px-2"></i> Produtos</a>
+      <a onclick="loadPage('partials/contact.html')"
+        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+          class="fa-solid fa-tags px-2"></i> Vendas</a>
+      <a onclick="loadPage('partials/about.html')"
+        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+          class="fa-solid fa-paste px-2"></i> Relatórios</a>
+      <a onclick="loadPage('partials/login.html')"
+        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+          class="fa-solid fa-key px-2"></i> Login</a>
+    </nav>
+
+    <button onclick="toggleTheme()"
+      class="mt-4 flex items-center gap-2 px-4 py-2 rounded transition bg-gray-200 dark:bg-gray-700">
+      <span id="theme-icon">
+        <i class="fa-solid fa-sun" id="icon-sun"></i>
+        <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
+      </span>
+    </button>
+  </aside>
+
+  <!-- Main content -->
+  <main id="content" class="flex-1 p-6 max-h-screen"></main>
+
+  <script src="general.js" defer></script>
+</body>
+
+</html>

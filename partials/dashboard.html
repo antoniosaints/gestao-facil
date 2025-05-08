@@ -1,0 +1,70 @@
+<!-- dashboard.html -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+  <!-- Vendas Realizadas -->
+  <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-tags"></i> Vendas Realizadas</h2>
+    <p class="text-3xl font-bold text-green-600 mt-2">R$ 12.450,00</p>
+  </div>
+
+  <!-- Total de Produtos -->
+  <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-boxes-stacked"></i> Total de Produtos</h2>
+    <p class="text-3xl font-bold text-blue-600 mt-2">128</p>
+  </div>
+
+  <!-- Produtos em Baixa -->
+  <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-boxes-packing"></i> Produtos em Baixa</h2>
+    <p class="text-3xl font-bold text-red-600 mt-2">7</p>
+  </div>
+
+
+  <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-user-tag"></i> Clientes</h2>
+    <p class="text-3xl font-bold text-cyan-500 mt-2">25</p>
+  </div>
+
+  <!-- Últimas Vendas -->
+  <div
+    class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2"
+  >
+    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Últimas Vendas</h2>
+    <div class="overflow-x-auto">
+      <div hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
+    </div>
+  </div>
+  <div
+    class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2"
+  >
+    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Estoques baixos</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left rounded">
+        <thead class="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
+          <tr>
+            <th class="p-2">#ID</th>
+            <th class="p-2">Produto</th>
+            <th class="p-2">Estoque Min.</th>
+            <th class="p-2">Estoque Atual</th>
+            <th class="p-2">Valor</th>
+          </tr>
+        </thead>
+        <tbody class="text-gray-700 dark:text-gray-200">
+          <tr class="border-t">
+            <td class="p-2">001</td>
+            <td class="p-2">SSD Kingston 240GB</td>
+            <td class="p-2">2</td>
+            <td class="p-2">1</td>
+            <td class="p-2">R$ 500,00</td>
+          </tr>
+          <tr class="border-t">
+            <td class="p-2">002</td>
+            <td class="p-2">Iphone 14 pro max</td>
+            <td class="p-2">3</td>
+            <td class="p-2">2</td>
+            <td class="p-2">R$ 12.000,00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

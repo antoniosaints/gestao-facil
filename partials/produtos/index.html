@@ -1,0 +1,11 @@
+<div>
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-primary">🛒 Produtos</h2>
+    <button onclick="salvarProduto()"
+      class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
+      <i class="fa-solid fa-circle-plus"></i> Novo Produto
+    </button>
+  </div>
+  <div class="overflow-x-auto shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
+    hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
+</div>

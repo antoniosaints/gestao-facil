@@ -1,0 +1,88 @@
+<div
+  class="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900"
+>
+  <div
+    class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md w-full max-w-md"
+  >
+    <h2 class="text-2xl font-bold text-center text-primary mb-6">🔐 Login</h2>
+
+    <form class="space-y-4" id="login_formulario_sistema">
+      <div>
+        <label
+          for="email"
+          class="block text-sm font-medium text-gray-700 dark:text-gray-200"
+          >Email</label
+        >
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="Email de acesso."
+          required
+          class="mt-1 block w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label
+          for="senha"
+          class="block text-sm font-medium text-gray-700 dark:text-gray-200"
+          >Senha</label
+        >
+        <input
+          type="password"
+          id="senha"
+          name="senha"
+          placeholder="Senha de acesso."
+          required
+          class="mt-1 block w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary dark:text-white"
+        />
+      </div>
+
+      <div id="login-feedback" class="text-center text-red-500 text-sm"></div>
+      <div id="login-success" class="text-center text-green-500 text-sm"></div>
+
+      <button
+        type="submit"
+        class="w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition"
+      >
+        Entrar
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  $("#login_formulario_sistema").off("submit").on("submit", (event) => {
+    event.preventDefault();
+    $.ajax({
+      url: `${baseUrl}/login`,
+      method: "POST",
+      contentType: "application/json",
+      dataType: "json",
+      data: JSON.stringify({
+        email: $("#email").val(),
+        senha: $("#senha").val(),
+      }),
+      beforeSend: function (xhr) {
+        $("#login-feedback").text("");
+      },
+      success: (response) => {
+        console.log(response);
+        $("#login-success").text("Login realizado com sucesso!");
+        htmx.ajax("GET", "partials/dashboard.html", {
+          target: "#content",
+          swap: "innerHTML",
+        });
+        localStorage.setItem("gestao_facil:token", response.data.token);
+        localStorage.setItem("gestao_facil:usuario", response.data.id);
+        localStorage.setItem("gestao_facil:isauth", true);
+      },
+      error: (xhr) => {
+        $("#login-feedback").text(
+          xhr.responseJSON?.message || "Erro inesperado na requisição"
+        );
+      },
+    });
+  });
+</script>

@@ -1,0 +1,153 @@
+<div class="min-h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+  <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md w-full max-w-xl">
+    <h2 class="text-2xl font-bold text-primary dark:text-primary-dark mb-6" id="produtoFormularioTitulo">
+      📦 Novo Produto
+    </h2>
+
+    <form id="formularioProdutos" class="space-y-4">
+      <!-- Nome -->
+      <div>
+        <label class="block text-sm font-medium mb-1" for="nome">Produto <span class="text-red-500">*</span></label>
+        <input type="text" name="nome" id="nome" required placeholder="Nome do produto"
+          class="w-full p-2 rounded-md border dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+      </div>
+
+      <!-- Preço -->
+      <div>
+        <label class="block text-sm font-medium mb-1" for="preco">Preço <span class="text-red-500">*</span></label>
+        <input type="text" name="preco" id="preco" required
+          class="w-full p-2 rounded-md border dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+          placeholder="Ex: 99.90" />
+      </div>
+
+      <!-- Estoque Inicial -->
+      <div>
+        <label class="block text-sm font-medium mb-1" for="estoque">Estoque Inicial <span
+            class="text-red-500">*</span></label>
+        <input type="number" name="estoque" id="estoque" placeholder="Ex: 100" required
+          class="w-full p-2 rounded-md border dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1" for="minimo">Estoque Mínimo <span
+            class="text-red-500">*</span></label>
+        <input type="number" name="minimo" id="minimo" placeholder="Ex: 10" required
+          class="w-full p-2 rounded-md border dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+      </div>
+
+      <input type="hidden" name="id" id="id" />
+
+      <!-- Botão -->
+      <div class="flex justify-between">
+        <button type="button" onclick="loadPage('partials/produtos/index.html')"
+          class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+          <i class="fa-solid fa-backward"></i> Voltar
+        </button>
+        <button type="submit"
+          class="bg-primary text-sm dark:bg-primary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+          <i class="fa-solid fa-floppy-disk"></i> Salvar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  $("#formularioProdutos").off('submit').on('submit', function (e) {
+    e.preventDefault();
+    const data = {
+      nome: $("#nome").val(),
+      preco: Number($("#preco").val()),
+      estoque: Number($("#estoque").val()),
+      minimo: Number($("#minimo").val()),
+      id: Number($("#id").val()),
+    }
+    $.ajax({
+      url: `${baseUrl}/produtos`,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+      },
+      method: "POST",
+      contentType: "application/json",
+      dataType: "json",
+      data: JSON.stringify(data),
+      beforeSend: function (xhr) {
+        Swal.fire({
+          title: 'Carregando...',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+      },
+      success: function (data) {
+        Swal.fire({
+          title: 'Sucesso!',
+          text: 'Produto salvo com sucesso!',
+          icon: 'success',
+          toast: true,
+          position: 'bottom-end',
+          showConfirmButton: false,
+          timer: 3000,
+        });
+        htmx.ajax("GET", "partials/produtos/index.html", {
+          target: "#content",
+          swap: "innerHTML",
+        });
+      },
+      error: function (xhr, status, error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro!',
+          text: xhr.responseJSON?.message || 'Erro inesperado na requisição',
+          confirmButtonText: 'Ok'
+        });
+      }
+    })
+  });
+
+  (() => {
+    if (localStorage.getItem('produtoId')) {
+      $("#produtoFormularioTitulo").text(`📝 Editar Produto #${localStorage.getItem('produtoId')}`);
+      $("#estoque").prop("readonly", true);
+      $.ajax({
+        url: `${baseUrl}/produtos/${localStorage.getItem('produtoId')}`,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+        },
+        method: 'GET',
+        dataType: 'json',
+        beforeSend: function (xhr) {
+          Swal.fire({
+            title: 'Carregando...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
+        },
+        success: function ({ data }) {
+          Swal.close();
+          $("#id").val(data.id);
+          $("#nome").val(data.nome);
+          $("#preco").val(data.preco);
+          $("#estoque").val(data.estoque);
+          $("#minimo").val(data.minimo);
+        },
+        error: function (error) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Erro ao carregar produto',
+            text: 'Ocorreu um erro ao carregar o produto. Por favor, tente novamente mais tarde.',
+          });
+          console.log(error);
+        }
+      })
+    } else {
+      $("#produtoFormularioTitulo").text("📦 Novo Produto");
+    }
+  })();
+</script>
