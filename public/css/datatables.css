@@ -1009,10 +1009,10 @@ div.dt-container
   padding: 0 !important;
 }
 div.dt-container.dt-empty-footer tbody > tr:last-child > * {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+  border-bottom: none;
 }
 div.dt-container.dt-empty-footer .dt-scroll-body {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+  border-bottom: none;
 }
 div.dt-container.dt-empty-footer .dt-scroll-body tbody > tr:last-child > * {
   border-bottom: none;
@@ -1059,7 +1059,7 @@ html.dark table.dataTable.cell-border > tbody > tr > td:first-child {
   border-left: none;
 }
 html.dark .dt-container.dt-empty-footer table.dataTable {
-  border-bottom: 1px solid rgb(89, 91, 94);
+  border-bottom: none;
 }
 html.dark .dt-container .dt-search input,
 html.dark .dt-container .dt-length select {

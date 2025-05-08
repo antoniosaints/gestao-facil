@@ -4,8 +4,8 @@
             <th>ID</th>
             <th>Nome</th>
             <th>Preço</th>
-            <th>Preço de compra</th>
-            <th>Estoque</th>
+            <th>Compra</th>
+            <th>Qtd</th>
             <th class="flex justify-end">Ações</th>
         </tr>
     </thead>
@@ -88,7 +88,7 @@
         serverSide: true,
         ajax: {
             type: "GET",
-            url: `${baseUrl}/produtos`,
+            url: `/produtos`,
             beforeSend: function (xhr) {
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
@@ -98,6 +98,9 @@
                         icon: "error",
                         title: "Erro!",
                         text: "Você precisa estar logado para visualizar a página",
+                        showConfirmButton: false,
+                        timer: 3000,
+                        position: "bottom-end",
                     });
                 }
             },
@@ -106,7 +109,7 @@
                     xhr.responseJSON?.message || "Erro inesperado na requisição";
                 Swal.fire({
                     toast: true,
-                    position: "top-end",
+                    position: "bottom-end",
                     timer: 3000,
                     timerProgressBar: true,
                     showConfirmButton: false,
@@ -121,18 +124,14 @@
             },
         },
         columns: [
-            {
-                data: "id", render: function (data) {
-                    return `<span class="px-2 py-1 bg-secondary dark:bg-secondary-dark text-white rounded-md"># ${data}</span>`;
-                }
-            },
+            { data: "id" },
             { data: "nome" },
             { data: "preco" },
             { data: "precoCompra" },
             { data: "estoque" },
             {
                 data: "acoes",
-                className: "text-end",
+                className: "flex justify-end",
                 searchable: false,
                 orderable: false,
             },
