@@ -13,11 +13,11 @@ export const tableUsuarios = async (
       email: "string",
     })
     .format("id", function(id) {
-        return `<span class="px-2 py-1 text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+        return `<span class="px-2 py-0 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
     })
     .format("email", function (row) {
       const codigo = row || "-";
-      return `<span class="px-2 py-1 text-blue-600 dark:text-blue-300 bg-secondary/20 rounded-md"><i class="fa-solid fa-at"></i> ${codigo}</span>`;
+      return `<span class="px-2 py-0 text-blue-600 dark:text-blue-300 bg-secondary/20 rounded-md"><i class="fa-solid fa-at"></i> ${codigo}</span>`;
     })
     .format("status", function(value) {
         const status = value === "ATIVO" ? "Ativo" : "Inativo";
