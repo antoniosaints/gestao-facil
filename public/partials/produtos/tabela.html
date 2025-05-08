@@ -2,9 +2,9 @@
     <thead>
         <tr>
             <th>ID</th>
+            <th>Cod.</th>
             <th>Nome</th>
             <th>Preço</th>
-            <th>Compra</th>
             <th>Qtd</th>
             <th class="flex justify-end">Ações</th>
         </tr>
@@ -46,6 +46,15 @@
                         if (tokenJWT) {
                             xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
                         }
+                        Swal.fire({
+                            title: "Carregando...",
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            },
+                        });
                     },
                     success: function (response) {
                         Swal.fire({
@@ -125,9 +134,9 @@
         },
         columns: [
             { data: "id" },
+            { data: "codigo" },
             { data: "nome" },
             { data: "preco" },
-            { data: "precoCompra" },
             { data: "estoque" },
             {
                 data: "acoes",

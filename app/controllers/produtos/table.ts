@@ -14,16 +14,14 @@ export const tableProdutos = async (
       preco: "number",
       estoque: "number",
     })
+    .format("codigo", function(row) {
+      const codigo = row || "-";
+      return `<span class="px-2 py-1 bg-gray-600 text-white rounded-md">${codigo}</span>`;
+    })
     .edit("nome", function(row) {
       return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-500 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
     })
     .format("preco", (value) => formatCurrency(value))
-    .format("precoCompra", (value) => {
-      if (value === null) {
-        return "R$ 0,00";
-      }
-      return formatCurrency(value);
-    })
     .format("estoque", function (value) {
       const estoque = value.toString().padStart(2, "0");
       return `<span class="px-2 py-1 bg-gray-600 text-white rounded-md">${estoque}</span>`;

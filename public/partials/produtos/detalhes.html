@@ -44,7 +44,8 @@
                 <i class="fa-solid fa-pen-to-square"></i>
                 Editar
             </button>
-            <button class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
+            <button onclick="excluirProduto(localStorage.getItem('produtoId'))"
+                class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-trash-can"></i>
                 Excluir
             </button>
@@ -56,10 +57,69 @@
     (() => {
         $("#titulo_detalhes_produto").text(`Detalhes do Produto #${localStorage.getItem("produtoId")}`);
     })();
-    function editarProduto(produtoId) {
+    function editarProduto() {
         htmx.ajax("GET", "partials/produtos/formulario.html", {
             target: "#content",
             swap: "innerHTML",
+        });
+    }
+    function excluirProduto(id) {
+        Swal.fire({
+            title: "Excluir produto",
+            text: "Tem certeza que deseja excluir este produto?",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#3085d6",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Sim, excluir!",
+            cancelButtonText: "Cancelar",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    dataType: "json",
+                    type: "DELETE",
+                    url: `${baseUrl}/produtos/${id}`,
+                    beforeSend: function (xhr) {
+                        const tokenJWT = localStorage.getItem("gestao_facil:token");
+                        if (tokenJWT) {
+                            xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
+                        }
+                        Swal.fire({
+                            title: "Carregando...",
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            },
+                        });
+                    },
+                    success: function (response) {
+                        Swal.fire({
+                            title: "Produto excluído!",
+                            text: "O produto foi excluído com sucesso!",
+                            icon: "success",
+                            toast: true,
+                            showConfirmButton: false,
+                            position: "bottom-end",
+                            timer: 3000,
+                        });
+                        htmx.ajax("GET", "partials/produtos/index.html", {
+                            target: "#content",
+                            swap: "innerHTML",
+                        });
+                    },
+                    error: function (error) {
+                        Swal.fire({
+                            title: "Erro ao excluir produto!",
+                            text: "Ocorreu um erro ao excluir o produto. Por favor, tente novamente.",
+                            icon: "error",
+                            confirmButtonColor: "#3085d6",
+                            confirmButtonText: "OK",
+                        });
+                    }
+                })
+            }
         });
     }
 </script>
