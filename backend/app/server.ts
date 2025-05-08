@@ -9,6 +9,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
 app.post("/login", login);
 app.get("/produtos", authenticateJWT, tableProdutos);
 app.get("/produtos/:id", authenticateJWT, getProduto);

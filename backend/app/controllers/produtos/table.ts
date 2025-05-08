@@ -3,6 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { formatCurrency } from "../../utils/formatters";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { Produto } from "@prisma/client";
+import { produtosAcoes } from "./acoes";
 export const tableProdutos = async (
   req: Request,
   res: Response
@@ -28,22 +29,7 @@ export const tableProdutos = async (
       return `<span class="px-2 py-1 bg-gray-600 text-white rounded-md">${estoque}</span>`;
     })
     .addColumn("acoes", (row) => {
-      return `
-          <button
-            onclick="visualizarProduto('${row.id}')"
-            class="text-cyan-500 px-1 py-[2px] rounded">
-            <i class="fa-solid fa-eye"></i>
-          </button>
-          <button
-            onclick="editarProduto('${row.id}')"
-            class="text-success px-1 py-[2px] rounded">
-            <i class="fa-solid fa-user-pen"></i>
-          </button>
-          <button
-            onclick="excluirProduto('${row.id}')"
-            class="text-danger px-1 py-[2px] rounded">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>`;
+      return produtosAcoes(row);
     });
   const data = await builder.toJson(req.query);
   return res.json(data);

@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch(() => {
       localStorage.removeItem("gestao_facil:token");
       localStorage.setItem("gestao_facil:isauth", false);
-      htmx.ajax("GET", "partials/login.html", {
+      htmx.ajax("GET", "../assets/partials/login.html", {
         target: "#content",
         swap: "innerHTML",
       });
