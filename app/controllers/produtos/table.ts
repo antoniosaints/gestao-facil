@@ -14,9 +14,12 @@ export const tableProdutos = async (
       preco: "number",
       estoque: "number",
     })
+    .format("id", function(id) {
+      return `<span class="px-2 py-1 text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+    })
     .format("codigo", function(row) {
       const codigo = row || "-";
-      return `<span class="px-2 py-1 bg-gray-600 text-white rounded-md">${codigo}</span>`;
+      return `<span class="px-2 py-1 text-blue-500 rounded-md">${codigo}</span>`;
     })
     .edit("nome", function(row) {
       return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-500 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
@@ -24,7 +27,7 @@ export const tableProdutos = async (
     .format("preco", (value) => formatCurrency(value))
     .format("estoque", function (value) {
       const estoque = value.toString().padStart(2, "0");
-      return `<span class="px-2 py-1 bg-gray-600 text-white rounded-md">${estoque}</span>`;
+      return `<span class="px-2 py-1 text-white rounded-md"><i class="fa-solid fa-box"></i> ${estoque}</span>`;
     })
     .addColumn("acoes", (row) => {
       return produtosAcoes(row);

@@ -43,6 +43,25 @@
       <a onclick="loadPage('partials/about.html')"
         class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
           class="fa-solid fa-paste px-2"></i> Relatórios</a>
+
+      <div class="flex items-center my-6">
+        <div class="flex-grow border-t border-gray-300"></div>
+        <span class="mx-4 text-gray-500 text-xs uppercase">Administração</span>
+        <div class="flex-grow border-t border-gray-300"></div>
+      </div>
+
+
+      <a onclick="loadPage('partials/administracao/index.html')"
+        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition">
+        <i class="fa-solid fa-user px-2"></i> Usuários</a>
+
+      <div class="flex items-center my-6">
+        <div class="flex-grow border-t border-gray-300"></div>
+        <span class="mx-4 text-gray-500 text-xs uppercase">Autenticação</span>
+        <div class="flex-grow border-t border-gray-300"></div>
+      </div>
+
+
       <a onclick="loadPage('partials/login.html')"
         class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
           class="fa-solid fa-key px-2"></i> Login</a>
@@ -50,7 +69,7 @@
 
     <button onclick="toggleTheme()"
       class="mt-4 flex items-center gap-2 px-4 py-2 rounded transition bg-gray-200 dark:bg-gray-700">
-      <span id="theme-icon">
+      <span id="theme-icon" class="px-1">
         <i class="fa-solid fa-sun" id="icon-sun"></i>
         <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
       </span>
@@ -58,7 +77,7 @@
   </aside>
 
   <!-- Main content -->
-  <main id="content" class="flex-1 p-6 max-h-screen"></main>
+  <main id="content" class="flex-1 p-6 min-h-screen"></main>
 
   <script src="general.js" defer></script>
 </body>

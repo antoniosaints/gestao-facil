@@ -72,7 +72,7 @@ export const saveProduto = async (
     } else {
       await prisma.produto.create({
         data: {
-          contaId: 7,
+          contaId: 1,
           estoque: Number(data?.estoque),
           nome: data?.nome!,
           preco: Number(data?.preco),

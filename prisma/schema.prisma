@@ -7,17 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Status {
+  ATIVO
+  INATIVO
+  BLOQUEADO
+}
+
 model Contas {
-  id        Int       @id @default(autoincrement())
-  nome      String
-  valor     Float
-  data      DateTime
-  tipo      String
-  categoria String
-  email     String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  Produto   Produto[]
+  id         Int        @id @default(autoincrement())
+  nome       String
+  valor      Float
+  data       DateTime
+  status     Status     @default(ATIVO)
+  vencimento DateTime   @default(now())
+  tipo       String?
+  categoria  String?
+  email      String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  Produto    Produto[]
+  Clientes   Clientes[]
+  Vendas     Vendas[]
 }
 
 model Usuarios {
@@ -25,22 +35,63 @@ model Usuarios {
   nome      String
   email     String
   senha     String
+  status    Status   @default(ATIVO)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model Clientes {
+  id        Int      @id @default(autoincrement())
+  contaId   Int
+  Contas    Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status    Status   @default(ATIVO)
+  nome      String
+  email     String?
+  telefone  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Vendas    Vendas[]
+}
+
 model Produto {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   contaId     Int
-  Contas      Contas   @relation(fields: [contaId], references: [id])
+  Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status      Status        @default(ATIVO)
   nome        String
   descricao   String?
   preco       Float
   precoCompra Float?
-  entradas    Boolean? @default(true)
-  saidas      Boolean? @default(true)
+  entradas    Boolean?      @default(true)
+  saidas      Boolean?      @default(true)
   unidade     String?
   estoque     Int
   minimo      Int
   codigo      String?
+  ItensVendas ItensVendas[]
+}
+
+model Vendas {
+  id          Int           @id @default(autoincrement())
+  contaId     Int
+  Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  data        DateTime
+  valor       Float
+  clienteId   Int?
+  cliente     Clientes?     @relation(fields: [clienteId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  ItensVendas ItensVendas[]
+}
+
+model ItensVendas {
+  id         Int      @id @default(autoincrement())
+  vendaId    Int
+  venda      Vendas   @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoId  Int
+  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  quantidade Int
+  valor      Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

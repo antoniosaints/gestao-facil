@@ -1,0 +1,33 @@
+-- AlterTable
+ALTER TABLE `Clientes` ADD COLUMN `status` ENUM('ATIVO', 'INATIVO', 'BLOQUEADO') NOT NULL DEFAULT 'ATIVO';
+
+-- AlterTable
+ALTER TABLE `Contas` ADD COLUMN `status` ENUM('ATIVO', 'INATIVO', 'BLOQUEADO') NOT NULL DEFAULT 'ATIVO',
+    ADD COLUMN `vencimento` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    MODIFY `tipo` VARCHAR(191) NULL,
+    MODIFY `categoria` VARCHAR(191) NULL;
+
+-- AlterTable
+ALTER TABLE `Produto` ADD COLUMN `status` ENUM('ATIVO', 'INATIVO', 'BLOQUEADO') NOT NULL DEFAULT 'ATIVO';
+
+-- AlterTable
+ALTER TABLE `Usuarios` ADD COLUMN `status` ENUM('ATIVO', 'INATIVO', 'BLOQUEADO') NOT NULL DEFAULT 'ATIVO';
+
+-- CreateTable
+CREATE TABLE `ItensVendas` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `vendaId` INTEGER NOT NULL,
+    `produtoId` INTEGER NOT NULL,
+    `quantidade` INTEGER NOT NULL,
+    `valor` DOUBLE NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `ItensVendas` ADD CONSTRAINT `ItensVendas_vendaId_fkey` FOREIGN KEY (`vendaId`) REFERENCES `Vendas`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ItensVendas` ADD CONSTRAINT `ItensVendas_produtoId_fkey` FOREIGN KEY (`produtoId`) REFERENCES `Produto`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
