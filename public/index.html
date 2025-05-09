@@ -19,10 +19,10 @@
   <script src="global.js" defer></script>
 </head>
 
-<body class="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen overflow-hidden flex flex-col">
+<body class="bg-background dark:bg-background-dark text-text dark:text-text-dark min-h-screen overflow-hidden flex flex-col">
 
   <!-- Topbar -->
-  <header class="hidden md:flex items-center justify-between bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-6 py-4 shadow z-20">
+  <header class="hidden md:flex items-center justify-between border-border dark:border-border-dark bg-card dark:bg-card-dark text-gray-900 dark:text-gray-100 px-6 py-4 shadow z-20">
     <div class="text-xl font-bold">
       <i class="fa-solid fa-chart-pie text-orange-400"></i> Gestão Fácil
     </div>
@@ -40,7 +40,7 @@
 
   <!-- Sidebar -->
   <aside id="sidebar"
-    class="fixed top-0 left-0 h-full w-64 bg-gray-100 dark:bg-gray-800 p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
+    class="fixed shadow-md top-0 left-0 h-full w-full md:w-64 border border-border dark:border-border-dark bg-card dark:bg-card-dark p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
     <!-- Botão fechar (mobile) -->
     <h1 class="text-2xl font-bold text-primary">
       <i class="fa-solid fa-chart-pie"></i> Gestão Fácil
@@ -48,41 +48,41 @@
 
     <nav class="flex flex-col space-y-2">
       <a onclick="loadPage('partials/dashboard.html')"
-        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-chart-simple px-2"></i> Dashboard</a>
       <a onclick="loadPage('partials/produtos/index.html')"
-        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-boxes-stacked px-2"></i> Produtos</a>
       <a onclick="loadPage('partials/contact.html')"
-        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-tags px-2"></i> Vendas</a>
       <a onclick="loadPage('partials/about.html')"
-        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-paste px-2"></i> Relatórios</a>
 
       <div class="flex items-center my-6">
-        <div class="flex-grow border-t border-gray-300"></div>
+        <div class="flex-grow border-t border-border"></div>
         <span class="mx-4 text-gray-500 text-xs uppercase">Administração</span>
-        <div class="flex-grow border-t border-gray-300"></div>
+        <div class="flex-grow border-t border-border"></div>
       </div>
 
       <a onclick="loadPage('partials/administracao/index.html')"
-        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition">
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
         <i class="fa-solid fa-user px-2"></i> Usuários</a>
 
       <div class="flex items-center my-6">
-        <div class="flex-grow border-t border-gray-300"></div>
+        <div class="flex-grow border-t border-border"></div>
         <span class="mx-4 text-gray-500 text-xs uppercase">Autenticação</span>
-        <div class="flex-grow border-t border-gray-300"></div>
+        <div class="flex-grow border-t border-border"></div>
       </div>
 
       <a onclick="loadPage('partials/login.html')"
-        class="hover:text-primary bg-gray-200 cursor-pointer dark:bg-gray-700 p-2 rounded-md transition"><i
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-key px-2"></i> Login</a>
     </nav>
 
     <button onclick="toggleTheme()"
-      class="mt-4 flex items-center gap-2 px-4 py-2 rounded transition bg-gray-200 dark:bg-gray-700 w-full justify-center">
+      class="mt-4 flex items-center border border-border gap-2 px-4 py-2 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
       <i class="fa-solid fa-moon"></i>
     </button>
 
@@ -90,7 +90,7 @@
   </aside>
 
   <!-- Conteúdo principal -->
-  <main class="overflow-y-auto h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
+  <main class="overflow-y-auto h-screen md:h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
     <div class="max-w-7xl mx-auto" id="content"></div>
   </main>
 
