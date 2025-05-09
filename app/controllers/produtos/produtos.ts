@@ -51,7 +51,7 @@ export const saveProduto = async (
   try {
     const validated = AddProdutoSchema.safeParse(req.body);
     const data = validated.data;
-    if (!validated.success) {
+    if (!validated.data) {
       return res.status(400).json({
         message: "Dados inválidos",
         data: validated.error.errors,
@@ -63,7 +63,7 @@ export const saveProduto = async (
           id: Number(data?.id),
         },
         data: {
-          nome: data?.nome,
+          nome: data?.nome.trim(),
           descricao: data?.descricao,
           preco: Number(data?.preco),
           estoque: Number(data?.estoque),
@@ -74,7 +74,7 @@ export const saveProduto = async (
         data: {
           contaId: 1,
           estoque: Number(data?.estoque),
-          nome: data?.nome!,
+          nome: data?.nome.trim() as string,
           preco: Number(data?.preco),
           minimo: 1,
         },
