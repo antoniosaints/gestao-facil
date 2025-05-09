@@ -4,33 +4,59 @@
       <i class="fa-solid fa-box"></i> Produtos
     </h2>
     <div class="flex justify-between gap-2 items-center">
-      <button
-        id="baixar_relatorio_produtos"
-        class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md"
-      >
+      <button onclick="abrirModal()" class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-file-pdf"></i>
       </button>
-      <button
-        onclick="salvarProduto()"
-        class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md"
-      >
+      <button onclick="salvarProduto()"
+        class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-circle-plus"></i> Novo Produto
       </button>
     </div>
   </div>
   <div
     class="overflow-x-auto shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/partials/produtos/tabela.html"
-    hx-trigger="load"
-    hx-swap="innerHTML"
-  ></div>
+    hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
+<div id="modal-container"></div>
+
+<!-- Template do modal (simulando backend) -->
+<div id="modal-template" class="hidden">
+  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" hx-target="this"
+    hx-swap="outerHTML">
+
+    <div
+      class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg transform transition-transform duration-300 scale-95 opacity-0 animate-fade-in">
+      <h2 class="text-2xl font-bold mb-6 text-primary">Gerar Relatório de Produtos</h2>
+      <p class="mb-6 text-gray-700">Clique no botão abaixo para baixar o relatório de produtos em formato PDF.</p>
+      <button onclick="baixarRelatorioProduto()"
+        class="w-full bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg font-semibold text-lg mb-6 transition-colors duration-200">
+        <i class="fa-solid fa-download"></i> Baixar Relatório
+      </button>
+      <p class="text-sm text-gray-500 mb-6">* O relatório será gerado em PDF e baixado automaticamente.</p>
+
+      <button
+        class="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-lg transition-colors duration-200"
+        onclick="fecharModal()">
+        <i class="fa-solid fa-times"></i> Fechar
+      </button>
+    </div>
+  </div>
+</div>
 <script>
-  $("#baixar_relatorio_produtos").off("click").on("click", function () {
+  function abrirModal() {
+    const template = document.getElementById('modal-template').innerHTML;
+    document.getElementById('modal-container').innerHTML = template;
+  }
+
+  function fecharModal() {
+    document.getElementById('modal-container').innerHTML = '';
+  }
+  function baixarRelatorioProduto() {
     fetch("/produtos/relatorio")
       .then((response) => response.blob())
       .then((blob) => {
+        fecharModal();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -40,5 +66,5 @@
         a.remove();
       })
       .catch(() => alert("Erro ao gerar relatório."));
-  });
+  }
 </script>

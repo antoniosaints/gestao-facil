@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 export const AddProdutoSchema = z.object({
-  id: z.number().optional(),
-  contaId: z.number().optional(),
+  id: z.string().transform((val) => parseInt(val, 10)).optional(),
+  contaId: z.string().transform((val) => parseInt(val, 10)).optional(),
   nome: z.string().min(2),
   descricao: z.string().optional(),
-  preco: z.number().min(0),
-  estoque: z.number().min(0),
-  minimo: z.number().min(0),
-  precoCompra: z.number().min(0).optional(),
+  preco: z.string().transform((val) => parseFloat(val.replace(',', '.'))),
+  estoque: z.string().transform((val) => parseInt(val, 10)),
+  minimo: z.string().transform((val) => parseInt(val, 10)),
+  precoCompra: z.string().transform((val) => parseFloat(val.replace(',', '.'))).optional(),
   unidade: z.string().optional(),
   codigo: z.string().optional(),
 });

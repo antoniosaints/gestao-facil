@@ -1,6 +1,13 @@
-export const formatCurrency = (value: number) => {
-  return value.toLocaleString("pt-BR", {
+export const formatCurrency = (value: any) => {
+  const roundedValue = parseFloat(value.toFixed(2)); // Garante que o número tenha duas casas decimais
+  return roundedValue.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }) as unknown as number;
+  });
 };
+export function formatarValorMonetario(valorDecimal: any): string {
+  const [inteiro, decimal] = valorDecimal.toFixed(2).split(".");
+
+  const inteiroFormatado = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `R$ ${inteiroFormatado},${decimal}`;
+}

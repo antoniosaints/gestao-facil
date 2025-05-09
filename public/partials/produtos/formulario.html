@@ -2,21 +2,30 @@
   <h2 class="text-2xl font-bold text-primary dark:text-primary-dark mb-6" id="produtoFormularioTitulo">
     📦 Novo Produto
   </h2>
-  <div class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
+  <div
+    class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
 
-    <form id="formularioProdutos" class="space-y-4">
+    <form id="formularioProdutos" class="space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Nome -->
-      <div>
+      <div class="md:col-span-2">
         <label class="block text-sm font-medium mb-1" for="nome">Produto <span class="text-red-500">*</span></label>
         <input type="text" name="nome" id="nome" required placeholder="Nome do produto"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
+      <!-- Código -->
+      <div>
+        <label class="block text-sm font-medium mb-1" for="codigo">Código</label>
+        <input type="text" name="codigo" id="codigo" placeholder="Código do produto"
+          class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+      </div>
+
 
       <!-- Preço -->
       <div>
         <label class="block text-sm font-medium mb-1" for="preco">Preço <span class="text-red-500">*</span></label>
         <input type="text" name="preco" id="preco" required
-          class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" placeholder="Ex: 99.90" />
+          class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
+          placeholder="Ex: 99,90" />
       </div>
 
       <!-- Estoque Inicial -->
@@ -26,6 +35,8 @@
         <input type="number" name="estoque" id="estoque" placeholder="Ex: 100" required
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
+
+      <!-- Estoque Mínimo -->
       <div>
         <label class="block text-sm font-medium mb-1" for="minimo">Estoque Mínimo <span
             class="text-red-500">*</span></label>
@@ -33,10 +44,17 @@
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
+      <!-- Observação -->
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium mb-1" for="descricao">Observação</label>
+        <textarea name="descricao" id="descricao" rows="4" placeholder="Adicione observações sobre o produto"
+          class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></textarea>
+      </div>
+
       <input type="hidden" name="id" id="id" />
 
-      <!-- Botão -->
-      <div class="flex gap-2 justify-end">
+      <!-- Botões -->
+      <div class="flex gap-2 justify-end md:col-span-2">
         <button type="button" onclick="loadPage('partials/produtos/index.html')"
           class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
           <i class="fa-solid fa-backward"></i> Voltar
@@ -51,17 +69,29 @@
 </div>
 
 <script>
+  IMask(document.getElementById('preco'), {
+    mask: Number,
+    scale: 2,
+    signed: false,
+    thousandsSeparator: '',
+    padFractionalZeros: true,
+    normalizeZeros: true,
+    radix: ',', // separador decimal brasileiro
+    mapToRadix: ['.']
+  });
   $("#formularioProdutos").off('submit').on('submit', function (e) {
     e.preventDefault();
     const data = {
+      codigo: $("#codigo").val(),
       nome: $("#nome").val(),
-      preco: Number($("#preco").val()),
-      estoque: Number($("#estoque").val()),
-      minimo: Number($("#minimo").val()),
-      id: Number($("#id").val()),
+      preco: $("#preco").val(),
+      estoque: $("#estoque").val(),
+      minimo: $("#minimo").val(),
+      descricao: $("#descricao").val(),
+      id: $("#id").val(),
     }
     $.ajax({
-      url: `${baseUrl}/produtos`,
+      url: `/produtos`,
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
       },
@@ -111,7 +141,7 @@
       $("#produtoFormularioTitulo").text(`📝 Editar Produto #${localStorage.getItem('produtoId')}`);
       $("#estoque").prop("readonly", true);
       $.ajax({
-        url: `${baseUrl}/produtos/${localStorage.getItem('produtoId')}`,
+        url: `/produtos/${localStorage.getItem('produtoId')}`,
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
         },
@@ -131,10 +161,12 @@
         success: function ({ data }) {
           Swal.close();
           $("#id").val(data.id);
+          $("#codigo").val(data.codigo);
           $("#nome").val(data.nome);
           $("#preco").val(data.preco);
           $("#estoque").val(data.estoque);
           $("#minimo").val(data.minimo);
+          $("#descricao").val(data.descricao);
         },
         error: function (error) {
           console.log(error);

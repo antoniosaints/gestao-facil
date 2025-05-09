@@ -65,6 +65,10 @@ export const saveProduto = async (
         data: {
           nome: data?.nome.trim(),
           descricao: data?.descricao,
+          minimo: Number(data?.minimo),
+          precoCompra: Number(data?.precoCompra),
+          unidade: data?.unidade,
+          codigo: data?.codigo,
           preco: Number(data?.preco),
           estoque: Number(data?.estoque),
         },
@@ -76,6 +80,10 @@ export const saveProduto = async (
           estoque: Number(data?.estoque),
           nome: data?.nome.trim() as string,
           preco: Number(data?.preco),
+          descricao: data?.descricao,
+          precoCompra: Number(data?.precoCompra),
+          unidade: data?.unidade,
+          codigo: data?.codigo,
           minimo: 1,
         },
       });

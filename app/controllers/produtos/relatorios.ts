@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import PDFDocument from "pdfkit";
 import dayjs from "dayjs";
-import { formatCurrency } from "../../utils/formatters";
+import { formatarValorMonetario, formatCurrency } from "../../utils/formatters";
+import Decimal from "decimal.js";
 
 export const relatorioProdutos = async (
   req: Request,
@@ -54,7 +55,7 @@ export const relatorioProdutos = async (
   // Configuração da Tabela
   const tableTop = doc.y;
   const rowHeight = 20;
-  const colX = { id: 40, nome: 80, preco: 350, estoque: 440, total: 480 };
+  const colX = { id: 30, nome: 60, preco: 420, estoque: 480, total: 510 };
 
   // Títulos
   doc
@@ -67,10 +68,11 @@ export const relatorioProdutos = async (
 
   // Linhas
   let y = tableTop + rowHeight;
-  doc.font("Roboto");
+  doc.font("Roboto").fontSize(8);
 
   produtos.forEach((p) => {
-    const total = p.preco * p.estoque;
+    const valorUnitario = new Decimal(p.preco);
+    const total = valorUnitario.times(p.estoque);
 
     // Salva posição antes de desenhar nome
     const nomeY = y;
@@ -87,9 +89,9 @@ export const relatorioProdutos = async (
     // Escreve os demais campos alinhados no topo da linha
     doc
       .text(`# ${p.id.toString()}`, colX.id, nomeY)
-      .text(formatCurrency(p.preco).toString(), colX.preco, nomeY)
+      .text(`${formatarValorMonetario(valorUnitario)}`, colX.preco, nomeY)
       .text(p.estoque.toString(), colX.estoque, nomeY)
-      .text(formatCurrency(total).toString(), colX.total, nomeY);
+      .text(`${formatarValorMonetario(total)}`, colX.total, nomeY);
 
     // Linha divisória
     const linhaInferior = nomeY + nomeAltura + 5;

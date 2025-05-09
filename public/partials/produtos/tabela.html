@@ -40,7 +40,7 @@
                 $.ajax({
                     dataType: "json",
                     type: "DELETE",
-                    url: `${baseUrl}/produtos/${id}`,
+                    url: `/produtos/${id}`,
                     beforeSend: function (xhr) {
                         const tokenJWT = localStorage.getItem("gestao_facil:token");
                         if (tokenJWT) {

@@ -1,8 +1,7 @@
-const baseUrl = "http://localhost:3000";
-$('.datatable thead th:last-child').addClass('text-end');
+$(".datatable thead th:last-child").addClass("text-end");
 
 document.addEventListener("DOMContentLoaded", () => {
-  fetch(`${baseUrl}/auth/check`, {
+  fetch(`/auth/check`, {
     headers: {
       Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
     },
@@ -11,16 +10,20 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((html) => {
       if (html.authenticated) {
         localStorage.setItem("gestao_facil:isauth", true);
-      }else {
+        htmx.ajax("GET", html.view, { target: "#content", swap: "innerHTML" });
+      } else {
         localStorage.removeItem("gestao_facil:token");
         localStorage.setItem("gestao_facil:isauth", false);
+        htmx.ajax("GET", "partials/login.html", {
+          target: "#content",
+          swap: "innerHTML",
+        });
       }
-      htmx.ajax("GET", html.view, { target: "#content", swap: "innerHTML" });
     })
     .catch(() => {
       localStorage.removeItem("gestao_facil:token");
       localStorage.setItem("gestao_facil:isauth", false);
-      htmx.ajax("GET", "../assets/partials/login.html", {
+      htmx.ajax("GET", "partials/login.html", {
         target: "#content",
         swap: "innerHTML",
       });

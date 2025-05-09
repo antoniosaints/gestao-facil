@@ -29,29 +29,31 @@
   </div>
 
   <!-- Gráfico de Barras -->
-  <div class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+  <div
+    class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
     <h2 class="text-lg font-semibold mb-4">Vendas Mensais</h2>
-    <canvas id="barChart"></canvas>
+    <canvas class="max-h-64" id="barChart"></canvas>
   </div>
 
   <!-- Gráfico de Linhas -->
-  <div class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+  <div
+    class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
     <h2 class="text-lg font-semibold mb-4">Acessos por Dia</h2>
-    <canvas id="lineChart"></canvas>
+    <canvas class="max-h-64" id="lineChart"></canvas>
   </div>
 
   <!-- Últimas Vendas -->
   <div
     class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
     <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Produtos</h2>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-h-96 p-1">
       <div hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
     </div>
   </div>
   <div
     class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
     <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Estoques baixos</h2>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-h-96 p-1">
       <table class="w-full text-left rounded">
         <thead class="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
           <tr>
@@ -92,13 +94,28 @@
       datasets: [{
         label: 'Vendas',
         data: [120, 150, 180, 90, 200, 170],
-        backgroundColor: '#0ea5e9'
+        backgroundColor: '#0ea5e9',
+        borderRadius: 10 // Arredonda as bordas das barras
       }]
     },
     options: {
       responsive: true,
       plugins: {
-        legend: { display: false }
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+          }
+        },
+        y: {
+          ticks: {
+            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+          }
+        }
       }
     }
   });
@@ -121,6 +138,18 @@
       responsive: true,
       plugins: {
         legend: { display: false }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+          }
+        },
+        y: {
+          ticks: {
+            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+          }
+        }
       }
     }
   });

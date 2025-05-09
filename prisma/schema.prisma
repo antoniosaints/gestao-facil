@@ -16,7 +16,7 @@ enum Status {
 model Contas {
   id         Int        @id @default(autoincrement())
   nome       String
-  valor      Float
+  valor      Decimal    @db.Decimal(10, 2)
   data       DateTime
   status     Status     @default(ATIVO)
   vencimento DateTime   @default(now())
@@ -60,8 +60,8 @@ model Produto {
   status      Status        @default(ATIVO)
   nome        String
   descricao   String?
-  preco       Float
-  precoCompra Float?
+  preco       Decimal       @db.Decimal(10, 2)
+  precoCompra Decimal?      @db.Decimal(10, 2)
   entradas    Boolean?      @default(true)
   saidas      Boolean?      @default(true)
   unidade     String?
@@ -76,7 +76,7 @@ model Vendas {
   contaId     Int
   Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   data        DateTime
-  valor       Float
+  valor       Decimal       @db.Decimal(10, 2)
   clienteId   Int?
   cliente     Clientes?     @relation(fields: [clienteId], references: [id])
   createdAt   DateTime      @default(now())
@@ -91,7 +91,7 @@ model ItensVendas {
   produtoId  Int
   produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   quantidade Int
-  valor      Float
+  valor      Decimal  @db.Decimal(10, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
