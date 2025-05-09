@@ -45,6 +45,7 @@
   animation: fadeIn 0.3s ease-out forwards;
 }
 
+/* Select2 */
 .select2-container--default .select2-search--dropdown .select2-search__field {
   border-radius: 5px !important;
 }
@@ -58,7 +59,8 @@
   margin-bottom: 2px !important;
 }
 
-.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+.select2-container--default
+  .select2-results__option--highlighted.select2-results__option--selectable {
   background-color: #007bff !important;
   color: #fff !important;
 }
@@ -119,4 +121,51 @@ html.dark {
   .select2-selection--single
   .select2-selection__clear {
   height: 36px !important;
+}
+
+/* switchs */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #d37203;
+}
+
+input:checked + .slider:before {
+  transform: translateX(14px);
 }

@@ -73,6 +73,8 @@ export const saveProduto = async (
           codigo: data.codigo,
           preco: data.preco,
           estoque: data.estoque,
+          entradas: data.entradas,
+          saidas: data.saidas,
         },
       });
     } else {
@@ -87,6 +89,8 @@ export const saveProduto = async (
           unidade: data.unidade,
           codigo: data.codigo,
           minimo: data.minimo,
+          entradas: data.entradas,
+          saidas: data.saidas,
         },
       });
     }

@@ -89,13 +89,15 @@
     </nav>
 
     <button onclick="toggleTheme()"
-      class="mt-4 flex items-center border border-border gap-2 px-4 py-2 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
-      <i class="fa-solid fa-moon"></i>
+      class="mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
+      <i class="fa-solid fa-sun" id="icon-sun"></i>
+      <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
     </button>
 
     <button id="closeSidebarBtn"
-      class="md:hidden fixed bottom-2 text-center text-white mb-4 bg-primary w-56 py-2 rounded"><i
-        class="fa-solid fa-circle-xmark mr-1"></i>Fechar</button>
+      class="md:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 text-center text-white bg-primary w-3/4 max-w-xs py-2 rounded shadow-lg">
+      <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
+    </button>
   </aside>
 
   <!-- Conteúdo principal -->
@@ -124,6 +126,7 @@
         }
       });
     });
+    
   </script>
 </body>
 

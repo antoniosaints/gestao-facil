@@ -4,57 +4,97 @@
   </h2>
   <div
     class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
-
-    <form id="formularioProdutos" class="space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form id="formularioProdutos" class="grid grid-cols-1 md:grid-cols-12 gap-4">
       <!-- Nome -->
-      <div class="md:col-span-2">
-        <label class="block text-sm font-medium mb-1" for="nome">Produto <span class="text-red-500">*</span></label>
-        <input type="text" name="nome" id="nome" required placeholder="Nome do produto"
-          class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-      </div>
-      <!-- Código -->
-      <div>
-        <label class="block text-sm font-medium mb-1" for="codigo">Código</label>
-        <input type="text" name="codigo" id="codigo" placeholder="Código do produto"
+      <div class="md:col-span-8">
+        <label for="nome" class="block text-sm font-medium mb-1">
+          Produto <span class="text-red-500">*</span>
+        </label>
+        <input type="text" id="nome" name="nome" required placeholder="Nome do produto"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
+      <!-- Permitir Entrada e Saída de Estoque -->
+      <div class="md:col-span-4 grid grid-cols-1 md:grid-cols-12 items-center">
+        <label for="entrada" class="block text-sm font-medium mb-0 md:col-span-12">
+          Permitir Controle
+        </label>
+        <div class="grid grid-cols-12 gap-2 mt-1 items-center md:col-span-12">
+          <div class="col-span-6">
+            <div class="border bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+              <div class="flex items-center">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="entrada" name="entrada" class="sr-only peer" />
+                  <div
+                    class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                  </div>
+                  <span class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Entradas</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="col-span-6">
+            <div class="border bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+              <div class="flex items-center">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="saida" name="saida" class="sr-only peer" />
+                  <div
+                    class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                  </div>
+                  <span class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Saídas</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Código -->
+      <div class="md:col-span-6">
+        <label for="codigo" class="block text-sm font-medium mb-1">Código</label>
+        <input type="text" id="codigo" name="codigo" placeholder="Código do produto"
+          class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+      </div>
 
       <!-- Preço -->
-      <div>
-        <label class="block text-sm font-medium mb-1" for="preco">Preço <span class="text-red-500">*</span></label>
-        <input type="text" name="preco" id="preco" required
-          class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
-          placeholder="Ex: 99,90" />
+      <div class="md:col-span-6">
+        <label for="preco" class="block text-sm font-medium mb-1">
+          Preço <span class="text-red-500">*</span>
+        </label>
+        <input type="text" id="preco" name="preco" required placeholder="Ex: 99,90"
+          class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
       <!-- Estoque Inicial -->
-      <div>
-        <label class="block text-sm font-medium mb-1" for="estoque">Estoque Inicial <span
-            class="text-red-500">*</span></label>
-        <input type="number" name="estoque" id="estoque" placeholder="Ex: 100" required
+      <div class="md:col-span-6">
+        <label for="estoque" class="block text-sm font-medium mb-1">
+          Estoque Inicial <span class="text-red-500">*</span>
+        </label>
+        <input type="number" id="estoque" name="estoque" required placeholder="Ex: 100"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
       <!-- Estoque Mínimo -->
-      <div>
-        <label class="block text-sm font-medium mb-1" for="minimo">Estoque Mínimo <span
-            class="text-red-500">*</span></label>
-        <input type="number" name="minimo" id="minimo" placeholder="Ex: 10" required
+      <div class="md:col-span-6">
+        <label for="minimo" class="block text-sm font-medium mb-1">
+          Estoque Mínimo <span class="text-red-500">*</span>
+        </label>
+        <input type="number" id="minimo" name="minimo" required placeholder="Ex: 10"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
       <!-- Observação -->
-      <div class="md:col-span-2">
-        <label class="block text-sm font-medium mb-1" for="descricao">Observação</label>
-        <textarea name="descricao" id="descricao" rows="4" placeholder="Adicione observações sobre o produto"
+      <div class="md:col-span-12">
+        <label for="descricao" class="block text-sm font-medium mb-1">Observação</label>
+        <textarea id="descricao" name="descricao" rows="4" placeholder="Adicione observações sobre o produto"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></textarea>
       </div>
 
-      <input type="hidden" name="id" id="id" />
+      <input type="hidden" id="id" name="id" />
 
       <!-- Botões -->
-      <div class="flex gap-2 justify-end md:col-span-2">
+      <div class="flex md:col-span-12 gap-2 justify-between">
         <button type="button" onclick="loadPage('partials/produtos/index.html')"
           class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
           <i class="fa-solid fa-backward"></i> Voltar
@@ -87,9 +127,12 @@
       preco: $("#preco").val(),
       estoque: $("#estoque").val(),
       minimo: $("#minimo").val(),
+      saidas: $("#saida").is(':checked'),
+      entradas: $("#entrada").is(':checked'),
       descricao: $("#descricao").val(),
       id: $("#id").val(),
-    }
+    };
+
     $.ajax({
       url: `/produtos`,
       headers: {
@@ -167,6 +210,8 @@
           $("#preco").val(data.preco);
           $("#estoque").val(data.estoque);
           $("#minimo").val(data.minimo);
+          $("#entrada").prop("checked", data.entradas === true);
+          $("#saida").prop("checked", data.saidas === true);
           $("#descricao").val(data.descricao);
         },
         error: function (error) {

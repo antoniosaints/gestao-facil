@@ -13,7 +13,6 @@ function toggleTheme() {
   }
 }
 
-// Aplica o tema salvo ao carregar
 (function () {
   // Verifica o tema salvo no localStorage e aplica
   const savedTheme = localStorage.getItem("theme");

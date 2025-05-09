@@ -11,4 +11,6 @@ export const AddProdutoSchema = z.object({
   precoCompra: z.string().transform((val) => parseFloat(val.replace(',', '.'))).optional(),
   unidade: z.string().optional(),
   codigo: z.string().optional(),
+  entradas: z.boolean(),
+  saidas: z.boolean(),
 });
