@@ -5,6 +5,7 @@ import { checkAuth, login, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
 import { deleteProduto, getProduto, saveProduto } from "./controllers/produtos/produtos";
 import { tableUsuarios } from "./controllers/administracao/usuarios";
+import { relatorioProdutos } from "./controllers/produtos/relatorios";
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get("/", (req, res) => {
 });
 
 app.post("/login", login);
+app.get("/produtos/relatorio", relatorioProdutos);
 app.get("/produtos", authenticateJWT, tableProdutos);
 app.get("/usuarios", authenticateJWT, tableUsuarios);
 app.get("/produtos/:id", authenticateJWT, getProduto);

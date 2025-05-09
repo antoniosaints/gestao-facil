@@ -1,11 +1,44 @@
 <div>
   <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-primary"><i class="fa-solid fa-box"></i> Produtos</h2>
-    <button onclick="salvarProduto()"
-      class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
-      <i class="fa-solid fa-circle-plus"></i> Novo Produto
-    </button>
+    <h2 class="text-2xl font-bold text-primary">
+      <i class="fa-solid fa-box"></i> Produtos
+    </h2>
+    <div class="flex justify-between gap-2 items-center">
+      <button
+        id="baixar_relatorio_produtos"
+        class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md"
+      >
+        <i class="fa-solid fa-file-pdf"></i>
+      </button>
+      <button
+        onclick="salvarProduto()"
+        class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md"
+      >
+        <i class="fa-solid fa-circle-plus"></i> Novo Produto
+      </button>
+    </div>
   </div>
-  <div class="overflow-x-auto shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
+  <div
+    class="overflow-x-auto shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
+    hx-get="/partials/produtos/tabela.html"
+    hx-trigger="load"
+    hx-swap="innerHTML"
+  ></div>
 </div>
+
+<script>
+  $("#baixar_relatorio_produtos").off("click").on("click", function () {
+    fetch("/produtos/relatorio")
+      .then((response) => response.blob())
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "relatorio-produtos.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      })
+      .catch(() => alert("Erro ao gerar relatório."));
+  });
+</script>

@@ -138,12 +138,16 @@
           $("#minimo").val(data.minimo);
         },
         error: function (error) {
+          console.log(error);
           Swal.fire({
             icon: 'error',
             title: 'Erro ao carregar produto',
             text: 'Ocorreu um erro ao carregar o produto. Por favor, tente novamente mais tarde.',
           });
-          console.log(error);
+          htmx.ajax("GET", "partials/produtos/index.html", {
+          target: "#content",
+          swap: "innerHTML",
+        });
         }
       })
     } else {

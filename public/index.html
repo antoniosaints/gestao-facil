@@ -26,14 +26,15 @@
     <div class="text-xl font-bold">
       <i class="fa-solid fa-chart-pie text-orange-400"></i> Gestão Fácil
     </div>
-    <div>
+    <div class="flex justify-between gap-2 items-center">
       Bem-vindo, Admin
+      <img src="./imgs/logo.png" alt="PR" class="rounded-full w-8 h-8 bg-gray-500">
     </div>
   </header>
 
   <!-- Botão de abrir menu (mobile) -->
   <button id="openSidebarBtn"
-    class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary text-white px-2 py-3 rounded-r-xl shadow-lg">
+    class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary/70 text-white px-2 py-3 rounded-r-xl shadow-lg">
     ☰
   </button>
 
@@ -41,9 +42,6 @@
   <aside id="sidebar"
     class="fixed top-0 left-0 h-full w-64 bg-gray-100 dark:bg-gray-800 p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
     <!-- Botão fechar (mobile) -->
-    <button id="closeSidebarBtn" class="md:hidden text-right text-white mb-4 bg-primary w-full py-2 rounded">Fechar
-      ✕</button>
-
     <h1 class="text-2xl font-bold text-primary">
       <i class="fa-solid fa-chart-pie"></i> Gestão Fácil
     </h1>
@@ -87,6 +85,8 @@
       class="mt-4 flex items-center gap-2 px-4 py-2 rounded transition bg-gray-200 dark:bg-gray-700 w-full justify-center">
       <i class="fa-solid fa-moon"></i>
     </button>
+
+    <button id="closeSidebarBtn" class="md:hidden fixed bottom-2 text-center text-white mb-4 bg-primary w-56 py-2 rounded"><i class="fa-solid fa-circle-xmark mr-1"></i>Fechar</button>
   </aside>
 
   <!-- Conteúdo principal -->
