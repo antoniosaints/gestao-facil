@@ -64,7 +64,7 @@ export const relatorioProdutos = async (
     .text("Produto", colX.nome, tableTop)
     .text("Preço (R$)", colX.preco, tableTop)
     .text("Qtd.", colX.estoque, tableTop)
-    .text("Total", colX.total, tableTop);
+    .text("Total (R$)", colX.total, tableTop);
 
   // Linhas
   let y = tableTop + rowHeight;
@@ -96,7 +96,7 @@ export const relatorioProdutos = async (
     // Linha divisória
     const linhaInferior = nomeY + nomeAltura + 5;
     doc
-      .moveTo(10, linhaInferior)
+      .moveTo(30, linhaInferior)
       .lineTo(580, linhaInferior)
       .strokeColor("#ccc")
       .stroke();

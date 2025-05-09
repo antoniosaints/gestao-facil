@@ -21,7 +21,10 @@ export const getProduto = async (req: Request, res: Response): Promise<any> => {
     data: produto,
   });
 };
-export const deleteProduto = async (req: Request, res: Response): Promise<any> => {
+export const deleteProduto = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { id } = req.params;
     const produto = await prisma.produto.delete({
@@ -39,7 +42,7 @@ export const deleteProduto = async (req: Request, res: Response): Promise<any> =
       message: "Produto deletado com sucesso",
       data: produto,
     });
-  }catch (error) {
+  } catch (error) {
     handleError(res, error);
   }
 };
@@ -49,42 +52,41 @@ export const saveProduto = async (
   res: Response
 ): Promise<any> => {
   try {
-    const validated = AddProdutoSchema.safeParse(req.body);
-    const data = validated.data;
-    if (!validated.data) {
+    const { data, error } = AddProdutoSchema.safeParse(req.body);
+    if (!data) {
       return res.status(400).json({
         message: "Dados inválidos",
-        data: validated.error.errors,
+        data: error.errors,
       });
     }
-    if (data?.id) {
+    if (data.id) {
       await prisma.produto.update({
         where: {
-          id: Number(data?.id),
+          id: data.id,
         },
         data: {
-          nome: data?.nome.trim(),
-          descricao: data?.descricao,
-          minimo: Number(data?.minimo),
-          precoCompra: Number(data?.precoCompra),
-          unidade: data?.unidade,
-          codigo: data?.codigo,
-          preco: Number(data?.preco),
-          estoque: Number(data?.estoque),
+          nome: data.nome,
+          descricao: data.descricao,
+          minimo: data.minimo,
+          precoCompra: data.precoCompra,
+          unidade: data.unidade,
+          codigo: data.codigo,
+          preco: data.preco,
+          estoque: data.estoque,
         },
       });
     } else {
       await prisma.produto.create({
         data: {
           contaId: 1,
-          estoque: Number(data?.estoque),
-          nome: data?.nome.trim() as string,
-          preco: Number(data?.preco),
-          descricao: data?.descricao,
-          precoCompra: Number(data?.precoCompra),
-          unidade: data?.unidade,
-          codigo: data?.codigo,
-          minimo: 1,
+          estoque: data.estoque,
+          nome: data.nome,
+          preco: data.preco,
+          descricao: data.descricao,
+          precoCompra: data.precoCompra,
+          unidade: data.unidade,
+          codigo: data.codigo,
+          minimo: data.minimo,
         },
       });
     }

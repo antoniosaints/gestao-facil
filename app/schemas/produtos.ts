@@ -3,7 +3,7 @@ import { z } from "zod";
 export const AddProdutoSchema = z.object({
   id: z.string().transform((val) => parseInt(val, 10)).optional(),
   contaId: z.string().transform((val) => parseInt(val, 10)).optional(),
-  nome: z.string().min(2),
+  nome: z.string().min(2).trim(),
   descricao: z.string().optional(),
   preco: z.string().transform((val) => parseFloat(val.replace(',', '.'))),
   estoque: z.string().transform((val) => parseInt(val, 10)),

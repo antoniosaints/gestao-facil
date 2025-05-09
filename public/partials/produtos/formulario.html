@@ -137,6 +137,7 @@
   });
 
   (() => {
+    $('#unidade').select2();
     if (localStorage.getItem('produtoId')) {
       $("#produtoFormularioTitulo").text(`📝 Editar Produto #${localStorage.getItem('produtoId')}`);
       $("#estoque").prop("readonly", true);
