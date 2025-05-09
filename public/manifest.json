@@ -1,0 +1,20 @@
+{
+  "name": "Gestão Fácil - ERP",
+  "short_name": "Gestão Fácil",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#fff",
+  "icons": [
+    {
+      "src": "/imgs/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/imgs/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

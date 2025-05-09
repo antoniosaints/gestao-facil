@@ -11,6 +11,17 @@ function toggleTheme() {
     iconSun.classList.toggle("hidden", isDark);
     iconMoon.classList.toggle("hidden", !isDark);
   }
+
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute("content", isDark ? "#0f172a" : "#ffffff");
+  }
+}
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/sw.js")
+    .then(() => console.log("Service Worker registrado"))
+    .catch((err) => console.error("Erro ao registrar SW:", err));
 }
 
 (function () {
@@ -40,4 +51,9 @@ function toggleTheme() {
       iconMoon.classList.toggle("hidden", !isDark);
     }
   };
+
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute("content", isDark ? "#0f172a" : "#ffffff");
+  }
 })();
