@@ -1,5 +1,12 @@
 import webPush from "web-push";
 import { prisma } from "../utils/prisma";
+import { env } from "../utils/dotenv";
+
+webPush.setVapidDetails(
+  "mailto:costaantonio883@gmail.com",
+  env.VAPID_PUBLIC_KEY,
+  env.VAPID_PRIVATE_KEY
+);
 
 type NotificationPayload = {
   title: string;

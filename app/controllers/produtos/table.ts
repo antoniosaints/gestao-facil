@@ -27,7 +27,7 @@ export const tableProdutos = async (
     .format("preco", (value) => formatCurrency(value))
     .format("estoque", function (value) {
       const estoque = value.toString().padStart(2, "0");
-      return `<span class="px-2 py-0 rounded-md"><i class="fa-solid fa-box"></i> ${estoque}</span>`;
+      return `<span class="px-2 py-0 rounded-md">${estoque}</span>`;
     })
     .addColumn("acoes", (row) => {
       return produtosAcoes(row);

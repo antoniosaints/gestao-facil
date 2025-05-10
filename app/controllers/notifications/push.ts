@@ -38,35 +38,40 @@ export const unsubscribe = async (
 };
 
 export const subscribe = async (req: Request, res: Response): Promise<any> => {
-  const subscription: PushSubscription = req.body;
+  try {
+    const subscription: PushSubscription = req.body;
 
-  // Verifica se a inscrição já existe no banco de dados com Prisma
-  const existingSubscription = await prisma.subscription.findFirst({
-    where: {
-      endpoint: subscription.endpoint,
-    },
-  });
+    // Verifica se a inscrição já existe no banco de dados com Prisma
+    const existingSubscription = await prisma.subscription.findFirst({
+      where: {
+        endpoint: subscription.endpoint,
+      },
+    });
 
-  if (existingSubscription) {
-    // Se já estiver inscrito, retorna uma resposta informando que já existe
-    return res
-      .status(200)
-      .json({
-        message: "Você já está inscrito para notificações.",
-        new: false,
-      });
+    if (existingSubscription) {
+      // Se já estiver inscrito, retorna uma resposta informando que já existe
+      return res
+        .status(200)
+        .json({
+          message: "Você já está inscrito para notificações.",
+          new: false,
+        });
+    }
+
+    // Se não estiver inscrito, armazena a inscrição no banco de dados
+    await prisma.subscription.create({
+      data: {
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      },
+    });
+
+    res.status(201).json({ message: "Inscrição salva com sucesso", new: true });
+  } catch (err) {
+    console.error("Erro ao salvar inscrição:", err);
+    res.status(500).json({ message: "Erro interno ao salvar inscrição." });
   }
-
-  // Se não estiver inscrito, armazena a inscrição no banco de dados
-  await prisma.subscription.create({
-    data: {
-      endpoint: subscription.endpoint,
-      p256dh: subscription.keys.p256dh,
-      auth: subscription.keys.auth,
-    },
-  });
-
-  res.status(201).json({ message: "Inscrição salva com sucesso", new: true });
 };
 
 export const sendNotification = async (req: Request, res: Response) => {
