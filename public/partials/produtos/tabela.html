@@ -10,6 +10,19 @@
         </tr>
     </thead>
 </table>
+<div>
+    <div class="rounded-2xl shadow-md bg-card dark:bg-card-dark p-4">
+        <div class="text-lg font-semibold dark:text-white">Produto A</div>
+        <div class="text-sm text-gray-500">Categoria: Eletrônicos</div>
+        <div class="text-sm text-gray-500">Estoque: 15</div>
+        <div class="text-sm text-gray-500">Preço: R$ 149,90</div>
+        <div class="mt-2 flex gap-2">
+            <button class="bg-blue-500 text-white px-3 py-1 rounded-xl text-sm">Editar</button>
+            <button class="bg-red-500 text-white px-3 py-1 rounded-xl text-sm">Excluir</button>
+        </div>
+    </div>
+
+</div>
 <script>
     function editarProduto(id) {
         localStorage.setItem("produtoId", id);
