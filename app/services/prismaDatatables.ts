@@ -46,6 +46,7 @@ export class PrismaDataTableBuilder<T> {
   private baseWhere: any = {};
   private model: any;
   private extraColumns: Record<string, (row: T) => any> = {}; // Agora armazena funções
+  private alwaysFields: Array<keyof T> = []; // Novo campo
 
   constructor(model: any) {
     this.model = model;
@@ -71,6 +72,11 @@ export class PrismaDataTableBuilder<T> {
 
   format(field: keyof T, callback: Formatter<T>): this {
     this.formatters[field] = callback;
+    return this;
+  }
+
+  include(fields: Array<keyof T>): this {
+    this.alwaysFields = fields;
     return this;
   }
 
@@ -164,22 +170,26 @@ export class PrismaDataTableBuilder<T> {
 
     const data = rows.map((row) => {
       const formatted: any = {};
+
+      // Inclui campos obrigatórios mesmo se não estiverem nas colunas
+      for (const field of this.alwaysFields) {
+        formatted[field] = (row as any)[field];
+      }
+
       for (const col of columns) {
         const field = col.data as keyof T;
-        const meta = { field: field as string }; // Convertendo 'field' para string
+        const meta = { field: field as string };
 
-        // Verifica se o campo está configurado para ser formatado
         if (this.editors[field]) {
           formatted[field] = this.editors[field](row, meta);
         } else if (this.formatters[field]) {
-          const value = (row as any)[field]; // Referencia o campo dinamicamente
+          const value = (row as any)[field];
           formatted[field] = this.formatters[field](value, row, meta);
         } else {
-          formatted[field] = (row as any)[field]; // Retorna o valor original se não houver formatação
+          formatted[field] = (row as any)[field];
         }
       }
 
-      // Adiciona as colunas extras aqui
       for (const [extraField, callback] of Object.entries(this.extraColumns)) {
         formatted[extraField] = callback(row);
       }

@@ -29,6 +29,7 @@ export const tableProdutos = async (
       const estoque = value.toString().padStart(2, "0");
       return `<span class="px-2 py-0 rounded-md">${estoque}</span>`;
     })
+    .include(["id", "nome", "preco", "estoque", "codigo"])
     .addColumn("acoes", (row) => {
       return produtosAcoes(row);
     });

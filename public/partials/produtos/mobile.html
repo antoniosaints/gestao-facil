@@ -1,0 +1,64 @@
+<div class="flex flex-col gap-2 mt-2" id="produtos-lista"></div>
+
+<script>
+  $.ajax({
+    type: "GET",
+    url: `/produtos`,
+    beforeSend: function (xhr) {
+      const tokenJWT = localStorage.getItem("gestao_facil:token");
+      if (tokenJWT) {
+        xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Erro!",
+          text: "Você precisa estar logado para visualizar a página",
+          showConfirmButton: false,
+          timer: 3000,
+          position: "bottom-end",
+        });
+      }
+    },
+    success: function (response) {
+      // Manipular a resposta aqui, se necessário
+      response.data.forEach((produto) => {
+        const produtoHTML = `
+            <div class="rounded-2xl shadow-md bg-card dark:bg-card-dark p-4">
+                <div class="text-lg font-semibold dark:text-white">${produto.nome}</div>
+                <div class="text-sm text-gray-500">Código: ${produto.codigo}</div>
+                <div class="text-sm text-gray-500">Estoque: ${produto.estoque}</div>
+                <div class="text-sm text-gray-500">Preço: R$ ${produto.preco}</div>
+                <div class="mt-2 flex gap-2">
+                    <button onclick="editarProduto(${produto.id})" class="bg-blue-500 text-white px-3 py-1 rounded-xl text-sm">
+                        Editar
+                    </button>
+                    <button class="bg-red-500 text-white px-3 py-1 rounded-xl text-sm">
+                        Excluir
+                    </button>
+                </div>
+            </div>
+        `;
+        document.querySelector("#produtos-lista").innerHTML += produtoHTML;
+      });
+      console.log(response);
+    },
+    error: function (xhr, status, error) {
+      const mensagem =
+        xhr.responseJSON?.message || "Erro inesperado na requisição";
+      Swal.fire({
+        toast: true,
+        position: "bottom-end",
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        icon: "error",
+        title: "Erro!",
+        text: mensagem,
+      });
+      htmx.ajax("GET", "partials/login.html", {
+        target: "#content",
+        swap: "innerHTML",
+      });
+    },
+  });
+</script>
