@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { handleError } from "../../utils/handleError";
 import { AddProdutoSchema } from "../../schemas/produtos";
+import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
@@ -77,6 +78,11 @@ export const saveProduto = async (
           saidas: data.saidas,
         },
       });
+
+      await enqueuePushNotification({
+        title: "Produto teste",
+        body: `O produto ${data.nome} foi atualizado.`,
+      })
     } else {
       await prisma.produto.create({
         data: {
@@ -93,6 +99,10 @@ export const saveProduto = async (
           saidas: data.saidas,
         },
       });
+      await enqueuePushNotification({
+        title: "Produto cadastrado",
+        body: `O produto ${data.nome} foi cadastrado no sistema.`,
+      })
     }
 
     return res.status(201).json({

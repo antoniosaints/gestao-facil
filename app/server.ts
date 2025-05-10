@@ -6,6 +6,7 @@ import { authenticateJWT } from "./middlewares/auth";
 import { deleteProduto, getProduto, saveProduto } from "./controllers/produtos/produtos";
 import { tableUsuarios } from "./controllers/administracao/usuarios";
 import { relatorioProdutos } from "./controllers/produtos/relatorios";
+import { sendNotification, subscribe, unsubscribe } from "./controllers/notifications/push";
 
 const app = express();
 
@@ -26,5 +27,10 @@ app.delete("/produtos/:id", authenticateJWT, deleteProduto);
 app.post("/produtos", authenticateJWT, saveProduto);
 app.get("/auth/check", checkAuth);
 app.get("/auth/verify", verify);
+
+// Rotas Push
+app.post("/subscribe", subscribe);
+app.post("/unsubscribe", unsubscribe);
+app.post("/send-notification", sendNotification);
 
 app.listen(3000, () => console.log("Rodando na porta 3000"));

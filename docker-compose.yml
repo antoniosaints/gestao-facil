@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+    container_name: push_app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    environment:
+      - DATABASE_URL=mysql://user:pass@db:3306/seubanco
+      - NODE_ENV=production
+
+  worker:
+    build:
+      context: .
+    container_name: push_worker
+    command: ["node", "dist/workers/pushNotificationWorker.js"]
+    depends_on:
+      - redis
+    environment:
+      - DATABASE_URL=mysql://user:pass@db:3306/seubanco
+      - NODE_ENV=production
+
+  redis:
+    image: redis:7
+    container_name: push_redis
+    ports:
+      - "6379:6379"
