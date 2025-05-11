@@ -123,14 +123,25 @@
   </aside>
 
   <!-- Conteúdo principal -->
-  <main class="overflow-y-auto h-screen md:h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
+  <main id="container-main" class="overflow-y-auto h-screen md:h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
     <div class="max-w-7xl mx-auto" id="content"></div>
   </main>
+  
 
   <script>
     const sidebar = document.getElementById("sidebar");
     const openBtn = document.getElementById("openSidebarBtn");
     const closeBtn = document.getElementById("closeSidebarBtn");
+    const containerMain = document.getElementById("container-main");
+
+    function switchToFullScreen() {
+      containerMain.classList.add("h-screen");
+      containerMain.classList.remove("h-[calc(100vh-5rem)]");
+    }
+    function switchToNormalScreen() {
+      containerMain.classList.remove("h-screen");
+      containerMain.classList.add("h-[calc(100vh-5rem)]");
+    }
 
     openBtn.addEventListener("click", () => {
       sidebar.classList.remove("-translate-x-full");

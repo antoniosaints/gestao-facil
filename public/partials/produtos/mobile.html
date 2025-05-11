@@ -1,9 +1,37 @@
-<div class="flex flex-col gap-2 mt-2" id="produtos-lista"></div>
-
+<div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)]" id="produtos-lista"></div>
+<!-- Bottom Navigation (Mobile) -->
+<nav
+  class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20"
+>
+  <button
+    onclick="navigatePrevious()"
+    class="flex flex-col items-center text-gray-700 dark:text-gray-300 hover:text-primary transition"
+  >
+    <i class="fa-solid fa-arrow-left text-lg"></i>
+    <span class="text-xs">Anterior</span>
+  </button>
+  <button
+    onclick="openSearch()"
+    class="flex flex-col items-center text-gray-700 dark:text-gray-300 hover:text-primary transition"
+  >
+    <i class="fa-solid fa-search text-lg"></i>
+    <span class="text-xs">Busca</span>
+  </button>
+  <button
+    onclick="navigateNext()"
+    class="flex flex-col items-center text-gray-700 dark:text-gray-300 hover:text-primary transition"
+  >
+    <i class="fa-solid fa-arrow-right text-lg"></i>
+    <span class="text-xs">Próximo</span>
+  </button>
+</nav>
 <script>
   $.ajax({
     type: "GET",
     url: `/produtos`,
+    data: {
+      search: "",
+    },
     beforeSend: function (xhr) {
       const tokenJWT = localStorage.getItem("gestao_facil:token");
       if (tokenJWT) {
@@ -21,6 +49,18 @@
     },
     success: function (response) {
       // Manipular a resposta aqui, se necessário
+      if (response.data.length === 0) {
+        const noDataHTML = `
+            <div class="flex items-center rounded-md bg-card dark:bg-card-dark justify-center h-[calc(100vh-12rem)]">
+              <div class="text-center">
+                  <i class="fa-solid fa-box-open text-4xl text-gray-500 dark:text-gray-300 mb-4"></i>
+                  <p class="text-gray-500 dark:text-gray-300">Nenhum produto encontrado.</p>
+              </div>
+            </div>
+        `;
+        document.querySelector("#produtos-lista").innerHTML = noDataHTML;
+        return;
+      }
       response.data.forEach((produto) => {
         const produtoHTML = `
             <div class="rounded-2xl shadow-md bg-card dark:bg-card-dark p-4">
@@ -32,7 +72,7 @@
                     <button onclick="editarProduto(${produto.id})" class="bg-blue-500 text-white px-3 py-1 rounded-xl text-sm">
                         Editar
                     </button>
-                    <button class="bg-red-500 text-white px-3 py-1 rounded-xl text-sm">
+                    <button onclick="excluirProduto(${produto.id})" class="bg-red-500 text-white px-3 py-1 rounded-xl text-sm">
                         Excluir
                     </button>
                 </div>

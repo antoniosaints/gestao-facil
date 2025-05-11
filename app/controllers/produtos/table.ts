@@ -8,11 +8,31 @@ export const tableProdutos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
+  const search = req.query.search as string;
+  console.log("search", search);
   const builder = new PrismaDataTableBuilder<Produto>(prisma.produto)
     .search({
       nome: "string",
       preco: "number",
       estoque: "number",
+    })
+    .where({
+      AND: [
+        {
+          OR: [
+            {
+              nome: {
+                contains: search,
+              },
+            },
+            {
+              codigo: {
+                contains: search,
+              },
+            },
+          ],
+        },
+      ],
     })
     .format("id", function(id) {
       return `<span class="px-2 py-0 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;

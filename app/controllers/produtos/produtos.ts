@@ -80,7 +80,7 @@ export const saveProduto = async (
       });
 
       await enqueuePushNotification({
-        title: "Produto teste",
+        title: "Atualização de produto",
         body: `O produto ${data.nome} foi atualizado.`,
       })
     } else {
@@ -100,7 +100,7 @@ export const saveProduto = async (
         },
       });
       await enqueuePushNotification({
-        title: "Produto cadastrado",
+        title: "Cadastro de produto",
         body: `O produto ${data.nome} foi cadastrado no sistema.`,
       })
     }
