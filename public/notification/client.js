@@ -49,10 +49,14 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
   window.localStorage.setItem("pushEndpoint", subscription.endpoint);
 
   try {
+    const tokenJWT = localStorage.getItem("gestao_facil:token");
     const data = await fetch("/subscribe", {
       method: "POST",
       body: JSON.stringify(subscription),
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${tokenJWT}`
+      },
     });
 
     if (!data.ok) {
@@ -78,7 +82,7 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
     Swal.fire({
       icon: "error",
       title: "Erro",
-      text: "Não foi possível processar a inscrição. Tente novamente mais tarde.",
+      text: error.responseJSON.message || "Não foi possível processar a inscrição. Tente novamente mais tarde.",
       toast: true,
       position: "top-end",
       showConfirmButton: false,

@@ -1,12 +1,17 @@
 import { Job, Worker } from "bullmq";
 import { redisConnecion } from "../utils/redis";
-import { handlePushNotification } from "../services/pushNotificationWorkerService";
+import { sendEmailQueue } from "../utils/email";
 
-export const createPushWorker = () => {
+export const sendEmailWorker = () => {
   return new Worker(
-    "push",
+    "email",
     async (job: Job) => {
-      await handlePushNotification(job.data);
+      try {
+        const { to, subject, text } = job.data;
+        await sendEmailQueue(to, subject, text);
+      } catch (error) {
+        throw error;
+      }
     },
     {
       connection: redisConnecion,
@@ -15,7 +20,7 @@ export const createPushWorker = () => {
   );
 };
 
-const worker = createPushWorker();
+const worker = sendEmailWorker();
 process.on('SIGINT', async () => {
   console.log('Encerrando o worker...');
   await worker.close();

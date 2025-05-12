@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import webPush, { PushSubscription } from "web-push";
 import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
+import { CustomRequest } from "../../middlewares/auth";
 
 webPush.setVapidDetails(
   "mailto:costaantonio883@gmail.com",
@@ -37,10 +38,14 @@ export const unsubscribe = async (
   }
 };
 
-export const subscribe = async (req: Request, res: Response): Promise<any> => {
+export const subscribe = async (req: CustomRequest, res: Response): Promise<any> => {
   try {
     const subscription: PushSubscription = req.body;
+    const idUser = req.customData?.userId;
 
+    if (!idUser) {
+      return res.status(400).json({ message: "ID do usuário é obrigatório." });
+    }
     // Verifica se a inscrição já existe no banco de dados com Prisma
     const existingSubscription = await prisma.subscription.findFirst({
       where: {
@@ -61,12 +66,14 @@ export const subscribe = async (req: Request, res: Response): Promise<any> => {
     // Se não estiver inscrito, armazena a inscrição no banco de dados
     await prisma.subscription.create({
       data: {
+        userId: Number(idUser),
         endpoint: subscription.endpoint,
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
       },
     });
 
+    console.log("Inscrição salva com sucesso:", idUser);
     res.status(201).json({ message: "Inscrição salva com sucesso", new: true });
   } catch (err) {
     console.error("Erro ao salvar inscrição:", err);

@@ -1,9 +1,19 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import { env } from "../utils/dotenv";
+import { JwtUtil } from "../utils/jwt";
+
+interface CustomData {
+  userId: number;
+  email: string;
+}
+
+// 2. Estenda o tipo Request
+export interface CustomRequest extends Request {
+  customData?: CustomData;
+}
 
 export function authenticateJWT(
-  req: Request,
+  req: CustomRequest,
   res: Response,
   next: NextFunction
 ): any {
@@ -23,13 +33,17 @@ export function authenticateJWT(
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET);
+    const decoded = JwtUtil.verify(token);
     if (decoded) {
+      req.customData = {
+        userId: decoded.id,
+        email: decoded.email,
+      };
       return next();
     }
     return res.status(401).json({
       status: 401,
-      message: "Token inválido ou expirado",
+      message: "Token inválido ou expirado, tente novamente mais tarde",
       title: "Acesso negado",
     });
   } catch (err) {

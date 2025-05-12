@@ -3,6 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { handleError } from "../../utils/handleError";
 import { AddProdutoSchema } from "../../schemas/produtos";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
+import { emailScheduleService } from "../../services/emailScheduleQueueService";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
@@ -39,6 +40,16 @@ export const deleteProduto = async (
         data: null,
       });
     }
+    await emailScheduleService({
+      to: "costaantonio883@gmail.com",
+      subject: "Produto deletado",
+      text: `O produto ${produto.nome} foi deletado.`,
+    });
+    await enqueuePushNotification({
+      title: "Produto deletado",
+      body: `O produto ${produto.nome} foi deletado.`,
+    });
+
     return res.status(200).json({
       message: "Produto deletado com sucesso",
       data: produto,

@@ -5,9 +5,22 @@ type NotificationPayload = {
   title: string;
   body: string;
 };
+export async function canReceivePush(userId: number): Promise<boolean> {
+  const usuario = await prisma.usuarios.findUnique({
+    where: {id: userId},
+  })
+  if (!usuario) return false;
+  return usuario.pushReceiver!;
+}
 
 export async function enqueuePushNotification(payload: NotificationPayload) {
-  const subscriptions = await prisma.subscription.findMany();
+  const subscriptions = await prisma.subscription.findMany({
+    where: {
+      Usuarios: {
+        pushReceiver: true,
+      }
+    }
+  });
   if (subscriptions.length === 0) {
     console.log("Nenhuma inscrição encontrada.");
     return;

@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output = "../generated"
+  output   = "../generated"
 }
 
 datasource db {
@@ -16,13 +16,14 @@ enum Status {
 
 model Subscription {
   id        Int      @id @default(autoincrement())
+  userId    Int
+  Usuarios  Usuarios @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   endpoint  String   @db.Text
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
 
 model Contas {
   id         Int        @id @default(autoincrement())
@@ -42,13 +43,16 @@ model Contas {
 }
 
 model Usuarios {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  email     String
-  senha     String
-  status    Status   @default(ATIVO)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int            @id @default(autoincrement())
+  nome          String
+  email         String
+  senha         String
+  pushReceiver  Boolean?       @default(true)
+  emailReceiver Boolean?       @default(true)
+  status        Status         @default(ATIVO)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  Subscription  Subscription[]
 }
 
 model Clientes {

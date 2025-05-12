@@ -78,7 +78,8 @@ Inicie a aplicação rodando
 npm start
 ```
 
-Para iniciar o servidor e também suba o Worker separadamente com 
+Suba os Workers de Push e Emails
 ```bash
-npm run worker
+npm run email
+npm run notification
 ```

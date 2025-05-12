@@ -7,16 +7,16 @@ import { deleteProduto, getProduto, saveProduto } from "./controllers/produtos/p
 import { tableUsuarios } from "./controllers/administracao/usuarios";
 import { relatorioProdutos } from "./controllers/produtos/relatorios";
 import { sendNotification, subscribe, unsubscribe } from "./controllers/notifications/push";
+import webRouter from "./routers/web";
 
 const app = express();
 
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
 
-app.get("/", (req, res) => {
-  res.sendFile("index.html", { root: "public" });
-});
+app.use(webRouter);
 
 app.post("/login", login);
 app.get("/produtos/relatorio", relatorioProdutos);
@@ -29,7 +29,7 @@ app.get("/auth/check", checkAuth);
 app.get("/auth/verify", verify);
 
 // Rotas Push
-app.post("/subscribe", subscribe);
+app.post("/subscribe", authenticateJWT, subscribe);
 app.post("/unsubscribe", unsubscribe);
 app.post("/send-notification", sendNotification);
 
