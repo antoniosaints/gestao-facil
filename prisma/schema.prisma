@@ -26,24 +26,28 @@ model Subscription {
 }
 
 model Contas {
-  id         Int        @id @default(autoincrement())
-  nome       String
-  valor      Decimal    @db.Decimal(10, 2)
-  data       DateTime
-  status     Status     @default(ATIVO)
-  vencimento DateTime   @default(now())
-  tipo       String?
-  categoria  String?
-  email      String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  Produto    Produto[]
-  Clientes   Clientes[]
-  Vendas     Vendas[]
+  id                   Int                    @id @default(autoincrement())
+  nome                 String
+  valor                Decimal                @db.Decimal(10, 2)
+  data                 DateTime
+  status               Status                 @default(ATIVO)
+  vencimento           DateTime               @default(now())
+  tipo                 String?
+  categoria            String?
+  email                String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  Produto              Produto[]
+  Clientes             Clientes[]
+  Vendas               Vendas[]
+  MovimentacoesEstoque MovimentacoesEstoque[]
+  Usuarios             Usuarios[]
 }
 
 model Usuarios {
   id            Int            @id @default(autoincrement())
+  contaId       Int
+  Contas        Contas         @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   nome          String
   email         String
   senha         String
@@ -68,35 +72,64 @@ model Clientes {
   Vendas    Vendas[]
 }
 
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
+  DESCARTE
+  TRANSFERENCIA
+}
+
+enum StatusMovimentacao {
+  PENDENTE
+  CONCLUIDO
+  CANCELADO
+}
+
+model MovimentacoesEstoque {
+  id         Int                @id @default(autoincrement())
+  contaId    Int
+  Contas     Contas             @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipo       TipoMovimentacao   @default(ENTRADA)
+  data       DateTime           @default(now())
+  notaFiscal String?
+  status     StatusMovimentacao @default(PENDENTE)
+  produtoId  Int
+  Produto    Produto            @relation(fields: [produtoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  quantidade Int
+  custo      Decimal            @db.Decimal(10, 2)
+}
+
 model Produto {
-  id          Int           @id @default(autoincrement())
-  contaId     Int
-  Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  status      Status        @default(ATIVO)
-  nome        String
-  descricao   String?
-  preco       Decimal       @db.Decimal(10, 2)
-  precoCompra Decimal?      @db.Decimal(10, 2)
-  entradas    Boolean?      @default(true)
-  saidas      Boolean?      @default(true)
-  unidade     String?
-  estoque     Int
-  minimo      Int
-  codigo      String?
-  ItensVendas ItensVendas[]
+  id                   Int                    @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status               Status                 @default(ATIVO)
+  nome                 String
+  descricao            String?
+  preco                Decimal                @db.Decimal(10, 2)
+  precoCompra          Decimal?               @db.Decimal(10, 2)
+  entradas             Boolean?               @default(true)
+  saidas               Boolean?               @default(true)
+  unidade              String?
+  estoque              Int
+  minimo               Int
+  codigo               String?
+  ItensVendas          ItensVendas[]
+  MovimentacoesEstoque MovimentacoesEstoque[]
 }
 
 model Vendas {
-  id          Int           @id @default(autoincrement())
-  contaId     Int
-  Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  data        DateTime
-  valor       Decimal       @db.Decimal(10, 2)
-  clienteId   Int?
-  cliente     Clientes?     @relation(fields: [clienteId], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  ItensVendas ItensVendas[]
+  id              Int              @id @default(autoincrement())
+  contaId         Int
+  Contas          Contas           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  data            DateTime         @default(now())
+  valor           Decimal          @db.Decimal(10, 2)
+  clienteId       Int?
+  cliente         Clientes?        @relation(fields: [clienteId], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  ItensVendas     ItensVendas[]
+  PagamentoVendas PagamentoVendas?
 }
 
 model ItensVendas {
@@ -109,4 +142,34 @@ model ItensVendas {
   valor      Decimal  @db.Decimal(10, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+enum StatusPagamento {
+  PENDENTE
+  EFETIVADO
+  ESTORNADO
+  CANCELADO
+}
+
+enum MetodoPagamento {
+  PIX
+  DINHEIRO
+  CARTAO
+  BOLETO
+  TRANSFERENCIA
+  CHEQUE
+  CREDITO
+  DEBITO
+  GATEWAY
+  OUTRO
+}
+
+model PagamentoVendas {
+  id      Int             @id @default(autoincrement())
+  venda   Vendas          @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  vendaId Int             @unique
+  metodo  MetodoPagamento @default(PIX)
+  valor   Decimal         @db.Decimal(10, 2)
+  data    DateTime?
+  status  StatusPagamento @default(PENDENTE)
 }

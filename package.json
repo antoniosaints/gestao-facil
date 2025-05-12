@@ -11,6 +11,9 @@
     "email": "node dist/workers/sendEmailWorker.js",
     "notification": "node dist/workers/pushNotificationWorker.js"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
