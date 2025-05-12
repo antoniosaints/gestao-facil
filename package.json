@@ -3,14 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "tsup app/server.ts --watch --onSuccess \"node dist/server.js\"",
-    "builder": "tsup app/server.ts",
-    "notification": "node dist/workers/pushNotificationWorker.js",
-    "notification:dev": "ts-node app/workers/pushNotificationWorker.ts",
+    "build": "tsup app",
+    "dev": "tsx watch app/server.ts",
+    "email:dev": "tsx watch app/workers/sendEmailWorker.ts",
+    "notification:dev": "tsx app/workers/pushNotificationWorker.ts",
+    "start": "node dist/server.js",
     "email": "node dist/workers/sendEmailWorker.js",
-    "email:dev": "ts-node app/workers/sendEmailWorker.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "notification": "node dist/workers/pushNotificationWorker.js"
   },
   "keywords": [],
   "author": "",

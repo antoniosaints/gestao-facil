@@ -15,6 +15,6 @@
     "noImplicitReturns": false,
     "types": ["node"]
   },
-  "include": ["app", "app/lib"],
+  "include": ["app"],
   "exclude": ["dist", "node_modules", "tsup.config.ts"]
 }

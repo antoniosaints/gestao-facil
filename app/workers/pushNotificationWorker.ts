@@ -3,7 +3,7 @@ import { redisConnecion } from "../utils/redis";
 import { handlePushNotification } from "../services/pushNotificationWorkerService";
 
 export const createPushWorker = () => {
-  return new Worker(
+  const worker = new Worker(
     "push",
     async (job: Job) => {
       await handlePushNotification(job.data);
@@ -13,6 +13,12 @@ export const createPushWorker = () => {
       concurrency: 10,
     }
   );
+
+   worker.on("ready", () => {
+    console.log("Worker de envio de notificações iniciado com sucesso!");
+  });
+
+  return worker;
 };
 
 const worker = createPushWorker();

@@ -3,7 +3,7 @@ import { redisConnecion } from "../utils/redis";
 import { sendEmailQueue } from "../utils/email";
 
 export const sendEmailWorker = () => {
-  return new Worker(
+  const worker = new Worker(
     "email",
     async (job: Job) => {
       try {
@@ -18,6 +18,12 @@ export const sendEmailWorker = () => {
       concurrency: 10,
     }
   );
+
+  worker.on("ready", () => {
+    console.log("Worker de envio de email iniciado com sucesso!");
+  });
+
+  return worker;
 };
 
 const worker = sendEmailWorker();
