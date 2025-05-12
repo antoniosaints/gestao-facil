@@ -1,8 +1,10 @@
 import { Job, Worker } from "bullmq";
 import { redisConnecion } from "../utils/redis";
 import { sendEmailQueue } from "../utils/email";
+import { clearQueueEmail } from "../queues/emailScheduleQueue";
 
 export const sendEmailWorker = () => {
+  clearQueueEmail();
   const worker = new Worker(
     "email",
     async (job: Job) => {

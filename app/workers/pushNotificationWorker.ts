@@ -1,8 +1,10 @@
 import { Job, Worker } from "bullmq";
 import { redisConnecion } from "../utils/redis";
 import { handlePushNotification } from "../services/pushNotificationWorkerService";
+import { clearQueuePush } from "../queues/pushNotificationQueue";
 
 export const createPushWorker = () => {
+  clearQueuePush();
   const worker = new Worker(
     "push",
     async (job: Job) => {
