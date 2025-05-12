@@ -2,36 +2,17 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { formatCurrency } from "../../utils/formatters";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
-import { Produto } from "@prisma/client";
 import { produtosAcoes } from "./acoes";
+import { Produto } from "../../../generated";
 export const tableProdutos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const search = req.query.search as string;
   const builder = new PrismaDataTableBuilder<Produto>(prisma.produto)
     .search({
       id: "number",
       nome: "string",
       codigo: "string",
-    })
-    .where({
-      AND: [
-        {
-          OR: [
-            {
-              nome: {
-                contains: search,
-              },
-            },
-            {
-              codigo: {
-                contains: search,
-              },
-            },
-          ],
-        },
-      ],
     })
     .format("id", function(id) {
       return `<span class="px-2 py-0 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
