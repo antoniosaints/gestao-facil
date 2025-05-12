@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { handleError } from "../../utils/handleError";
-import { AddProdutoSchema } from "../../schemas/produtos";
+import { ProdutoSchema } from "../../schemas/produtos";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { emailScheduleService } from "../../services/emailScheduleQueueService";
 
@@ -64,7 +64,7 @@ export const saveProduto = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { data, error } = AddProdutoSchema.safeParse(req.body);
+    const { data, error } = ProdutoSchema.safeParse(req.body);
     if (!data) {
       return res.status(400).json({
         message: "Dados inválidos",

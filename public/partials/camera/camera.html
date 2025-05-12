@@ -1,0 +1,46 @@
+<div class="space-y-4">
+    <video id="video" autoplay playsinline class="w-full max-w-md rounded border shadow"></video>
+    <button onclick="abrirCamera()" class="px-4 py-2 bg-blue-600 text-white rounded">Abrir Câmera</button>
+    <button onclick="capturarFoto()" class="px-4 py-2 bg-green-600 text-white rounded">Capturar Foto</button>
+    <button onclick="fecharCamera()" class="px-4 py-2 bg-emerald-600 text-white rounded">Fechar Câmera</button>
+    <canvas id="canvas" class="hidden"></canvas>
+    <img id="foto" class="w-full max-w-md rounded border shadow" alt="Foto capturada" />
+</div>
+
+<script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const foto = document.getElementById("foto");
+
+    // Abre a câmera ao carregar
+    async function abrirCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error("Erro ao acessar a câmera:", err);
+            alert("Erro ao acessar a câmera.");
+        }
+    }
+
+    function fecharCamera() {
+        const stream = video.srcObject;
+
+        if (stream) {
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop()); // Encerra cada faixa
+            video.srcObject = null;
+        }
+    }
+
+
+    // Captura a imagem atual do vídeo
+    function capturarFoto() {
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imagemData = canvas.toDataURL("image/png");
+        foto.src = imagemData;
+    }
+</script>

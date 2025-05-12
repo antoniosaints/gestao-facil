@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const AddProdutoSchema = z.object({
+export const ProdutoSchema = z.object({
   id: z.string().transform((val) => parseInt(val, 10)).optional(),
   contaId: z.string().transform((val) => parseInt(val, 10)).optional(),
   nome: z.string().min(2).trim(),
@@ -13,4 +13,8 @@ export const AddProdutoSchema = z.object({
   codigo: z.string().optional(),
   entradas: z.boolean(),
   saidas: z.boolean(),
+});
+export const ReposicaoProdutoSchema = z.object({
+  id: z.string().transform((val) => parseInt(val, 10)),
+  quantidade: z.string().transform((val) => parseInt(val, 10)),
 });
