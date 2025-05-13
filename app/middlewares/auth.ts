@@ -5,21 +5,18 @@ import { JwtUtil } from "../utils/jwt";
 interface CustomData {
   userId: number;
   email: string;
-}
-
-// 2. Estenda o tipo Request
-export interface CustomRequest extends Request {
-  customData?: CustomData;
+  contaId: number;
 }
 
 export function authenticateJWT(
-  req: CustomRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): any {
   if (env.REQUIRED_JWT === "false") {
     return next();
   }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -35,12 +32,14 @@ export function authenticateJWT(
   try {
     const decoded = JwtUtil.verify(token);
     if (decoded) {
-      req.customData = {
+      (req as Request & { customData: CustomData }).customData = {
         userId: decoded.id,
         email: decoded.email,
+        contaId: decoded.contaId,
       };
       return next();
     }
+
     return res.status(401).json({
       status: 401,
       message: "Token inválido ou expirado, tente novamente mais tarde",

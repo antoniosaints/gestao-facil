@@ -18,7 +18,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     const usuario = await prisma.usuarios.findFirst({
       where: {
-        email: validated.data?.email,
+        email: validated.data.email,
       },
     });
 
@@ -30,7 +30,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    if (usuario?.senha !== validated.data?.senha) {
+    if (usuario.senha !== validated.data.senha) {
       return res.status(401).json({
         status: 401,
         message: "Senha inválida",
@@ -39,18 +39,19 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     }
 
     const jwtToken = JwtUtil.encode({
-      id: usuario?.id!,
-      nome: usuario?.nome,
-      email: usuario?.email!,
+      id: usuario.id,
+      contaId: usuario.contaId,
+      nome: usuario.nome,
+      email: usuario.email,
     });
 
     res.status(200).json({
       status: 200,
       message: "Login realizado com sucesso",
       data: {
-        id: usuario?.id,
-        nome: usuario?.nome,
-        email: usuario?.email,
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
         token: jwtToken,
       },
     });

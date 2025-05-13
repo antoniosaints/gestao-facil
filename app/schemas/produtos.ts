@@ -14,7 +14,8 @@ export const ProdutoSchema = z.object({
   entradas: z.boolean(),
   saidas: z.boolean(),
 });
-export const ReposicaoProdutoSchema = z.object({
-  id: z.string().transform((val) => parseInt(val, 10)),
+export const ReposicaoEstoqueSchema = z.object({
+  produtoId: z.string().transform((val) => parseInt(val, 10)),
   quantidade: z.string().transform((val) => parseInt(val, 10)),
+  custo: z.string().transform((val) => parseFloat(val.replace(',', '.'))),
 });
