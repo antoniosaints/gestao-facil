@@ -6,6 +6,11 @@ export const produtosAcoes = (row: any) => {
                 <i class="fa-solid fa-eye"></i>
             </button>
             <button
+                onclick="abrirModalReporProdutos('${row.id}')"
+                class="text-primary px-1 py-[2px] rounded">
+                <i class="fa-solid fa-boxes-packing"></i>
+            </button>
+            <button
                 onclick="editarProduto('${row.id}')"
                 class="text-success px-1 py-[2px] rounded">
                 <i class="fa-solid fa-user-pen"></i>

@@ -33,7 +33,15 @@
 </div>
 
 <div id="modal-container-gerar-relatorio-produtos"></div>
-
+<div id="modal-container-reporestoque-produtos"></div>
+<div id="modal-template-reporestoque-produtos" class="hidden">
+  <div
+    class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+    hx-get="/partials/produtos/modais/repor-estoque.html"
+    hx-trigger="load"
+    hx-swap="innerHTML"
+  ></div>
+</div>
 <!-- Template do modal (simulando backend) -->
 <div id="modal-template-gerar-relatorio-produtos" class="hidden">
   <div
@@ -156,7 +164,6 @@
       "modal-container-gerar-relatorio-produtos"
     ).innerHTML = template;
   }
-
   function fecharModalRelatorioProdutos() {
     document.getElementById(
       "modal-container-gerar-relatorio-produtos"

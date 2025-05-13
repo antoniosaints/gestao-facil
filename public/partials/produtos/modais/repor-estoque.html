@@ -1,0 +1,176 @@
+<div class="relative p-4 w-full max-w-2xl">
+    <!-- Modal content -->
+    <div class="relative p-4 bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">
+        <!-- Modal header -->
+        <div class="flex justify-between items-center pb-4 mb-4 rounded-t border-b sm:mb-5 dark:border-gray-600">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                Repor Estoque
+            </h3>
+            <button type="button"
+                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                onclick="fecharModalReporProdutos()">
+                <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        clip-rule="evenodd"></path>
+                </svg>
+                <span class="sr-only">Fechar Modal</span>
+            </button>
+        </div>
+        <!-- Modal body -->
+        <form id="formularioProdutosreposicao">
+            <input type="hidden" name="id" id="id" />
+            <div class="grid gap-4 mb-4 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <label for="produto_reposicao_modal"
+                        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Produto</label>
+                    <input type="text" name="produto" id="produto_reposicao_modal"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                        placeholder="Nome do produto" />
+                </div>
+                <div>
+                    <label for="quantidadeReposicaoEstoque"
+                        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Quantidade</label>
+                    <input type="number" name="quantidade" id="quantidadeReposicaoEstoque"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                        placeholder="Ex. 10" />
+                </div>
+                <div>
+                    <label for="custoReposicaoEstoque"
+                        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Valor</label>
+                    <input type="text" name="custo" id="custoReposicaoEstoque"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                        placeholder="Ex. 99,90" />
+                </div>
+            </div>
+            <div class="flex items-center justify-between space-x-4">
+                <button type="button" onclick="fecharModalReporProdutos()"
+                    class="bg-secondary text-sm dark:bg-secondary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+                    <i class="fa-solid fa-check-to-slot"></i>
+                    Fechar
+                </button>
+                <button type="submit"
+                    class="bg-primary text-sm dark:bg-primary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+                    <i class="fa-solid fa-check-to-slot"></i>
+                    Confirmar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    IMask(document.getElementById('custoReposicaoEstoque'), {
+        mask: Number,
+        scale: 2,
+        signed: false,
+        thousandsSeparator: '',
+        padFractionalZeros: true,
+        normalizeZeros: true,
+        radix: ',', // separador decimal brasileiro
+        mapToRadix: ['.']
+    });
+    function openFormularioreposicaoEstoque() {
+        $("#formularioProdutosreposicao").submit(function (e) {
+            e.preventDefault();
+            const data = {
+                produtoId: $("#formularioProdutosreposicao #id").val(),
+                quantidade: $("#formularioProdutosreposicao #quantidadeReposicaoEstoque").val(),
+                custo: $("#formularioProdutosreposicao #custoReposicaoEstoque").val(),
+            };
+
+            $.ajax({
+                url: `/produtos/reposicao`,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                method: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify(data),
+                beforeSend: function (xhr) {
+                    Swal.fire({
+                        title: 'Carregando...',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                },
+                success: function (data) {
+                    Swal.fire({
+                        title: 'Sucesso!',
+                        text: 'Estoque do produto atualizado!',
+                        icon: 'success',
+                        toast: true,
+                        position: 'bottom-end',
+                        showConfirmButton: false,
+                        timer: 3000,
+                    });
+                    htmx.ajax("GET", "partials/produtos/index.html", {
+                        target: "#content",
+                        swap: "innerHTML",
+                    });
+                },
+                error: function (xhr, status, error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro!',
+                        text: xhr.responseJSON?.message || 'Erro inesperado na requisição',
+                        confirmButtonText: 'Ok'
+                    });
+                }
+            })
+        });
+    }
+
+    function abrirModalReporProdutos(id) {
+        if (id) {
+            $.ajax({
+                url: `/produtos/${id}`,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                method: 'GET',
+                dataType: 'json',
+                beforeSend: function (xhr) {
+                    Swal.fire({
+                        title: 'Carregando...',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                },
+                success: function ({ data }) {
+                    Swal.close();
+                    const template = document.getElementById(
+                        "modal-template-reporestoque-produtos"
+                    ).innerHTML;
+                    document.getElementById("modal-container-reporestoque-produtos").innerHTML =
+                        template;
+                    $("#formularioProdutosreposicao #produto_reposicao_modal").val(data.nome).prop("disabled", true);
+                    $("#formularioProdutosreposicao #id").val(data.id);
+                    openFormularioreposicaoEstoque();
+                },
+                error: function (error) {
+                    console.log(error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro ao carregar produto',
+                        text: 'Ocorreu um erro ao carregar o produto. Por favor, tente novamente mais tarde.',
+                    });
+                }
+            })
+        }
+    }
+    function fecharModalReporProdutos() {
+        document.getElementById("modal-container-reporestoque-produtos").innerHTML =
+            "";
+    }
+</script>
