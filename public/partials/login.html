@@ -43,8 +43,8 @@
       success: (response) => {
         console.log(response);
         $("#login-success").text("Login realizado com sucesso!");
-        htmx.ajax("GET", "partials/dashboard.html", {
-          target: "#content",
+        htmx.ajax("GET", "partials/conteudo.html", {
+          target: "body",
           swap: "innerHTML",
         });
         localStorage.setItem("gestao_facil:token", response.data.token);

@@ -79,7 +79,7 @@ export const checkAuth = async (req: Request, res: Response): Promise<any> => {
       return res.status(200).json({
         authenticated: true,
         message: "Token válido",
-        view: "partials/dashboard.html",
+        view: "partials/conteudo.html",
       });
     }
     return res.status(401).json({

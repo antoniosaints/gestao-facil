@@ -8,7 +8,8 @@
   </div>
 
   <!-- Total de Produtos -->
-  <div onclick="loadPage('partials/produtos/index.html')" class="border-border cursor-pointer dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 border">
+  <div onclick="loadPage('partials/produtos/index.html')"
+    class="border-border cursor-pointer dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 border">
     <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-boxes-stacked"></i> Total
       de Produtos</h2>
     <p class="text-3xl font-bold text-blue-600 mt-2">128</p>
@@ -47,15 +48,39 @@
     class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
     <div class="flex justify-between items-center mb-1">
       <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Produtos</h2>
-      <button 
-        onclick="loadPage('partials/produtos/index.html')" 
-        type="button" 
+      <button onclick="loadPage('partials/produtos/index.html')" type="button"
         class="text-primary font-bold py-0 px-2 rounded transition duration-300">
         <i class="fa-solid fa-arrow-up-right-from-square"></i>
       </button>
     </div>
     <div class="overflow-x-auto max-h-96 p-1">
-      <div hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
+      <table class="w-full text-left rounded">
+        <thead class="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
+          <tr>
+            <th class="p-2">#ID</th>
+            <th class="p-2">Produto</th>
+            <th class="p-2">Mínimo</th>
+            <th class="p-2">Estoque</th>
+            <th class="p-2">Valor</th>
+          </tr>
+        </thead>
+        <tbody class="text-gray-700 dark:text-gray-200">
+          <tr class="border-t">
+            <td class="p-2">001</td>
+            <td class="p-2">SSD Kingston 240GB</td>
+            <td class="p-2">2</td>
+            <td class="p-2">1</td>
+            <td class="p-2">R$ 500,00</td>
+          </tr>
+          <tr class="border-t">
+            <td class="p-2">002</td>
+            <td class="p-2">Iphone 14 pro max</td>
+            <td class="p-2">3</td>
+            <td class="p-2">2</td>
+            <td class="p-2">R$ 12.000,00</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
   <div

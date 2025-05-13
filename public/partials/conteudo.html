@@ -1,0 +1,141 @@
+<header
+    class="hidden md:flex items-center justify-between border-border dark:border-border-dark bg-card dark:bg-card-dark text-gray-900 dark:text-gray-100 px-6 py-4 shadow z-20">
+    <div class="text-xl font-bold">
+        <i class="fa-solid fa-chart-pie text-orange-400"></i> Gestão Fácil
+    </div>
+    <div class="flex justify-between gap-2 items-center">
+        Bem-vindo, Admin
+        <img src="./imgs/logo.png" alt="PR" class="rounded-full w-8 h-8 bg-gray-500" />
+    </div>
+</header>
+
+<!-- Botão de abrir menu (mobile) -->
+<button type="button" id="openSidebarBtn"
+    class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary/70 text-white px-2 py-3 rounded-r-xl shadow-lg">
+    ☰
+</button>
+
+<!-- Sidebar -->
+<aside id="sidebar"
+    class="fixed shadow-md top-0 left-0 h-full w-full md:w-64 border border-border dark:border-border-dark bg-card dark:bg-card-dark p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
+    <!-- Botão fechar (mobile) -->
+    <h1 class="text-2xl font-bold text-primary">
+        <i class="fa-solid fa-chart-pie"></i> Gestão Fácil
+    </h1>
+
+    <nav class="flex flex-col space-y-2">
+        <a onclick="loadPage('partials/dashboard.html')"
+            class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+                class="fa-solid fa-chart-simple px-2"></i> Dashboard</a>
+        <a onclick="loadPage('partials/produtos/index.html')"
+            class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+                class="fa-solid fa-boxes-stacked px-2"></i> Produtos</a>
+        <a onclick="loadPage('partials/vendas/modais/cadastro.html')"
+            class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+                class="fa-solid fa-tags px-2"></i> Vendas</a>
+        <a onclick="loadPage('partials/camera/camera.html')"
+            class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+                class="fa-solid fa-paste px-2"></i> Relatórios</a>
+
+        <div class="flex items-center my-6">
+            <div class="flex-grow border-t border-border"></div>
+            <span class="mx-4 text-gray-500 text-xs uppercase">Administração</span>
+            <div class="flex-grow border-t border-border"></div>
+        </div>
+
+        <a onclick="loadPage('partials/administracao/index.html')"
+            class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+            <i class="fa-solid fa-user px-2"></i> Usuários</a>
+
+        <div class="flex items-center my-6">
+            <div class="flex-grow border-t border-border"></div>
+            <span class="mx-4 text-gray-500 text-xs uppercase">Autenticação</span>
+            <div class="flex-grow border-t border-border"></div>
+        </div>
+
+        <a onclick="logOut()"
+            class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+            <i class="fa-solid fa-right-from-bracket px-2"></i> Sair</a>
+    </nav>
+
+    <button onclick="toggleTheme()"
+        class="mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
+        <i class="fa-solid fa-sun" id="icon-sun"></i>
+        <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
+    </button>
+    <div class="flex flex-col gap-2">
+        <button style="display: none;" id="subscribeBtn"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+            <i class="fa-solid fa-bell"></i>
+            Inscrever-se
+        </button>
+        <button style="display: none;" id="unsubscribeBtn"
+            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">
+            <i class="fa-solid fa-ban"></i>
+            Desinscrever
+        </button>
+        <button style="display: none;" id="sendNotificationBtn" hx-post="/send-notification" hx-trigger="click"
+            hx-swap="none" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">
+            <i class="fa-solid fa-paper-plane"></i>
+            Enviar Notificação
+        </button>
+    </div>
+    <button id="closeSidebarBtn"
+        class="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 text-center text-white bg-primary w-3/4 max-w-xs py-2 rounded shadow-lg">
+        <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
+    </button>
+</aside>
+
+<!-- Conteúdo principal -->
+<main id="container-main" class="overflow-y-auto h-screen md:h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
+    <div class="max-w-7xl mx-auto" id="content" hx-trigger="load" hx-get="partials/dashboard.html" hx-swap="innerHTML">
+    </div>
+</main>
+
+
+<script>
+    const sidebar = document.getElementById("sidebar");
+    const openBtn = document.getElementById("openSidebarBtn");
+    const closeBtn = document.getElementById("closeSidebarBtn");
+    const containerMain = document.getElementById("container-main");
+
+    function logOut() {
+        localStorage.removeItem("gestao_facil:token");
+        localStorage.removeItem("gestao_facil:usuario");
+        localStorage.removeItem("gestao_facil:isauth");
+
+        htmx.ajax("GET", "partials/login.html", {
+            target: "body",
+            swap: "innerHTML",
+        });
+    }
+
+    function switchToFullScreen() {
+        containerMain.classList.add("h-screen");
+        containerMain.classList.remove("h-[calc(100vh-5rem)]");
+    }
+    function switchToNormalScreen() {
+        containerMain.classList.remove("h-screen");
+        containerMain.classList.add("h-[calc(100vh-5rem)]");
+    }
+
+    openBtn.addEventListener("click", () => {
+        sidebar.classList.remove("-translate-x-full");
+    });
+
+    closeBtn.addEventListener("click", () => {
+        sidebar.classList.add("-translate-x-full");
+    });
+
+    // Fechar menu ao clicar em qualquer item
+    sidebar.querySelectorAll("a").forEach((item) => {
+        item.addEventListener("click", () => {
+            if (window.innerWidth < 768) {
+                sidebar.classList.add("-translate-x-full");
+            }
+        });
+    });
+</script>
+
+<script src="/notification/client.js" defer></script>
+<script src="/general.js" defer></script>

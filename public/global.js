@@ -10,12 +10,12 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((html) => {
       if (html.authenticated) {
         localStorage.setItem("gestao_facil:isauth", true);
-        htmx.ajax("GET", html.view, { target: "#content", swap: "innerHTML" });
+        htmx.ajax("GET", html.view, { target: "body", swap: "innerHTML" });
       } else {
         localStorage.removeItem("gestao_facil:token");
         localStorage.setItem("gestao_facil:isauth", false);
         htmx.ajax("GET", "partials/login.html", {
-          target: "#content",
+          target: "body",
           swap: "innerHTML",
         });
       }
@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.removeItem("gestao_facil:token");
       localStorage.setItem("gestao_facil:isauth", false);
       htmx.ajax("GET", "partials/login.html", {
-        target: "#content",
+        target: "body",
         swap: "innerHTML",
       });
     });
@@ -45,7 +45,7 @@ function loadPage(pagePath) {
 
   if (!isUnprotected && !isAuthenticated()) {
     htmx.ajax("GET", "partials/login.html", {
-      target: "#content",
+      target: "body",
       swap: "innerHTML",
     });
     return;
