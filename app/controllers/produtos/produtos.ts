@@ -5,6 +5,7 @@ import { ProdutoSchema, ReposicaoEstoqueSchema } from "../../schemas/produtos";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { emailScheduleService } from "../../services/emailScheduleQueueService";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { mapperErrorSchema } from "../../mappers/schemasErros";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
@@ -64,12 +65,12 @@ export const saveProduto = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { data, error } = ProdutoSchema.safeParse(req.body);
+    const { data, error, success } = ProdutoSchema.safeParse(req.body);
     const customData = getCustomRequest(req).customData;
-    if (!data) {
+    if (!success) {
       return res.status(400).json({
         message: "Dados inválidos",
-        data: error.errors,
+        data: mapperErrorSchema(error),
       });
     }
     if (data.id) {
@@ -134,7 +135,7 @@ export const reposicaoProduto = async (
   if (!success) {
     return res.status(400).json({
       message: "Dados inválidos",
-      data: error.format(),
+      data: mapperErrorSchema(error),
     });
   }
   try {
@@ -149,6 +150,7 @@ export const reposicaoProduto = async (
           contaId: customData.contaId,
         },
       });
+      
       if (!movimentacao) {
         throw new Error("Erro ao criar movimentação de estoque");
       }

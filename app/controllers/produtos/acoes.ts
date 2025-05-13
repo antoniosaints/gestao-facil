@@ -7,13 +7,18 @@ export const produtosAcoes = (row: any) => {
             </button>
             <button
                 onclick="abrirModalReporProdutos('${row.id}')"
-                class="text-primary px-1 py-[2px] rounded">
+                class="text-info px-1 py-[2px] rounded">
                 <i class="fa-solid fa-boxes-packing"></i>
             </button>
             <button
                 onclick="editarProduto('${row.id}')"
                 class="text-success px-1 py-[2px] rounded">
                 <i class="fa-solid fa-user-pen"></i>
+            </button>
+            <button
+                onclick="abrirModalRelatorioProdutoReposicao('${row.id}')"
+                class="text-primary px-1 py-[2px] rounded">
+                <i class="fa-solid fa-file-pdf"></i>
             </button>
             <button
                 onclick="excluirProduto('${row.id}')"

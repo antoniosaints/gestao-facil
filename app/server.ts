@@ -5,7 +5,7 @@ import { checkAuth, login, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
 import { deleteProduto, getProduto, reposicaoProduto, saveProduto } from "./controllers/produtos/produtos";
 import { tableUsuarios } from "./controllers/administracao/usuarios";
-import { relatorioProdutos } from "./controllers/produtos/relatorios";
+import { relatorioProdutoMovimentacoes, relatorioProdutos } from "./controllers/produtos/relatorios";
 import { sendNotification, subscribe, unsubscribe } from "./controllers/notifications/push";
 import webRouter from "./routers/web";
 
@@ -25,6 +25,7 @@ app.get("/usuarios", authenticateJWT, tableUsuarios);
 
 // Rotas Produtos
 app.get("/produtos/relatorio", authenticateJWT, relatorioProdutos);
+app.get("/produtos/relatorio/reposicao/:id", authenticateJWT, relatorioProdutoMovimentacoes);
 app.get("/produtos", authenticateJWT, tableProdutos);
 app.get("/produtos/:id", authenticateJWT, getProduto);
 app.post("/produtos/reposicao", authenticateJWT, reposicaoProduto);
