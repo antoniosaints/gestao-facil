@@ -22,7 +22,8 @@ export const relatorioProdutos = async (
   if (!conta) {
     return res.status(404).json({
       status: 404,
-      message: "Erro na operação, faça login novamente e tente gerar outro relatório",
+      message:
+        "Erro na operação, faça login novamente e tente gerar outro relatório",
       data: null,
     });
   }
@@ -60,9 +61,14 @@ export const relatorioProdutos = async (
   doc
     .font("Roboto")
     .fontSize(10)
-    .text(`E-mail: ${conta.email} | Categoria: ${conta.categoria || "Sem categoria"}`, {
-      align: "center",
-    });
+    .text(
+      `E-mail: ${conta.email} | Categoria: ${
+        conta.categoria || "Sem categoria"
+      }`,
+      {
+        align: "center",
+      }
+    );
   doc.text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, {
     align: "center",
   });
@@ -126,7 +132,7 @@ export const relatorioProdutoMovimentacoes = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const orderBy = req.query.orderBy as any || "asc";
+  const orderBy = (req.query.orderBy as any) || "asc";
   const movimentos = await prisma.movimentacoesEstoque.findMany({
     where: {
       produtoId: parseInt(req.params.id),
@@ -140,8 +146,8 @@ export const relatorioProdutoMovimentacoes = async (
           nome: true,
           preco: true,
         },
-      }
-    }
+      },
+    },
   });
 
   if (movimentos.length === 0) {
@@ -163,7 +169,8 @@ export const relatorioProdutoMovimentacoes = async (
   if (!conta) {
     return res.status(404).json({
       status: 404,
-      message: "Erro na operação, faça login novamente e tente gerar outro relatório",
+      message:
+        "Erro na operação, faça login novamente e tente gerar outro relatório",
       data: null,
     });
   }
@@ -197,13 +204,20 @@ export const relatorioProdutoMovimentacoes = async (
   doc
     .font("Roboto-Bold")
     .fontSize(18)
-    .text(`Relatório de Reposição - ${movimentos[0].Produto.nome}`, { align: "center" });
+    .text(`Relatório de Reposição - ${movimentos[0].Produto.nome}`, {
+      align: "center",
+    });
   doc
     .font("Roboto")
     .fontSize(10)
-    .text(`E-mail: ${conta.email} | Categoria: ${conta.categoria || "Sem categoria"}`, {
-      align: "center",
-    });
+    .text(
+      `E-mail: ${conta.email} | Categoria: ${
+        conta.categoria || "Sem categoria"
+      }`,
+      {
+        align: "center",
+      }
+    );
   doc.text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, {
     align: "center",
   });
@@ -212,7 +226,15 @@ export const relatorioProdutoMovimentacoes = async (
   // Configuração da Tabela
   const tableTop = doc.y;
   const rowHeight = 20;
-  const colX = { id: 30, notaFiscal: 60, status: 180, data: 260, preco: 360, estoque: 460, total: 510 };
+  const colX = {
+    id: 30,
+    notaFiscal: 60,
+    status: 180,
+    data: 260,
+    preco: 360,
+    estoque: 460,
+    total: 510,
+  };
 
   // Títulos
   doc
@@ -264,6 +286,16 @@ export const relatorioProdutoMovimentacoes = async (
 
     y = linhaInferior + 5;
   });
+
+  // Total Geral
+  const totalGeral = movimentos.reduce(
+    (acc, p) => acc.plus(new Decimal(p.custo).times(p.quantidade)),
+    new Decimal(0)
+  );
+  doc
+    .font("Roboto-Bold")
+    .text("Total Geral", colX.estoque, y + 5)
+    .text(`${formatarValorMonetario(totalGeral)}`, colX.total, y + 5);
 
   doc.end();
 };

@@ -1,5 +1,6 @@
 <div class="h-full flex items-center justify-center">
-    <div class="h-full border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full max-w-7xl">
+    <div
+        class="h-full border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full max-w-7xl">
         <h2 class="text-2xl font-bold mb-4 dark:text-white" id="titulo_detalhes_produto">Detalhes do Produto</h2>
 
         <div class="grid grid-cols-2 gap-4 text-sm dark:text-white">
@@ -40,7 +41,12 @@
                 class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-backward"></i> Voltar
             </button>
-            <button onclick="editarProduto()" class="bg-primary-dark text-sm text-white px-3 py-1.5 rounded-md">
+            <button onclick="abrirModalRelatorioProdutoReposicao(localStorage.getItem('produtoId'))"
+                class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-file-pdf"></i>
+                Relatório
+            </button>
+            <button onclick="editarProduto()" class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-pen-to-square"></i>
                 Editar
             </button>
