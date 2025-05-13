@@ -149,15 +149,27 @@
     });
   }
   function abrirModalRelatorioProdutos() {
-    const template = document.getElementById("modal-template-gerar-relatorio-produtos").innerHTML;
-    document.getElementById("modal-container-gerar-relatorio-produtos").innerHTML = template;
+    const template = document.getElementById(
+      "modal-template-gerar-relatorio-produtos"
+    ).innerHTML;
+    document.getElementById(
+      "modal-container-gerar-relatorio-produtos"
+    ).innerHTML = template;
   }
 
   function fecharModalRelatorioProdutos() {
-    document.getElementById("modal-container-gerar-relatorio-produtos").innerHTML = "";
+    document.getElementById(
+      "modal-container-gerar-relatorio-produtos"
+    ).innerHTML = "";
   }
   function baixarRelatorioProduto() {
-    fetch("/produtos/relatorio")
+    fetch("/produtos/relatorio", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/pdf",
+        Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+      },
+    })
       .then((response) => response.blob())
       .then((blob) => {
         fecharModalRelatorioProdutos();

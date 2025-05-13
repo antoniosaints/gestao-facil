@@ -24,7 +24,7 @@ app.get("/auth/verify", verify);
 app.get("/usuarios", authenticateJWT, tableUsuarios);
 
 // Rotas Produtos
-app.get("/produtos/relatorio", relatorioProdutos);
+app.get("/produtos/relatorio", authenticateJWT, relatorioProdutos);
 app.get("/produtos", authenticateJWT, tableProdutos);
 app.get("/produtos/:id", authenticateJWT, getProduto);
 app.post("/produtos/reposicao", authenticateJWT, reposicaoProduto);

@@ -23,7 +23,7 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
 
   const existingSub = await reg.pushManager.getSubscription();
   const applicationServerKey = urlBase64ToUint8Array(
-    "BEQRxekZokzVYtNdq88muo8enqeOaFaOSJEosTwhSbdZkOlTGvTwk1MzgWPPxg-zeYSZ-mOmXIVHExDa__HUtTg"
+    "BEvOYxnUgVFlu2FKPdGZ29LqI3oq98V36gXqETlmaVFVxDsjKx16cSxVt_sl5SPl8SMo_183GjPIUQAXYWv7Rsk"
   );
 
   let subscription = existingSub; // Verifica se a chave atual é diferente da usada na inscrição antiga

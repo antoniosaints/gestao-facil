@@ -2,14 +2,30 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import PDFDocument from "pdfkit";
 import dayjs from "dayjs";
-import { formatarValorMonetario, formatCurrency } from "../../utils/formatters";
+import { formatarValorMonetario } from "../../utils/formatters";
 import Decimal from "decimal.js";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
 
 export const relatorioProdutos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const produtos = await prisma.produto.findMany();
+  const customData = getCustomRequest(req).customData;
+
+  const conta = await prisma.contas.findUnique({
+    where: {
+      id: customData.contaId,
+    },
+  });
+
+  if (!conta) {
+    return res.status(404).json({
+      status: 404,
+      message: "Erro na operação, faça login novamente e tente gerar outro relatório",
+      data: null,
+    });
+  }
 
   const doc = new PDFDocument({
     margin: 50,
@@ -40,11 +56,11 @@ export const relatorioProdutos = async (
   doc
     .font("Roboto-Bold")
     .fontSize(18)
-    .text("Relatório de Produtos - Gestão Fácil", { align: "center" });
+    .text(`Relatório de Produtos - ${conta.nome}`, { align: "center" });
   doc
     .font("Roboto")
     .fontSize(10)
-    .text("E-mail: contato@empresa.com | Telefone: (11) 99999-9999", {
+    .text(`E-mail: ${conta.email} | Categoria: ${conta.categoria || "Sem categoria"}`, {
       align: "center",
     });
   doc.text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, {
