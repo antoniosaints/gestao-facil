@@ -12,6 +12,9 @@ webRouter.get("/resumos", authenticateJWT, (req, res): any => {
 webRouter.get("/produtos/resumo", authenticateJWT, (req, res) => {
   res.sendFile("partials/produtos/index.html", { root: "public" });
 });
+webRouter.get("/vendas/resumo", authenticateJWT, (req, res) => {
+  res.sendFile("partials/vendas/index.html", { root: "public" });
+});
 webRouter.get("/login", (req, res) => {
   res.sendFile("partials/login.html", { root: "public" });
 });

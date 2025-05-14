@@ -10,22 +10,15 @@
       </button>
       <button onclick="salvarProduto()"
         class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
-        <i class="fa-solid fa-circle-plus"></i> Novo Produto
+        <i class="fa-solid fa-circle-plus"></i> Nova venda
       </button>
     </div>
   </div>
   <div
     class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
+    hx-get="/partials/vendas/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
   <div class="overflow-x-auto block md:hidden rounded-lg"
-    hx-get="/partials/produtos/mobile.html" hx-trigger="load" hx-swap="innerHTML"></div>
-</div>
-
-
-<div id="modal-container-reporestoque-produtos"></div>
-<div id="modal-template-reporestoque-produtos" class="hidden">
-  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-  hx-get="/partials/produtos/modais/repor-estoque.html" hx-trigger="load" hx-swap="innerHTML"></div>
+    hx-get="/partials/vendas/mobile.html" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 <script>

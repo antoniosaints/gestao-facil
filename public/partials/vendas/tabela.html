@@ -1,4 +1,4 @@
-<table id="tabela_produtos_listagem_principal" class="display">
+<table id="tabela_vendas_listagem_principal" class="display">
     <thead>
         <tr>
             <th>ID</th>
@@ -12,7 +12,7 @@
 </table>
 
 <script>
-    new DataTable("#tabela_produtos_listagem_principal", {
+    new DataTable("#tabela_vendas_listagem_principal", {
         language: {
             url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json",
         },
@@ -21,7 +21,7 @@
         stateSave: true,
         ajax: {
             type: "GET",
-            url: `/produtos`,
+            url: `/vendas`,
             beforeSend: function (xhr) {
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {

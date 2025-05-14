@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express from "express";
 import cors from "cors";
 import { tableProdutos } from "./controllers/produtos/table";
 import { checkAuth, login, verify } from "./controllers/auth/login";
@@ -21,6 +21,7 @@ import {
 } from "./controllers/notifications/push";
 import webRouter from "./routers/web";
 import path from "node:path";
+import { tableVendas } from "./controllers/vendas/table";
 
 const app = express();
 
@@ -50,6 +51,9 @@ app.get("/produtos/:id", authenticateJWT, getProduto);
 app.post("/produtos/reposicao", authenticateJWT, reposicaoProduto);
 app.post("/produtos", authenticateJWT, saveProduto);
 app.delete("/produtos/:id", authenticateJWT, deleteProduto);
+
+//  Rotas Vendas
+app.get("/vendas", authenticateJWT, tableVendas);
 
 // Rotas Push
 app.post("/subscribe", authenticateJWT, subscribe);

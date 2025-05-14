@@ -10,13 +10,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <link rel="apple-touch-icon" href="/imgs/logo.png" />
-  <link rel="stylesheet" href="./css/swalert.css" />
-  <link rel="stylesheet" href="./css/styles.css" />
-  <link rel="shortcut icon" href="./imgs/logo.png" type="image/png" />
-  <script src="js/fontawesome.js"></script>
-  <script src="js/tailwind.min.js"></script>
-  <script src="js/jquery.js"></script>
-  <script src="js/swalert.js"></script>
+  <link rel="stylesheet" href="/css/swalert.css" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="shortcut icon" href="/imgs/logo.png" type="image/png" />
+  <script src="js/pluguins/fontawesome.js"></script>
+  <script src="js/pluguins/tailwind.min.js"></script>
+  <script src="js/pluguins/jquery.js"></script>
+  <script src="js/pluguins/swalert.js"></script>
   <script src="tailwind.js"></script>
 </head>
 
@@ -49,38 +49,39 @@
       </form>
     </div>
   </div>
+
+  <script>
+    $("#login_formulario_sistema").off("submit").on("submit", (event) => {
+      event.preventDefault();
+      $.ajax({
+        url: `/login`,
+        method: "POST",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+          email: $("#email").val(),
+          senha: $("#senha").val(),
+        }),
+        beforeSend: function (xhr) {
+          $("#login-feedback").text("");
+        },
+        success: (response) => {
+          console.log(response);
+          $("#login-success").text("Login realizado com sucesso!");
+          window.location.href = "/";
+          localStorage.setItem("gestao_facil:token", response.data.token);
+          localStorage.setItem("gestao_facil:usuario", response.data.id);
+          localStorage.setItem("gestao_facil:isauth", true);
+        },
+        error: (xhr) => {
+          $("#login-feedback").text(
+            xhr.responseJSON?.message || "Erro inesperado na requisição"
+          );
+        },
+      });
+    });
+
+  </script>
 </body>
 
 </html>
-
-<script>
-  $("#login_formulario_sistema").off("submit").on("submit", (event) => {
-    event.preventDefault();
-    $.ajax({
-      url: `/login`,
-      method: "POST",
-      contentType: "application/json",
-      dataType: "json",
-      data: JSON.stringify({
-        email: $("#email").val(),
-        senha: $("#senha").val(),
-      }),
-      beforeSend: function (xhr) {
-        $("#login-feedback").text("");
-      },
-      success: (response) => {
-        console.log(response);
-        $("#login-success").text("Login realizado com sucesso!");
-        window.location.href = "/";
-        localStorage.setItem("gestao_facil:token", response.data.token);
-        localStorage.setItem("gestao_facil:usuario", response.data.id);
-        localStorage.setItem("gestao_facil:isauth", true);
-      },
-      error: (xhr) => {
-        $("#login-feedback").text(
-          xhr.responseJSON?.message || "Erro inesperado na requisição"
-        );
-      },
-    });
-  });
-</script>
