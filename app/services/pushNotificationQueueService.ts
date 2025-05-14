@@ -13,11 +13,12 @@ export async function canReceivePush(userId: number): Promise<boolean> {
   return usuario.pushReceiver!;
 }
 
-export async function enqueuePushNotification(payload: NotificationPayload) {
+export async function enqueuePushNotification(payload: NotificationPayload, contaId: number) {
   const subscriptions = await prisma.subscription.findMany({
     where: {
       Usuarios: {
         pushReceiver: true,
+        contaId: contaId
       }
     }
   });

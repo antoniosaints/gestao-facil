@@ -31,6 +31,7 @@ export const deleteProduto = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
+    const customData = getCustomRequest(req).customData;
     const produto = await prisma.produto.delete({
       where: {
         id: Number(id),
@@ -50,7 +51,7 @@ export const deleteProduto = async (
     await enqueuePushNotification({
       title: "Produto deletado",
       body: `O produto ${produto.nome} foi deletado.`,
-    });
+    }, customData.contaId);
 
     return res.status(200).json({
       message: "Produto deletado com sucesso",
@@ -94,8 +95,8 @@ export const saveProduto = async (
 
       await enqueuePushNotification({
         title: "Atualização de produto",
-        body: `O produto ${data.nome} foi atualizado.`,
-      });
+        body: `O produto ${data.nome} foi atualizado, Qtd: ${data.estoque}.`,
+      }, customData.contaId);
     } else {
       await prisma.produto.create({
         data: {
@@ -114,8 +115,8 @@ export const saveProduto = async (
       });
       await enqueuePushNotification({
         title: "Cadastro de produto",
-        body: `O produto ${data.nome} foi cadastrado no sistema.`,
-      });
+        body: `O produto ${data.nome} foi cadastrado no sistema, Qtd: ${data.estoque}.`,
+      }, customData.contaId);
     }
 
     return res.status(201).json({

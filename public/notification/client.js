@@ -49,13 +49,12 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
   window.localStorage.setItem("pushEndpoint", subscription.endpoint);
 
   try {
-    const tokenJWT = localStorage.getItem("gestao_facil:token");
     const data = await fetch("/subscribe", {
       method: "POST",
       body: JSON.stringify(subscription),
       headers: { 
         "Content-Type": "application/json", 
-        "Authorization": `Bearer ${tokenJWT}`
+        "Authorization": `Bearer ${localStorage.getItem("gestao_facil:token")}`
       },
     });
 
@@ -124,7 +123,10 @@ document
     const data = await fetch("/unsubscribe", {
       method: "POST",
       body: JSON.stringify({ endpoint }),
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${localStorage.getItem("gestao_facil:token")}`
+      },
     });
 
     const res = await data.json();
@@ -144,6 +146,35 @@ document
     document.getElementById("subscribeBtn").style.display = "block";
     document.getElementById("unsubscribeBtn").style.display = "none";
     document.getElementById("sendNotificationBtn").style.display = "none";
+  });
+document
+  .getElementById("sendNotificationBtn")
+  .addEventListener("click", async () => {
+    const reg = await navigator.serviceWorker.ready;
+    const subscription = await reg.pushManager.getSubscription();
+
+    if (!subscription) {
+      Swal.fire({
+        icon: "error",
+        title: "Erro",
+        text: "Você não está inscrito para enviar notificações.",	
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 3000,
+      });
+      return;
+    }
+
+    await fetch("/send-notification", {
+      method: "POST",
+      body: JSON.stringify({}),
+      headers: { 
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${localStorage.getItem("gestao_facil:token")}`
+      },
+    });
+
   });
 
 function urlBase64ToUint8Array(base64String) {

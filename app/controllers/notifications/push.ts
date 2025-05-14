@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import webPush, { PushSubscription } from "web-push";
 import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
-import { CustomRequest } from "../../middlewares/auth";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
 
 webPush.setVapidDetails(
   "mailto:costaantonio883@gmail.com",
@@ -38,10 +38,11 @@ export const unsubscribe = async (
   }
 };
 
-export const subscribe = async (req: CustomRequest, res: Response): Promise<any> => {
+export const subscribe = async (req: Request, res: Response): Promise<any> => {
   try {
     const subscription: PushSubscription = req.body;
-    const idUser = req.customData?.userId;
+    const customData = getCustomRequest(req).customData;
+    const idUser = customData.userId;
 
     if (!idUser) {
       return res.status(400).json({ message: "ID do usuário é obrigatório." });
@@ -82,8 +83,16 @@ export const subscribe = async (req: CustomRequest, res: Response): Promise<any>
 };
 
 export const sendNotification = async (req: Request, res: Response) => {
+  const customData = getCustomRequest(req).customData;
   // Recupera todas as inscrições salvas no banco com Prisma
-  const subscriptions = await prisma.subscription.findMany();
+  const subscriptions = await prisma.subscription.findMany({
+    where: {
+      Usuarios: {
+        pushReceiver: true,
+        contaId: customData.contaId,
+      },
+    },
+  });
 
   const payload = JSON.stringify({
     title: "Estoque Atualizado",

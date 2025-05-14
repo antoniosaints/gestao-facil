@@ -57,7 +57,7 @@ app.get("/vendas", authenticateJWT, tableVendas);
 
 // Rotas Push
 app.post("/subscribe", authenticateJWT, subscribe);
-app.post("/unsubscribe", unsubscribe);
-app.post("/send-notification", sendNotification);
+app.post("/unsubscribe", authenticateJWT, unsubscribe);
+app.post("/send-notification", authenticateJWT, sendNotification);
 
 app.listen(3000, () => console.log("Rodando na porta 3000"));
