@@ -140,8 +140,8 @@ export const reposicaoProduto = async (
     });
   }
   try {
-    const entrada = await prisma.$transaction(async (prisma) => {
-      const movimentacao = await prisma.movimentacoesEstoque.create({
+    const entrada = await prisma.$transaction(async (tx) => {
+      const movimentacao = await tx.movimentacoesEstoque.create({
         data: {
           produtoId: data.produtoId,
           tipo: "ENTRADA",
@@ -150,25 +150,36 @@ export const reposicaoProduto = async (
           custo: data.custo,
           contaId: customData.contaId,
         },
+        include: {
+          Produto: {
+            select: {
+              nome: true,
+            }
+          }
+        }
       });
-      
-      if (!movimentacao) {
-        throw new Error("Erro ao criar movimentação de estoque");
-      }
 
-      await prisma.produto.update({
-        where: { id: data.produtoId },
+      await tx.produto.update({
+        where: { id: data.produtoId, entradas: true },
         data: { estoque: { increment: data.quantidade } },
       });
 
       return movimentacao;
     });
 
+    await enqueuePushNotification({
+      title: "Reposição de produto",
+      body: `O produto ${entrada.Produto.nome} foi reposto com: ${data.quantidade} unidades.`,
+    }, customData.contaId);
+
     res.status(201).json({
       message: "Reposição de produto realizada com sucesso",
       data: entrada,
     });
   } catch (error) {
-    handleError(res, error);
+    res.status(500).json({
+      message: "Erro ao realizar reposição, verifique as permissões de entrada do produto",
+      data: error,
+    });
   }
 };

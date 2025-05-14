@@ -229,10 +229,11 @@ export const relatorioProdutoMovimentacoes = async (
   const colX = {
     id: 30,
     notaFiscal: 60,
-    status: 180,
-    data: 260,
+    status: 160,
+    tipo: 230,
+    data: 290,
     preco: 360,
-    estoque: 460,
+    estoque: 440,
     total: 510,
   };
 
@@ -242,6 +243,7 @@ export const relatorioProdutoMovimentacoes = async (
     .text("Id", colX.id, tableTop, {})
     .text("Nota Fiscal", colX.notaFiscal, tableTop)
     .text("Status", colX.status, tableTop)
+    .text("Tipo", colX.tipo, tableTop)
     .text("Data", colX.data, tableTop)
     .text("Preço (R$)", colX.preco, tableTop)
     .text("Qtd.", colX.estoque, tableTop)
@@ -271,6 +273,7 @@ export const relatorioProdutoMovimentacoes = async (
     doc
       .text(`# ${p.id.toString()}`, colX.id, nomeY)
       .text(p.status, colX.status, nomeY)
+      .text(p.tipo, colX.tipo, nomeY)
       .text(dayjs(p.data).format("DD/MM/YYYY"), colX.data, nomeY)
       .text(`${formatarValorMonetario(valorUnitario)}`, colX.preco, nomeY)
       .text(p.quantidade.toString(), colX.estoque, nomeY)
@@ -287,15 +290,85 @@ export const relatorioProdutoMovimentacoes = async (
     y = linhaInferior + 5;
   });
 
+  // Total Entradas
+  const totalEntradas = movimentos
+    .filter((p) => p.tipo === "ENTRADA")
+    .reduce(
+      (acc, p) => acc.plus(new Decimal(p.custo).times(p.quantidade)),
+      new Decimal(0)
+    );
+  const totalQuantidadeEntradas = movimentos
+    .filter((p) => p.tipo === "ENTRADA")
+    .reduce((acc, p) => acc.plus(p.quantidade), new Decimal(0));
+
+  doc
+    .font("Roboto-Bold")
+    .text("Total Entradas", colX.preco, y + 5)
+    .text(`${totalQuantidadeEntradas}`, colX.estoque, y + 5)
+    .text(`${formatarValorMonetario(totalEntradas)}`, colX.total, y + 5);
+
+  doc
+    .moveTo(colX.preco, y + 17)
+    .lineTo(580, y + 17)
+    .strokeColor("#ccc")
+    .stroke();
+
+  // Total Saídas
+  const totalSaidas = movimentos
+    .filter((p) => p.tipo === "SAIDA")
+    .reduce(
+      (acc, p) => acc.plus(new Decimal(p.custo).times(p.quantidade)),
+      new Decimal(0)
+    );
+
+  const totalQuantidadeSaidas = movimentos
+    .filter((p) => p.tipo === "SAIDA")
+    .reduce((acc, p) => acc.plus(p.quantidade), new Decimal(0));
+  doc
+    .font("Roboto-Bold")
+    .text("Total Saídas", colX.preco, y + 25)
+    .text(`${totalQuantidadeSaidas}`, colX.estoque, y + 25)
+    .text(`${formatarValorMonetario(totalSaidas)}`, colX.total, y + 25);
+
+  doc
+    .moveTo(colX.preco, y + 37)
+    .lineTo(580, y + 37)
+    .strokeColor("#ccc")
+    .stroke();
+
   // Total Geral
   const totalGeral = movimentos.reduce(
     (acc, p) => acc.plus(new Decimal(p.custo).times(p.quantidade)),
     new Decimal(0)
   );
+  const totalQuantidadeGeral = movimentos.reduce(
+    (acc, p) => acc.plus(p.quantidade),
+    new Decimal(0)
+  );
   doc
     .font("Roboto-Bold")
-    .text("Total Geral", colX.estoque, y + 5)
-    .text(`${formatarValorMonetario(totalGeral)}`, colX.total, y + 5);
+    .text("Total Geral", colX.preco, y + 45)
+    .text(`${totalQuantidadeGeral}`, colX.estoque, y + 45)
+    .text(`${formatarValorMonetario(totalGeral)}`, colX.total, y + 45);
+
+  doc
+    .moveTo(colX.preco, y + 57)
+    .lineTo(580, y + 57)
+    .strokeColor("#ccc")
+    .stroke();
+
+  // Lucro Líquido
+  const lucroLiquido = totalSaidas.minus(totalEntradas);
+  doc
+    .font("Roboto-Bold")
+    .text("Lucro Líquido", colX.estoque, y + 65)
+    .text(`${formatarValorMonetario(lucroLiquido)}`, colX.total, y + 65);
+
+  doc
+    .moveTo(colX.estoque, y + 77)
+    .lineTo(580, y + 77)
+    .strokeColor("#ccc")
+    .stroke();
 
   doc.end();
 };

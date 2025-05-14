@@ -106,16 +106,20 @@
                         showConfirmButton: false,
                         timer: 3000,
                     });
-                    htmx.ajax("GET", "partials/produtos/index.html", {
-                        target: "#content",
-                        swap: "innerHTML",
-                    });
+                    if (typeof reloadTabelaProdutos === "function") {
+                        reloadTabelaProdutos();
+                    }
+                    if (typeof getProdutosListagem === "function") {
+                        getProdutosListagem();
+                    }
+                    fecharModalReporProdutos();
                 },
                 error: function (xhr, status, error) {
+                    Swal.close();
                     Swal.fire({
                         icon: 'error',
                         title: 'Erro!',
-                        text: xhr.responseJSON?.data[0]?.message || 'Erro inesperado na requisição',
+                        text: xhr.responseJSON?.message || 'Erro inesperado na requisição',
                         confirmButtonText: 'Ok'
                     });
                 }

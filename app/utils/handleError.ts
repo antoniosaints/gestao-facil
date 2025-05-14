@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Response } from "express";
 import { prismaErrorMap } from "../mappers/prismaErros";
+import { ZodError } from "zod";
 
 export function handleError(res: Response, error: unknown): void {
   let status = 500;
@@ -24,6 +25,14 @@ export function handleError(res: Response, error: unknown): void {
     message = error.message;
   } else if (error instanceof Error) {
     message = error.message;
+  } else if (error instanceof ZodError) {
+    message = error.issues
+      .map((error) => {
+        return {
+          message: error.message,
+        };
+      })
+      .join(", ");
   }
 
   res.status(status).json({ title, message });
