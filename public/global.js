@@ -9,50 +9,37 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((res) => res.json())
     .then((html) => {
       if (html.authenticated) {
-        localStorage.setItem("gestao_facil:isauth", true);
         htmx.ajax("GET", html.view, { target: "#content", swap: "innerHTML" });
       } else {
         localStorage.removeItem("gestao_facil:token");
-        localStorage.setItem("gestao_facil:isauth", false);
-        htmx.ajax("GET", "partials/login.html", {
-          target: "#content",
-          swap: "innerHTML",
-        });
+        window.location.href = "/login";
       }
     })
     .catch(() => {
       localStorage.removeItem("gestao_facil:token");
-      localStorage.setItem("gestao_facil:isauth", false);
-      htmx.ajax("GET", "partials/login.html", {
-        target: "#content",
-        swap: "innerHTML",
-      });
+      window.location.href = "/login";
     });
 });
 
-function isAuthenticated() {
-  const token = localStorage.getItem("gestao_facil:isauth");
-  return token === "true"; // simples, pode evoluir com verificação de expiração
-}
-
-const unprotectedPages = [
-  "partials/login.html",
-  "partials/recuperar-senha.html",
-];
-
 function loadPage(pagePath) {
-  const isUnprotected = unprotectedPages.includes(pagePath);
-
-  if (!isUnprotected && !isAuthenticated()) {
-    htmx.ajax("GET", "partials/login.html", {
+  htmx
+    .ajax("GET", pagePath, {
       target: "#content",
       swap: "innerHTML",
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+      },
+    })
+    .catch((error) => {
+      console.error("Request failed:", error);
     });
-    return;
-  }
 
-  htmx.ajax("GET", pagePath, {
-    target: "#content",
-    swap: "innerHTML",
+  htmx.on("htmx:responseError", (e) => {
+    console.error("HTMX response error:", e.detail.xhr);
+    if (e.detail.xhr.status === 401) {
+      localStorage.removeItem("gestao_facil:token");
+      localStorage.setItem("gestao_facil:isauth", false);
+      window.location.href = "/login";
+    }
   });
 }

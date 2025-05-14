@@ -60,10 +60,10 @@
     </h1>
 
     <nav class="flex flex-col space-y-2">
-      <a onclick="loadPage('partials/dashboard.html')"
+      <a onclick="loadPage('/resumos')"
         class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-chart-simple px-2"></i> Dashboard</a>
-      <a onclick="loadPage('partials/produtos/index.html')"
+      <a onclick="loadPage('/produtos/resumo')"
         class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
           class="fa-solid fa-boxes-stacked px-2"></i> Produtos</a>
       <a onclick="loadPage('partials/vendas/modais/cadastro.html')"
@@ -89,9 +89,8 @@
         <div class="flex-grow border-t border-border"></div>
       </div>
 
-      <a onclick="loadPage('partials/login.html')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-key px-2"></i> Login</a>
+      <a onclick="logOut()"
+        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i class="fa-solid fa-right-from-bracket px-2"></i> Sair</a>
     </nav>
 
     <button onclick="toggleTheme()"
@@ -126,13 +125,19 @@
   <main id="container-main" class="overflow-y-auto h-screen md:h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
     <div class="max-w-7xl mx-auto" id="content"></div>
   </main>
-  
+
 
   <script>
     const sidebar = document.getElementById("sidebar");
     const openBtn = document.getElementById("openSidebarBtn");
     const closeBtn = document.getElementById("closeSidebarBtn");
     const containerMain = document.getElementById("container-main");
+
+    function logOut() {
+      localStorage.removeItem("gestao_facil:token");
+      localStorage.setItem("gestao_facil:isauth", false);
+      window.location.href = "/login";
+    }
 
     function switchToFullScreen() {
       containerMain.classList.add("h-screen");
