@@ -75,7 +75,7 @@ export const saveProduto = async (
       });
     }
     if (data.id) {
-      await prisma.produto.update({
+      const produto = await prisma.produto.update({
         where: {
           id: data.id,
         },
@@ -94,7 +94,7 @@ export const saveProduto = async (
 
       await enqueuePushNotification({
         title: "Atualização de produto",
-        body: `O produto ${data.nome} foi atualizado, Qtd: ${data.estoque}.`,
+        body: `O produto ${produto.nome} foi atualizado, Qtd: ${produto.estoque}.`,
       }, customData.contaId);
     } else {
       await prisma.produto.create({
