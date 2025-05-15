@@ -23,6 +23,7 @@ import {
 import webRouter from "./routers/web";
 import path from "node:path";
 import { tableVendas } from "./controllers/vendas/table";
+import { resumoDashboard } from "./controllers/dashboard/resumo";
 
 const app = express();
 
@@ -40,6 +41,8 @@ app.get("/auth/check", checkAuth);
 app.get("/auth/verify", verify);
 app.get("/usuarios", authenticateJWT, tableUsuarios);
 
+// Rotas Dashboard
+app.get("/dashboard/resumo", authenticateJWT, resumoDashboard);
 // Rotas Produtos
 app.get("/produtos/relatorio", authenticateJWT, relatorioProdutos);
 app.get(
@@ -52,7 +55,7 @@ app.get("/produtos/:id", authenticateJWT, getProduto);
 app.post("/produtos/reposicao", authenticateJWT, reposicaoProduto);
 app.post("/produtos", authenticateJWT, saveProduto);
 app.delete("/produtos/:id", authenticateJWT, deleteProduto);
-app.get("/produtos/:id/etiquetas", gerarEtiquetasProduto);
+app.get("/produtos/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 
 //  Rotas Vendas
 app.get("/vendas", authenticateJWT, tableVendas);

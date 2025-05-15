@@ -6,6 +6,7 @@ import { formatarValorMonetario } from "../../utils/formatters";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { generateBarcodesStream } from "../../services/barcodeService";
+import { ResponseHandler } from "../../utils/response";
 
 export const relatorioProdutos = async (
   req: Request,
@@ -168,12 +169,7 @@ export const relatorioProdutoMovimentacoes = async (
   });
 
   if (!conta) {
-    return res.status(404).json({
-      status: 404,
-      message:
-        "Erro na operação, faça login novamente e tente gerar outro relatório",
-      data: null,
-    });
+    return ResponseHandler(res, "Erro na operação, faça login novamente e tente gerar outro relatório", null, 500);
   }
 
   const doc = new PDFDocument({
@@ -379,7 +375,7 @@ export const gerarEtiquetasProduto = async (req: Request, res: Response): Promis
   const quantidade = Number(req.query.quantidade) || undefined;
 
   if (isNaN(productId)) {
-    return res.status(400).json({ error: "ID inválido" });
+    return ResponseHandler(res, "ID inválido", null, 400);
   }
 
   try {

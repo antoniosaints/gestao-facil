@@ -1,5 +1,24 @@
 import { z } from "zod";
 
+const intNumberFormatter = (message: string) =>
+  z
+    .string({
+      invalid_type_error: message,
+    })
+    .nullable()
+    .transform((val) => {
+      if (!val || val.trim() === "") return null;
+
+      const num = Number(val);
+      return isNaN(num) ? null : num;
+    });
+const moneyFormatter = (message: string) =>
+  z
+    .string({
+      invalid_type_error: message,
+    })
+    .transform((val) => (val ? parseFloat(val.replace(",", ".")) : undefined));
+
 export const ProdutoSchema = z.object({
   id: z
     .string()
@@ -106,40 +125,17 @@ export const ReposicaoEstoqueSchema = z.object({
     .transform((val) => parseInt(val, 10)),
   custo: z
     .string({
-      required_error: "custo é obrigatório",
       invalid_type_error: "custo deve ser uma string",
-    })
-    .min(1, {
-      message: "custo deve ter pelo menos 1 caractere",
     })
     .transform((val) => parseFloat(val.replace(",", "."))),
-  desconto: z
-    .string({
-      invalid_type_error: "custo deve ser uma string",
-    })
-    .optional()
-    .transform((val) => (val ? parseFloat(val.replace(",", ".")) : undefined)),
-  frete: z
-    .string({
-      invalid_type_error: "custo deve ser uma string",
-    })
-    .optional()
-    .transform((val) => (val ? parseFloat(val.replace(",", ".")) : undefined)),
+  desconto: moneyFormatter("desconto deve ser uma string").optional(),
+  frete: moneyFormatter("frete deve ser uma string").optional(),
   notaFiscal: z
     .string({
       invalid_type_error: "notaFiscal deve ser uma string",
     })
-    .optional(),
-  fornecedor: z
-    .string({
-      invalid_type_error: "fornecedor deve ser uma string",
-    })
-    .optional()
     .nullable()
-    .transform((val) => {
-      if (!val || val.trim() === "") return null;
-
-      const num = Number(val);
-      return isNaN(num) ? null : num;
-    }),
+    .transform((val) => (val ? val : null))
+    .optional(),
+  fornecedor: intNumberFormatter("fornecedor deve ser uma string").optional(),
 });

@@ -6,6 +6,7 @@ import { enqueuePushNotification } from "../../services/pushNotificationQueueSer
 import { emailScheduleService } from "../../services/emailScheduleQueueService";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { mapperErrorSchema } from "../../mappers/schemasErros";
+import { ResponseHandler } from "../../utils/response";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
@@ -53,10 +54,7 @@ export const deleteProduto = async (
       body: `O produto ${produto.nome} foi deletado.`,
     }, customData.contaId);
 
-    return res.status(200).json({
-      message: "Produto deletado com sucesso",
-      data: produto,
-    });
+    return ResponseHandler(res, "Produto deletado com sucesso", produto);
   } catch (error) {
     handleError(res, error);
   }
@@ -69,10 +67,7 @@ export const saveProduto = async (
     const { data, error, success } = ProdutoSchema.safeParse(req.body);
     const customData = getCustomRequest(req).customData;
     if (!success) {
-      return res.status(400).json({
-        message: "Dados inválidos",
-        data: mapperErrorSchema(error),
-      });
+      return ResponseHandler(res, "Dados inválidos", mapperErrorSchema(error), 400);
     }
     if (data.id) {
       const produto = await prisma.produto.update({
@@ -117,11 +112,7 @@ export const saveProduto = async (
         body: `O produto ${data.nome} foi cadastrado no sistema, Qtd: ${data.estoque}.`,
       }, customData.contaId);
     }
-
-    return res.status(201).json({
-      message: "Produto criado com sucesso",
-      data: data,
-    });
+    return ResponseHandler(res, "Produto salvo com sucesso", data, 201);
   } catch (error) {
     handleError(res, error);
   }
@@ -175,14 +166,8 @@ export const reposicaoProduto = async (
       body: `O produto ${entrada.Produto.nome} foi reposto com: ${data.quantidade} unidades.`,
     }, customData.contaId);
 
-    res.status(201).json({
-      message: "Reposição de produto realizada com sucesso",
-      data: entrada,
-    });
+    ResponseHandler(res, "Reposição realizada com sucesso", entrada, 201);
   } catch (error) {
-    res.status(500).json({
-      message: "Erro ao realizar reposição, verifique as permissões de entrada do produto",
-      data: error,
-    });
+    handleError(res, error);
   }
 };
