@@ -10,6 +10,7 @@ async function main() {
       nome: 'Conta Geral do Sistema',
       email: 'costaantonio883@gmail.com',
       data: new Date(),
+      asaasCustomerId: "GERAL",
       valor: 0,
       categoria: 'Geral'
     },

@@ -23,6 +23,9 @@ const envSchema = z.object({
   REDIS_PASSWORD: z.string({
     required_error: "REDIS_PASSWORD é obrigatório",
   }),
+  ASAAS_API_KEY: z.string({
+    required_error: "ASAAS_API_KEY é obrigatório",
+  })
 });
 
 const parsed = envSchema.safeParse(process.env);

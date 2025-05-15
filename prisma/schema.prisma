@@ -35,6 +35,8 @@ model Contas {
   tipo                 String?
   categoria            String?
   email                String
+  asaasCustomerId      String
+  asaasSubscriptionId  String?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   Produto              Produto[]
