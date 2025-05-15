@@ -1,0 +1,70 @@
+<table id="tabela_vendas_listagem_principal" class="display">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Cod.</th>
+            <th>Nome</th>
+            <th>Preço</th>
+            <th>Qtd</th>
+            <th class="flex justify-end">Ações</th>
+        </tr>
+    </thead>
+</table>
+
+<script>
+    new DataTable("#tabela_vendas_listagem_principal", {
+        language: {
+            url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json",
+        },
+        processing: true,
+        serverSide: true,
+        stateSave: true,
+        ajax: {
+            type: "GET",
+            url: `/vendas`,
+            beforeSend: function (xhr) {
+                const tokenJWT = localStorage.getItem("gestao_facil:token");
+                if (tokenJWT) {
+                    xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
+                } else {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Erro!",
+                        text: "Você precisa estar logado para visualizar a página",
+                        showConfirmButton: false,
+                        timer: 3000,
+                        position: "bottom-end",
+                    });
+                }
+            },
+            error: function (xhr, status, error) {
+                const mensagem =
+                    xhr.responseJSON?.message || "Erro inesperado na requisição";
+                Swal.fire({
+                    toast: true,
+                    position: "bottom-end",
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    icon: "error",
+                    title: "Erro!",
+                    text: mensagem,
+                });
+                window.location.href = "/login";
+            },
+        },
+        columns: [
+            { data: "id" },
+            { data: "codigo" },
+            { data: "nome" },
+            { data: "preco" },
+            { data: "estoque" },
+            {
+                data: "acoes",
+                className: "flex justify-end",
+                searchable: false,
+                orderable: false,
+            },
+        ],
+    });
+</script>

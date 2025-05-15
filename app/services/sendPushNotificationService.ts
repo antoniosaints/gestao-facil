@@ -8,13 +8,20 @@ webPush.setVapidDetails(
   env.VAPID_PRIVATE_KEY
 );
 
-type NotificationPayload = {
+export type NotificationPayload = {
   title: string;
   body: string;
 };
 
-export async function sendPushNotification(payload: NotificationPayload) {
-  const subscriptions = await prisma.subscription.findMany();
+export async function sendPushNotification(payload: NotificationPayload, contaId: number) {
+  const subscriptions = await prisma.subscription.findMany({
+     where: {
+      Usuarios: {
+        pushReceiver: true,
+        contaId: contaId,
+      },
+    },
+  });
   const failedEndpoints: string[] = [];
 
   const message = JSON.stringify(payload);

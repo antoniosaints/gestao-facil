@@ -149,6 +149,10 @@ export const reposicaoProduto = async (
           quantidade: data.quantidade,
           custo: data.custo,
           contaId: customData.contaId,
+          clienteFornecedor: data.fornecedor,
+          notaFiscal: data.notaFiscal,
+          desconto: data.desconto,
+          frete: data.frete,
         },
         include: {
           Produto: {

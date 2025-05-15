@@ -14,3 +14,16 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   }
 });
+
+function MaskToInputMoney(element) {
+  IMask(element, {
+    mask: Number,
+    scale: 2,
+    signed: false,
+    thousandsSeparator: "",
+    padFractionalZeros: true,
+    normalizeZeros: true,
+    radix: ",", // separador decimal brasileiro
+    mapToRadix: ["."],
+  });
+}

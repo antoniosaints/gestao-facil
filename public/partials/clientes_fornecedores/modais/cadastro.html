@@ -1,0 +1,136 @@
+<!-- Modal Overlay -->
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <!-- Modal -->
+    <div
+        class="border-border dark:border-border-dark bg-card dark:bg-card-dark border p-6 rounded-lg shadow-2xl w-[95%] md:max-w-3xl transform transition-transform duration-300 scale-95 opacity-0 animate-fade-in">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Nova Venda</h2>
+            <button class="text-gray-500 hover:text-red-600">&times;</button>
+        </div>
+
+        <!-- Tabs -->
+        <div>
+            <div class="flex border-b mb-4">
+                <button id="tab-venda"
+                    class="tab-button px-4 py-2 border rounded-t-md font-medium text-blue-600 border-blue-600">Venda</button>
+                <button id="tab-itens" class="tab-button px-4 py-2 border rounded-t-md text-blue-600 border-blue-600">Itens</button>
+            </div>
+
+            <!-- Conteúdo Aba Venda -->
+            <div id="content-venda" class="tab-content">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium">Cliente</label>
+                        <select
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            <option>Selecione...</option>
+                            <!-- opções -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Data</label>
+                        <input type="date"
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Valor</label>
+                        <input type="number"
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            placeholder="0,00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Forma de Pagamento</label>
+                        <select
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            <option>Cartão</option>
+                            <option>Dinheiro</option>
+                            <option>Pix</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium">Status</label>
+                        <select
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            <option>Aberta</option>
+                            <option>Finalizada</option>
+                            <option>Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conteúdo Aba Itens -->
+            <div id="content-itens" class="tab-content hidden">
+                <div class="mb-4">
+                    <div class="grid grid-cols-12 gap-4 items-end">
+                        <div class="col-span-8">
+                            <label class="block text-sm font-medium">Produto</label>
+                            <input type="text"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                placeholder="Nome ou código">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium">Quantidade</label>
+                            <input type="number"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                placeholder="1">
+                        </div>
+                        <div class="col-span-2">
+                            <button class="w-full bg-blue-600 text-white rounded-lg p-2">Adicionar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <table class="w-full text-sm border bg-card dark:bg-card-dark">
+                        <thead>
+                            <tr>
+                                <th class="p-2 border">Produto</th>
+                                <th class="p-2 border">Qtd</th>
+                                <th class="p-2 border">Valor</th>
+                                <th class="p-2 border">Subtotal</th>
+                                <th class="p-2 border">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- itens da venda -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="text-right text-lg font-semibold">
+                    Total: R$ 0,00
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex justify-end mt-6 gap-2">
+            <button class="bg-danger text-sm dark:bg-danger-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md">Cancelar</button>
+            <button class="bg-secondary text-sm dark:bg-secondary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Script de Tabs -->
+<script>
+    const tabVenda = document.getElementById('tab-venda');
+    const tabItens = document.getElementById('tab-itens');
+    const contentVenda = document.getElementById('content-venda');
+    const contentItens = document.getElementById('content-itens');
+
+    tabVenda.addEventListener('click', () => {
+        tabVenda.classList.add('text-blue-600', 'border-blue-600');
+        tabItens.classList.remove('text-blue-600', 'border-blue-600');
+        contentVenda.classList.remove('hidden');
+        contentItens.classList.add('hidden');
+    });
+
+    tabItens.addEventListener('click', () => {
+        tabItens.classList.add('text-blue-600', 'border-blue-600');
+        tabVenda.classList.remove('text-blue-600', 'border-blue-600');
+        contentItens.classList.remove('hidden');
+        contentVenda.classList.add('hidden');
+    });
+</script>

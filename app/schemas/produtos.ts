@@ -113,4 +113,33 @@ export const ReposicaoEstoqueSchema = z.object({
       message: "custo deve ter pelo menos 1 caractere",
     })
     .transform((val) => parseFloat(val.replace(",", "."))),
+  desconto: z
+    .string({
+      invalid_type_error: "custo deve ser uma string",
+    })
+    .optional()
+    .transform((val) => (val ? parseFloat(val.replace(",", ".")) : undefined)),
+  frete: z
+    .string({
+      invalid_type_error: "custo deve ser uma string",
+    })
+    .optional()
+    .transform((val) => (val ? parseFloat(val.replace(",", ".")) : undefined)),
+  notaFiscal: z
+    .string({
+      invalid_type_error: "notaFiscal deve ser uma string",
+    })
+    .optional(),
+  fornecedor: z
+    .string({
+      invalid_type_error: "fornecedor deve ser uma string",
+    })
+    .optional()
+    .nullable()
+    .transform((val) => {
+      if (!val || val.trim() === "") return null;
+
+      const num = Number(val);
+      return isNaN(num) ? null : num;
+    }),
 });

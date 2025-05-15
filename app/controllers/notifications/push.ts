@@ -3,6 +3,10 @@ import webPush, { PushSubscription } from "web-push";
 import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import {
+  NotificationPayload,
+  sendPushNotification,
+} from "../../services/sendPushNotificationService";
 
 webPush.setVapidDetails(
   "mailto:costaantonio883@gmail.com",
@@ -41,10 +45,9 @@ export const unsubscribe = async (
 export const subscribe = async (req: Request, res: Response): Promise<any> => {
   try {
     const subscription: PushSubscription = req.body;
-    const customData = getCustomRequest(req).customData;
-    const idUser = customData.userId;
+    const { userId } = getCustomRequest(req).customData;
 
-    if (!idUser) {
+    if (!userId) {
       return res.status(400).json({ message: "ID do usuário é obrigatório." });
     }
     // Verifica se a inscrição já existe no banco de dados com Prisma
@@ -55,26 +58,22 @@ export const subscribe = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (existingSubscription) {
-      // Se já estiver inscrito, retorna uma resposta informando que já existe
-      return res
-        .status(200)
-        .json({
-          message: "Você já está inscrito para notificações.",
-          new: false,
-        });
+      return res.status(200).json({
+        message: "Você já está inscrito para notificações.",
+        new: false,
+      });
     }
 
     // Se não estiver inscrito, armazena a inscrição no banco de dados
     await prisma.subscription.create({
       data: {
-        userId: Number(idUser),
+        userId: Number(userId),
         endpoint: subscription.endpoint,
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
       },
     });
 
-    console.log("Inscrição salva com sucesso:", idUser);
     res.status(201).json({ message: "Inscrição salva com sucesso", new: true });
   } catch (err) {
     console.error("Erro ao salvar inscrição:", err);
@@ -83,57 +82,14 @@ export const subscribe = async (req: Request, res: Response): Promise<any> => {
 };
 
 export const sendNotification = async (req: Request, res: Response) => {
-  const customData = getCustomRequest(req).customData;
-  // Recupera todas as inscrições salvas no banco com Prisma
-  const subscriptions = await prisma.subscription.findMany({
-    where: {
-      Usuarios: {
-        pushReceiver: true,
-        contaId: customData.contaId,
-      },
-    },
-  });
+  const { contaId } = getCustomRequest(req).customData;
 
-  const payload = JSON.stringify({
+  const payload: NotificationPayload = {
     title: "Estoque Atualizado",
     body: "O estoque de um produto foi alterado.",
-  });
+  };
 
-  const failedSubscriptions: string[] = [];
-
-  // Envia a notificação para cada inscrição
-  await Promise.all(
-    subscriptions.map(async (sub) => {
-      try {
-        await webPush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: {
-              p256dh: sub.p256dh,
-              auth: sub.auth,
-            },
-          },
-          payload
-        );
-      } catch (err) {
-        console.error("Erro ao enviar notificação:", err);
-
-        // Se falhar, adiciona à lista de inscrições inválidas
-        failedSubscriptions.push(sub.endpoint);
-      }
-    })
-  );
-
-  // Remove as inscrições inválidas
-  if (failedSubscriptions.length > 0) {
-    await prisma.subscription.deleteMany({
-      where: {
-        endpoint: {
-          in: failedSubscriptions,
-        },
-      },
-    });
-  }
+  await sendPushNotification(payload, contaId);
 
   res.status(200).json({
     message: "Notificações enviadas e inscrições inválidas removidas",

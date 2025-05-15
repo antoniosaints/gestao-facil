@@ -21,24 +21,52 @@
         <div class="grid gap-4 mb-4 sm:grid-cols-2">
             <div class="sm:col-span-2">
                 <label for="produto_reposicao_modal"
-                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Produto</label>
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Produto <span class="text-red-500">*</span></label>
                 <input type="text" name="produto" id="produto_reposicao_modal"
                     class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                     placeholder="Nome do produto" />
             </div>
             <div>
                 <label for="quantidadeReposicaoEstoque"
-                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Quantidade</label>
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Quantidade <span class="text-red-500">*</span></label>
                 <input type="number" name="quantidade" id="quantidadeReposicaoEstoque"
                     class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                     placeholder="Ex. 10" />
             </div>
             <div>
                 <label for="custoReposicaoEstoque"
-                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Valor unitário (Compra)</label>
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Valor unitário (Compra) <span class="text-red-500">*</span></label>
                 <input type="text" name="custo" id="custoReposicaoEstoque"
                     class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                     placeholder="Ex. 99,90" />
+            </div>
+            <div>
+                <label for="descontoCompraProduto"
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Desconto</label>
+                <input type="text" name="quantidade" id="descontoCompraProduto"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                    placeholder="Ex. 10,90" />
+            </div>
+            <div>
+                <label for="freteCompraMercadoria"
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Frete</label>
+                <input type="text" name="custo" id="freteCompraMercadoria"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                    placeholder="Ex. 5,90" />
+            </div>
+            <div>
+                <label for="notaFiscalCompraProduto"
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Nota Fiscal</label>
+                <input type="number" name="quantidade" id="notaFiscalCompraProduto"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                    placeholder="Ex. 000111222" />
+            </div>
+            <div>
+                <label for="fornecedorMercadoria"
+                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Fornecedor</label>
+                <input type="text" name="custo" id="fornecedorMercadoria"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                    placeholder="Nome do fornecedor" />
             </div>
         </div>
         <div class="flex items-center justify-between space-x-4">
@@ -58,22 +86,20 @@
 
 <script>
     function openFormularioreposicaoEstoque() {
-        IMask(document.getElementById('custoReposicaoEstoque'), {
-            mask: Number,
-            scale: 2,
-            signed: false,
-            thousandsSeparator: '',
-            padFractionalZeros: true,
-            normalizeZeros: true,
-            radix: ',', // separador decimal brasileiro
-            mapToRadix: ['.']
-        });
+        MaskToInputMoney(document.getElementById('custoReposicaoEstoque'));
+        MaskToInputMoney(document.getElementById('descontoCompraProduto'));
+        MaskToInputMoney(document.getElementById('freteCompraMercadoria'));
+
         $("#formularioProdutosreposicao").submit(function (e) {
             e.preventDefault();
             const data = {
                 produtoId: $("#formularioProdutosreposicao #id").val(),
                 quantidade: $("#formularioProdutosreposicao #quantidadeReposicaoEstoque").val(),
                 custo: $("#formularioProdutosreposicao #custoReposicaoEstoque").val(),
+                desconto: $("#formularioProdutosreposicao #descontoCompraProduto").val(),
+                frete: $("#formularioProdutosreposicao #freteCompraMercadoria").val(),
+                notaFiscal: $("#formularioProdutosreposicao #notaFiscalCompraProduto").val(),
+                fornecedor: $("#formularioProdutosreposicao #fornecedorMercadoria").val(),
             };
 
             $.ajax({

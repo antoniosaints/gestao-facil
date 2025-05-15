@@ -38,7 +38,7 @@ model Contas {
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   Produto              Produto[]
-  Clientes             Clientes[]
+  Clientes             ClientesFornecedores[]
   Vendas               Vendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   Usuarios             Usuarios[]
@@ -59,17 +59,24 @@ model Usuarios {
   Subscription  Subscription[]
 }
 
-model Clientes {
-  id        Int      @id @default(autoincrement())
-  contaId   Int
-  Contas    Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  status    Status   @default(ATIVO)
-  nome      String
-  email     String?
-  telefone  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Vendas    Vendas[]
+enum TipoCliente {
+  FORNECEDOR
+  CLIENTE
+}
+
+model ClientesFornecedores {
+  id                   Int                    @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status               Status                 @default(ATIVO)
+  nome                 String
+  email                String?
+  telefone             String?
+  tipo                 TipoCliente            @default(CLIENTE)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  Vendas               Vendas[]
+  MovimentacoesEstoque MovimentacoesEstoque[]
 }
 
 enum TipoMovimentacao {
@@ -86,17 +93,21 @@ enum StatusMovimentacao {
 }
 
 model MovimentacoesEstoque {
-  id         Int                @id @default(autoincrement())
-  contaId    Int
-  Contas     Contas             @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  tipo       TipoMovimentacao   @default(ENTRADA)
-  data       DateTime           @default(now())
-  notaFiscal String?
-  status     StatusMovimentacao @default(PENDENTE)
-  produtoId  Int
-  Produto    Produto            @relation(fields: [produtoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  quantidade Int
-  custo      Decimal            @db.Decimal(10, 2)
+  id                Int                   @id @default(autoincrement())
+  contaId           Int
+  Contas            Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipo              TipoMovimentacao      @default(ENTRADA)
+  data              DateTime              @default(now())
+  notaFiscal        String?
+  frete             Decimal?              @db.Decimal(10, 2)
+  desconto          Decimal?              @db.Decimal(10, 2)
+  status            StatusMovimentacao    @default(PENDENTE)
+  clienteFornecedor Int?
+  ClienteFornecedor ClientesFornecedores? @relation(fields: [clienteFornecedor], references: [id])
+  produtoId         Int
+  Produto           Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  quantidade        Int
+  custo             Decimal               @db.Decimal(10, 2)
 }
 
 model Produto {
@@ -119,15 +130,15 @@ model Produto {
 }
 
 model Vendas {
-  id              Int              @id @default(autoincrement())
+  id              Int                   @id @default(autoincrement())
   contaId         Int
-  Contas          Contas           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  data            DateTime         @default(now())
-  valor           Decimal          @db.Decimal(10, 2)
+  Contas          Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  data            DateTime              @default(now())
+  valor           Decimal               @db.Decimal(10, 2)
   clienteId       Int?
-  cliente         Clientes?        @relation(fields: [clienteId], references: [id])
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  cliente         ClientesFornecedores? @relation(fields: [clienteId], references: [id])
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   ItensVendas     ItensVendas[]
   PagamentoVendas PagamentoVendas?
 }
