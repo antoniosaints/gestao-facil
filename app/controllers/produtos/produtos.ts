@@ -87,7 +87,6 @@ export const saveProduto = async (
           unidade: data.unidade,
           codigo: data.codigo,
           preco: data.preco,
-          estoque: data.estoque,
           entradas: data.entradas,
           saidas: data.saidas,
         },
