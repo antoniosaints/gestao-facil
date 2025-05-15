@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { formatarValorMonetario } from "../../utils/formatters";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { generateBarcodesStream } from "../../services/barcodeService";
 
 export const relatorioProdutos = async (
   req: Request,
@@ -371,4 +372,26 @@ export const relatorioProdutoMovimentacoes = async (
     .stroke();
 
   doc.end();
+};
+
+export const gerarEtiquetasProduto = async (req: Request, res: Response): Promise<any> => {
+  const productId = Number(req.params.id);
+  const quantidade = Number(req.query.quantidade) || undefined;
+
+  if (isNaN(productId)) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  try {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="barcodes_produto_${productId}.pdf"`
+    );
+
+    const pdfStream = await generateBarcodesStream(productId, quantidade);
+    pdfStream.pipe(res);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 };

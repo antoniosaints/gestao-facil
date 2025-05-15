@@ -8,9 +8,15 @@
   --scrollbar-thumb: #555555;
 }
 
+@font-face {
+  font-family: 'Roboto';
+  src: url("../fonts/Roboto-Regular.ttf") format("truetype");
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  font-family: 'Roboto', sans-serif;
 }
 
 ::-webkit-scrollbar {

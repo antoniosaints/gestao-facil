@@ -11,6 +11,7 @@ import {
 } from "./controllers/produtos/produtos";
 import { tableUsuarios } from "./controllers/administracao/usuarios";
 import {
+  gerarEtiquetasProduto,
   relatorioProdutoMovimentacoes,
   relatorioProdutos,
 } from "./controllers/produtos/relatorios";
@@ -51,6 +52,7 @@ app.get("/produtos/:id", authenticateJWT, getProduto);
 app.post("/produtos/reposicao", authenticateJWT, reposicaoProduto);
 app.post("/produtos", authenticateJWT, saveProduto);
 app.delete("/produtos/:id", authenticateJWT, deleteProduto);
+app.get("/produtos/:id/etiquetas", gerarEtiquetasProduto);
 
 //  Rotas Vendas
 app.get("/vendas", authenticateJWT, tableVendas);
