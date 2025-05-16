@@ -49,10 +49,13 @@ export const deleteProduto = async (
       subject: "Produto deletado",
       text: `O produto ${produto.nome} foi deletado.`,
     });
-    await enqueuePushNotification({
-      title: "Produto deletado",
-      body: `O produto ${produto.nome} foi deletado.`,
-    }, customData.contaId);
+    await enqueuePushNotification(
+      {
+        title: "Produto deletado",
+        body: `O produto ${produto.nome} foi deletado.`,
+      },
+      customData.contaId
+    );
 
     return ResponseHandler(res, "Produto deletado com sucesso", produto);
   } catch (error) {
@@ -67,7 +70,12 @@ export const saveProduto = async (
     const { data, error, success } = ProdutoSchema.safeParse(req.body);
     const customData = getCustomRequest(req).customData;
     if (!success) {
-      return ResponseHandler(res, "Dados inválidos", mapperErrorSchema(error), 400);
+      return ResponseHandler(
+        res,
+        "Dados inválidos",
+        mapperErrorSchema(error),
+        400
+      );
     }
     if (data.id) {
       const produto = await prisma.produto.update({
@@ -87,10 +95,13 @@ export const saveProduto = async (
         },
       });
 
-      await enqueuePushNotification({
-        title: "Atualização de produto",
-        body: `O produto ${produto.nome} foi atualizado, Qtd: ${produto.estoque}.`,
-      }, customData.contaId);
+      await enqueuePushNotification(
+        {
+          title: "Atualização de produto",
+          body: `O produto ${produto.nome} foi atualizado, Qtd: ${produto.estoque}.`,
+        },
+        customData.contaId
+      );
     } else {
       await prisma.produto.create({
         data: {
@@ -107,10 +118,13 @@ export const saveProduto = async (
           saidas: data.saidas,
         },
       });
-      await enqueuePushNotification({
-        title: "Cadastro de produto",
-        body: `O produto ${data.nome} foi cadastrado no sistema, Qtd: ${data.estoque}.`,
-      }, customData.contaId);
+      await enqueuePushNotification(
+        {
+          title: "Cadastro de produto",
+          body: `O produto ${data.nome} foi cadastrado no sistema, Qtd: ${data.estoque}.`,
+        },
+        customData.contaId
+      );
     }
     return ResponseHandler(res, "Produto salvo com sucesso", data, 201);
   } catch (error) {
@@ -122,6 +136,7 @@ export const reposicaoProduto = async (
   res: Response
 ): Promise<any> => {
   const { data, error, success } = ReposicaoEstoqueSchema.safeParse(req.body);
+  console.log(data);
   const customData = getCustomRequest(req).customData;
   if (!success) {
     return res.status(400).json({
@@ -131,6 +146,22 @@ export const reposicaoProduto = async (
   }
   try {
     const entrada = await prisma.$transaction(async (tx) => {
+      const produtoExistente = await tx.produto.findFirst({
+        where: {
+          id: data.produtoId,
+          entradas: true,
+        },
+      });
+
+      if (!produtoExistente) {
+        throw new Error("Produto não encontrado ou não permite entradas.");
+      }
+
+      await tx.produto.update({
+        where: { id: data.produtoId },
+        data: { estoque: { increment: data.quantidade } },
+      });
+
       const movimentacao = await tx.movimentacoesEstoque.create({
         data: {
           produtoId: data.produtoId,
@@ -148,23 +179,21 @@ export const reposicaoProduto = async (
           Produto: {
             select: {
               nome: true,
-            }
-          }
-        }
-      });
-
-      await tx.produto.update({
-        where: { id: data.produtoId, entradas: true },
-        data: { estoque: { increment: data.quantidade } },
+            },
+          },
+        },
       });
 
       return movimentacao;
     });
 
-    await enqueuePushNotification({
-      title: "Reposição de produto",
-      body: `O produto ${entrada.Produto.nome} foi reposto com: ${data.quantidade} unidades.`,
-    }, customData.contaId);
+    await enqueuePushNotification(
+      {
+        title: "Reposição de produto",
+        body: `O produto ${entrada.Produto.nome} foi reposto com: ${data.quantidade} unidades.`,
+      },
+      customData.contaId
+    );
 
     ResponseHandler(res, "Reposição realizada com sucesso", entrada, 201);
   } catch (error) {
