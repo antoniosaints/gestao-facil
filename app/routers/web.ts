@@ -21,5 +21,8 @@ webRouter.get("/clientes/resumo", authenticateJWT, (req, res) => {
 webRouter.get("/login", (req, res) => {
   res.sendFile("partials/login.html", { root: "public" });
 });
+webRouter.get("/assinatura/checkout", (req, res) => {
+  res.sendFile("partials/assinatura/renovacao.html", { root: "public" });
+});
 
 export default webRouter;

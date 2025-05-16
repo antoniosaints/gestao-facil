@@ -3,10 +3,15 @@ import { prisma } from "../../utils/prisma";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { VendasAcoes } from "./acoes";
 import { Vendas } from "../../../generated";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
 export const tableVendas = async (
   req: Request,
   res: Response
 ): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  if (customData.contaStatus !== "ATIVO") return res.status(404).json({
+    message: "Conta inativa ou bloqueada, verifique seu plano",
+  });
   const builder = new PrismaDataTableBuilder<Vendas>(prisma.vendas)
     .search({
       id: "number",

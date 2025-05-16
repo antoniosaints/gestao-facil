@@ -142,10 +142,7 @@
           title: "Erro!",
           text: mensagem,
         });
-        htmx.ajax("GET", "partials/login.html", {
-          target: "#content",
-          swap: "innerHTML",
-        });
+        if (status === 401) window.location.href = "/login";
       },
     });
   };

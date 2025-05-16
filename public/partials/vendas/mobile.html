@@ -142,10 +142,6 @@
           title: "Erro!",
           text: mensagem,
         });
-        htmx.ajax("GET", "partials/login.html", {
-          target: "#content",
-          swap: "innerHTML",
-        });
       },
     });
   };

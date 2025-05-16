@@ -57,15 +57,15 @@ export const webhookAsaasCheck = async (
       case "PAYMENT_CREATED":
         if (!data.payment.subscription) break;
 
-        const conta = await prisma.contas.findFirst({
+        const contaCreated = await prisma.contas.findFirst({
           where: { asaasCustomerId: data.payment.customer },
         });
 
-        if (!conta) break;
+        if (!contaCreated) break;
 
         await prisma.faturasContas.create({
           data: {
-            contaId: conta.id,
+            contaId: contaCreated.id,
             asaasPaymentId: data.payment.id,
             vencimento: new Date(data.payment.dueDate),
             valor: parseFloat(data.payment.value),
@@ -117,12 +117,26 @@ export const webhookAsaasCheck = async (
 
       case "PAYMENT_OVERDUE":
         if (!data.payment.subscription) break;
-        await prisma.contas.updateMany({
-          where: { asaasCustomerId: data.payment.customer },
+
+        const faturaOverdue = await prisma.faturasContas.findUnique({
+          where: { asaasPaymentId: data.payment.id },
+        });
+
+        if (!faturaOverdue) break;
+
+        await prisma.faturasContas.update({
+          where: { id: faturaOverdue.id },
+          data: {
+            status: "ATRASADO",
+          },
+        });
+
+        await prisma.contas.update({
+          where: { id: faturaOverdue.contaId },
           data: {
             valor: parseFloat(data.payment.value),
             status: "BLOQUEADO",
-            vencimento: new Date(data.payment.dueDate),
+            vencimento: subDays(new Date(), 1),
           },
         });
         break;

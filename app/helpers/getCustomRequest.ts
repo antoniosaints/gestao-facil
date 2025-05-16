@@ -1,9 +1,10 @@
 import { Request } from "express";
 
-interface CustomData {
+export interface CustomData {
   userId: number;
   email: string;
   contaId: number;
+  contaStatus: string;
 }
 
 export interface CustomRequest extends Request {

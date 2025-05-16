@@ -1,18 +1,15 @@
 import { Request, Response, NextFunction } from "express";
 import { env } from "../utils/dotenv";
 import { JwtUtil } from "../utils/jwt";
+import { prisma } from "../utils/prisma";
+import { Status } from "../../generated";
+import { CustomData } from "../helpers/getCustomRequest";
 
-interface CustomData {
-  userId: number;
-  email: string;
-  contaId: number;
-}
-
-export function authenticateJWT(
+export async function authenticateJWT(
   req: Request,
   res: Response,
   next: NextFunction
-): any {
+): Promise<any> {
   if (env.REQUIRED_JWT === "false") {
     return next();
   }
@@ -32,11 +29,19 @@ export function authenticateJWT(
   try {
     const decoded = JwtUtil.verify(token);
     if (decoded) {
+      const conta = await prisma.contas.findUnique({
+        where: {
+          id: decoded.contaId,
+        },
+      });
+
       (req as Request & { customData: CustomData }).customData = {
         userId: decoded.id,
         email: decoded.email,
         contaId: decoded.contaId,
+        contaStatus: conta?.status ?? "BLOQUEADO",
       };
+
       return next();
     }
 
