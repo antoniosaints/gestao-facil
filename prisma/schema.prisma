@@ -25,6 +25,25 @@ model Subscription {
   updatedAt DateTime @updatedAt
 }
 
+enum StatusFatura {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
+}
+
+model FaturasContas {
+  id             Int          @id @default(autoincrement())
+  contaId        Int
+  conta          Contas       @relation(fields: [contaId], references: [id])
+  asaasPaymentId String       @unique
+  vencimento     DateTime
+  valor          Float
+  urlPagamento   String
+  status         StatusFatura @default(PENDENTE)
+  criadoEm       DateTime     @default(now())
+}
+
 model Contas {
   id                   Int                    @id @default(autoincrement())
   nome                 String
@@ -44,6 +63,7 @@ model Contas {
   Vendas               Vendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   Usuarios             Usuarios[]
+  FaturasContas        FaturasContas[]
 }
 
 model Usuarios {

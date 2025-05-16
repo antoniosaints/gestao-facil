@@ -25,6 +25,9 @@ const envSchema = z.object({
   }),
   ASAAS_API_KEY: z.string({
     required_error: "ASAAS_API_KEY é obrigatório",
+  }),
+  ASAAS_WEBHOOK_SECRET: z.string({
+    required_error: "ASAAS_WEBHOOK_SECRET é obrigatório",
   })
 });
 

@@ -24,6 +24,7 @@ import webRouter from "./routers/web";
 import path from "node:path";
 import { tableVendas } from "./controllers/vendas/table";
 import { resumoDashboard } from "./controllers/dashboard/resumo";
+import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 
 const app = express();
 
@@ -41,6 +42,8 @@ app.get("/auth/check", checkAuth);
 app.get("/auth/verify", verify);
 app.get("/usuarios", authenticateJWT, tableUsuarios);
 
+// Rotas webhook
+app.post("/asaas/webhook", webhookAsaasCheck);
 // Rotas Dashboard
 app.get("/dashboard/resumo", authenticateJWT, resumoDashboard);
 // Rotas Produtos
