@@ -142,6 +142,7 @@
                 },
                 error: function (xhr, status, error) {
                     Swal.close();
+                    console.log(xhr);
                     Swal.fire({
                         icon: 'error',
                         title: 'Erro!',

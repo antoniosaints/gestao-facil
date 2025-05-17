@@ -1,38 +1,38 @@
-import { Prisma } from "@prisma/client";
 import { Response } from "express";
-import { prismaErrorMap } from "../mappers/prismaErros";
 import { ZodError } from "zod";
+import { prismaErrorMap } from "../mappers/prismaErros";
+import { Prisma } from "../../generated";
 
 export function handleError(res: Response, error: unknown): void {
   let status = 500;
   let title = "Erro interno";
-  let message = "Algo inesperado ocorreu.";
+  let message = "Ocorreu um erro inesperado. Tente novamente mais tarde.";
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  if (error instanceof ZodError) {
+    status = 422;
+    title = "Erro de validação dos dados";
+    message = error.issues.map((e) => e.message).join(", ");
+  } 
+  
+  else if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const mapped = prismaErrorMap[error.code];
     if (mapped) {
-      status = mapped.status;
-      title = mapped.title;
-      message = mapped.message;
+      ({ status, title, message } = mapped);
     } else {
       status = 400;
-      title = "Erro de banco de dados";
-      message = `Código ${error.code}: ${error.message}`;
+      title = "Erro do banco de dados";
+      message = `Prisma code ${error.code}: ${error.message}`;
     }
-  } else if (error instanceof Prisma.PrismaClientValidationError) {
+  } 
+  
+  else if (error instanceof Prisma.PrismaClientValidationError) {
     status = 422;
-    title = "Erro de validação Prisma";
+    title = "Validação do Prisma falhou";
     message = error.message;
-  } else if (error instanceof Error) {
+  } 
+  
+  else if (error instanceof Error) {
     message = error.message;
-  } else if (error instanceof ZodError) {
-    message = error.issues
-      .map((error) => {
-        return {
-          message: error.message,
-        };
-      })
-      .join(", ");
   }
 
   res.status(status).json({ title, message });

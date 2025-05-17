@@ -1,4 +1,4 @@
-<table id="tabela_usuarios_listagem_principal" class="display">
+<table id="tabela_usuarios_listagem_principal" class="display w-full">
     <thead>
         <tr>
             <th>ID</th>
@@ -134,8 +134,8 @@
         columns: [
             { data: "id" },
             { data: "nome" },
-            { data: "email" },
-            { data: "status" },
+            { data: "email", className: "hidden md:table-cell" },
+            { data: "status", className: "hidden md:table-cell" },
             { data: "acoes", orderable: false, searchable: false, className: "flex justify-end" },
         ],
     });
