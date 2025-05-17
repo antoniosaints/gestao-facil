@@ -136,7 +136,6 @@ export const reposicaoProduto = async (
   res: Response
 ): Promise<any> => {
   const { data, error, success } = ReposicaoEstoqueSchema.safeParse(req.body);
-  console.log(data);
   const customData = getCustomRequest(req).customData;
   if (!success) {
     return res.status(400).json({
@@ -154,7 +153,7 @@ export const reposicaoProduto = async (
       });
 
       if (!produtoExistente) {
-        throw new Error("Produto não encontrado ou não permite entradas.");
+        throw new Error("Produto não permite entradas de estoque, altere isso antes de continuar.");
       }
 
       await tx.produto.update({
