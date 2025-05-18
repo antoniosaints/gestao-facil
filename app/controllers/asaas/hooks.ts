@@ -5,32 +5,35 @@ import { prisma } from "../../utils/prisma";
 export function renovarVencimento(
   vencimento: string | Date,
   pagamento: string
-): string | Date {
+): string {
   const dataVencimento =
     vencimento instanceof Date ? vencimento : parseISO(vencimento);
   const dataPagamento = parseISO(pagamento);
 
+  let novaData: Date;
+
   if (isBefore(dataVencimento, dataPagamento)) {
     // Se já venceu, renova com base na data de pagamento
-    return addMonths(dataPagamento, 1).toISOString().split("T")[0];
-  }
-
-  if (
+    novaData = addMonths(dataPagamento, 1);
+  } else if (
     isEqual(dataVencimento, dataPagamento) ||
     isBefore(dataPagamento, dataVencimento)
   ) {
     // Ainda está válida, soma um mês à data de vencimento
-    return addMonths(dataVencimento, 1).toISOString().split("T")[0];
+    novaData = addMonths(dataVencimento, 1);
+  } else {
+    novaData = dataPagamento;
   }
 
-  return pagamento;
+  // Retorna no formato ISO completo com milissegundos (datetime(3))
+  return novaData.toISOString();
 }
 export async function handleSubscriptionCreated(data: any) {
   await prisma.contas.updateMany({
     where: { asaasCustomerId: data.subscription.customer },
     data: {
       asaasSubscriptionId: data.subscription.id,
-      vencimento: subDays(new Date(), 1),
+      vencimento: subDays(new Date(), 2),
       status: "BLOQUEADO",
     },
   });
@@ -54,7 +57,7 @@ export async function handleSubscriptionCancelled(data: any) {
     where: { asaasCustomerId: data.subscription.customer },
     data: {
       asaasSubscriptionId: null,
-      vencimento: subDays(new Date(), 1),
+      vencimento: subDays(new Date(), 2),
       status: "INATIVO",
     },
   });
@@ -80,7 +83,7 @@ export async function handleSubscriptionDeleted(data: any) {
     where: { asaasCustomerId: data.subscription.customer },
     data: {
       asaasSubscriptionId: null,
-      vencimento: subDays(new Date(), 1),
+      vencimento: subDays(new Date(), 2),
       status: "INATIVO",
     },
   });
