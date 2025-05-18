@@ -25,17 +25,19 @@ import path from "node:path";
 import { tableVendas } from "./controllers/vendas/table";
 import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
+import { RouterMain } from "./routers/api";
 
 const app = express();
+app.use(cors());
 
 // Servir arquivos estáticos (HTMX, JS, CSS, etc.)
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(webRouter);
 
-app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.use(RouterMain);
 
 app.post("/login", login);
 app.get("/auth/check", checkAuth);
@@ -46,19 +48,6 @@ app.get("/usuarios", authenticateJWT, tableUsuarios);
 app.post("/asaas/webhook", webhookAsaasCheck);
 // Rotas Dashboard
 app.get("/dashboard/resumo", authenticateJWT, resumoDashboard);
-// Rotas Produtos
-app.get("/produtos/relatorio", authenticateJWT, relatorioProdutos);
-app.get(
-  "/produtos/relatorio/reposicao/:id",
-  authenticateJWT,
-  relatorioProdutoMovimentacoes
-);
-app.get("/produtos", authenticateJWT, tableProdutos);
-app.get("/produtos/:id", authenticateJWT, getProduto);
-app.post("/produtos/reposicao", authenticateJWT, reposicaoProduto);
-app.post("/produtos", authenticateJWT, saveProduto);
-app.delete("/produtos/:id", authenticateJWT, deleteProduto);
-app.get("/produtos/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 
 //  Rotas Vendas
 app.get("/vendas", authenticateJWT, tableVendas);

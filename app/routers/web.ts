@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { authenticateJWT } from '../middlewares/auth';
+import { getCustomRequest } from '../helpers/getCustomRequest';
+import { prisma } from '../utils/prisma';
 
 const webRouter = Router();
 
@@ -23,6 +25,20 @@ webRouter.get("/login", (req, res) => {
 });
 webRouter.get("/assinatura/checkout", (req, res) => {
   res.sendFile("partials/assinatura/renovacao.html", { root: "public" });
+});
+webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const conta = await prisma.contas.findUniqueOrThrow({where: {id: customData.contaId}});
+
+    if (conta.status !== "INATIVO") {
+      res.sendFile("partials/assinatura/renovacao.html", { root: "public" });
+    }else {
+      res.sendFile("partials/assinatura/index.html", { root: "public" });
+    }
+  }catch (error) {
+    console.log(error);
+  }
 });
 
 export default webRouter;
