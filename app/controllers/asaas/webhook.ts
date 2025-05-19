@@ -27,7 +27,6 @@ export const webhookAsaasCheck = async (
   const evento = req.body.event;
   const data = req.body;
 
-  console.log(data);
   try {
     switch (evento) {
       case "SUBSCRIPTION_CREATED":

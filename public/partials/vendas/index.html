@@ -8,7 +8,7 @@
         class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-file-pdf"></i>
       </button>
-      <button onclick="salvarProduto()"
+      <button onclick="loadPage('partials/vendas/cadastro.html')"
         class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-circle-plus"></i> Nova Venda
       </button>
@@ -17,8 +17,7 @@
   <div
     class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
     hx-get="/partials/vendas/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
-  <div class="overflow-x-auto block md:hidden rounded-lg"
-    hx-get="/partials/vendas/mobile.html" hx-trigger="load" hx-swap="innerHTML"></div>
+
 </div>
 
 <script>
