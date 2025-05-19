@@ -195,6 +195,7 @@ export async function handlePagamentoEvento(data: any, titulo: string) {
   });
 
   if (!fatura) return;
+  if (fatura.status === "PAGO") return;
 
   await prisma.faturasContas.update({
     where: { id: fatura.id },

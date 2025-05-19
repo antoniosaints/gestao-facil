@@ -1,11 +1,17 @@
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
-import {
-  subDays,
-} from "date-fns";
+import { subDays } from "date-fns";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
-import { handlePagamentoEvento, handlePaymentCreated, handlePaymentDeleted, handlePaymentOverdue, handleSubscriptionCancelled, handleSubscriptionCreated, handleSubscriptionDeleted } from "./hooks";
+import {
+  handlePagamentoEvento,
+  handlePaymentCreated,
+  handlePaymentDeleted,
+  handlePaymentOverdue,
+  handleSubscriptionCancelled,
+  handleSubscriptionCreated,
+  handleSubscriptionDeleted,
+} from "./hooks";
 
 export const webhookAsaasCheck = async (
   req: Request,
@@ -21,6 +27,7 @@ export const webhookAsaasCheck = async (
   const evento = req.body.event;
   const data = req.body;
 
+  console.log(data);
   try {
     switch (evento) {
       case "SUBSCRIPTION_CREATED":
@@ -44,6 +51,7 @@ export const webhookAsaasCheck = async (
         break;
 
       case "PAYMENT_RECEIVED":
+        if (data.payment.billingType === "CREDIT_CARD") break; // CREDIT_CARD nao precisa receber
         await handlePagamentoEvento(data, "Pagamento recebido");
         break;
 
@@ -52,6 +60,7 @@ export const webhookAsaasCheck = async (
         break;
 
       case "PAYMENT_CONFIRMED":
+        if (data.payment.billingType !== "CREDIT_CARD") break; // CREDIT_CARD nao precisa confirmar
         await handlePagamentoEvento(data, "Pagamento confirmado");
         break;
 
