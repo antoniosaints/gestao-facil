@@ -112,7 +112,6 @@
       'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
     },
     success: function ({ data }) {
-      console.log(data);
       $("#total_vendas_dashboard").text(data.vendasCount);
       $("#total_produtos_dashboard").text(data.produtos.length);
       $("#produtos_em_baixa_dashboard").text(data.estoquesBaixos.length);

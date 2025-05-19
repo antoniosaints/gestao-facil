@@ -275,7 +275,7 @@
                                 <td class="p-2 border border-gray-300 dark:border-gray-500">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
                                 <td class="p-2 border border-gray-300 dark:border-gray-500">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
                                 <td class="p-2 border border-gray-300 dark:border-gray-500">
-                                    <button class="text-red-500 hover:underline" onclick="removeFromCart(${item.id})">Remover</button>
+                                    <button type="button" class="text-red-500 hover:underline" onclick="removeFromCart(${item.id})">Remover</button>
                                 </td>
                                 `;
 
