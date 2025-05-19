@@ -1,111 +1,396 @@
-<div class="p-6 bg-card dark:bg-card-dark rounded-xl shadow-md max-w-full mx-auto space-y-6">
-    <h2 class="text-2xl font-semibold"><i class="fa-solid fa-tags"></i> Nova Venda</h2>
+<div class="h-[calc(100vh + 5rem)] flex flex-col justify-center">
+    <h2 class="text-2xl font-bold text-primary dark:text-primary-dark mb-6" id="titulo_cadastro_venda">
+        <i class="fa-solid fa-tags"></i> Nova venda
+    </h2>
+    <div
+        class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
+        <form id="formulario_cadastro_venda" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm mb-1">Cliente</label>
+                    <select id="select_cliente_venda_formulario"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
 
-    <!-- Informações principais -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-            <label class="block text-sm mb-1">Cliente</label>
-            <select class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                <option>Selecione</option>
-            </select>
-        </div>
+                    </select>
+                </div>
 
-        <div>
-            <label class="block text-sm mb-1">Data da Venda</label>
-            <input type="date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-        </div>
+                <div>
+                    <label class="block text-sm mb-1">Data da Venda <span class="text-red-500">*</span></label>
+                    <input type="date" required id="input_data_venda_formulario"
+                        placeholder="DD/MM/AAAA"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
 
-        <div>
-            <label class="block text-sm mb-1">Vendedor</label>
-            <select class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                <option>Selecione</option>
-            </select>
-        </div>
+                <div>
+                    <label class="block text-sm mb-1">Vendedor <span class="text-red-500">*</span></label>
+                    <select required id="select_vendedor_venda_formulario"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                    </select>
+                </div>
 
-        <div>
-            <label class="block text-sm mb-1">Status</label>
-            <select class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                <option>Orçamento</option>
-                <option>Faturado</option>
-                <option>Em andamento</option>
-                <option>Finalizado</option>
-            </select>
-        </div>
+                <div>
+                    <label class="block text-sm mb-1">Status <span class="text-red-500">*</span></label>
+                    <select required
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        <option value="ORCAMENTO">Orçamento</option>
+                        <option value="FATURADO">Faturado</option>
+                        <option value="ANDAMENTO">Em andamento</option>
+                        <option value="FINALIZADO">Finalizado</option>
+                        <option value="PENDENTE">Pendente</option>
+                        <option value="CANCELADO">Cancelado</option>
+                    </select>
+                </div>
 
-        <div class="md:col-span-2">
-            <label class="block text-sm mb-1">Garantia</label>
-            <input type="text" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Ex: 90 dias" />
-        </div>
-    </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm mb-1">Garantia</label>
+                    <input type="text"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
+                        placeholder="Ex: 90 dias" />
+                </div>
+            </div>
 
-    <!-- Observações -->
-    <div>
-        <label class="block text-sm mb-1">Observações</label>
-        <textarea class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" rows="3" placeholder="Observações da venda..."></textarea>
-    </div>
+            <!-- Observações -->
+            <div>
+                <label class="block text-sm mb-1">Observações</label>
+                <textarea
+                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
+                    rows="3" placeholder="Observações da venda..."></textarea>
+            </div>
 
-    <!-- Adição de produtos -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-        <div class="md:col-span-6">
-            <label class="block text-sm mb-1">Produto</label>
-            <select class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                <option>Selecione</option>
-            </select>
-        </div>
+            <hr class="border-border dark:border-border-dark">
 
-        <div class="md:col-span-2">
-            <label class="block text-sm mb-1">Quantidade</label>
-            <input type="number" placeholder="1" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-        </div>
+            <!-- Adição de produtos -->
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div class="md:col-span-6">
+                    <label class="block text-sm mb-1">Produto <span class="text-red-500">*</span></label>
+                    <select id="select_produto_venda_formulario"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                    </select>
+                </div>
 
-        <div class="md:col-span-2">
-            <label class="block text-sm mb-1">Preço</label>
-            <input type="text" placeholder="R$ 0,00" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-        </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm mb-1">Quantidade <span class="text-red-500">*</span></label>
+                    <input type="number" placeholder="1" id="input_quantidade_venda_formulario"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
 
-        <div class="md:col-span-2">
-            <button class="w-full p-2 bg-primary text-white rounded"><i class="fa-solid fa-cart-plus"></i> Adicionar</button>
-        </div>
-    </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm mb-1">Preço <span class="text-red-500">*</span></label>
+                    <input type="text" placeholder="R$ 0,00" id="input_preco_venda_formulario"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
 
-    <!-- Desconto -->
-    <div>
-        <label class="block text-sm mb-1">Desconto</label>
-        <input type="text" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Ex: 10%, R$20,00" />
-    </div>
+                <div class="md:col-span-2">
+                    <button id="btn_adicionar_produto_venda" type="button"
+                        class="w-full p-2 bg-primary dark:bg-primary-dark text-white rounded"><i
+                            class="fa-solid fa-cart-plus"></i>
+                        Adicionar</button>
+                </div>
+            </div>
 
-    <!-- Tabela de itens -->
-    <div>
-        <h3 class="text-lg font-medium mb-2">Itens da Venda</h3>
-        <div class="flex flex-col max-w-full overflow-auto">
-            <table class="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-200">
-                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-200">
-                    <tr>
-                        <th class="p-2 border border-gray-300 dark:border-gray-500">Produto</th>
-                        <th class="p-2 border border-gray-300 dark:border-gray-500">Quantidade</th>
-                        <th class="p-2 border border-gray-300 dark:border-gray-500">Preço</th>
-                        <th class="p-2 border border-gray-300 dark:border-gray-500">Subtotal</th>
-                        <th class="p-2 border border-gray-300 dark:border-gray-500">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Exemplo de item -->
-                    <tr>
-                        <td class="p-2 border border-gray-300 dark:border-gray-500">Produto A</td>
-                        <td class="p-2 border border-gray-300 dark:border-gray-500">2</td>
-                        <td class="p-2 border border-gray-300 dark:border-gray-500">R$ 50,00</td>
-                        <td class="p-2 border border-gray-300 dark:border-gray-500">R$ 100,00</td>
-                        <td class="p-2 border border-gray-300 dark:border-gray-500">
-                            <button class="text-red-500 hover:underline">Remover</button>
-                        </td>
-                    </tr>
-                    <!-- Outros itens serão adicionados dinamicamente -->
-                </tbody>
-            </table>
-        </div>
+            <!-- Desconto -->
+            <div>
+                <label class="block text-sm mb-1">Desconto</label>
+                <input type="text"
+                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
+                    placeholder="Ex: 10%, R$20,00" />
+            </div>
+
+            <!-- Tabela de itens -->
+            <div>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium mb-2">Itens da Venda</h3>
+                    <button id="btn_limpar_carrinho" type="button"
+                        class="text-sm text-white py-1 px-2 mb-2 rounded bg-red-500 dark:bg-red-600 dark:text-gray-200"><i
+                            class="fa-solid fa-cart-shopping"></i> Limpar</button>
+                </div>
+                <div class="flex flex-col max-w-full overflow-auto">
+                    <table id="tabela-carrinho-vendas"
+                        class="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-200">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-200">
+                            <tr>
+                                <th class="p-2 border border-gray-300 dark:border-gray-500">Produto</th>
+                                <th class="p-2 border border-gray-300 dark:border-gray-500">Quantidade</th>
+                                <th class="p-2 border border-gray-300 dark:border-gray-500">Preço</th>
+                                <th class="p-2 border border-gray-300 dark:border-gray-500">Subtotal</th>
+                                <th class="p-2 border border-gray-300 dark:border-gray-500">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Exemplo de item -->
+                            <tr>
+                                <td colspan="5" class="p-2 border border-gray-300 dark:border-gray-500 text-center">
+                                    Nenhum
+                                    item adicionado</td>
+                            </tr>
+                            <!-- Outros itens serão adicionados dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="p-2 bg-primary dark:bg-primary-dark text-white rounded-md mt-4"><i
+                        class="fa-regular fa-money-bill-1"></i> Salvar venda</button>
+            </div>
+        </form>
     </div>
 </div>
-
 <script>
- 
+    MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
+
+    $("#formulario_cadastro_venda").submit((e) => {
+        e.preventDefault();
+    });
+
+    flatpickr("#input_data_venda_formulario", {
+        altInput: true,
+        altFormat: "j \\de F \\de Y",
+        dateFormat: "Y-m-d",
+        locale: "pt"
+    });
+
+    function clearFormularioAddItem() {
+        $('#select_produto_venda_formulario').val(null).trigger('change');
+        $('#input_quantidade_venda_formulario').val('');
+        $('#input_preco_venda_formulario').val('');
+    }
+    function addToCart() {
+        const produtoData = $("#select_produto_venda_formulario").select2("data");
+        const quantidadeRaw = $('#input_quantidade_venda_formulario').val();
+        const precoRaw = $('#input_preco_venda_formulario').val();
+
+        if (!produtoData.length || !quantidadeRaw || !precoRaw) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Preencha todos os campos (Produto, Quantidade e Preço)!',
+                confirmButtonText: 'Certo!'
+            });
+            return;
+        }
+
+        const produtoId = produtoData[0].id;
+        const produtoLabel = produtoData[0].text;
+
+        const quantidade = parseFloat(quantidadeRaw);
+        const preco = parseFloat(precoRaw.replace(',', '.'));
+
+        if (isNaN(quantidade) || quantidade <= 0 || isNaN(preco) || preco <= 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Valores inválidos!',
+                text: 'Informe valores numéricos válidos para quantidade e preço.',
+                confirmButtonText: 'Entendi'
+            });
+            return;
+        }
+
+        const cart = localStorage.getItem('gestao_facil:cart');
+        let cartItems = cart ? JSON.parse(cart) : [];
+
+        // Verifica se o produto já foi adicionado
+        const exists = cartItems.some(item => item.id === produtoId);
+        if (exists) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Produto já adicionado!',
+                text: 'Este produto já está na lista.',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        const newItem = {
+            id: produtoId,
+            produto: produtoLabel,
+            quantidade,
+            preco: preco.toFixed(2),
+            subtotal: +(quantidade * preco).toFixed(2)
+        };
+
+        cartItems.push(newItem);
+        localStorage.setItem('gestao_facil:cart', JSON.stringify(cartItems));
+
+        atualizarTabelaCart();
+        clearFormularioAddItem();
+    }
+
+
+    function removeFromCart(produtoId) {
+        const cart = localStorage.getItem('gestao_facil:cart');
+        let cartItems = cart ? JSON.parse(cart) : [];
+
+        const novoCarrinho = cartItems.filter(item => Number(item.id) !== produtoId);
+
+        localStorage.setItem('gestao_facil:cart', JSON.stringify(novoCarrinho));
+        atualizarTabelaCart();
+    }
+
+
+    function updateCart() { };
+
+    function calculateTotalCart() {
+        const cart = localStorage.getItem('gestao_facil:cart');
+        const cartItems = cart ? JSON.parse(cart) : [];
+
+        const total = cartItems.reduce((sum, item) => {
+            return sum + parseFloat(item.subtotal);
+        }, 0);
+
+        return total.toFixed(2);
+    }
+
+    function clearCart() {
+        localStorage.removeItem('gestao_facil:cart');
+        atualizarTabelaCart();
+    }
+
+    function saveVenda() { };
+
+    function atualizarTabelaCart() {
+        const cart = localStorage.getItem('gestao_facil:cart');
+        const cartItems = cart ? JSON.parse(cart) : [];
+
+        const tbody = document.querySelector('#tabela-carrinho-vendas tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = ''; // Limpa antes de renderizar
+
+        if (cartItems.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                                <td colspan="5" class="p-2 border border-gray-300 dark:border-gray-500 text-center">Nenhum item adicionado</td>
+                                `;
+            tbody.appendChild(tr);
+            return;
+        }
+
+        cartItems.forEach((item, index) => {
+            const tr = document.createElement('tr');
+
+            tr.innerHTML = `
+                                <td class="p-2 border border-gray-300 dark:border-gray-500">${item.produto}</td>
+                                <td class="p-2 border border-gray-300 dark:border-gray-500">${item.quantidade}</td>
+                                <td class="p-2 border border-gray-300 dark:border-gray-500">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
+                                <td class="p-2 border border-gray-300 dark:border-gray-500">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
+                                <td class="p-2 border border-gray-300 dark:border-gray-500">
+                                    <button class="text-red-500 hover:underline" onclick="removeFromCart(${item.id})">Remover</button>
+                                </td>
+                                `;
+
+            tbody.appendChild(tr);
+        });
+    }
+
+
+    $("#select_cliente_venda_formulario").select2({
+        placeholder: 'Selecione um cliente',
+        width: '100%',
+        allowClear: true,
+        language: "pt-BR",
+        ajax: {
+            url: '/clientes/select2/lista',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+    $("#select_produto_venda_formulario").select2({
+        placeholder: 'Selecione um produto',
+        width: '100%',
+        allowClear: true,
+        language: "pt-BR",
+        ajax: {
+            url: '/produtos/select2/lista',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+    $("#select_vendedor_venda_formulario").select2({
+        placeholder: 'Selecione um vendedor',
+        width: '100%',
+        allowClear: true,
+        language: "pt-BR",
+        ajax: {
+            url: '/usuarios/select2/lista',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+
+    $('#select_produto_venda_formulario').on('select2:select', function (e) {
+        var data = e.params.data;
+        $.ajax({
+            url: '/produtos/' + data.id,
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            success: function (response) {
+                if (response.data) {
+                    $("#input_quantidade_venda_formulario").val(1);
+                    $("#input_preco_venda_formulario").val(response.data.preco.replace('.', ','));
+                }
+            },
+            error: function (xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro ao buscar produto',
+                    text: xhr.responseJSON?.message || 'Erro inesperado na requisição, tente novamente',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                })
+            }
+        })
+    });
+    $("#titulo_cadastro_venda").html(`<i class="fa-solid fa-tags"></i> Cadastro de Venda`);
+    $("#btn_adicionar_produto_venda").on('click', function () {
+        addToCart();
+    });
+    $("#btn_limpar_carrinho").on('click', function () {
+        clearCart();
+    });
+    clearCart();
 </script>

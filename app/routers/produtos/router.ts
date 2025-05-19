@@ -12,6 +12,7 @@ import {
   reposicaoProduto,
   saveProduto,
 } from "../../controllers/produtos/produtos";
+import { select2Produtos } from "../../controllers/produtos/hooks";
 
 const routerProdutos = Router();
 
@@ -27,5 +28,8 @@ routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("", authenticateJWT, saveProduto);
 routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
 routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
+
+//select2
+routerProdutos.get("/select2/lista", authenticateJWT, select2Produtos);
 
 export { routerProdutos };

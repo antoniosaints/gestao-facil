@@ -79,6 +79,7 @@ model Usuarios {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   Subscription  Subscription[]
+  Vendas        Vendas[]
 }
 
 enum TipoCliente {
@@ -151,6 +152,15 @@ model Produto {
   MovimentacoesEstoque MovimentacoesEstoque[]
 }
 
+enum StatusVenda {
+  ORCAMENTO
+  FATURADO
+  ANDAMENTO
+  FINALIZADO
+  PENDENTE
+  CANCELADO
+}
+
 model Vendas {
   id              Int                   @id @default(autoincrement())
   contaId         Int
@@ -158,7 +168,11 @@ model Vendas {
   data            DateTime              @default(now())
   valor           Decimal               @db.Decimal(10, 2)
   clienteId       Int?
+  status          StatusVenda           @default(ORCAMENTO)
   cliente         ClientesFornecedores? @relation(fields: [clienteId], references: [id])
+  vendedorId      Int?
+  vendedor        Usuarios?             @relation(fields: [vendedorId], references: [id])
+  garantia        Int?                  @default(0)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   ItensVendas     ItensVendas[]

@@ -26,6 +26,7 @@ import { tableVendas } from "./controllers/vendas/table";
 import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
+import { select2Usuarios } from "./controllers/administracao/hooks";
 
 const app = express();
 app.use(cors());
@@ -43,6 +44,7 @@ app.post("/login", login);
 app.get("/auth/check", checkAuth);
 app.get("/auth/verify", verify);
 app.get("/usuarios", authenticateJWT, tableUsuarios);
+app.get("/usuarios/select2/lista", authenticateJWT, select2Usuarios);
 
 // Rotas webhook
 app.post("/asaas/webhook", webhookAsaasCheck);
