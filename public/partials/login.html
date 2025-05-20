@@ -23,33 +23,37 @@
 
 <body
   class="bg-background dark:bg-background-dark text-text dark:text-text-dark min-h-screen overflow-hidden flex flex-col">
-  <div class="h-[calc(100vh-8rem)] flex items-center justify-center ">
-    <div class="p-6 md:border border-border dark:border-border-dark rounded-2xl md:shadow-md w-full max-w-md">
-      <h2 class="text-2xl font-bold text-center text-primary mb-6">🔐 Login</h2>
+  <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900 md:px-4">
+    <div
+      class="w-full h-screen flex flex-col justify-center md:h-auto md:max-w-md bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 md:rounded-2xl shadow-xl p-8 transition-all duration-300 ease-in-out">
 
-      <form class="space-y-4" id="login_formulario_sistema">
+      <h2 class="text-3xl font-bold text-center text-primary mb-8">🔐 Login</h2>
+
+      <form class="space-y-6" id="login_formulario_sistema">
         <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-200">Email</label>
-          <input type="email" id="email" name="email" placeholder="Email de acesso." required
-            class="mt-1 block w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary dark:text-white" />
+          <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+          <input type="email" id="email" name="email" placeholder="Email de acesso" required
+            class="mt-2 w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary dark:text-white transition" />
         </div>
 
         <div>
-          <label for="senha" class="block text-sm font-medium text-gray-700 dark:text-gray-200">Senha</label>
-          <input type="password" id="senha" name="senha" placeholder="Senha de acesso." required
-            class="mt-1 block w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary dark:text-white" />
+          <label for="senha" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Senha</label>
+          <input type="password" id="senha" name="senha" placeholder="Senha de acesso" required
+            class="mt-2 w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary dark:text-white transition" />
         </div>
 
         <div id="login-feedback" class="text-center text-red-500 text-sm"></div>
         <div id="login-success" class="text-center text-green-500 text-sm"></div>
 
         <button type="submit"
-          class="w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition">
+          class="w-full py-3 px-4 bg-primary hover:bg-orange-600 text-white font-semibold rounded-xl transition-all shadow-md">
           Entrar
         </button>
       </form>
+
     </div>
   </div>
+
 
   <script>
     $("#login_formulario_sistema").off("submit").on("submit", (event) => {

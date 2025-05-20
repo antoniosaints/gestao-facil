@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestão Fácil - Seu controle em um só lugar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#F97316', // Laranja
+                    },
+                    borderRadius: {
+                        xl: '1.25rem',
+                        '2xl': '1.5rem',
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+
+<body class="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-300 ease-in-out">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center px-10 py-6 max-w-7xl mx-auto">
+        <h1 class="text-2xl font-bold text-primary">Gestão Fácil</h1>
+        <button onclick="document.documentElement.classList.toggle('dark')"
+            class="text-sm border px-4 py-2 rounded-xl transition-all">
+            Alternar Tema
+        </button>
+    </header>
+
+    <!-- Hero -->
+    <section class="text-center py-28 px-10 bg-gray-50 dark:bg-zinc-800 transition-all">
+        <h2 class="text-5xl font-bold mb-6 leading-tight">Controle total da sua empresa em um só lugar</h2>
+        <p class="text-lg mb-8 max-w-2xl mx-auto">Produtos, vendas, estoque, relatórios e muito mais de forma simples e
+            eficiente.</p>
+        <a href="#preco"
+            class="bg-primary text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:bg-orange-600 shadow-xl transition-all">
+            Comece agora por R$ 70/mês
+        </a>
+    </section>
+
+    <!-- Funcionalidades -->
+    <section class="max-w-7xl mx-auto py-28 px-10">
+        <h3 class="text-4xl font-bold text-center mb-16">Funcionalidades Principais</h3>
+        <div class="grid md:grid-cols-3 gap-12 text-center">
+            <div class="p-6 rounded-2xl shadow-xl bg-white dark:bg-zinc-800 transition-all">
+                <h4 class="text-xl font-semibold mb-2 text-primary">📦 Produtos</h4>
+                <p>Gerencie seu catálogo com praticidade.</p>
+            </div>
+            <div class="p-6 rounded-2xl shadow-xl bg-white dark:bg-zinc-800 transition-all">
+                <h4 class="text-xl font-semibold mb-2 text-primary">💰 Vendas</h4>
+                <p>Registre e acompanhe todas as suas vendas.</p>
+            </div>
+            <div class="p-6 rounded-2xl shadow-xl bg-white dark:bg-zinc-800 transition-all">
+                <h4 class="text-xl font-semibold mb-2 text-primary">👥 Clientes</h4>
+                <p>Tenha controle completo dos seus clientes.</p>
+            </div>
+            <div class="p-6 rounded-2xl shadow-xl bg-white dark:bg-zinc-800 transition-all">
+                <h4 class="text-xl font-semibold mb-2 text-primary">📦 Estoque</h4>
+                <p>Acompanhamento e alertas de reposição.</p>
+            </div>
+            <div class="p-6 rounded-2xl shadow-xl bg-white dark:bg-zinc-800 transition-all">
+                <h4 class="text-xl font-semibold mb-2 text-primary">📈 Relatórios</h4>
+                <p>Dados e insights para decisões melhores.</p>
+            </div>
+            <div class="p-6 rounded-2xl shadow-xl bg-white dark:bg-zinc-800 transition-all">
+                <h4 class="text-xl font-semibold mb-2 text-primary">💳 Cobranças</h4>
+                <p>Fature e cobre com facilidade.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Preço -->
+    <section id="preco" class="py-28 bg-gray-100 dark:bg-zinc-800 px-10 text-center">
+        <h3 class="text-4xl font-bold mb-8">Plano Simples e Direto</h3>
+        <p class="text-2xl mb-6">Apenas <strong class="text-primary">R$ 70/mês</strong>. Sem taxas escondidas.</p>
+        <a href="#"
+            class="bg-primary text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:bg-orange-600 shadow-xl transition-all">
+            Assinar agora
+        </a>
+    </section>
+
+    <!-- Aviso Legal -->
+    <section class="bg-white dark:bg-zinc-900 px-10 py-16 text-center border-t border-zinc-200 dark:border-zinc-700">
+        <div class="max-w-3xl mx-auto">
+            <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                O sistema <strong>Gestão Fácil</strong> é livre de regras de uso operacionais ou fiscais. A
+                responsabilidade total sobre a forma de utilização, registros inseridos e obrigações legais é exclusiva
+                do assinante.
+            </p>
+        </div>
+    </section>
+
+
+    <!-- Rodapé -->
+    <footer class="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+        &copy; 2025 Gestão Fácil. Todos os direitos reservados.
+    </footer>
+
+</body>
+
+</html>

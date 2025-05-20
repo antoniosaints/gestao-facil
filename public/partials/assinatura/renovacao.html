@@ -54,7 +54,7 @@
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Vencimento</th>
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Valor</th>
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Status</th>
-                        <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Comprovante</th>
+                        <th class="px-4 py-2 text-right text-gray-700 dark:text-gray-300">Cobrança</th>
                     </tr>
                 </thead>
                 <tbody id="listar_faturas_conta_pagamentos" class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -77,7 +77,7 @@
                                              <td class="px-4 py-2 text-gray-800 dark:text-gray-200">${fatura.vencimento}</td>
                                              <td class="px-4 py-2 text-gray-800 dark:text-gray-200">R$ ${fatura.valor}</td>
                                              <td class="px-4 py-2 text-${fatura.color}-600 dark:text-${fatura.color}-400">${fatura.status}</td>
-                                             <td class="px-4 py-2">
+                                             <td class="px-4 py-2 text-right">
                                                  <a href="${fatura.linkPagamento}" class="text-primary-600 hover:underline dark:text-primary-400">Visualizar</a>
                                              </td>
                                          </tr>`);
