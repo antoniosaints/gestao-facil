@@ -2,6 +2,9 @@ import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../middlewares/auth";
 import { getCustomRequest } from "../helpers/getCustomRequest";
 import { prisma } from "../utils/prisma";
+import { webRouterProdutos } from "./produtos/web";
+import { webRouterVendas } from "./vendas/web";
+import { webRouterAdministracao } from "./administracao/web";
 
 const webRouter = Router();
 
@@ -20,33 +23,31 @@ const isAccountActive = async (req: Request) => {
   return conta.status === "ATIVO";
 };
 
-const renderFileAuth = async (req: Request, res: Response, file: string) => {
+export const renderFileAuth = async (req: Request, res: Response, file: string) => {
   if (await isAccountActive(req)) {
-    res.sendFile(file, { root: "public" });
+    res.sendFile(file, { root: "views" });
   }else {
     res.redirect("/plano/assinatura");
   }
 };
+export const renderFileSimple = async (req: Request, res: Response, file: string) => {
+    res.sendFile(file, { root: "views" });
+};
+
+webRouter.use("/produtos", webRouterProdutos);
+webRouter.use("/vendas", webRouterVendas);
+webRouter.use("/administracao", webRouterAdministracao);
 
 webRouter.get("/", authenticateJWT, (req, res): any => {
   res.sendFile("index.html", { root: "public" });
 });
 webRouter.get("/login", (req, res) => {
-  res.sendFile("partials/login.html", { root: "public" });
+  res.sendFile("partials/login.html", { root: "views" });
 });
-
 webRouter.get("/resumos", authenticateJWT, (req, res): any => {
   renderFileAuth(req, res, "partials/dashboard.html");
 });
-webRouter.get("/produtos/resumo", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/produtos/index.html");
-});
-webRouter.get("/vendas/resumo", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/vendas/index.html");
-});
-webRouter.get("/vendas/detalhe", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/vendas/detalhes.html");
-});
+
 webRouter.get("/clientes/resumo", authenticateJWT, (req, res) => {
   renderFileAuth(req, res, "partials/clientes_fornecedores/index.html");
 });

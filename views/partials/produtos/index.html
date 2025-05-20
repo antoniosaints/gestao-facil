@@ -16,42 +16,42 @@
   </div>
   <div
     class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/partials/produtos/tabela.html" hx-trigger="load" hx-swap="innerHTML"></div>
+    hx-get="/produtos/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
   <div class="overflow-x-auto block md:hidden rounded-lg"
-    hx-get="/partials/produtos/mobile.html" hx-trigger="load" hx-swap="innerHTML"></div>
+    hx-get="/produtos/mobile/lista" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 
 <div id="modal-container-reporestoque-produtos"></div>
 <div id="modal-template-reporestoque-produtos" class="hidden">
   <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-  hx-get="/partials/produtos/modais/repor-estoque.html" hx-trigger="load" hx-swap="innerHTML"></div>
+  hx-get="/produtos/reposicao/estoque" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 <div id="modal-container-reporestoque-produtos-relatorio"></div>
 <div id="modal-template-reporestoque-produtos-relatorio" class="hidden">
   <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-  hx-get="/partials/produtos/modais/gerar-relatorio-reposicao.html" hx-trigger="load" hx-swap="innerHTML"></div>
+  hx-get="/produtos/reposicao/relatorio" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 <div id="modal-container-gerar-relatorio-produtos"></div>
 <div id="modal-template-gerar-relatorio-produtos" class="hidden">
   <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-    hx-get="/partials/produtos/modais/gerar-relatorio.html" hx-trigger="load" hx-swap="innerHTML">
+    hx-get="/produtos/relatorio/geral" hx-trigger="load" hx-swap="innerHTML">
   </div>
 </div>
 
 <script>
   function editarProduto(id) {
     localStorage.setItem("produtoId", id);
-    htmx.ajax("GET", "partials/produtos/formulario.html", {
+    htmx.ajax("GET", "produtos/editar/formulario", {
       target: "#content",
       swap: "innerHTML",
     });
   }
   function visualizarProduto(id) {
     localStorage.setItem("produtoId", id);
-    htmx.ajax("GET", "partials/produtos/detalhes.html", {
+    htmx.ajax("GET", "produtos/detalhes", {
       target: "#content-produtos",
       swap: "innerHTML",
     });
@@ -114,7 +114,7 @@
   }
   function salvarProduto() {
     localStorage.removeItem("produtoId");
-    htmx.ajax("GET", "partials/produtos/formulario.html", {
+    htmx.ajax("GET", "produtos/editar/formulario", {
       target: "#content",
       swap: "innerHTML",
     });
