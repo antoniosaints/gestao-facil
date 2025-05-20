@@ -8,7 +8,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm mb-1">Cliente</label>
-                    <select id="select_cliente_venda_formulario"
+                    <select id="select_cliente_venda_formulario" name="cliente"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
 
                     </select>
@@ -16,21 +16,21 @@
 
                 <div>
                     <label class="block text-sm mb-1">Data da Venda <span class="text-red-500">*</span></label>
-                    <input type="date" required id="input_data_venda_formulario"
-                        placeholder="DD/MM/AAAA"
+                    <input type="date" required id="input_data_venda_formulario" placeholder="DD/MM/AAAA"
+                        name="data_venda"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
 
                 <div>
                     <label class="block text-sm mb-1">Vendedor <span class="text-red-500">*</span></label>
-                    <select required id="select_vendedor_venda_formulario"
+                    <select required id="select_vendedor_venda_formulario" name="vendedor"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-sm mb-1">Status <span class="text-red-500">*</span></label>
-                    <select required
+                    <select required name="status" id="select_status_venda_formulario"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                         <option value="ORCAMENTO">Orçamento</option>
                         <option value="FATURADO">Faturado</option>
@@ -43,7 +43,7 @@
 
                 <div class="md:col-span-2">
                     <label class="block text-sm mb-1">Garantia</label>
-                    <input type="text"
+                    <input type="text" name="garantia" id="input_garantia_venda_formulario"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
                         placeholder="Ex: 90 dias" />
                 </div>
@@ -52,7 +52,7 @@
             <!-- Observações -->
             <div>
                 <label class="block text-sm mb-1">Observações</label>
-                <textarea
+                <textarea name="observacoes" id="input_observacoes_venda_formulario"
                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
                     rows="3" placeholder="Observações da venda..."></textarea>
             </div>
@@ -141,6 +141,73 @@
 
     $("#formulario_cadastro_venda").submit((e) => {
         e.preventDefault();
+
+        const cart = localStorage.getItem('gestao_facil:cart');
+        const cartItems = cart ? JSON.parse(cart) : [];
+
+        if (cartItems.length === 0) {
+            Swal.fire({
+                icon: "error",
+                title: "Erro!",
+                text: "Nenhum item adicionado na venda",
+                confirmButtonText: "Ok",
+            });
+            return;
+        }
+
+        const data = {
+            clienteId: $('#select_cliente_venda_formulario').val(),
+            data: $('#input_data_venda_formulario').val(),
+            vendedorId: $('#select_vendedor_venda_formulario').val(),
+            status: $('#select_status_venda_formulario').val(),
+            garantia: $('#input_garantia_venda_formulario').val(),
+            observacoes: $('#input_observacoes_venda_formulario').val(),
+            itens: cartItems.map(item => (
+                {
+                    id: item.id,
+                    quantidade: item.quantidade,
+                    preco: item.preco
+                }
+            ))
+        };
+
+        $.ajax({
+            url: '/vendas/criar',
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            success: function (data) {
+                console.log(data);
+                Swal.fire({
+                    toast: true,
+                    position: "bottom-end",
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    icon: "success",
+                    title: "Sucesso!",
+                    text: "Venda criada com sucesso",
+                });
+                loadPage('/vendas/resumo');
+            },
+            error: function (xhr, status, error) {
+                const mensagem =
+                    xhr.responseJSON?.message || "Erro inesperado na requisição";
+                Swal.fire({
+                    toast: true,
+                    position: "bottom-end",
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    icon: "error",
+                    title: "Erro!",
+                    text: mensagem,
+                });
+            }
+        });
     });
 
     flatpickr("#input_data_venda_formulario", {
@@ -368,6 +435,19 @@
             },
             success: function (response) {
                 if (response.data) {
+                    if (response.data.estoque <= 0) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro ao adicionar produto ao carrinho',
+                            text: 'Produto sem estoque disponível',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000
+                        })
+                        $('#select_produto_venda_formulario').val(null).trigger('change');
+                        return;
+                    }
                     $("#input_quantidade_venda_formulario").val(1);
                     $("#input_preco_venda_formulario").val(response.data.preco.replace('.', ','));
                 }

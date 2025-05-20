@@ -32,6 +32,7 @@ export const assinaturaConta = async (req: Request, res: Response) => {
                 id: fatura.id,
                 color: fatura.status === "PENDENTE" ? "orange" : fatura.status === "PAGO" ? "green" : "red",
             })),
+            diasParaVencer: (conta.vencimento.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
             proximoVencimento: conta.vencimento.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
             valorTotal: conta.FaturasContas.reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
             valorPendente: conta.FaturasContas.filter((fatura) => fatura.status === "PENDENTE").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),

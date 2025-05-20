@@ -61,6 +61,7 @@
                     </ul>
 
                     <button
+                        onclick="criarAssinaturaConta()"
                         class="mt-6 w-full rounded-lg bg-primary text-white px-4 py-2.5 text-sm font-medium transition hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600">
                         Assinar agora
                     </button>
@@ -69,3 +70,43 @@
         </div>
     </div>
 </div>
+
+<script>
+    function criarAssinaturaConta () {
+        $.ajax({
+            url: '/contas/assinatura',
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+            },
+            beforeSend: function (xhr) {
+                Swal.fire({
+                    title: 'Gerando assinatura, aguarde...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                })
+            },
+            success: function (response) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sucesso!',
+                    text: "Assinatura criada com sucesso",
+                }).then(() => {
+                    window.location.href = "/";
+                });
+            },
+            error: function (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro!',
+                    text: error.responseJSON.message || "Ocorreu um erro ao criar a assinatura, tente novamente",
+                })
+            }
+        })
+    }
+</script>

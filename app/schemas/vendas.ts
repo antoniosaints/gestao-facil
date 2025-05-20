@@ -16,11 +16,25 @@ export const vendaSchema = z.object({
     })
     .transform((val) => (val ? Number(val) : undefined)),
 
-  status: z.enum(["ORCAMENTO", "FATURADO", "EM_ANDAMENTO", "FINALIZADO"], {
-    required_error: "O campo status é obrigatório",
-    invalid_type_error: "O campo status deve ser uma string",
-  }),
-
+  status: z.enum(
+    [
+      "ORCAMENTO",
+      "FATURADO",
+      "ANDAMENTO",
+      "FINALIZADO",
+      "PENDENTE",
+      "CANCELADO",
+    ],
+    {
+      required_error: "O campo status é obrigatório",
+      invalid_type_error: "O campo status deve ser uma string",
+    }
+  ),
+  observacoes: z
+    .string({
+      invalid_type_error: "O campo observacoes deve ser uma string",
+    })
+    .optional(),
   vendedorId: z
     .string({
       invalid_type_error: "O campo vendedorId deve ser uma string",
@@ -40,4 +54,35 @@ export const vendaSchema = z.object({
       message: "Garantia inválida",
     })
     .transform((val) => (val ? Number(val) : undefined)),
+  itens: z.array(
+    z.object(
+      {
+        id: z
+          .string({
+            required_error: "O campo id é obrigatório",
+            invalid_type_error: "O campo id deve ser uma string",
+          })
+          .refine((val) => !isNaN(Number(val)), {
+            message: "produtoId inválido",
+          })
+          .transform((val) => Number(val)),
+        preco: z
+          .string({
+            required_error: "O campo preco é obrigatório",
+            invalid_type_error: "O campo preco deve ser uma string",
+          })
+          .transform((val) => parseFloat(val.replace(",", "."))),
+        quantidade: z
+          .string({
+            required_error: "O campo quantidade é obrigatório",
+            invalid_type_error: "O campo quantidade deve ser uma string",
+          })
+          .refine((val) => !isNaN(Number(val)), {
+            message: "quantidade inválida",
+          })
+          .transform((val) => Number(val)),
+      },
+      { required_error: "O campo itens é obrigatório" }
+    )
+  ),
 });

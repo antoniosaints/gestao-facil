@@ -12,6 +12,9 @@
                 <p class="text-md text-gray-600 dark:text-gray-400">
                     Valor: <span class="font-semibold" id="valor_assinatura_conta">...</span>
                 </p>
+                <p class="text-md text-gray-600 dark:text-gray-400">
+                    Dias restantes: <span class="font-semibold" id="dias_para_vencer_assinaturas">...</span>
+                </p>
             </div>
 
             <div class="items-center gap-4 hidden" id="bloco_assinatura_pendente">
@@ -88,12 +91,12 @@
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
             },
             success: (res) => {
-                console.log(res);
                 $('#listar_faturas_conta_pagamentos').text('');
                 if (res.data.proximoVencimento) $('#data_vencimento_assinatura').text(res.data.proximoVencimento);
+                if (res.data.diasParaVencer) $('#dias_para_vencer_assinaturas').text(res.data.diasParaVencer < 0 ? "Vencido" : res.data.diasParaVencer.toFixed(0));
                 if (res.data.valor) $('#valor_assinatura_conta').text(`${res.data.valor}`);
                 if (res.data.faturas) renderFaturas(res.data.faturas);
-                if (res.data.status === "ATIVO" && !res.data.proximoLinkPagamento) {
+                if (res.data.status === "ATIVO" && res.data.diasParaVencer > 3) {
                     $('#bloco_assinatura_ativa').removeClass("hidden").addClass("flex");
                     $('#bloco_assinatura_pendente').removeClass("flex").addClass("hidden");
                 }else {

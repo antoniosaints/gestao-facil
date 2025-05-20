@@ -5,7 +5,7 @@ import type {
 } from "../../types/asaas";
 import Stream from "stream";
 import { httpAsaas } from "../../external/http";
-import { AsaasCharge, AsaasCustomer, AsaasPaymentLink } from "../../schemas/asaas/asaasSchemas";
+import { AsaasCharge, AsaasCustomer, AsaasPaymentLink, AsaasSubscription } from "../../schemas/asaas/asaasSchemas";
 
 // Tipos genéricos
 interface List<T> {
@@ -59,6 +59,12 @@ export async function createLinkPayment(
   payload: AsaasPaymentLink
 ): Promise<PaymentLinkResponse> {
   const { data } = await httpAsaas.post("/paymentLinks", payload);
+  return data;
+}
+export async function AsaasCreateSubscription(
+  payload: AsaasSubscription
+): Promise<PaymentLinkResponse> {
+  const { data } = await httpAsaas.post("/subscriptions", payload);
   return data;
 }
 

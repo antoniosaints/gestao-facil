@@ -28,6 +28,9 @@ const envSchema = z.object({
   }),
   ASAAS_WEBHOOK_SECRET: z.string({
     required_error: "ASAAS_WEBHOOK_SECRET é obrigatório",
+  }),
+  ASAAS_BASE_URL: z.string({
+    required_error: "ASAAS_BASE_URL é obrigatório",
   })
 });
 

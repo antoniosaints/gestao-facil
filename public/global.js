@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((res) => res.json())
     .then((html) => {
       if (html.authenticated) {
-        htmx.ajax("GET", html.view, { target: "#content", swap: "innerHTML" });
+        loadPage(html.view);
       } else {
         localStorage.removeItem("gestao_facil:token");
         window.location.href = "/login";

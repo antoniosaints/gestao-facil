@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../middlewares/auth";
 import { getCustomRequest } from "../helpers/getCustomRequest";
 import { prisma } from "../utils/prisma";
+import { createSubscription } from "../controllers/asaas/assinatura";
 
 const webRouter = Router();
 
@@ -46,6 +47,7 @@ webRouter.get("/clientes/resumo", authenticateJWT, (req, res) => {
 webRouter.get("/login", (req, res) => {
   res.sendFile("partials/login.html", { root: "public" });
 });
+
 webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
   try {
     if (await isAccountBloqueada(req) || await isAccountActive(req)) {

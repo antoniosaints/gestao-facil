@@ -1,6 +1,17 @@
-export type Formatter<T> = (value: any, row: T, meta: { field: string }) => any;
+export type Formatter<T> = (
+  value: any,
+  row: T,
+  meta: { field: string }
+) => any | Promise<any>;
 export type RowEditor<T> = (row: T, meta: { field: string }) => any;
-export type SearchableFieldType = "string" | "number" | "boolean";
+export type SearchableFieldType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "enum"
+  | "date"
+  | "decimal";
+
 export interface DataTablesRequest {
   draw: number;
   start: number;
@@ -45,16 +56,18 @@ export class PrismaDataTableBuilder<T> {
   private searchableFields: Partial<Record<keyof T, SearchableFieldType>> = {};
   private baseWhere: any = {};
   private model: any;
-  private extraColumns: Record<string, (row: T) => any> = {}; // Agora armazena funções
-  private alwaysFields: Array<keyof T> = []; // Novo campo
+  private extraColumns: Record<string, (row: T) => any> = {};
+  private alwaysFields: Array<keyof T> = [];
 
   constructor(model: any) {
     this.model = model;
   }
+
   addColumn(field: string, callback: (row: T) => any): this {
     this.extraColumns[field] = callback;
     return this;
   }
+
   search(fields: Partial<Record<keyof T, SearchableFieldType>>): this {
     this.searchableFields = fields;
     return this;
@@ -119,42 +132,57 @@ export class PrismaDataTableBuilder<T> {
     const { draw, start, length, search, order, columns } = req;
 
     let where: any = this.baseWhere;
+    let hasValidFilter = false;
 
     if (search.value) {
-      const dynamic = {
-        OR: Object.entries(this.searchableFields)
-          .map(([field, type]) => {
-            if (type === "string") {
-              return {
-                [field]: { contains: search.value },
-              };
-            }
-            if (type === "number") {
-              // Tentar converter o valor de busca para número
-              const searchNumber = parseFloat(search.value);
-              if (!isNaN(searchNumber)) {
-                return { [field]: searchNumber }; // Comparação exata para números
+      const dynamicOR = Object.entries(this.searchableFields)
+        .map(([field, type]) => {
+          try {
+            switch (type) {
+              case "string":
+                return { [field]: { contains: search.value } };
+              case "number":
+              case "decimal": {
+                const val = parseFloat(search.value);
+                if (!isNaN(val)) return { [field]: val };
+                break;
               }
+              case "boolean": {
+                const val = search.value.toLowerCase();
+                if (val === "true") return { [field]: true };
+                if (val === "false") return { [field]: false };
+                break;
+              }
+              case "date": {
+                const date = new Date(search.value);
+                if (!isNaN(date.getTime())) return { [field]: date };
+                break;
+              }
+              case "enum":
+                return { [field]: { contains: search.value } };
             }
-            if (type === "boolean") {
-              const val = search.value.toLowerCase();
-              if (val === "true") return { [field]: true };
-              if (val === "false") return { [field]: false };
-            }
+          } catch {
             return {};
-          })
-          .filter((f) => Object.keys(f).length > 0),
-      };
-      where = { AND: [this.baseWhere, dynamic] };
+          }
+          return {};
+        })
+        .filter((f) => {
+          if (Object.keys(f).length > 0) {
+            hasValidFilter = true;
+            return true;
+          }
+          return false;
+        });
+
+      if (hasValidFilter) {
+        where = { AND: [this.baseWhere, { OR: dynamicOR }] };
+      }
     }
 
-    const recordsTotal = await this.model.count({
-      where: this.baseWhere,
-    });
-
-    const recordsFiltered = await this.model.count({
-      where,
-    });
+    const recordsTotal = await this.model.count({ where: this.baseWhere });
+    const recordsFiltered = hasValidFilter
+      ? await this.model.count({ where })
+      : recordsTotal;
 
     const sort = order.map((o) => {
       const field = columns[o.column].data;
@@ -162,40 +190,43 @@ export class PrismaDataTableBuilder<T> {
     });
 
     const rows: T[] = await this.model.findMany({
-      where,
+      where: hasValidFilter ? where : this.baseWhere,
       orderBy: sort,
       skip: start,
       take: length,
     });
 
-    const data = rows.map((row) => {
-      const formatted: any = {};
+    const data = await Promise.all(
+      rows.map(async (row) => {
+        const formatted: any = {};
 
-      // Inclui campos obrigatórios mesmo se não estiverem nas colunas
-      for (const field of this.alwaysFields) {
-        formatted[field] = (row as any)[field];
-      }
-
-      for (const col of columns) {
-        const field = col.data as keyof T;
-        const meta = { field: field as string };
-
-        if (this.editors[field]) {
-          formatted[field] = this.editors[field](row, meta);
-        } else if (this.formatters[field]) {
-          const value = (row as any)[field];
-          formatted[field] = this.formatters[field](value, row, meta);
-        } else {
-          formatted[field] = (row as any)[field];
+        for (const field of this.alwaysFields) {
+          formatted[field as string] = (row as any)[field];
         }
-      }
 
-      for (const [extraField, callback] of Object.entries(this.extraColumns)) {
-        formatted[extraField] = callback(row);
-      }
+        for (const col of columns) {
+          const field = col.data as keyof T;
+          const meta = { field: field as string };
 
-      return formatted;
-    });
+          if (this.editors[field]) {
+            formatted[field] = this.editors[field](row, meta);
+          } else if (this.formatters[field]) {
+            const value = (row as any)[field];
+            formatted[field] = await this.formatters[field](value, row, meta);
+          } else {
+            formatted[field] = (row as any)[field];
+          }
+        }
+
+        for (const [extraField, callback] of Object.entries(
+          this.extraColumns
+        )) {
+          formatted[extraField] = callback(row);
+        }
+
+        return formatted;
+      })
+    );
 
     return {
       draw,

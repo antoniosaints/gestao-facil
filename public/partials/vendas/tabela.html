@@ -2,10 +2,11 @@
     <thead>
         <tr>
             <th>ID</th>
-            <th>Cod.</th>
-            <th>Nome</th>
-            <th>Preço</th>
-            <th>Qtd</th>
+            <th>Vendedor</th>
+            <th>Cliente</th>
+            <th>Valor</th>
+            <th>Data</th>
+            <th>Status</th>
             <th class="flex justify-end">Ações</th>
         </tr>
     </thead>
@@ -55,10 +56,11 @@
         },
         columns: [
             { data: "id" },
-            { data: "codigo" },
-            { data: "nome" },
-            { data: "preco" },
-            { data: "estoque" },
+            { data: "vendedorId" },
+            { data: "clienteId" },
+            { data: "valor" },
+            { data: "data" },
+            { data: "status" },
             {
                 data: "acoes",
                 className: "flex justify-end",

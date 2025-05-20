@@ -79,19 +79,17 @@ export const checkAuth = async (req: Request, res: Response): Promise<any> => {
       return res.status(200).json({
         authenticated: true,
         message: "Token válido",
-        view: "partials/dashboard.html",
+        view: "/resumos",
       });
     }
     return res.status(401).json({
       authenticated: false,
       message: "Token inválido",
-      view: "partials/login.html",
     });
   } catch {
     return res.status(401).json({
       authenticated: false,
       message: "Token inválido",
-      view: "partials/login.html",
     });
   }
 };
