@@ -27,3 +27,24 @@ function MaskToInputMoney(element) {
     mapToRadix: ["."],
   });
 }
+
+function MaskToInputPercentage(element) {
+  IMask(element, {
+    mask: "num",
+    blocks: {
+      num: {
+        mask: Number,
+        scale: 2, // número de casas decimais
+        signed: false,
+        thousandsSeparator: "",
+        padFractionalZeros: true,
+        normalizeZeros: true,
+        radix: ",",
+        mapToRadix: ["."],
+        min: 0,
+        max: 100,
+      },
+    },
+    lazy: false, // mostra o sufixo '%' mesmo quando o campo está vazio
+  });
+}

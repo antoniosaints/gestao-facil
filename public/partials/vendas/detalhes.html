@@ -1,0 +1,106 @@
+<div class="h-[calc(100vh + 5rem)] flex flex-col justify-center">
+    <h2 class="text-2xl font-bold text-primary dark:text-primary-dark mb-6" id="titulo_detalhes_venda">
+        <i class="fa-solid fa-tags"></i> Detalhes da Venda
+    </h2>
+    <div
+        class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
+        <!-- Informações da Venda -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+            <div>
+                <p><span class="font-medium">ID da Venda:</span> <span id="id_venda_detalhes">...</span></p>
+                <p><span class="font-medium">Data:</span> <span id="data_venda_detalhes">...</span></p>
+                <p><span class="font-medium">Cliente:</span> <span id="cliente_venda_detalhes">...</span></p>
+            </div>
+            <div>
+                <p><span class="font-medium">Total:</span> <span id="total_venda_detalhes">...</span></p>
+                <p><span class="font-medium">Status:</span> <span id="status_venda_detalhes">...</span></p>
+                <p><span class="font-medium">Garantia:</span> <span id="garantia_venda_detalhes">...</span></p>
+            </div>
+        </div>
+        <hr class="border-border dark:border-border-dark mb-2">
+        <!-- Itens Vendidos -->
+        <h3 class="text-lg font-medium mb-3">Itens Vendidos</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-auto border border-border dark:border-border-dark bg-card dark:bg-card-dark">
+                <thead class="bg-gray-200 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-2 text-left">Produto</th>
+                        <th class="px-4 py-2 text-right">Quantidade</th>
+                        <th class="px-4 py-2 text-right">Preço Unitário</th>
+                        <th class="px-4 py-2 text-right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="listar_itens_venda">
+                    <tr class="border-t border-border dark:border-border-dark">
+                        <td colspan="4" class="px-4 py-2">Nenhum item encontrado</td>
+                    </tr>
+                </tbody>
+                <tfoot class="bg-gray-100 dark:bg-gray-800">
+                    <tr class="border-t border-border dark:border-border-dark">
+                        <td colspan="3" class="px-4 py-2 text-right font-medium">Total</td>
+                        <td class="px-4 py-2 text-right font-bold font-mono" id="total_itens_venda_valor">...</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    (() => {
+        $.ajax({
+            url: '/vendas/' + localStorage.getItem("vendaId"),
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            beforeSend: function (xhr) {
+                Swal.fire({
+                    title: "Carregando...",
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                })
+            },
+            success: function (response) {
+                Swal.close();
+                const cliente = response.data.cliente ? response.data.cliente.nome : 'N/A'
+                $("#titulo_detalhes_venda").html(`<i class="fa-solid fa-tags"></i> Detalhes da Venda #${response.data.id}`);
+                $("#id_venda_detalhes").text(`#${response.data.id}`);
+                $("#cliente_venda_detalhes").text(`${cliente}`);
+                $("#status_venda_detalhes").text(`${response.data.status}`);
+                $("#garantia_venda_detalhes").text(`${response.data.garantia ? `${response.data.garantia} dias` : 'N/A'}`);
+                $("#total_venda_detalhes").text(`R$ ${response.data.valor.replace('.', ',')}`);
+                $("#data_venda_detalhes").text(`${new Date(response.data.data).toLocaleDateString('pt-BR')}`);
+
+                $("#listar_itens_venda").empty();
+                response.data.ItensVendas.map(item => {
+                    $("#listar_itens_venda").append(`
+                        <tr class="border-t border-border dark:border-border-dark">
+                            <td class="px-4 py-2">${item.produto.nome}</td>
+                            <td class="px-4 py-2 text-right">${item.quantidade}</td>
+                            <td class="px-4 py-2 text-right font-mono">R$ ${item.valor.replace('.', ',')}</td>
+                            <td class="px-4 py-2 text-right font-mono">R$ ${parseFloat(item.valor) * item.quantidade}</td>
+                        </tr>
+                    `);
+                });
+
+                $("#total_itens_venda_valor").text(`R$ ${response.data.valor.replace('.', ',')}`);
+            },
+            error: function (xhr, status, error) {
+                console.log(error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'Ocorreu um erro ao carregar os dados da venda.',
+                }).then((result) => {
+                    loadPage('/vendas/resumo');
+                });
+            }
+        });
+    })();
+</script>

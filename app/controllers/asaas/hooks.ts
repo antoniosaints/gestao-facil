@@ -135,11 +135,11 @@ export async function handlePaymentCreated(data: any) {
 export async function handlePaymentDeleted(data: any) {
   if (!data.payment.subscription) return;
 
-  const contaDeleted = await prisma.contas.findFirst({
+  const conta = await prisma.contas.findFirst({
     where: { asaasCustomerId: data.payment.customer },
   });
 
-  if (!contaDeleted) return;
+  if (!conta) return;
 
   await prisma.faturasContas.delete({
     where: { asaasPaymentId: data.payment.id },
@@ -150,27 +150,27 @@ export async function handlePaymentDeleted(data: any) {
       title: "Fatura deletada",
       body: "Uma fatura foi deletada da sua conta.",
     },
-    contaDeleted.id
+    conta.id
   );
 }
 export async function handlePaymentOverdue(data: any) {
   if (!data.payment.subscription) return;
 
-  const faturaOverdue = await prisma.faturasContas.findUnique({
+  const fatura = await prisma.faturasContas.findUnique({
     where: { asaasPaymentId: data.payment.id },
   });
 
-  if (!faturaOverdue) return;
+  if (!fatura) return;
 
   await prisma.faturasContas.update({
-    where: { id: faturaOverdue.id },
+    where: { id: fatura.id },
     data: {
       status: "ATRASADO",
     },
   });
 
   await prisma.contas.update({
-    where: { id: faturaOverdue.contaId },
+    where: { id: fatura.contaId },
     data: {
       valor: parseFloat(data.payment.value),
       status: "BLOQUEADO",
@@ -181,9 +181,9 @@ export async function handlePaymentOverdue(data: any) {
   await enqueuePushNotification(
     {
       title: "Pagamento atrasado",
-      body: `O pagamento da fatura ${faturaOverdue.id} está atrasado.`,
+      body: `O pagamento da fatura ${fatura.id} está atrasado.`,
     },
-    faturaOverdue.contaId
+    fatura.contaId
   );
 }
 
@@ -225,7 +225,7 @@ export async function handlePagamentoEvento(data: any, titulo: string) {
   await enqueuePushNotification(
     {
       title: titulo,
-      body: `O pagamento da fatura ${fatura.id} foi ${titulo.toLowerCase()}.`,
+      body: `O pagamento da fatura ${fatura.id} foi confirmado.`,
     },
     fatura.contaId
   );

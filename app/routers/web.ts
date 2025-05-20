@@ -2,7 +2,6 @@ import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../middlewares/auth";
 import { getCustomRequest } from "../helpers/getCustomRequest";
 import { prisma } from "../utils/prisma";
-import { createSubscription } from "../controllers/asaas/assinatura";
 
 const webRouter = Router();
 
@@ -32,6 +31,10 @@ const renderFileAuth = async (req: Request, res: Response, file: string) => {
 webRouter.get("/", authenticateJWT, (req, res): any => {
   res.sendFile("index.html", { root: "public" });
 });
+webRouter.get("/login", (req, res) => {
+  res.sendFile("partials/login.html", { root: "public" });
+});
+
 webRouter.get("/resumos", authenticateJWT, (req, res): any => {
   renderFileAuth(req, res, "partials/dashboard.html");
 });
@@ -41,11 +44,11 @@ webRouter.get("/produtos/resumo", authenticateJWT, (req, res) => {
 webRouter.get("/vendas/resumo", authenticateJWT, (req, res) => {
   renderFileAuth(req, res, "partials/vendas/index.html");
 });
+webRouter.get("/vendas/detalhe", authenticateJWT, (req, res) => {
+  renderFileAuth(req, res, "partials/vendas/detalhes.html");
+});
 webRouter.get("/clientes/resumo", authenticateJWT, (req, res) => {
   renderFileAuth(req, res, "partials/clientes_fornecedores/index.html");
-});
-webRouter.get("/login", (req, res) => {
-  res.sendFile("partials/login.html", { root: "public" });
 });
 
 webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {

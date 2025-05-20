@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { env } from "../utils/dotenv";
 import { JwtUtil } from "../utils/jwt";
 import { prisma } from "../utils/prisma";
-import { Status } from "../../generated";
 import { CustomData } from "../helpers/getCustomRequest";
 
 export async function authenticateJWT(

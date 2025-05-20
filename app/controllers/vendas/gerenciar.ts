@@ -5,7 +5,79 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
+import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 
+export const getVenda = async (req: Request, res: Response) => {
+  try {
+    const venda = await prisma.vendas.findUniqueOrThrow({
+      where: { id: Number(req.params.id) },
+      include: {
+        cliente: {
+          select: {
+            nome: true,
+          },
+        },
+        ItensVendas: {
+          include: {
+            produto: {
+              select: {
+                id: true,
+                nome: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    ResponseHandler(res, "Venda encontrada", venda);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+export const deleteVenda = async (req: Request, res: Response) => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const resultado = await prisma.$transaction(async (tx) => {
+      const items = await tx.itensVendas.findMany({
+        where: {
+          vendaId: Number(req.params.id),
+        },
+      });
+
+      for (const item of items) {
+        await tx.produto.update({
+          where: {
+            id: item.produtoId,
+          },
+          data: {
+            estoque: {
+              increment: item.quantidade,
+            },
+          },
+        });
+      }
+
+      const venda = await tx.vendas.delete({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+        },
+      });
+
+      return venda;
+    });
+    await enqueuePushNotification(
+      {
+        title: "Venda excluida",
+        body: `A venda ${resultado.id} foi excluida.`,
+      },
+      customData.contaId
+    );
+    ResponseHandler(res, "Venda excluida com sucesso", resultado);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
 export const saveVenda = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
@@ -33,7 +105,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       });
 
       for (const item of data.itens) {
-        const produto = await tx.produto.findUnique({
+        const produto = await tx.produto.findUniqueOrThrow({
           where: { id: item.id },
         });
 
@@ -75,11 +147,21 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
             contaId: customData.contaId,
             custo: new Decimal(item.preco),
           },
-        })
+        });
       }
 
       return venda;
     });
+
+    await enqueuePushNotification(
+      {
+        title: "Opa! Nova venda.",
+        body: `Uma nova venda no valor de R$ ${valorTotal.toFixed(
+          2
+        )} foi realizada`,
+      },
+      customData.contaId
+    );
 
     return ResponseHandler(res, "Venda criada com sucesso", resultado);
   } catch (error: any) {

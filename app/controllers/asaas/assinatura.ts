@@ -5,6 +5,7 @@ import { prisma } from "../../utils/prisma";
 import { addDays } from "date-fns";
 import { env } from "../../utils/dotenv";
 import { handleError } from "../../utils/handleError";
+import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 
 export const createSubscription = async (
   req: Request,

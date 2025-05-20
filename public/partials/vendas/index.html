@@ -21,24 +21,21 @@
 </div>
 
 <script>
-  function editarProduto(id) {
+  function editarVenda(id) {
     localStorage.setItem("produtoId", id);
     htmx.ajax("GET", "partials/produtos/formulario.html", {
       target: "#content",
       swap: "innerHTML",
     });
   }
-  function visualizarProduto(id) {
-    localStorage.setItem("produtoId", id);
-    htmx.ajax("GET", "partials/produtos/detalhes.html", {
-      target: "#content-produtos",
-      swap: "innerHTML",
-    });
+  function visualizarVenda(id) {
+    localStorage.setItem("vendaId", id);
+    loadPage("/vendas/detalhe");
   }
-  function excluirProduto(id) {
+  function excluirVenda(id) {
     Swal.fire({
-      title: "Excluir produto",
-      text: "Tem certeza que deseja excluir este produto?",
+      title: "Excluir venda",
+      text: "Tem certeza que deseja excluir esta venda?",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
@@ -50,7 +47,7 @@
         $.ajax({
           dataType: "json",
           type: "DELETE",
-          url: `/produtos/${id}`,
+          url: `/vendas/${id}`,
           beforeSend: function (xhr) {
             const tokenJWT = localStorage.getItem("gestao_facil:token");
             if (tokenJWT) {
@@ -68,20 +65,20 @@
           },
           success: function (response) {
             Swal.fire({
-              title: "Produto excluído!",
-              text: "O produto foi excluído com sucesso!",
+              title: "Venda excluída!",
+              text: "A venda foi excluído com sucesso!",
               icon: "success",
               toast: true,
               showConfirmButton: false,
               position: "bottom-end",
               timer: 3000,
             });
-            $("#tabela_produtos_listagem_principal").DataTable().ajax.reload();
+            $("#tabela_vendas_listagem_principal").DataTable().ajax.reload();
           },
           error: function (error) {
             Swal.fire({
-              title: "Erro ao excluir produto!",
-              text: "Ocorreu um erro ao excluir o produto. Por favor, tente novamente.",
+              title: "Erro ao excluir a venda!",
+              text: "Ocorreu um erro ao excluir a venda. Por favor, tente novamente.",
               icon: "error",
               confirmButtonColor: "#3085d6",
               confirmButtonText: "OK",

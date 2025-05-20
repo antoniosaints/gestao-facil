@@ -62,7 +62,7 @@
                     <label for="input_desconto_venda_formulario" class="block text-sm mb-1">Desconto</label>
                     <input type="text" id="input_desconto_venda_formulario"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
-                        placeholder="Ex: 10%, R$20,00" />
+                        placeholder="Ex: 1,99" />
                 </div>
             </div>
 
@@ -99,7 +99,7 @@
 
                 <div class="md:col-span-2">
                     <button id="btn_adicionar_produto_venda" type="button"
-                        class="w-full p-2 bg-primary dark:bg-primary-dark text-white rounded"><i
+                        class="w-full p-2 bg-info dark:bg-info-dark text-white rounded"><i
                             class="fa-solid fa-cart-plus"></i>
                         Adicionar</button>
                 </div>
@@ -139,7 +139,7 @@
             </div>
 
             <div class="flex justify-end">
-                <button type="submit" class="p-2 bg-primary dark:bg-primary-dark text-white rounded-md mt-4"><i
+                <button type="submit" class="px-4 py-2 bg-primary dark:bg-primary-dark text-white rounded-md mt-4"><i
                         class="fa-regular fa-money-bill-1"></i> Salvar venda</button>
             </div>
         </form>
@@ -147,6 +147,17 @@
 </div>
 <script>
     MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
+    MaskToInputPercentage(document.getElementById('input_desconto_venda_formulario'));
+
+    $("#select_tipo_desconto_formulario").on('change', function () {
+        if (this.value === "PORCENTAGEM") {
+            $("#input_desconto_venda_formulario").attr('placeholder', 'Ex: 1,99');
+            MaskToInputPercentage(document.getElementById('input_desconto_venda_formulario'));
+        } else {
+            MaskToInputMoney(document.getElementById('input_desconto_venda_formulario'));
+            $("#input_desconto_venda_formulario").attr('placeholder', 'Ex: 20,00');
+        }
+    });
 
     $("#formulario_cadastro_venda").submit((e) => {
         e.preventDefault();
@@ -189,7 +200,6 @@
                 'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
             },
             success: function (data) {
-                console.log(data);
                 Swal.fire({
                     toast: true,
                     position: "bottom-end",
@@ -203,6 +213,7 @@
                 loadPage('/vendas/resumo');
             },
             error: function (xhr, status, error) {
+                console.log(xhr);
                 const mensagem =
                     xhr.responseJSON?.message || "Erro inesperado na requisição";
                 Swal.fire({
@@ -411,7 +422,6 @@
     $("#select_vendedor_venda_formulario").select2({
         placeholder: 'Selecione um vendedor',
         width: '100%',
-        allowClear: true,
         language: "pt-BR",
         ajax: {
             url: '/usuarios/select2/lista',
