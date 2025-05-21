@@ -34,6 +34,7 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.3",
     "pdfkit": "^0.17.1",
+    "system-monitoring": "^0.0.17",
     "web-push": "^3.6.7",
     "zod": "^3.24.4"
   },
