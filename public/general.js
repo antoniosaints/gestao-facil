@@ -23,7 +23,7 @@ function MaskToInputMoney(element) {
     thousandsSeparator: "",
     padFractionalZeros: true,
     normalizeZeros: true,
-    radix: ",", // separador decimal brasileiro
+    radix: ",",
     mapToRadix: ["."],
   });
 }
@@ -34,7 +34,7 @@ function MaskToInputPercentage(element) {
     blocks: {
       num: {
         mask: Number,
-        scale: 2, // número de casas decimais
+        scale: 2,
         signed: false,
         thousandsSeparator: "",
         padFractionalZeros: true,
@@ -45,6 +45,6 @@ function MaskToInputPercentage(element) {
         max: 100,
       },
     },
-    lazy: false, // mostra o sufixo '%' mesmo quando o campo está vazio
+    lazy: false,
   });
 }
