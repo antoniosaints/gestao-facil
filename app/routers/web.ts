@@ -40,8 +40,10 @@ webRouter.use("/vendas", webRouterVendas);
 webRouter.use("/clientes", webClienteRouter);
 webRouter.use("/administracao", webRouterAdministracao);
 
-webRouter.get("/", authenticateJWT, (req, res): any => {
-  res.sendFile("index.html", { root: "public" });
+webRouter.get("/", (req, res): any => {
+  res.render("home", {
+    layout: "main",
+  });
 });
 webRouter.get("/login", (req, res) => {
   renderFileSimple(req, res, "partials/login.html");

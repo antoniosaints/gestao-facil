@@ -1,20 +1,8 @@
 import express from "express";
 import cors from "cors";
-import { tableProdutos } from "./controllers/produtos/table";
 import { checkAuth, login, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
-import {
-  deleteProduto,
-  getProduto,
-  reposicaoProduto,
-  saveProduto,
-} from "./controllers/produtos/produtos";
 import { tableUsuarios } from "./controllers/administracao/usuarios";
-import {
-  gerarEtiquetasProduto,
-  relatorioProdutoMovimentacoes,
-  relatorioProdutos,
-} from "./controllers/produtos/relatorios";
 import {
   sendNotification,
   subscribe,
@@ -27,8 +15,13 @@ import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
 import { select2Usuarios } from "./controllers/administracao/hooks";
+import { engine } from "express-handlebars";
 
 const app = express();
+
+app.engine('hbs', engine({ extname: 'hbs', defaultLayout: false }));
+app.set('view engine', 'hbs');
+
 app.use(cors());
 
 // Servir arquivos estáticos (HTMX, JS, CSS, etc.)
