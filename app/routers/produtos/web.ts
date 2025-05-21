@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { renderFileAuth, renderFileSimple } from "../web";
+import { renderFileAuth, renderFileSimple, renderSimple } from "../web";
+import { prisma } from "../../utils/prisma";
 
 const webRouterProdutos = Router();
 
@@ -25,8 +26,10 @@ webRouterProdutos.get("/relatorio/geral", (req, res) => {
 webRouterProdutos.get("/editar/formulario", (req, res) => {
   renderFileSimple(req, res, "partials/produtos/formulario.html");
 });
-webRouterProdutos.get("/detalhes", (req, res) => {
-  renderFileSimple(req, res, "partials/produtos/detalhes.html");
+webRouterProdutos.get("/detalhes/:id", async (req, res) => {
+  const { id } = req.params;
+  const produto = await prisma.produto.findUniqueOrThrow({ where: { id: Number(id) } });
+  renderSimple(req, res, "partials/produtos/detalhes", { produto });
 });
 
 export {

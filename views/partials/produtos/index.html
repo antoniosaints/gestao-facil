@@ -50,8 +50,7 @@
     });
   }
   function visualizarProduto(id) {
-    localStorage.setItem("produtoId", id);
-    htmx.ajax("GET", "produtos/detalhes", {
+    htmx.ajax("GET", `produtos/detalhes/${id}`, {
       target: "#content-produtos",
       swap: "innerHTML",
     });

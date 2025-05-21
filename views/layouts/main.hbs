@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Gestão Fácil</title>
+  <title>Gestão Fácil - {{title}}</title>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#ffffff" id="meta-theme-color" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -135,9 +135,7 @@
     </button>
   </aside>
 
-  <!-- Conteúdo principal -->
   {{{body}}}
-
 
   <script>
     const sidebar = document.getElementById("sidebar");
@@ -182,5 +180,4 @@
   <script src="/notification/client.js" defer></script>
   <script src="/general.js" defer></script>
 </body>
-
 </html>

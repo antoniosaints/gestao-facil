@@ -19,8 +19,24 @@ import { engine } from "express-handlebars";
 
 const app = express();
 
-app.engine('hbs', engine({ extname: 'hbs', defaultLayout: false }));
-app.set('view engine', 'hbs');
+app.engine(
+  "hbs",
+  engine({
+    extname: "hbs",
+    defaultLayout: false,
+    helpers: {
+      or: (a: any, b: any) => a || b,
+      formatMoney: (valor: number) => {
+        return new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+          minimumFractionDigits: 2,
+        }).format(valor);
+      },
+    },
+  })
+);
+app.set("view engine", "hbs");
 
 app.use(cors());
 

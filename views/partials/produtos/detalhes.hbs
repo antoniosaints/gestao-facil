@@ -1,37 +1,37 @@
 <div class="h-full flex items-center justify-center">
     <div
         class="h-full border bg-card dark:bg-card-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full max-w-7xl">
-        <h2 class="text-2xl font-bold mb-4 dark:text-white" id="titulo_detalhes_produto">Detalhes do Produto</h2>
+        <h2 class="text-2xl font-bold mb-4 dark:text-white" id="titulo_detalhes_produto">Detalhes do Produto - {{produto.nome}}</h2>
 
         <div class="grid grid-cols-2 gap-4 text-sm dark:text-white">
             <div>
                 <span class="font-semibold">Nome:</span>
-                <span class="ml-2">Memória Kingston 16GB DDR4</span>
+                <span class="ml-2">{{produto.nome}}</span>
             </div>
             <div>
                 <span class="font-semibold">Código:</span>
-                <span class="ml-2">123456</span>
+                <span class="ml-2">{{or produto.codigo 'N/A'}}</span>
             </div>
             <div>
                 <span class="font-semibold">Preço:</span>
-                <span class="ml-2 text-green-600 font-medium">R$ 280,00</span>
+                <span class="ml-2 text-green-600 font-medium">{{formatMoney produto.preco}}</span>
             </div>
             <div>
                 <span class="font-semibold">Estoque:</span>
-                <span class="ml-2">45 unidades</span>
+                <span class="ml-2">{{produto.estoque}} unidades</span>
             </div>
             <div>
                 <span class="font-semibold">Mínimo em estoque:</span>
-                <span class="ml-2">10</span>
+                <span class="ml-2">{{produto.minimo}}</span>
             </div>
             <div>
                 <span class="font-semibold">Unidade:</span>
-                <span class="ml-2">Peça</span>
+                <span class="ml-2">UND</span>
             </div>
             <div class="col-span-2">
                 <span class="font-semibold">Descrição:</span>
                 <p class="mt-1 dark:text-gray-200">
-                    Memória RAM Kingston 16GB DDR4 3200MHz, ideal para upgrades em desktops de alto desempenho.
+                    {{or produto.descricao 'N/A'}}
                 </p>
             </div>
         </div>
@@ -41,16 +41,16 @@
                 class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-backward"></i> Voltar
             </button>
-            <button onclick="abrirModalRelatorioProdutoReposicao(localStorage.getItem('produtoId'))"
+            <button onclick="abrirModalRelatorioProdutoReposicao({{produto.id}})"
                 class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-file-pdf"></i>
                 Relatório
             </button>
-            <button onclick="editarProduto(localStorage.getItem('produtoId'))" class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
+            <button onclick="editarProduto({{produto.id}})" class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-pen-to-square"></i>
                 Editar
             </button>
-            <button onclick="excluirProduto(localStorage.getItem('produtoId'))"
+            <button onclick="excluirProduto({{produto.id}})"
                 class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-trash-can"></i>
                 Excluir
@@ -58,9 +58,3 @@
         </div>
     </div>
 </div>
-
-<script>
-    (() => {
-        $("#titulo_detalhes_produto").text(`Detalhes do Produto #${localStorage.getItem("produtoId")}`);
-    })();
-</script>
