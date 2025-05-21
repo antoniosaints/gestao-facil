@@ -82,7 +82,7 @@ export const tableVendas = async (
     })
 
     .format("valor", function (row) {
-      return `<span class="px-2 py-0 text-blue-500 rounded-md">${formatCurrency(
+      return `<span class="px-2 py-0 text-blue-500 dark:text-blue-300 rounded-md">${formatCurrency(
         row
       )}</span>`;
     })

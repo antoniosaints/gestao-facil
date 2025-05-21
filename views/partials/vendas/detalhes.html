@@ -19,10 +19,10 @@
         </div>
         <hr class="border-border dark:border-border-dark mb-2">
         <!-- Itens Vendidos -->
-        <h3 class="text-lg font-medium mb-3">Itens Vendidos</h3>
-        <div class="overflow-x-auto">
-            <table class="min-w-full table-auto border border-border dark:border-border-dark bg-card dark:bg-card-dark">
-                <thead class="bg-gray-200 dark:bg-gray-700">
+        <h3 class="text-md font-medium mb-3">Itens Vendidos</h3>
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
                         <th class="px-4 py-2 text-left">Produto</th>
                         <th class="px-4 py-2 text-right">Quantidade</th>
@@ -35,13 +35,35 @@
                         <td colspan="4" class="px-4 py-2">Nenhum item encontrado</td>
                     </tr>
                 </tbody>
-                <tfoot class="bg-gray-100 dark:bg-gray-800">
+                <tfoot class="text-xs text-gray-700 uppercase bg-gray-200 dark:bg-gray-700 dark:text-gray-200">
                     <tr class="border-t border-border dark:border-border-dark">
                         <td colspan="3" class="px-4 py-2 text-right font-medium">Total</td>
                         <td class="px-4 py-2 text-right font-bold font-mono" id="total_itens_venda_valor">...</td>
                     </tr>
                 </tfoot>
             </table>
+        </div>
+
+        <div class="mt-6">
+            <button type="button" onclick="loadPage('vendas/resumo')"
+                class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-backward"></i> Voltar
+            </button>
+            <button onclick="abrirModalRelatorioProdutoReposicao(localStorage.getItem('produtoId'))"
+                class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-file-pdf"></i>
+                Relatório
+            </button>
+            <button onclick="editarVenda(localStorage.getItem('vendaId'))"
+                class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-pen-to-square"></i>
+                Editar
+            </button>
+            <button onclick="excluirVenda(localStorage.getItem('vendaId'), true)"
+                class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
+                <i class="fa-solid fa-trash-can"></i>
+                Excluir
+            </button>
         </div>
     </div>
 </div>

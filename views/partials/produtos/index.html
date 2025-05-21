@@ -17,21 +17,21 @@
   <div
     class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
     hx-get="/produtos/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
-  <div class="overflow-x-auto block md:hidden rounded-lg"
-    hx-get="/produtos/mobile/lista" hx-trigger="load" hx-swap="innerHTML"></div>
+  <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/produtos/mobile/lista" hx-trigger="load"
+    hx-swap="innerHTML"></div>
 </div>
 
 
 <div id="modal-container-reporestoque-produtos"></div>
 <div id="modal-template-reporestoque-produtos" class="hidden">
   <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-  hx-get="/produtos/reposicao/estoque" hx-trigger="load" hx-swap="innerHTML"></div>
+    hx-get="/produtos/reposicao/estoque" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 <div id="modal-container-reporestoque-produtos-relatorio"></div>
 <div id="modal-template-reporestoque-produtos-relatorio" class="hidden">
   <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-  hx-get="/produtos/reposicao/relatorio" hx-trigger="load" hx-swap="innerHTML"></div>
+    hx-get="/produtos/reposicao/relatorio" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
 
 <div id="modal-container-gerar-relatorio-produtos"></div>
@@ -56,7 +56,7 @@
       swap: "innerHTML",
     });
   }
-  function excluirProduto(id) {
+  function excluirProduto(id, retornar = false) {
     Swal.fire({
       title: "Excluir produto",
       text: "Tem certeza que deseja excluir este produto?",
@@ -97,7 +97,11 @@
               position: "bottom-end",
               timer: 3000,
             });
-            $("#tabela_produtos_listagem_principal").DataTable().ajax.reload();
+            if (!retornar) {
+              reloadTabelaProdutos();
+            } else {
+              loadPage('/produtos/resumo');
+            }
           },
           error: function (error) {
             Swal.fire({

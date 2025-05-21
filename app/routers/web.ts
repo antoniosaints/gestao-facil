@@ -5,6 +5,7 @@ import { prisma } from "../utils/prisma";
 import { webRouterProdutos } from "./produtos/web";
 import { webRouterVendas } from "./vendas/web";
 import { webRouterAdministracao } from "./administracao/web";
+import { webClienteRouter } from "./clientes/web";
 
 const webRouter = Router();
 
@@ -36,28 +37,25 @@ export const renderFileSimple = async (req: Request, res: Response, file: string
 
 webRouter.use("/produtos", webRouterProdutos);
 webRouter.use("/vendas", webRouterVendas);
+webRouter.use("/clientes", webClienteRouter);
 webRouter.use("/administracao", webRouterAdministracao);
 
 webRouter.get("/", authenticateJWT, (req, res): any => {
   res.sendFile("index.html", { root: "public" });
 });
 webRouter.get("/login", (req, res) => {
-  res.sendFile("partials/login.html", { root: "views" });
+  renderFileSimple(req, res, "partials/login.html");
 });
 webRouter.get("/resumos", authenticateJWT, (req, res): any => {
   renderFileAuth(req, res, "partials/dashboard.html");
 });
 
-webRouter.get("/clientes/resumo", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/clientes_fornecedores/index.html");
-});
-
 webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
   try {
     if (await isAccountBloqueada(req) || await isAccountActive(req)) {
-      res.sendFile("partials/assinatura/renovacao.html", { root: "public" });
+      renderFileSimple(req, res, "partials/assinatura/renovacao.html");
     } else {
-      res.sendFile("partials/assinatura/index.html", { root: "public" });
+      renderFileSimple(req, res, "partials/assinatura/index.html");
     }
   } catch (error) {
     console.log(error);

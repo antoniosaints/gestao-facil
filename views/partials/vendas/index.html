@@ -32,7 +32,7 @@
     localStorage.setItem("vendaId", id);
     loadPage("/vendas/detalhe");
   }
-  function excluirVenda(id) {
+  function excluirVenda(id, retornar = false) {
     Swal.fire({
       title: "Excluir venda",
       text: "Tem certeza que deseja excluir esta venda?",
@@ -73,7 +73,11 @@
               position: "bottom-end",
               timer: 3000,
             });
-            $("#tabela_vendas_listagem_principal").DataTable().ajax.reload();
+            if (!retornar) {
+              reloadTabelaVendas();
+            }else {
+              loadPage('/vendas/resumo');
+            }
           },
           error: function (error) {
             Swal.fire({

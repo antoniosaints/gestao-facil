@@ -7,7 +7,8 @@
                     Sua Assinatura: <span class="text-primary dark:text-primary">Gestão Fácil</span>
                 </h3>
                 <p class="text-lg text-gray-700 dark:text-gray-300">
-                    Próximo vencimento: <span class="font-semibold text-gray-600 dark:text-gray-400" id="data_vencimento_assinatura">...</span>
+                    Próximo vencimento: <span class="font-semibold text-gray-600 dark:text-gray-400"
+                        id="data_vencimento_assinatura">...</span>
                 </p>
                 <p class="text-md text-gray-600 dark:text-gray-400">
                     Valor: <span class="font-semibold" id="valor_assinatura_conta">...</span>
@@ -26,9 +27,7 @@
                     Fatura pendente
                 </span>
 
-                <button
-                    type="button"
-                    id="pagamento_fatura_atual_assinatura"
+                <button type="button" id="pagamento_fatura_atual_assinatura"
                     class="rounded-lg bg-primary text-white px-4 py-2 text-sm shadow hover:bg-orange-700 transition dark:bg-orange-500 dark:hover:bg-orange-600">
                     <i class="fa-solid fa-receipt"></i> Pagar agora
                 </button>
@@ -46,9 +45,9 @@
     <!-- Histórico de Faturas -->
     <div class="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900 p-6">
         <h4 class="text-base font-semibold text-gray-800 dark:text-white mb-4">Faturas anteriores</h4>
-        <div class="overflow-x-auto">
-            <table class="min-w-full table-auto text-sm">
-                <thead>
+        <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+                <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
                     <tr class="bg-gray-100 dark:bg-gray-800">
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">id</th>
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Vencimento</th>
@@ -99,7 +98,7 @@
                 if (res.data.status === "ATIVO" && res.data.diasParaVencer > 3) {
                     $('#bloco_assinatura_ativa').removeClass("hidden").addClass("flex");
                     $('#bloco_assinatura_pendente').removeClass("flex").addClass("hidden");
-                }else {
+                } else {
                     $('#bloco_assinatura_ativa').removeClass("flex").addClass("hidden");
                     $('#bloco_assinatura_pendente').removeClass("hidden").addClass("flex");
                 }

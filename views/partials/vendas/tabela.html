@@ -13,6 +13,10 @@
 </table>
 
 <script>
+    function reloadTabelaVendas() {
+        const tabela = $("#tabela_vendas_listagem_principal").DataTable();
+        tabela.ajax.reload(null, false);
+    }
     new DataTable("#tabela_vendas_listagem_principal", {
         language: {
             url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json",

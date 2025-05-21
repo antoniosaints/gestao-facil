@@ -113,22 +113,21 @@
                         class="text-sm text-white py-1 px-2 mb-2 rounded bg-red-500 dark:bg-red-600 dark:text-gray-200"><i
                             class="fa-solid fa-cart-shopping"></i> Limpar</button>
                 </div>
-                <div class="flex flex-col max-w-full overflow-auto">
-                    <table id="tabela-carrinho-vendas"
-                        class="w-full text-sm text-left rtl:text-right text-gray-600 dark:text-gray-200">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-200">
+                <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+                    <table id="tabela-carrinho-vendas" class="w-full text-sm text-left rtl:text-right text-gray-700 dark:text-gray-300">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-200 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                <th class="p-2 border border-gray-300 dark:border-gray-500">Produto</th>
-                                <th class="p-2 border border-gray-300 dark:border-gray-500">Quantidade</th>
-                                <th class="p-2 border border-gray-300 dark:border-gray-500">Preço</th>
-                                <th class="p-2 border border-gray-300 dark:border-gray-500">Subtotal</th>
-                                <th class="p-2 border border-gray-300 dark:border-gray-500">Ações</th>
+                                <th class="p-2">Produto</th>
+                                <th class="p-2">Quantidade</th>
+                                <th class="p-2">Preço</th>
+                                <th class="p-2">Subtotal</th>
+                                <th class="p-2">Ações</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="bg-gray-50 dark:bg-gray-800">
                             <!-- Exemplo de item -->
                             <tr>
-                                <td colspan="5" class="p-2 border border-gray-300 dark:border-gray-500 text-center">
+                                <td colspan="5" class="p-2 text-center">
                                     Nenhum
                                     item adicionado</td>
                             </tr>
@@ -347,7 +346,7 @@
         if (cartItems.length === 0) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                                <td colspan="5" class="p-2 border border-gray-300 dark:border-gray-500 text-center">Nenhum item adicionado</td>
+                                <td colspan="5" class="p-2 text-center">Nenhum item adicionado</td>
                                 `;
             tbody.appendChild(tr);
             return;
@@ -357,11 +356,11 @@
             const tr = document.createElement('tr');
 
             tr.innerHTML = `
-                                <td class="p-2 border border-gray-300 dark:border-gray-500">${item.produto}</td>
-                                <td class="p-2 border border-gray-300 dark:border-gray-500">${item.quantidade}</td>
-                                <td class="p-2 border border-gray-300 dark:border-gray-500">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
-                                <td class="p-2 border border-gray-300 dark:border-gray-500">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
-                                <td class="p-2 border border-gray-300 dark:border-gray-500">
+                                <td class="p-2">${item.produto}</td>
+                                <td class="p-2">${item.quantidade}</td>
+                                <td class="p-2">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
+                                <td class="p-2">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
+                                <td class="p-2">
                                     <button type="button" class="text-red-500 hover:underline" onclick="removeFromCart(${item.id})">Remover</button>
                                 </td>
                                 `;
