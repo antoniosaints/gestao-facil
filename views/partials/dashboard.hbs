@@ -1,106 +1,235 @@
-<!-- dashboard.html -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-  <!-- Vendas Realizadas -->
-  
-  <div onclick="loadPage('vendas/resumo')"
-    class="border-border cursor-pointer dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 border">
-    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-tags"></i> Vendas
-      Realizadas</h2>
-    <p class="text-3xl font-bold text-primary mt-2" id="total_vendas_dashboard">...</p>
-  </div>
-
-  <!-- Total de Produtos -->
-  <div onclick="loadPage('produtos/resumo')"
-    class="border-border cursor-pointer dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 border">
-    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-boxes-stacked"></i> Total
-      de Produtos</h2>
-    <p class="text-3xl font-bold text-primary mt-2" id="total_produtos_dashboard">...</p>
-  </div>
-
-  <!-- Produtos em Baixa -->
-  <div onclick="loadPage('produtos/resumo')"
-    class="border-border cursor-pointer dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 border">
-    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-boxes-packing"></i>
-      Produtos em Baixa</h2>
-    <p class="text-3xl font-bold text-primary mt-2" id="produtos_em_baixa_dashboard">...</p>
-  </div>
-
-
-  <div class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 border">
-    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200"><i class="fa-solid fa-user-tag"></i> Clientes
+<div class="flex flex-col gap-6">
+  <div class="flex justify-between items-center">
+    <h2 class="text-2xl font-bold text-gray-600 dark:text-gray-300">
+      Dashboard
     </h2>
-    <p class="text-3xl font-bold text-primary mt-2" id="total_clientes_dashboard">...</p>
-  </div>
-
-  <!-- Gráfico de Barras -->
-  <div
-    class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-    <h2 class="text-lg font-semibold mb-4">Vendas Mensais</h2>
-    <canvas class="max-h-64" id="barChart"></canvas>
-  </div>
-
-  <!-- Gráfico de Linhas -->
-  <div
-    class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-    <h2 class="text-lg font-semibold mb-4">Acessos por Dia</h2>
-    <canvas class="max-h-64" id="lineChart"></canvas>
-  </div>
-
-  <!-- Últimas Vendas -->
-  <div
-    class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-    <div class="flex justify-between items-center mb-1">
-      <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Produtos</h2>
-      <button onclick="loadPage('produtos/resumo')" type="button"
-        class="text-primary font-bold py-0 px-2 rounded transition duration-300">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i>
-      </button>
-    </div>
-    <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
-      <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-        <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
-          <tr>
-            <th class="p-2">#ID</th>
-            <th class="p-2">Produto</th>
-            <th class="p-2">Mínimo</th>
-            <th class="p-2">Estoque</th>
-            <th class="p-2">Valor</th>
-          </tr>
-        </thead>
-        <tbody class="text-gray-700 dark:text-gray-200" id="ultimos_produtos_dashboard_tabela">
-          <tr class="border-t">
-            <td class="p-2" colspan="5">Nenhum produto cadastrado</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="flex items-center space-x-2"><select
+        class="rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+        <option>Últimos 7 dias</option>
+        <option>Último mês</option>|
+        <option>Esse mês</option>
+        <option>Esse ano</option>
+      </select><button
+        class="bg-primary text-white px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
+          class="fa-solid fa-file-pdf"></i> Exportar</button>
     </div>
   </div>
-  <div
-    class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-    <div class="flex justify-between items-center mb-1">
-      <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Estoques baixos</h2>
-      <button onclick="loadPage('partials/produtos/index.html')" type="button"
-        class="text-primary font-bold py-0 px-2 rounded transition duration-300">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i>
-      </button>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
+    <!-- Metric Item Start -->
+    <div class="rounded-2xl border border-border dark:border-border-dark bg-card dark:bg-card-dark px-6 pb-5 pt-6">
+      <div class="mb-6 flex items-center gap-3">
+        <i class="fa-solid fa-user-tag h-8 w-8 text-purple-500"></i>
+
+        <div>
+          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+            Clientes
+          </h3>
+          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+            Registrados
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-end justify-between">
+        <div>
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_clientes_dashboard">
+            0
+          </h4>
+        </div>
+
+        <span
+          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
+          <svg class="fill-current" width="13" height="12" viewBox="0 0 13 12" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M6.06462 1.62393C6.20193 1.47072 6.40135 1.37432 6.62329 1.37432C6.6236 1.37432 6.62391 1.37432 6.62422 1.37432C6.81631 1.37415 7.00845 1.44731 7.15505 1.5938L10.1551 4.5918C10.4481 4.88459 10.4483 5.35946 10.1555 5.65246C9.86273 5.94546 9.38785 5.94562 9.09486 5.65283L7.37329 3.93247L7.37329 10.125C7.37329 10.5392 7.03751 10.875 6.62329 10.875C6.20908 10.875 5.87329 10.5392 5.87329 10.125L5.87329 3.93578L4.15516 5.65281C3.86218 5.94561 3.3873 5.94546 3.0945 5.65248C2.8017 5.35949 2.80185 4.88462 3.09484 4.59182L6.06462 1.62393Z"
+              fill=""></path>
+          </svg>
+
+          0%
+        </span>
+      </div>
     </div>
-    <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
-      <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-        <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
-          <tr>
-            <th class="p-2">#ID</th>
-            <th class="p-2">Produto</th>
-            <th class="p-2">Mínimo</th>
-            <th class="p-2">Estoque</th>
-            <th class="p-2">Valor</th>
-          </tr>
-        </thead>
-        <tbody class="text-gray-700 dark:text-gray-200" id="produtos_em_baixa_dashboard_tabela">
-          <tr class="border-t">
-            <td class="p-2 text-center" colspan="5">Nenhum produto em baixa</td>
-          </tr>
-        </tbody>
-      </table>
+
+    <div onclick="loadPage('/produtos/resumo')" class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-card dark:bg-card-dark px-6 pb-5 pt-6">
+      <div class="mb-6 flex items-center gap-3">
+        <i class="fa-solid fa-boxes-packing w-8 h-8 text-blue-500"></i>
+
+        <div>
+          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+            Produtos
+          </h3>
+          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+            Cadastrados
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-end justify-between">
+        <div>
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_produtos_dashboard">
+            0 
+          </h4>
+        </div>
+
+        <span
+          class="flex items-center gap-1 rounded-full bg-red-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-red-600 dark:bg-red-500/15 dark:text-red-500">
+          <svg class="fill-current" width="12" height="12" viewBox="0 0 12 12" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M5.31462 10.3761C5.45194 10.5293 5.65136 10.6257 5.87329 10.6257C5.8736 10.6257 5.8739 10.6257 5.87421 10.6257C6.0663 10.6259 6.25845 10.5527 6.40505 10.4062L9.40514 7.4082C9.69814 7.11541 9.69831 6.64054 9.40552 6.34754C9.11273 6.05454 8.63785 6.05438 8.34486 6.34717L6.62329 8.06753L6.62329 1.875C6.62329 1.46079 6.28751 1.125 5.87329 1.125C5.45908 1.125 5.12329 1.46079 5.12329 1.875L5.12329 8.06422L3.40516 6.34719C3.11218 6.05439 2.6373 6.05454 2.3445 6.34752C2.0517 6.64051 2.05185 7.11538 2.34484 7.40818L5.31462 10.3761Z"
+              fill=""></path>
+          </svg>
+
+          0%
+        </span>
+      </div>
+    </div>
+
+    <div onclick="loadPage('/produtos/resumo')" class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-card dark:bg-card-dark px-6 pb-5 pt-6">
+      <div class="mb-6 flex items-center gap-3">
+        <i class="fa-solid fa-cubes w-8 h-8 text-red-500"></i>
+
+        <div>
+          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+            Produtos
+          </h3>
+          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+            Em baixa
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-end justify-between">
+        <div>
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="produtos_em_baixa_dashboard">
+            0
+          </h4>
+        </div>
+
+        <span
+          class="flex items-center gap-1 rounded-full bg-red-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-red-600 dark:bg-red-500/15 dark:text-red-500">
+           <svg class="fill-current" width="12" height="12" viewBox="0 0 12 12" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M5.31462 10.3761C5.45194 10.5293 5.65136 10.6257 5.87329 10.6257C5.8736 10.6257 5.8739 10.6257 5.87421 10.6257C6.0663 10.6259 6.25845 10.5527 6.40505 10.4062L9.40514 7.4082C9.69814 7.11541 9.69831 6.64054 9.40552 6.34754C9.11273 6.05454 8.63785 6.05438 8.34486 6.34717L6.62329 8.06753L6.62329 1.875C6.62329 1.46079 6.28751 1.125 5.87329 1.125C5.45908 1.125 5.12329 1.46079 5.12329 1.875L5.12329 8.06422L3.40516 6.34719C3.11218 6.05439 2.6373 6.05454 2.3445 6.34752C2.0517 6.64051 2.05185 7.11538 2.34484 7.40818L5.31462 10.3761Z"
+              fill=""></path>
+          </svg>
+
+          0%
+        </span>
+      </div>
+    </div>
+
+    <div onclick="loadPage('/vendas/resumo')" class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-card dark:bg-card-dark px-6 pb-5 pt-6">
+      <div class="mb-6 flex items-center gap-3">
+        <i class="fa-solid fa-dollar-sign h-8 w-8 text-green-400"></i>
+
+        <div>
+          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+            Vendas
+          </h3>
+          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+            Resumo de vendas
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-end justify-between">
+        <div>
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_vendas_dashboard">
+            R$ 0,00
+          </h4>
+        </div>
+
+        <span
+          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
+          <svg class="fill-current" width="13" height="12" viewBox="0 0 13 12" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd"
+              d="M6.06462 1.62393C6.20193 1.47072 6.40135 1.37432 6.62329 1.37432C6.6236 1.37432 6.62391 1.37432 6.62422 1.37432C6.81631 1.37415 7.00845 1.44731 7.15505 1.5938L10.1551 4.5918C10.4481 4.88459 10.4483 5.35946 10.1555 5.65246C9.86273 5.94546 9.38785 5.94562 9.09486 5.65283L7.37329 3.93247L7.37329 10.125C7.37329 10.5392 7.03751 10.875 6.62329 10.875C6.20908 10.875 5.87329 10.5392 5.87329 10.125L5.87329 3.93578L4.15516 5.65281C3.86218 5.94561 3.3873 5.94546 3.0945 5.65248C2.8017 5.35949 2.80185 4.88462 3.09484 4.59182L6.06462 1.62393Z"
+              fill=""></path>
+          </svg>
+
+          0%
+        </span>
+      </div>
+    </div>
+    <!-- Metric Item End -->
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <!-- Gráfico de Barras -->
+    <div
+      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+      <h2 class="text-lg font-semibold mb-4">Vendas Mensais</h2>
+      <canvas class="max-h-64" id="barChart"></canvas>
+    </div>
+
+    <!-- Gráfico de Linhas -->
+    <div
+      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+      <h2 class="text-lg font-semibold mb-4">Acessos por Dia</h2>
+      <canvas class="max-h-64" id="lineChart"></canvas>
+    </div>
+
+    <!-- Últimas Vendas -->
+    <div
+      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+      <div class="flex justify-between items-center mb-1">
+        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Produtos</h2>
+        <button onclick="loadPage('produtos/resumo')" type="button"
+          class="text-primary font-bold py-0 px-2 rounded transition duration-300">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        </button>
+      </div>
+      <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
+            <tr>
+              <th class="p-2">#ID</th>
+              <th class="p-2">Produto</th>
+              <th class="p-2">Mínimo</th>
+              <th class="p-2">Estoque</th>
+              <th class="p-2">Valor</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-700 dark:text-gray-200" id="ultimos_produtos_dashboard_tabela">
+            <tr class="border-t">
+              <td class="p-2" colspan="5">Nenhum produto cadastrado</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div
+      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+      <div class="flex justify-between items-center mb-1">
+        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Estoques baixos</h2>
+        <button onclick="loadPage('partials/produtos/index.html')" type="button"
+          class="text-primary font-bold py-0 px-2 rounded transition duration-300">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        </button>
+      </div>
+      <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
+            <tr>
+              <th class="p-2">#ID</th>
+              <th class="p-2">Produto</th>
+              <th class="p-2">Mínimo</th>
+              <th class="p-2">Estoque</th>
+              <th class="p-2">Valor</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-700 dark:text-gray-200" id="produtos_em_baixa_dashboard_tabela">
+            <tr class="border-t">
+              <td class="p-2 text-center" colspan="5">Nenhum produto em baixa</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
