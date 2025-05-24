@@ -16,6 +16,10 @@ webRouterVendas.get("/formulario", (req, res) => {
 webRouterVendas.get("/detalhe", authenticateJWT, (req, res) => {
   renderFileAuth(req, res, "partials/vendas/detalhes.html");
 });
+webRouterVendas.get("/filtro", (req, res) => {
+  renderFileSimple(req, res, "partials/vendas/modais/filtro.html");
+});
+
 
 export {
   webRouterVendas
