@@ -31,12 +31,14 @@ export const tableProdutos = async (
     })
     .format("codigo", function (row) {
       const codigo = row || "-";
-      return `<span class="px-2 py-0 text-blue-500 rounded-md">${codigo}</span>`;
+      return `<span class="px-2 py-0.5 text-gray-600 dark:text-gray-300 bg-gray-200/20 dark:bg-gray-700/20 text-gray-500 rounded-md">${codigo}</span>`;
     })
     .edit("nome", function (row) {
-      return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-500 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
+      return `<span onclick="visualizarProduto('${row.id}')" class="text-gray-700 hover:text-gray-500 dark:text-gray-200 dark:hover:text-gray-300 cursor-pointer">${row.nome}</span>`;
     })
-    .format("preco", (value) => formatCurrency(value))
+    .format("preco", (value) => {
+      return `<span class="px-2 py-0.5 text-green-600 dark:text-green-300 bg-green-200/20 dark:bg-green-800/20 text-green-400 rounded-md">${formatCurrency(value)}</span>`;
+    })
     .format("estoque", function (value) {
       const estoque = value.toString().padStart(2, "0");
       return `<span class="px-2 py-0 rounded-md">${estoque}</span>`;
