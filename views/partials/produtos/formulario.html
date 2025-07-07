@@ -51,14 +51,22 @@
       </div>
 
       <!-- Código -->
-      <div class="md:col-span-6">
+      <div class="md:col-span-4">
         <label for="codigo" class="block text-sm font-medium mb-1">Código</label>
         <input type="text" id="codigo" name="codigo" placeholder="Código do produto"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
       <!-- Preço -->
-      <div class="md:col-span-6">
+      <div class="md:col-span-4">
+        <label for="precoCompra" class="block text-sm font-medium mb-1">
+          Preço Compra
+        </label>
+        <input type="text" id="precoCompra" name="precoCompra" placeholder="Ex: 79,90"
+          class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+      </div>
+
+      <div class="md:col-span-4">
         <label for="preco" class="block text-sm font-medium mb-1">
           Preço <span class="text-red-500">*</span>
         </label>
@@ -140,12 +148,23 @@
     radix: ',', // separador decimal brasileiro
     mapToRadix: ['.']
   });
+  IMask(document.getElementById('precoCompra'), {
+    mask: Number,
+    scale: 2,
+    signed: false,
+    thousandsSeparator: '',
+    padFractionalZeros: true,
+    normalizeZeros: true,
+    radix: ',', // separador decimal brasileiro
+    mapToRadix: ['.']
+  });
   $("#formularioProdutos").off('submit').on('submit', function (e) {
     e.preventDefault();
     const data = {
       codigo: $("#codigo").val(),
       nome: $("#nome").val(),
       preco: $("#preco").val(),
+      precoCompra: $("#precoCompra").val(),
       estoque: $("#estoque").val(),
       minimo: $("#minimo").val(),
       unidade: $("#unidade_select_produto").val(),
@@ -231,6 +250,7 @@
           $("#codigo").val(data.codigo);
           $("#nome").val(data.nome);
           $("#preco").val(data.preco);
+          $("#precoCompra").val(data.precoCompra);
           $("#estoque").val(data.estoque);
           $("#unidade_select_produto").val(data.unidade).trigger('change');
           $("#minimo").val(data.minimo);
