@@ -10,9 +10,10 @@ export const tableProdutos = async (
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
-  if (customData.contaStatus !== "ATIVO") return res.status(404).json({
-    message: "Conta inativa ou bloqueada, verifique seu plano",
-  });
+  if (customData.contaStatus !== "ATIVO")
+    return res.status(404).json({
+      message: "Conta inativa ou bloqueada, verifique seu plano",
+    });
   const builder = new PrismaDataTableBuilder<Produto>(prisma.produto)
     .where({
       OR: [
