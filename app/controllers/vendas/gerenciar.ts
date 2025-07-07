@@ -6,6 +6,7 @@ import { vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
+import { format } from "date-fns";
 
 export const getVenda = async (req: Request, res: Response) => {
   try {
@@ -74,6 +75,64 @@ export const deleteVenda = async (req: Request, res: Response) => {
       customData.contaId
     );
     ResponseHandler(res, "Venda excluida com sucesso", resultado);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+export const getResumoVendasMensalChart = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const vendas = await prisma.vendas.findMany({
+      // where: {
+      //   status: "FINALIZADO",
+      // },
+      select: {
+        data: true,
+        valor: true,
+      },
+    });
+
+    // Estrutura com quantidade e valor
+    const resumo: Record<string, { total: Decimal; quantidade: number }> = {};
+
+    vendas.forEach((venda) => {
+      const mes = format(venda.data, "MM/yyyy");
+
+      if (!resumo[mes]) {
+        resumo[mes] = { total: new Decimal(0), quantidade: 0 };
+      }
+
+      resumo[mes].total = resumo[mes].total.plus(new Decimal(venda.valor));
+      resumo[mes].quantidade += 1;
+    });
+
+    const labels = Object.keys(resumo).sort();
+    const valores = labels.map((mes) => resumo[mes].total.toNumber());
+    const quantidades = labels.map((mes) => resumo[mes].quantidade);
+
+    const chartData = {
+      labels,
+      datasets: [
+        {
+          label: "Valor Total (R$)",
+          data: valores,
+          backgroundColor: "rgba(75, 192, 192, 0.5)",
+          borderColor: "rgba(75, 192, 192, 1)",
+          yAxisID: "y1",
+        },
+        {
+          label: "Quantidade de Vendas",
+          data: quantidades,
+          backgroundColor: "rgba(255, 159, 64, 0.5)",
+          borderColor: "rgba(255, 159, 64, 1)",
+          yAxisID: "y2",
+        },
+      ],
+    };
+
+    ResponseHandler(res, "Resumo mensal gerado com sucesso", chartData);
   } catch (err: any) {
     handleError(res, err);
   }

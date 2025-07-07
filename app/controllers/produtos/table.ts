@@ -27,19 +27,19 @@ export const tableProdutos = async (
       codigo: "string",
     })
     .format("id", function (id) {
-      return `<span class="px-2 py-0 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+      return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
     })
     .format("codigo", function (row) {
       const codigo = row || "-";
-      return `<span class="px-2 py-0 text-blue-500 rounded-md">${codigo}</span>`;
+      return `<span class="px-2 py-1 text-blue-500 dark:text-blue-300 rounded-md">${codigo}</span>`;
     })
     .edit("nome", function (row) {
-      return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-500 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
+      return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-100 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
     })
     .format("preco", (value) => formatCurrency(value))
-    .format("estoque", function (value) {
-      const estoque = value.toString().padStart(2, "0");
-      return `<span class="px-2 py-0 rounded-md">${estoque}</span>`;
+    .edit("estoque", function (row) {
+      const estoque = row.estoque.toString().padStart(2, "0");
+      return `<span class="px-2 py-1 rounded-md dark:bg-gray-600 dark:text-white bg-slate-200">${estoque} ${row.unidade}</span>`;
     })
     .include(["id", "nome", "preco", "estoque", "codigo"])
     .addColumn("acoes", (row) => {

@@ -39,11 +39,11 @@ export const tableVendas = async (
       return nomeCliente;
     })
     .format("id", function (id) {
-      return `<span class="px-2 py-0 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+      return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
     })
     .format("data", function (row) {
       const data = new Date(row).toLocaleDateString("pt-BR");
-      return `<span class="px-2 py-0 dark:bg-gray-600 bg-gray-200  rounded-md">${data}</span>`;
+      return `<span class="px-2 py-1 dark:bg-gray-600 bg-gray-200  rounded-md">${data}</span>`;
     })
     .format("status", function (status) {
       const colors: Record<string, { light: string; dark: string }> = {
@@ -78,11 +78,11 @@ export const tableVendas = async (
         dark: "dark:bg-gray-700 dark:text-gray-300",
       };
 
-      return `<span class="px-2 py-0 rounded-md ${color.light} ${color.dark}">${status}</span>`;
+      return `<span class="px-2 py-1 rounded-md ${color.light} ${color.dark}">${status}</span>`;
     })
 
     .format("valor", function (row) {
-      return `<span class="px-2 py-0 text-blue-500 dark:text-blue-300 rounded-md">${formatCurrency(
+      return `<span class="px-2 py-1 text-blue-500 dark:text-blue-300 rounded-md">${formatCurrency(
         row
       )}</span>`;
     })

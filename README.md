@@ -29,6 +29,9 @@ VAPID_PRIVATE_KEY="SUA_PRIVATE_KEY_VAPID"
 REDIS_HOST="HOST_DO_REDIS"
 REDIS_PORT=
 REDIS_PASSWORD="SENHA_REDIS"
+ASAAS_API_KEY="$aact_hmlg_000MzkwODA2MWY2OGM3MWRlM"
+ASAAS_WEBHOOK_SECRET="SECRETWEBHOOKASAAS"
+ASAAS_BASE_URL="https://<SEU_DOMINIO>"
 ```
 
 Caso o banco seja novo, rode a migração do prisma
@@ -64,6 +67,7 @@ Copie os seguintes arquivos para a hospedagem
 /dist
 /generated
 /public
+/views
 .env
 package.json
 package-lock.json

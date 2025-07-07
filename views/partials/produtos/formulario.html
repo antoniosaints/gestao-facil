@@ -67,7 +67,7 @@
       </div>
 
       <!-- Estoque Inicial -->
-      <div class="md:col-span-6">
+      <div class="md:col-span-4">
         <label for="estoque" class="block text-sm font-medium mb-1">
           Estoque Inicial <span class="text-red-500">*</span>
         </label>
@@ -76,12 +76,32 @@
       </div>
 
       <!-- Estoque Mínimo -->
-      <div class="md:col-span-6">
+      <div class="md:col-span-4">
         <label for="minimo" class="block text-sm font-medium mb-1">
           Estoque Mínimo <span class="text-red-500">*</span>
         </label>
         <input type="number" id="minimo" name="minimo" required placeholder="Ex: 10"
           class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+      </div>
+
+      <!-- Unidade de medida -->
+      <div class="md:col-span-4">
+        <label for="unidade_select_produto" class="block text-sm font-medium mb-1">
+          Unidade <span class="text-red-500">*</span>
+        </label>
+        <select required class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" name="unidade" id="unidade_select_produto">
+          <option value="">Selecione uma unidade</option>
+          <option value="un">Unidade</option>
+          <option value="kg">Quilograma</option>
+          <option value="l">Litro</option>
+          <option value="m">Metro</option>
+          <option value="g">Gramas</option>
+          <option value="cm">Centimetros</option>
+          <option value="mm">Milimetros</option>
+          <option value="mg">Miligramas</option>
+          <option value="ml">Mililitro</option>
+          <option value="cx">Caixa</option>
+        </select>
       </div>
 
       <!-- Observação -->
@@ -109,6 +129,7 @@
 </div>
 
 <script>
+  switchToFullScreen();
   IMask(document.getElementById('preco'), {
     mask: Number,
     scale: 2,
@@ -127,6 +148,7 @@
       preco: $("#preco").val(),
       estoque: $("#estoque").val(),
       minimo: $("#minimo").val(),
+      unidade: $("#unidade_select_produto").val(),
       saidas: $("#saida").is(':checked'),
       entradas: $("#entrada").is(':checked'),
       descricao: $("#descricao").val(),
@@ -177,7 +199,11 @@
   });
 
   (() => {
-    $('#unidade').select2();
+    $('#unidade_select_produto').select2({
+      placeholder: 'Selecione uma unidade',
+      width: '100%',
+      language: "pt-BR",
+    });
     if (localStorage.getItem('produtoId')) {
       $("#produtoFormularioTitulo").text(`📝 Editar Produto #${localStorage.getItem('produtoId')}`);
       $("#estoque").prop("readonly", true);
@@ -206,6 +232,7 @@
           $("#nome").val(data.nome);
           $("#preco").val(data.preco);
           $("#estoque").val(data.estoque);
+          $("#unidade_select_produto").val(data.unidade).trigger('change');
           $("#minimo").val(data.minimo);
           $("#entrada").prop("checked", data.entradas === true);
           $("#saida").prop("checked", data.saidas === true);
