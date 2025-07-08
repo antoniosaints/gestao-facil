@@ -114,12 +114,14 @@
         return qz
             .print(config, data)
             .then(() => {
-                alert("Cupom impresso com sucesso.");
-                qz.websocket.disconnect();
+                alert("Cupom enviado para fila de impressão.");
             })
             .catch((err) => {
                 console.error("Erro na impressão", err);
                 alert("Erro ao imprimir cupom.");
+            })
+            .finally(() => {
+                qz.websocket.disconnect();
             });
     }
 
