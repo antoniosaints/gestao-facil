@@ -366,7 +366,6 @@
         'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
       },
       success: function (data) {
-        console.log(data)
         generateChartVendas(data.data);
       },
       error: function (error) {

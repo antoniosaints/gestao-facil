@@ -49,10 +49,9 @@
                 class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-backward"></i> Voltar
             </button>
-            <button onclick="abrirModalRelatorioProdutoReposicao(localStorage.getItem('produtoId'))"
-                class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
+            <button id="imprimir_cupom_venda" class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-file-pdf"></i>
-                Relatório
+                Cupom N/F
             </button>
             <button onclick="editarVenda(localStorage.getItem('vendaId'))"
                 class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
@@ -69,6 +68,111 @@
 </div>
 
 <script>
+    // Configura QZ Tray para ignorar certificados (apenas para DEV)
+    // qz.security.setCertificatePromise(() => Promise.resolve(null));
+    // qz.security.setSignaturePromise(() => Promise.resolve(null));
+
+    // Função principal de impressão
+    async function imprimirCupom(texto) {
+        if (!texto || typeof texto !== "string") {
+            alert("Cupom vazio ou inválido.");
+            return;
+        }
+
+        // Conecta ao QZ Tray, se necessário
+        if (!qz.websocket.isActive()) {
+            try {
+                await qz.websocket.connect();
+            } catch (err) {
+                alert("Erro ao conectar ao QZ Tray");
+                console.error(err);
+                return;
+            }
+        }
+
+        // Lista as impressoras disponíveis
+        let impressoras;
+        try {
+            impressoras = await qz.printers.find();
+            if (!impressoras.includes("Microsoft Print to PDF")) {
+                alert("Impressora 'Microsoft Print to PDF' não encontrada.");
+                console.warn("Impressoras disponíveis:", impressoras);
+                return;
+            }
+        } catch (err) {
+            console.error("Erro ao buscar impressoras:", err);
+            return;
+        }
+
+        const config = qz.configs.create("Microsoft Print to PDF", {
+            encoding: "UTF-8",
+            margins: 0,
+        });
+
+        const data = [{ type: "raw", format: "plain", data: texto + "\n\n\n" }];
+
+        return qz
+            .print(config, data)
+            .then(() => {
+                alert("Cupom impresso com sucesso.");
+                qz.websocket.disconnect();
+            })
+            .catch((err) => {
+                console.error("Erro na impressão", err);
+                alert("Erro ao imprimir cupom.");
+            });
+    }
+
+    // Busca e imprime o cupom
+    async function imprimirCupomPorVendaId(vendaId) {
+        try {
+            const resp = await fetch(`/vendas/cupom/${vendaId}`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+                },
+            });
+
+            if (!resp.ok) {
+                alert("Erro ao buscar o cupom");
+                return;
+            }
+
+            const texto = await resp.text();
+
+            if (!texto || texto.trim().length === 0) {
+                alert("Cupom está vazio.");
+                return;
+            }
+
+            await imprimirCupom("TESTE DE IMRPESSASON\n\n");
+        } catch (err) {
+            console.error("Erro ao buscar o cupom:", err);
+            alert("Erro ao buscar ou imprimir o cupom.");
+        }
+    }
+    async function gerarCupomPorVendaId(vendaId) {
+        try {
+            const resp = await fetch(`/vendas/cupom-pdf/${vendaId}`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+                },
+            });
+
+            if (!resp.ok) {
+                alert("Erro ao gerar o cupom");
+                return;
+            }
+
+            const blob = await resp.blob();
+
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        } catch (err) {
+            console.error("Erro ao gerar o cupom:", err);
+            alert("Erro ao gerar o cupom.");
+        }
+    }
+
     (() => {
         $.ajax({
             url: '/vendas/' + localStorage.getItem("vendaId"),
@@ -93,6 +197,7 @@
                 const cliente = response.data.cliente ? response.data.cliente.nome : 'N/A'
                 $("#titulo_detalhes_venda").html(`<i class="fa-solid fa-tags"></i> Detalhes da Venda #${response.data.id}`);
                 $("#id_venda_detalhes").text(`#${response.data.id}`);
+                $("#imprimir_cupom_venda").click(() => gerarCupomPorVendaId(response.data.id));
                 $("#cliente_venda_detalhes").text(`${cliente}`);
                 $("#status_venda_detalhes").text(`${response.data.status}`);
                 $("#garantia_venda_detalhes").text(`${response.data.garantia ? `${response.data.garantia} dias` : 'N/A'}`);

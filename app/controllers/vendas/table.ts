@@ -50,7 +50,7 @@ export const tableVendas = async (
       return nomeCliente;
     })
     .format("id", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+      return `<span onclick="visualizarVenda('${id}')" class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 hover:bg-primary/10 rounded-md cursor-pointer"># ${id}</span>`;
     })
     .format("data", function (row) {
       const data = new Date(row).toLocaleDateString("pt-BR");
