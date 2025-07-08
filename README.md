@@ -88,7 +88,7 @@ npm run email
 npm run notification
 ```
 
-Ou suba tudo com PM2 usando 
+Ou suba tudo com PM2 usando
 ```bash
 pm2 start ecosystem.config.js
 ```

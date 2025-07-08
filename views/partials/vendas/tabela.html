@@ -27,6 +27,9 @@
         ajax: {
             type: "GET",
             url: `/vendas`,
+            data: function (d) {
+                d.status = $("#status_vendas_tabela").val() || "";
+            },
             beforeSend: function (xhr) {
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {

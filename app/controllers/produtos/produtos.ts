@@ -178,6 +178,7 @@ export const reposicaoProduto = async (
           Produto: {
             select: {
               nome: true,
+              unidade: true,
             },
           },
         },
@@ -189,7 +190,7 @@ export const reposicaoProduto = async (
     await enqueuePushNotification(
       {
         title: "Reposição de produto",
-        body: `O produto ${entrada.Produto.nome} foi reposto com: ${data.quantidade} unidades.`,
+        body: `O produto ${entrada.Produto.nome} foi reposto com: ${data.quantidade} ${entrada.Produto.unidade}.`,
       },
       customData.contaId
     );

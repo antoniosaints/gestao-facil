@@ -10,8 +10,12 @@ import { format } from "date-fns";
 
 export const getVenda = async (req: Request, res: Response) => {
   try {
+    const customData = getCustomRequest(req).customData;
     const venda = await prisma.vendas.findUniqueOrThrow({
-      where: { id: Number(req.params.id) },
+      where: {
+        id: Number(req.params.id),
+        contaId: customData.contaId,
+      },
       include: {
         cliente: {
           select: {
@@ -31,6 +35,19 @@ export const getVenda = async (req: Request, res: Response) => {
       },
     });
     ResponseHandler(res, "Venda encontrada", venda);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+export const getVendas = async (req: Request, res: Response) => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const vendas = await prisma.vendas.findMany({
+      where: {
+        contaId: customData.contaId,
+      }
+    });
+    ResponseHandler(res, "Vendas encontradas", vendas);
   } catch (err: any) {
     handleError(res, err);
   }

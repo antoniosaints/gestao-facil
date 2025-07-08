@@ -8,7 +8,8 @@
         <form action="#">
             <div class="grid gap-4 mb-4 sm:grid-cols-2">
                 <div>
-                    <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Cliente</label>
+                    <label for="name"
+                        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Cliente</label>
                     <input type="text" name="name" id="name"
                         class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                         placeholder="Nome do cliente" required="">
@@ -21,11 +22,17 @@
                         placeholder="Vendedor" required="">
                 </div>
                 <div>
-                    <label for="price"
+                    <label for="status_vendas_tabela"
                         class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
-                    <input type="number" name="price" id="price"
-                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                        placeholder="Status" required="">
+                    <select id="status_vendas_tabela"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500">
+                        <option value="" selected>Selecione um status</option>
+                        <option value="FATURADO">Faturado</option>
+                        <option value="PENDENTE">Pendente</option>
+                        <option value="FINALIZADO">Finalizado</option>
+                        <option value="ORCAMENTO">Orçamento</option>
+                        <option value="CANCELADO">Cancelado</option>
+                    </select>
                 </div>
                 <div>
                     <label for="category"
@@ -45,7 +52,7 @@
     <div class="flex justify-end gap-4">
         <button
             class="w-full bg-green-600 hover:bg-green-700 text-white px-2 py-2 rounded-lg font-semibold text-md transition-colors duration-200"
-            onclick="fecharModalFiltroVendas()">
+            onclick="filtrarTabelaVendas()">
             <i class="fa-solid fa-filter"></i> Aplicar
         </button>
         <button
@@ -64,6 +71,11 @@
         document.getElementById(
             "modal-container-filtrar-vendas"
         ).innerHTML = template;
+    }
+
+    function filtrarTabelaVendas() {
+        reloadTabelaVendas();
+        fecharModalFiltroVendas();
     }
 
     function fecharModalFiltroVendas() {
