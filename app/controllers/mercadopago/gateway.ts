@@ -17,7 +17,7 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
             id: randomUUID(),
             title: `Assinatura Mensal Gestaofacil`,
             quantity: 1,
-            unit_price: 2,
+            unit_price: 70,
           },
         ],
         payer: {

@@ -55,14 +55,14 @@
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
                 <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
                     <tr class="bg-gray-100 dark:bg-gray-800">
-                        <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">id</th>
+                        <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300"># Fatura</th>
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Vencimento</th>
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Valor</th>
                         <th class="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Status</th>
                         <th class="px-4 py-2 text-right text-gray-700 dark:text-gray-300">Cobrança</th>
                     </tr>
                 </thead>
-                <tbody id="listar_faturas_conta_pagamentos" class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="listar_faturas_conta_pagamentos" class="divide-y divide-gray-200 dark:divide-gray-700 dark:bg-slate-950">
                     <tr>
                         <td colspan="5" class="px-4 text-center py-2 text-gray-800 dark:text-gray-200">Nenhuma fatura
                             encontrada</td>
@@ -85,7 +85,7 @@
             $('#listar_faturas_conta_pagamentos').html('');
             faturas.forEach(fatura => {
                 $('#listar_faturas_conta_pagamentos').append(`<tr>
-                                             <td class="px-4 py-2 text-gray-800 dark:text-gray-200">${fatura.id}</td>
+                                             <td class="px-4 py-2 text-gray-800 dark:text-gray-200">${fatura.asaasPaymentId}</td>
                                              <td class="px-4 py-2 text-gray-800 dark:text-gray-200">${fatura.vencimento}</td>
                                              <td class="px-4 py-2 text-gray-800 dark:text-gray-200">R$ ${fatura.valor}</td>
                                              <td class="px-4 py-2 text-${fatura.color}-600 dark:text-${fatura.color}-400">${fatura.status}</td>
@@ -107,7 +107,7 @@
                 if (res.data.diasParaVencer) $('#dias_para_vencer_assinaturas').text(res.data.diasParaVencer < 0 ? "Vencido" : res.data.diasParaVencer.toFixed(0));
                 if (res.data.valor) $('#valor_assinatura_conta').text(`${res.data.valor}`);
                 if (res.data.faturas) renderFaturas(res.data.faturas);
-                if (res.data.status === "ATIVO" && res.data.diasParaVencer > 13) {
+                if (res.data.status === "ATIVO" && res.data.diasParaVencer > 3) {
                     $('#bloco_assinatura_ativa').removeClass("hidden").addClass("flex");
                     $('#bloco_assinatura_pendente').removeClass("flex").addClass("hidden");
                 } else {

@@ -25,6 +25,7 @@ export const assinaturaConta = async (req: Request, res: Response) => {
             status: conta.status,
             valor: conta.valor ? `R$ ${new Decimal(conta.valor).toFixed(2).replace('.', ',')}` : "R$ 0,00",
             faturas: conta.FaturasContas.map((fatura) => ({
+                asaasPaymentId: fatura.asaasPaymentId,
                 vencimento: fatura.vencimento.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
                 valor: fatura.valor ? fatura.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "R$ 0,00",
                 status: fatura.status,
