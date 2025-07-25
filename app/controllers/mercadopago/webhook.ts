@@ -4,6 +4,16 @@ import { prisma } from "../../utils/prisma";
 import { StatusFatura } from "../../../generated";
 import { addDays, addHours, isBefore } from "date-fns";
 
+export async function getPaymentMercadoPago(req: Request, res: Response) {
+  try {
+    const { id } = req.query;
+    const payment = await mercadoPagoPayment.get({ id: Number(id) });
+    res.status(200).json(payment);
+  }catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 export async function webhookMercadoPago(req: Request, res: Response): Promise<any> {
   try {
     const { type, id, data } = req.body || {};
@@ -37,11 +47,18 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
       },
     });
 
-    if (!faturaExistente) {
+    let link_pagamento: string = "";
+    if (payment.payment_type_id === "ticket") {
+      link_pagamento = payment.transaction_details?.external_resource_url as string;
+    }else {
+      link_pagamento = payment.point_of_interaction?.transaction_data?.ticket_url as string;
+    }
+
+    if (!faturaExistente && payment.point_of_interaction?.transaction_data?.ticket_url != "") {
       await prisma.faturasContas.create({
         data: {
           asaasPaymentId: String(payment.id),
-          urlPagamento: payment.point_of_interaction?.transaction_data?.ticket_url || "",
+          urlPagamento: link_pagamento,
           valor: transaction_amount || 0,
           vencimento: addHours(hoje, 24),
           status: statusFatura,
