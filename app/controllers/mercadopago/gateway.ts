@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { mercadoPagoPreference } from "../../utils/mercadoPago";
 import { randomUUID } from "crypto";
 
-export async function criarLinkAssinatura(req: Request, res: Response) {
+export async function criarLinkAssinatura(req: Request, res: Response): Promise<any> {
   try {
     const { nome, email, valor, externalId } = req.body;
 
@@ -11,7 +11,7 @@ export async function criarLinkAssinatura(req: Request, res: Response) {
         items: [
           {
             id: randomUUID(),
-            title: `Assinatura Mensal - ${nome}`,
+            title: `Assinatura Mensal Gestaofacil - ${nome}`,
             quantity: 1,
             unit_price: Number(valor),
           },

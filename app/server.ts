@@ -16,6 +16,7 @@ import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
 import { select2Usuarios } from "./controllers/administracao/hooks";
 import { engine } from "express-handlebars";
+import { webhookMercadoPago } from "./controllers/mercadopago/webhook";
 
 const app = express();
 
@@ -64,6 +65,7 @@ app.get("/usuarios/select2/lista", authenticateJWT, select2Usuarios);
 
 // Rotas webhook
 app.post("/asaas/webhook", webhookAsaasCheck);
+app.post("/mercadopago/webhook", webhookMercadoPago);
 // Rotas Dashboard
 app.get("/dashboard/resumo", authenticateJWT, resumoDashboard);
 

@@ -1,37 +1,78 @@
-import { Request, Response } from 'express';
-import { mercadoPagoPayment } from '../../utils/mercadoPago';
-import { prisma } from '../../utils/prisma';
+import { Request, Response } from "express";
+import { mercadoPagoPayment } from "../../utils/mercadoPago";
+import { prisma } from "../../utils/prisma";
+import { StatusFatura } from "../../../generated";
+import { addDays, isBefore, parseISO } from "date-fns";
 
-export async function webhookMercadoPago(req: Request, res: Response) {
+export async function webhookMercadoPago(req: Request, res: Response): Promise<any> {
   try {
-    const body = req.body;
+    const { type, id } = req.body || {};
+    if (type !== "payment" || !id) return res.sendStatus(204);
 
-    if (!body) return res.sendStatus(204);
-
-    const { type, id } = body;
-
-    if (type !== 'payment') return res.sendStatus(204);
-
-    // Buscar detalhes do pagamento
-    const payment = await mercadoPagoPayment.get({
-        id: Number(id)
-    });
+    const payment = await mercadoPagoPayment.get({ id: Number(id) });
     const { status, external_reference, transaction_amount } = payment;
 
-    if (status === 'approved') {
-      await prisma.faturasContas.updateMany({
-        where: {
-          asaasPaymentId: external_reference,
-        },
+    if (!external_reference) return res.sendStatus(204);
+    const contaId = Number(external_reference);
+
+    const conta = await prisma.contas.findUniqueOrThrow({
+      where: { id: contaId },
+    });
+
+    const vencimentoConta = parseISO(conta.vencimento?.toString() || "");
+    const hoje = new Date();
+
+    const vencimentoNovo = isBefore(vencimentoConta, hoje)
+      ? addDays(hoje, 30)
+      : addDays(vencimentoConta, 30);
+
+    let statusFatura: StatusFatura = "PENDENTE";
+    if (["approved", "authorized"].includes(status as string)) statusFatura = "PAGO";
+    if (["cancelled", "refunded"].includes(status as string)) statusFatura = "CANCELADO";
+
+    const faturaExistente = await prisma.faturasContas.findFirst({
+      where: {
+        contaId,
+        asaasPaymentId: String(payment.id),
+      },
+    });
+
+    if (!faturaExistente) {
+      await prisma.faturasContas.create({
         data: {
-          status: 'PAGO',
+          asaasPaymentId: String(payment.id),
+          urlPagamento: payment.point_of_interaction?.transaction_data?.ticket_url || "",
+          valor: transaction_amount || 0,
+          vencimento: vencimentoNovo.toISOString(),
+          status: statusFatura,
+          contaId,
+        },
+      });
+    }
+
+    await prisma.faturasContas.updateMany({
+      where: {
+        contaId,
+        asaasPaymentId: String(payment.id),
+      },
+      data: {
+        status: statusFatura,
+      },
+    });
+
+    if (statusFatura === "PAGO") {
+      await prisma.contas.update({
+        where: { id: contaId },
+        data: {
+          status: "ATIVO",
+          vencimento: vencimentoNovo.toISOString(),
         },
       });
     }
 
     return res.sendStatus(200);
   } catch (err) {
-    console.error(err);
+    console.error("Erro no webhook Mercado Pago:", err);
     return res.sendStatus(500);
   }
 }
