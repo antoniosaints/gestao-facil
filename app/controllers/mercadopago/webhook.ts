@@ -6,7 +6,6 @@ import { addDays, isBefore, parseISO } from "date-fns";
 
 export async function webhookMercadoPago(req: Request, res: Response): Promise<any> {
   try {
-    console.log(req.body);
     const { type, id, data } = req.body || {};
     if (type !== "payment" || !id) return res.sendStatus(204);
 
@@ -44,7 +43,7 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
           asaasPaymentId: String(payment.id),
           urlPagamento: payment.point_of_interaction?.transaction_data?.ticket_url || "",
           valor: transaction_amount || 0,
-          vencimento: vencimentoNovo.toDateString(),
+          vencimento: vencimentoNovo,
           status: statusFatura,
           contaId,
         },
@@ -66,7 +65,7 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
         where: { id: contaId },
         data: {
           status: "ATIVO",
-          vencimento: vencimentoNovo.toDateString(),
+          vencimento: vencimentoNovo,
         },
       });
     }
