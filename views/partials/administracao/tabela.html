@@ -2,9 +2,10 @@
     <thead>
         <tr>
             <th>ID</th>
+            <th>Status</th>
             <th>Nome</th>
             <th>Email</th>
-            <th>Status</th>
+            <th>Criado</th>
             <th>Ações</th>
         </tr>
     </thead>
@@ -133,9 +134,14 @@
         },
         columns: [
             { data: "id" },
+            { data: "status", className: "hidden md:table-cell" },
             { data: "nome" },
             { data: "email", className: "hidden md:table-cell" },
-            { data: "status", className: "hidden md:table-cell" },
+            {
+                data: "createdAt",
+                render: function (data) { return moment(data).format("DD/MM/YYYY"); },
+                className: "hidden md:table-cell"
+            },
             { data: "acoes", orderable: false, searchable: false, className: "flex justify-end" },
         ],
     });

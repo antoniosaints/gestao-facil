@@ -33,6 +33,13 @@ app.engine(
           minimumFractionDigits: 2,
         }).format(valor);
       },
+      valueExists: (value: any, textTrue: string, textFalse: string) => {
+        if (typeof value !== "undefined" && value !== null && value !== "" && value !== 'null') {
+          return textTrue;
+        }else {
+          return textFalse
+        }
+      }
     },
   })
 );

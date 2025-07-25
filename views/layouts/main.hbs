@@ -42,9 +42,9 @@
     <div class="text-xl font-bold">
       <i class="fa-solid fa-chart-pie text-orange-400"></i> Gestão Fácil
     </div>
-    <div class="flex justify-between gap-2 items-center">
-      Bem-vindo, Admin
-      <img src="imgs/logo.png" alt="PR" class="rounded-full w-8 h-8 bg-gray-500" />
+    <div class="flex justify-between gap-2 items-center" id="user_name_container">
+      Bem-vindo
+      {{!-- <img src="imgs/logo.png" alt="PR" class="rounded-full w-8 h-8 bg-gray-500" /> --}}
     </div>
   </header>
 
@@ -57,23 +57,23 @@
   <!-- Sidebar -->
   <aside id="sidebar"
     class="fixed shadow-md top-0 left-0 h-full w-full md:w-64 border border-border dark:border-border-dark bg-card dark:bg-card-dark p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
-    <h1 class="text-2xl font-bold text-gray-950 dark:text-white">
-      <i class="fa-solid fa-chart-pie"></i> Gestão Fácil
+    <h1 class="text-xl text-center font-bold text-orange-950 dark:text-orange-400">
+      Gestão Fácil - ERP
     </h1>
 
     <nav class="flex flex-col space-y-2">
       <a onclick="loadPage('/resumos')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-chart-simple px-2"></i> Dashboard</a>
+        class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+          class="fa-solid fa-chart-simple text-orange-600 px-2"></i> Dashboard</a>
       <a onclick="loadPage('/produtos/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-boxes-stacked px-2"></i> Produtos</a>
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+          class="fa-solid fa-boxes-stacked text-blue-600 px-2"></i> Produtos</a>
       <a onclick="loadPage('/vendas/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-tags px-2"></i> Vendas</a>
-      <a onclick="loadPage('/produtos/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
-        <i class="fa-solid fa-user-tag px-2"></i> Cliente/Fornecedor</a>
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+          class="fa-solid fa-tags text-green-600 px-2"></i> Vendas</a>
+      <a onclick="loadPage('/clientes/resumo')"
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+        <i class="fa-solid fa-user-tag text-violet-600 px-2"></i> Cliente/Fornecedor</a>
 
       <div class="flex items-center my-6">
         <div class="flex-grow border-t border-border"></div>
@@ -82,8 +82,8 @@
       </div>
 
       <a onclick="loadPage('administracao/usuarios/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
-        <i class="fa-solid fa-user px-2"></i> Usuários</a>
+        class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+        <i class="fa-solid fa-user text-indigo-600 px-2"></i> Usuários</a>
 
       <div class="flex items-center my-6">
         <div class="flex-grow border-t border-border"></div>
@@ -92,8 +92,8 @@
       </div>
 
       <a onclick="loadPage('plano/assinatura')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
-        <i class="fa-solid fa-user px-2"></i> Plano</a>
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+        <i class="fa-solid fa-bolt text-orange-600 px-2"></i> Plano</a>
 
       <div class="flex items-center my-6">
         <div class="flex-grow border-t border-border"></div>
@@ -102,8 +102,8 @@
       </div>
 
       <a onclick="logOut()"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-right-from-bracket px-2"></i> Sair</a>
+        class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+          class="fa-solid fa-right-from-bracket text-red-600 px-2"></i> Sair</a>
     </nav>
 
     <button onclick="toggleTheme()"
@@ -141,6 +141,8 @@
     const openBtn = document.getElementById("openSidebarBtn");
     const closeBtn = document.getElementById("closeSidebarBtn");
     const containerMain = document.getElementById("container-main");
+
+    document.querySelector("#user_name_container").innerHTML = "Bem-vindo, " + localStorage.getItem("gestao_facil:username");
 
     function logOut() {
       localStorage.removeItem("gestao_facil:token");

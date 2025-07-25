@@ -1,18 +1,22 @@
-<table id="tabela_vendas_listagem_principal" class="display">
+<table id="tabela_produtos_listagem_principal" class="display">
     <thead>
         <tr>
             <th>ID</th>
-            <th>Cod.</th>
+            <th>Status</th>
             <th>Nome</th>
-            <th>Preço</th>
-            <th>Qtd</th>
+            <th>E-mail</th>
+            <th>Telefone</th>
             <th class="flex justify-end">Ações</th>
         </tr>
     </thead>
 </table>
 
 <script>
-    new DataTable("#tabela_vendas_listagem_principal", {
+    function reloadTabelaProdutos() {
+        const tabela = $("#tabela_produtos_listagem_principal").DataTable();
+        tabela.ajax.reload(null, false);
+    }
+    new DataTable("#tabela_produtos_listagem_principal", {
         language: {
             url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json",
         },
@@ -21,7 +25,7 @@
         stateSave: true,
         ajax: {
             type: "GET",
-            url: `/vendas`,
+            url: `/clientes/getDataTable`,
             beforeSend: function (xhr) {
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
@@ -50,15 +54,15 @@
                     title: "Erro!",
                     text: mensagem,
                 });
-                window.location.href = "/login";
+                if (status === 401) window.location.href = "/login";
             },
         },
         columns: [
             { data: "id" },
-            { data: "codigo" },
+            { data: "status" },
             { data: "nome" },
-            { data: "preco" },
-            { data: "estoque" },
+            { data: "email" },
+            { data: "telefone" },
             {
                 data: "acoes",
                 className: "flex justify-end",

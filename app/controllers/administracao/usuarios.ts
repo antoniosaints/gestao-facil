@@ -25,13 +25,16 @@ export const tableUsuarios = async (
       return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
     })
     .format("email", function (row) {
-      const codigo = row || "-";
-      return `<span class="px-2 py-1 text-blue-600 dark:text-blue-300 bg-secondary/20 rounded-md"><i class="fa-solid fa-at"></i> ${codigo}</span>`;
+      const email = row || "-";
+      return `<span class="px-2 py-1 text-blue-800 dark:text-blue-300 bg-secondary/10 rounded-md"><i class="fa-solid fa-at"></i> ${email}</span>`;
     })
     .format("status", function (value) {
-      const status = value === "ATIVO" ? "Ativo" : "Inativo";
-      const statusColor = value === "ATIVO" ? "text-green-600 dark:text-green-300 bg-green-500/10 dark:bg-green-500/20" : "text-red-500 dark:text-red-300 bg-red-500/20 dark:bg-red-500/20";
-      return `<span class="px-2 py-1 rounded-md ${statusColor}">${status}</span>`;
+      return `
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" value="" class="sr-only peer" ${value === "ATIVO" ? "checked" : ""}>
+                <div class="relative w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer dark:bg-red-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-red-600 peer-checked:bg-emerald-600 dark:peer-checked:bg-emerald-600"></div>
+              </label>
+              `;
     })
     .addColumn("acoes", (row) => {
       return usuariosAcoes(row);
