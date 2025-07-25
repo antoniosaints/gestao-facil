@@ -6,15 +6,11 @@ import { routerVendas } from "./vendas/router";
 import { monitorRouter } from "./monitor/router";
 
 const RouterMain = Router();
-// Contas
+
 RouterMain.use("/contas", routerContas);
-// Produtos
 RouterMain.use("/produtos", routerProdutos);
-// Clientes
 RouterMain.use("/clientes", routerClientes);
-// Vendas
 RouterMain.use("/vendas", routerVendas);
-// monitor
 RouterMain.use("/system", monitorRouter);
 
 export { RouterMain };

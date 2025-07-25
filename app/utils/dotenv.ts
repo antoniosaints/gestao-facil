@@ -31,6 +31,9 @@ const envSchema = z.object({
   }),
   ASAAS_BASE_URL: z.string({
     required_error: "ASAAS_BASE_URL é obrigatório",
+  }),
+  MP_ACCESS_TOKEN: z.string({
+    required_error: "MP_ACCESS_TOKEN é obrigatório",
   })
 });
 
