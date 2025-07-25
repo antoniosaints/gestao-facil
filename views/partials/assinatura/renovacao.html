@@ -1,21 +1,24 @@
 <div class="space-y-6">
     <!-- Bloco de Assinatura com Destaque -->
-    <div class="rounded-3xl border border-gray-500 bg-white dark:bg-gray-900 p-8 shadow-md">
+    <div class="rounded-3xl border border-gray-500 bg-white dark:bg-gray-900 p-4 shadow-md">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h3
+                    class="text-2xl font-bold text-gray-900 dark:text-white mb-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
                     Sua Assinatura: <span class="text-primary dark:text-primary">Gestão Fácil</span>
                 </h3>
-                <p class="text-lg text-gray-700 dark:text-gray-300">
-                    Próximo vencimento: <span class="font-semibold text-gray-600 dark:text-gray-400"
-                        id="data_vencimento_assinatura">...</span>
-                </p>
-                <p class="text-md text-gray-600 dark:text-gray-400">
-                    Valor: <span class="font-semibold" id="valor_assinatura_conta">...</span>
-                </p>
-                <p class="text-md text-gray-600 dark:text-gray-400">
-                    Dias restantes: <span class="font-semibold" id="dias_para_vencer_assinaturas">...</span>
-                </p>
+                <div class="bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+                    <p class="text-lg text-gray-700 dark:text-gray-300">
+                        Próximo vencimento: <span class="font-semibold text-gray-600 dark:text-gray-400"
+                            id="data_vencimento_assinatura">...</span>
+                    </p>
+                    <p class="text-md text-gray-600 dark:text-gray-400">
+                        Valor: <span class="font-semibold" id="valor_assinatura_conta">...</span>
+                    </p>
+                    <p class="text-md text-gray-600 dark:text-gray-400">
+                        Dias restantes: <span class="font-semibold" id="dias_para_vencer_assinaturas">...</span>
+                    </p>
+                </div>
             </div>
 
             <div class="items-center gap-4 hidden" id="bloco_assinatura_pendente">
@@ -24,12 +27,15 @@
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Fatura pendente
+                    <div id="fatura_pendente_assinatura_text">
+                        Fatura pendente
+                    </div>
                 </span>
 
                 <button type="button" id="pagamento_fatura_atual_assinatura"
-                    class="rounded-lg bg-primary text-white px-4 py-2 text-sm shadow hover:bg-orange-700 transition dark:bg-orange-500 dark:hover:bg-orange-600">
-                    <i class="fa-solid fa-receipt"></i> Pagar agora
+                    class="rounded-lg bg-primary w-max flex items-center gap-2 text-white px-4 py-2 text-sm shadow hover:bg-orange-700 transition dark:bg-orange-500 dark:hover:bg-orange-600">
+                    <i class="fa-solid fa-receipt"></i>
+                    <div id="pagamento_fatura_atual_assinatura_text">Pagar agora</div>
                 </button>
             </div>
             <div class="items-center gap-4 hidden" id="bloco_assinatura_ativa">
@@ -43,7 +49,7 @@
     </div>
 
     <!-- Histórico de Faturas -->
-    <div class="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900 p-6">
+    <div class="rounded-2xl border border-gray-500 bg-white shadow-sm dark:bg-gray-900 p-4">
         <h4 class="text-base font-semibold text-gray-800 dark:text-white mb-4">Faturas anteriores</h4>
         <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
@@ -70,6 +76,13 @@
 <script>
     (() => {
         function renderFaturas(faturas) {
+            if (faturas.length === 0) {
+                $('#listar_faturas_conta_pagamentos').html(`<tr>
+                                             <td colspan="5" class="px-4 text-center py-2 text-gray-800 dark:text-gray-200">Nenhuma fatura encontrada</td>
+                                         </tr>`);
+                return;
+            }
+            $('#listar_faturas_conta_pagamentos').html('');
             faturas.forEach(fatura => {
                 $('#listar_faturas_conta_pagamentos').append(`<tr>
                                              <td class="px-4 py-2 text-gray-800 dark:text-gray-200">${fatura.id}</td>
@@ -90,12 +103,11 @@
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
             },
             success: (res) => {
-                $('#listar_faturas_conta_pagamentos').text('');
                 if (res.data.proximoVencimento) $('#data_vencimento_assinatura').text(res.data.proximoVencimento);
                 if (res.data.diasParaVencer) $('#dias_para_vencer_assinaturas').text(res.data.diasParaVencer < 0 ? "Vencido" : res.data.diasParaVencer.toFixed(0));
                 if (res.data.valor) $('#valor_assinatura_conta').text(`${res.data.valor}`);
                 if (res.data.faturas) renderFaturas(res.data.faturas);
-                if (res.data.status === "ATIVO" && res.data.diasParaVencer > 3) {
+                if (res.data.status === "ATIVO" && res.data.diasParaVencer > 13) {
                     $('#bloco_assinatura_ativa').removeClass("hidden").addClass("flex");
                     $('#bloco_assinatura_pendente').removeClass("flex").addClass("hidden");
                 } else {
@@ -103,8 +115,49 @@
                     $('#bloco_assinatura_pendente').removeClass("hidden").addClass("flex");
                 }
                 if (res.data.proximoLinkPagamento) {
+                    $('#fatura_pendente_assinatura_text').text("Fatura pendente");
+                    $('#pagamento_fatura_atual_assinatura_text').text("Pagar agora!");
                     $('#pagamento_fatura_atual_assinatura').on('click', () => {
                         window.open(res.data.proximoLinkPagamento, '_blank');
+                    });
+                } else {
+                    $('#fatura_pendente_assinatura_text').text("Realize o pagamento");
+                    $('#pagamento_fatura_atual_assinatura_text').text("Gerar pagamento");
+                    $('#pagamento_fatura_atual_assinatura').on('click', () => {
+                        $.ajax({
+                            url: '/contas/assinatura/mercadopago',
+                            method: 'GET',
+                            dataType: 'json',
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+                            },
+                            beforeSend: () => {
+                                $('#pagamento_fatura_atual_assinatura').prop("disabled", true);
+                                Swal.fire({
+                                    title: 'Gerando link de pagamento, aguarde...',
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false,
+                                    showConfirmButton: false,
+                                    didOpen: () => {
+                                        Swal.showLoading();
+                                    },
+                                })
+                            },
+                            success: (res) => {
+                                $('#pagamento_fatura_atual_assinatura').prop("disabled", false);
+                                Swal.close();
+                                window.open(res.link, '_blank');
+                            },
+                            error: (err) => {
+                                console.log(err);
+                                $('#pagamento_fatura_atual_assinatura').prop("disabled", false);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Oops...',
+                                    text: 'Ocorreu um erro ao carregar o link de pagamento, tente novamente',
+                                })
+                            }
+                        });
                     });
                 }
             },

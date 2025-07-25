@@ -19,6 +19,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     const usuario = await prisma.usuarios.findFirst({
       where: {
         email: validated.data.email,
+        senha: validated.data.senha,
       },
     });
 
@@ -26,14 +27,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json({
         status: 401,
         message: "Usuário não encontrado",
-        data: null,
-      });
-    }
-
-    if (usuario.senha !== validated.data.senha) {
-      return res.status(401).json({
-        status: 401,
-        message: "Senha inválida",
         data: null,
       });
     }

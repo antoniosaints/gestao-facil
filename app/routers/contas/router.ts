@@ -9,7 +9,7 @@ const routerContas = Router();
 
 routerContas.get("/assinatura/status", authenticateJWT, assinaturaConta);
 routerContas.get("/assinatura", authenticateJWT, createSubscription);
-routerContas.post("/assinatura/mercadopago", authenticateJWT, criarLinkAssinatura);
+routerContas.get("/assinatura/mercadopago", authenticateJWT, criarLinkAssinatura);
 routerContas.get("/assinatura/mercadopago/getPagamento", authenticateJWT, getPaymentMercadoPago);
 
 export {
