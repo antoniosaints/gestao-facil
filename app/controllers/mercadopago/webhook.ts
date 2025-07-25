@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { mercadoPagoPayment } from "../../utils/mercadoPago";
 import { prisma } from "../../utils/prisma";
 import { StatusFatura } from "../../../generated";
-import { addDays, isBefore, parseISO } from "date-fns";
+import { addDays, addHours, isBefore } from "date-fns";
 
 export async function webhookMercadoPago(req: Request, res: Response): Promise<any> {
   try {
@@ -19,7 +19,7 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
       where: { id: contaId },
     });
 
-    const vencimentoConta = parseISO(conta.vencimento?.toString() || "");
+    const vencimentoConta = conta.vencimento;
     const hoje = new Date();
 
     const vencimentoNovo = isBefore(vencimentoConta, hoje)
@@ -43,7 +43,7 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
           asaasPaymentId: String(payment.id),
           urlPagamento: payment.point_of_interaction?.transaction_data?.ticket_url || "",
           valor: transaction_amount || 0,
-          vencimento: vencimentoNovo,
+          vencimento: addHours(hoje, 24),
           status: statusFatura,
           contaId,
         },
