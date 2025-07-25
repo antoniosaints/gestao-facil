@@ -6,10 +6,11 @@ import { addDays, isBefore, parseISO } from "date-fns";
 
 export async function webhookMercadoPago(req: Request, res: Response): Promise<any> {
   try {
-    const { type, id } = req.body || {};
+    const { type, id, data } = req.body || {};
+    console.log(data);
     if (type !== "payment" || !id) return res.sendStatus(204);
 
-    const payment = await mercadoPagoPayment.get({ id: Number(id) });
+    const payment = await mercadoPagoPayment.get({ id: Number(data.id) });
     const { status, external_reference, transaction_amount } = payment;
 
     if (!external_reference) return res.sendStatus(204);
