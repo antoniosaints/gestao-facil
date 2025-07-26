@@ -101,10 +101,14 @@ export const getResumoVendasMensalChart = async (
   res: Response
 ) => {
   try {
+     const customData = getCustomRequest(req).customData;
     const vendas = await prisma.vendas.findMany({
-      // where: {
-      //   status: "FINALIZADO",
-      // },
+      where: {
+        status: {
+          in: ["FATURADO", "FINALIZADO"],
+        },
+        contaId: customData.contaId,
+      },
       select: {
         data: true,
         valor: true,

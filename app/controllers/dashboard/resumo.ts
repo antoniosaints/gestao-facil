@@ -53,6 +53,9 @@ export const resumoDashboard = async (
           OR: [
             {
               contaId: contaId,
+              status: {
+                in: ["FATURADO", "FINALIZADO"],
+              },
               data: {
                 gte: getLastMonth().start,
                 lte: getLastMonth().end,
@@ -60,12 +63,15 @@ export const resumoDashboard = async (
             },
           ],
         },
-      })
+      });
       const vendasEsteMes = await tsc.vendas.findMany({
         where: {
           OR: [
             {
               contaId: contaId,
+              status: {
+                in: ["FATURADO", "FINALIZADO"],
+              },
               data: {
                 gte: getThisMonth().start,
                 lte: getThisMonth().end,
@@ -73,13 +79,16 @@ export const resumoDashboard = async (
             },
           ],
         },
-      })
+      });
 
       const vendas = await tsc.vendas.findMany({
         where: {
           OR: [
             {
               contaId: contaId,
+              status: {
+                in: ["FATURADO", "FINALIZADO"],
+              },
               data: dataFilter
                 ? dataFilter
                 : {
@@ -91,9 +100,21 @@ export const resumoDashboard = async (
         },
       });
 
-      const vendasTotalMesPassado = vendasMesPassado.reduce((acc, cur) => acc.add(cur.valor), new Decimal(0));
-      const vendasTotal = vendasEsteMes.reduce((acc, cur) => acc.add(cur.valor), new Decimal(0));
-      const percentageByLastMonth = vendasTotalMesPassado.gt(0) ? vendasTotal.minus(vendasTotalMesPassado).div(vendasTotalMesPassado).mul(100).toNumber() : 0;
+      const vendasTotalMesPassado = vendasMesPassado.reduce(
+        (acc, cur) => acc.add(cur.valor),
+        new Decimal(0)
+      );
+      const vendasTotal = vendasEsteMes.reduce(
+        (acc, cur) => acc.add(cur.valor),
+        new Decimal(0)
+      );
+      const percentageByLastMonth = vendasTotalMesPassado.gt(0)
+        ? vendasTotal
+            .minus(vendasTotalMesPassado)
+            .div(vendasTotalMesPassado)
+            .mul(100)
+            .toNumber()
+        : 0;
 
       const vendasCount =
         vendas && vendas.length > 0
@@ -133,7 +154,7 @@ export const resumoDashboard = async (
         estoquesBaixos,
         clientes,
         produtos,
-        percentageByLastMonth
+        percentageByLastMonth,
       };
     });
 

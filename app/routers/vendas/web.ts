@@ -13,6 +13,9 @@ webRouterVendas.get("/tabela", (req, res) => {
 webRouterVendas.get("/formulario", (req, res) => {
   renderFileSimple(req, res, "partials/vendas/cadastro.html");
 });
+webRouterVendas.get("/pdv", (req, res) => {
+  renderFileSimple(req, res, "partials/vendas/pdv.html");
+});
 webRouterVendas.get("/detalhe", authenticateJWT, (req, res) => {
   renderFileAuth(req, res, "partials/vendas/detalhes.html");
 });
