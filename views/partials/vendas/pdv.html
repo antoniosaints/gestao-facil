@@ -150,6 +150,11 @@
         $(document).ready(function () {
             $('#searchProductosInput').focus();
         });
+        $(document).keydown(function (e) {
+            if (e.keyCode == 13) {
+                $('#searchProductosInput').focus();
+            }
+        });
 
         $("#clientPdvVenda").select2({
             placeholder: 'Selecione um cliente',

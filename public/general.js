@@ -15,6 +15,31 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  const dropdowns = document.querySelectorAll("[data-dropdown-toggle]");
+
+  dropdowns.forEach((button) => {
+    const parent = button.closest(".relative");
+    const menu = parent.querySelector("[data-dropdown-menu]");
+
+    button.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeAllDropdowns(menu); // fecha outros
+      menu.classList.toggle("hidden");
+    });
+  });
+
+  function closeAllDropdowns(except = null) {
+    document.querySelectorAll("[data-dropdown-menu]").forEach((menu) => {
+      if (menu !== except) menu.classList.add("hidden");
+    });
+  }
+
+  document.addEventListener("click", () => {
+    closeAllDropdowns();
+  });
+});
+
 function MaskToInputMoney(element) {
   IMask(element, {
     mask: Number,

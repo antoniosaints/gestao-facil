@@ -43,6 +43,30 @@
       swap: "innerHTML",
     });
   }
+
+  async function gerarCupomPorVendaId(vendaId) {
+    try {
+      const resp = await fetch(`/vendas/cupom-pdf/${vendaId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        },
+      });
+
+      if (!resp.ok) {
+        alert("Erro ao gerar o cupom");
+        return;
+      }
+
+      const blob = await resp.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Erro ao gerar o cupom:", err);
+      alert("Erro ao gerar o cupom.");
+    }
+  }
+
   function visualizarVenda(id) {
     localStorage.setItem("vendaId", id);
     loadPage("/vendas/detalhe");
