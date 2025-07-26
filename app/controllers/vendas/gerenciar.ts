@@ -6,7 +6,7 @@ import { vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
-import { format } from "date-fns";
+import { addHours, format } from "date-fns";
 
 export const getVenda = async (req: Request, res: Response) => {
   try {
@@ -176,9 +176,9 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         data: {
           valor: valorTotal,
           clienteId: data.clienteId,
-          vendedorId: data.vendedorId,
+          vendedorId: data.vendedorId || customData.userId,
           contaId: customData.contaId,
-          data: data.data,
+          data: addHours(data.data, 4),
           status: data.status,
           garantia: data.garantia,
         },

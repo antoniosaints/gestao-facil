@@ -117,13 +117,13 @@
                 if (res.data.proximoLinkPagamento) {
                     $('#fatura_pendente_assinatura_text').text("Fatura pendente");
                     $('#pagamento_fatura_atual_assinatura_text').text("Pagar agora!");
-                    $('#pagamento_fatura_atual_assinatura').on('click', () => {
+                    $('#pagamento_fatura_atual_assinatura').click(() => {
                         window.open(res.data.proximoLinkPagamento, '_blank');
                     });
                 } else {
                     $('#fatura_pendente_assinatura_text').text("Realize o pagamento");
                     $('#pagamento_fatura_atual_assinatura_text').text("Gerar pagamento");
-                    $('#pagamento_fatura_atual_assinatura').on('click', () => {
+                    $('#pagamento_fatura_atual_assinatura').click(() => {
                         $.ajax({
                             url: '/contas/assinatura/mercadopago',
                             method: 'GET',

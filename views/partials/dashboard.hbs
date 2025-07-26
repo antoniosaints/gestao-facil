@@ -3,15 +3,16 @@
     <h2 class="text-2xl font-bold text-black dark:text-white">
       <i class="fa-solid fa-chart-simple text-orange-600"></i> Dashboard
     </h2>
-    <div class="flex items-center space-x-2">
-      <select id="filtro_dashboard_periodo"
-        class="rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-        <option value="semana">Últimos 7 dias</option>
-        <option value="mes" selected>Esse mês</option>
-        <option value="mespassado">Último mês</option>
-        <option value="ano">Esse ano</option>
-      </select><button
-        class="bg-primary text-white px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
+    <div class="flex items-center space-x-2 w-content">
+      <button type="button" id="limpar_filtro_dashboard_periodo"
+        class="bg-red-600 text-white text-nowrap px-3 py-1.5 rounded-md text-sm hover:bg-red-700 transition-colors">
+        <i class="fa-solid fa-filter-circle-xmark"></i>
+      </button>
+      <input id="filtro_dashboard_periodo" placeholder="Filtrar por período"
+        class="rounded-md border w-max bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+      </input>
+      <button
+        class="bg-primary text-white text-nowrap px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
           class="fa-solid fa-file-pdf"></i> Exportar</button>
     </div>
   </div>
@@ -224,14 +225,38 @@
 <script>
   switchToFullScreen();
 
-  if (localStorage.getItem("filtro_dashboard_periodo")) {
-    $("#filtro_dashboard_periodo").val(localStorage.getItem("filtro_dashboard_periodo"))
-  }
+  flatpickr("#filtro_dashboard_periodo", {
+    mode: "range",
+    altInput: true,
+    altFormat: "d/m/Y",
+    dateFormat: "Y-m-d",
+    locale: "pt",
+    onReady: function (selectedDates, dateStr, instance) {
+      if (localStorage.getItem("filtro_dashboard_periodo")) {
+        instance.setDate(localStorage.getItem("filtro_dashboard_periodo"));
+      }
+      if (localStorage.getItem("filtro_dashboard_periodo")) {
+        $("#limpar_filtro_dashboard_periodo").removeClass("hidden");
+      } else {
+        $("#limpar_filtro_dashboard_periodo").addClass("hidden");
+      }
 
-  $("#filtro_dashboard_periodo").change(function () {
-    localStorage.setItem("filtro_dashboard_periodo", $(this).val())
-    loadPage('/resumos');
-  })
+      $("#limpar_filtro_dashboard_periodo").click(function () {
+        instance.clear();
+        localStorage.removeItem("filtro_dashboard_periodo");
+        loadPage('/resumos');
+      })
+    },
+    onChange: function (selectedDates, dateStr, instance) {
+      if (selectedDates.length === 2) {
+        $("#limpar_filtro_dashboard_periodo").removeClass("hidden");
+        localStorage.setItem("filtro_dashboard_periodo", dateStr);
+        loadPage('/resumos');
+      } else {
+        $("#limpar_filtro_dashboard_periodo").addClass("hidden");
+      }
+    }
+  });
 
   function generateChartVendas(data) {
     // Gráfico de Barras
@@ -290,11 +315,30 @@
   }
 
   function getDadosDashboard() {
-    const periodo = $("#filtro_dashboard_periodo").val();
+    const periodo = document.querySelector("#filtro_dashboard_periodo")._flatpickr.selectedDates;
     $.ajax({
       url: '/dashboard/resumo',
       method: 'GET',
-      data: { periodo },
+      data: (() => {
+        if (periodo.length === 2) {
+          const start = new Date(periodo[0]);
+          const end = new Date(periodo[1]);
+
+          const isSameDay = start.toDateString() === end.toDateString();
+
+          if (isSameDay) {
+            start.setHours(0, 1, 0, 0);   // 00:01
+            end.setHours(23, 59, 0, 0);  // 23:59
+          }
+
+          return {
+            inicio: start.toISOString(),
+            fim: end.toISOString()
+          };
+        }
+
+        return { inicio: null, fim: null };
+      })(),
       dataType: 'json',
       headers: {
         'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")

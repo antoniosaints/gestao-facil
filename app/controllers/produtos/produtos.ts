@@ -10,9 +10,29 @@ import { ResponseHandler } from "../../utils/response";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
+  const customData = getCustomRequest(req).customData;
   const produto = await prisma.produto.findUnique({
     where: {
+      contaId: customData.contaId,
       id: Number(id),
+    },
+  });
+  if (!produto) {
+    return res.status(404).json({
+      message: "Produto não encontrado",
+      data: null,
+    });
+  }
+  return res.status(200).json({
+    message: "Produto encontrado",
+    data: produto,
+  });
+};
+export const getProdutos = async (req: Request, res: Response): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const produto = await prisma.produto.findMany({
+    where: {
+      contaId: customData.contaId,
     },
   });
   if (!produto) {
@@ -36,6 +56,7 @@ export const deleteProduto = async (
     const produto = await prisma.produto.delete({
       where: {
         id: Number(id),
+        contaId: customData.contaId,
       },
     });
     if (!produto) {
@@ -81,6 +102,7 @@ export const saveProduto = async (
       const produto = await prisma.produto.update({
         where: {
           id: data.id,
+          contaId: customData.contaId,
         },
         data: {
           nome: data.nome,
@@ -147,6 +169,7 @@ export const reposicaoProduto = async (
     const entrada = await prisma.$transaction(async (tx) => {
       const produtoExistente = await tx.produto.findFirst({
         where: {
+          contaId: customData.contaId,
           id: data.produtoId,
           entradas: true,
         },
@@ -157,7 +180,7 @@ export const reposicaoProduto = async (
       }
 
       await tx.produto.update({
-        where: { id: data.produtoId },
+        where: { id: data.produtoId, contaId: customData.contaId },
         data: { estoque: { increment: data.quantidade } },
       });
 

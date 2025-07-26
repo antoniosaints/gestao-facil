@@ -5,45 +5,25 @@ import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import Decimal from "decimal.js";
 import { formatCurrency } from "../../utils/formatters";
-import { getLastMonth, getThisMonth, getThisWeek, getThisYear } from "./hooks";
+import { getLastMonth, getThisMonth } from "./hooks";
 
 export const resumoDashboard = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const { contaId, userId } = getCustomRequest(req).customData;
-  const { periodo } = req.query;
+  const { inicio, fim } = req.query as { inicio: string; fim: string };
 
-  let dataFilter = null;
+  let dateFilter = {
+    gte: getThisMonth().start,
+    lte: getThisMonth().end,
+  };
 
-  switch (periodo) {
-    case "semana":
-      dataFilter = {
-        gte: getThisWeek().start,
-        lte: getThisWeek().end,
-      };
-      break;
-    case "mes":
-      dataFilter = {
-        gte: getThisMonth().start,
-        lte: getThisMonth().end,
-      };
-      break;
-    case "mespassado":
-      dataFilter = {
-        gte: getLastMonth().start,
-        lte: getLastMonth().end,
-      };
-      break;
-    case "ano":
-      dataFilter = {
-        gte: getThisYear().start,
-        lte: getThisYear().end,
-      };
-      break;
-    default:
-      dataFilter = null;
-      break;
+  if (inicio && fim) {
+    dateFilter = {
+      gte: new Date(inicio),
+      lte: new Date(fim),
+    };
   }
 
   try {
@@ -89,12 +69,7 @@ export const resumoDashboard = async (
               status: {
                 in: ["FATURADO", "FINALIZADO"],
               },
-              data: dataFilter
-                ? dataFilter
-                : {
-                    gte: getThisWeek().start,
-                    lte: getThisWeek().end,
-                  },
+              data: dateFilter
             },
           ],
         },

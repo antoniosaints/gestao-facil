@@ -9,6 +9,7 @@ import { tableProdutos } from "../../controllers/produtos/table";
 import {
   deleteProduto,
   getProduto,
+  getProdutos,
   reposicaoProduto,
   saveProduto,
 } from "../../controllers/produtos/produtos";
@@ -23,6 +24,7 @@ routerProdutos.get(
   relatorioProdutoMovimentacoes
 );
 routerProdutos.get("", authenticateJWT, tableProdutos);
+routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
 routerProdutos.get("/:id", authenticateJWT, getProduto);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("", authenticateJWT, saveProduto);

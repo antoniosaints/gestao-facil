@@ -9,7 +9,7 @@
             </h2>
             <!-- Barra de Busca -->
             <div class="relative">
-                <input type="text" id="searchInput" placeholder="Buscar por nome ou código..."
+                <input type="text" id="searchProductosInput" placeholder="Buscar por nome ou código..."
                     class="w-full p-2 rounded-md border bg-background dark:bg-background-dark border-border dark:border-border-dark">
             </div>
         </div>
@@ -42,18 +42,15 @@
             <!-- Seleção de Cliente -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-white mb-2">Cliente</label>
-                <select id="clientSelect"
+                <select id="clientPdvVenda"
                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                    <option value="">Selecionar cliente...</option>
-                    <option value="1">João Silva</option>
-                    <option value="2">Maria Santos</option>
-                    <option value="3">Pedro Costa</option>
+
                 </select>
             </div>
         </div>
 
         <!-- Lista de Itens do Carrinho -->
-        <div class="flex-1 overflow-y-auto scrollbar-thin p-4">
+        <div class="flex-1 min-h-48 overflow-y-auto scrollbar-thin p-4">
             <div id="cartItems">
                 <div class="text-center text-gray-500 dark:text-gray-400 py-8">
                     <i class="fas fa-shopping-cart text-4xl mb-3 opacity-50"></i>
@@ -89,7 +86,8 @@
                     <span>Desconto:</span>
                     <span id="discount">R$ 0,00</span>
                 </div>
-                <div class="flex justify-between text-lg font-semibold border-t pt-2">
+                <div
+                    class="flex justify-between text-lg font-semibold border-t border-border dark:border-border-dark pt-2">
                     <span>Total:</span>
                     <span id="total">R$ 0,00</span>
                 </div>
@@ -118,7 +116,7 @@
 
             <!-- Botão Finalizar Venda -->
             <button id="finalizeSaleBtn"
-                class="w-full bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-400 disabled:cursor-not-allowed"
+                class="w-full bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
                 disabled>
                 <i class="fas fa-check mr-2"></i>
                 Finalizar Venda
@@ -128,44 +126,185 @@
 </div>
 
 <!-- Modal de Sucesso -->
-<div id="successModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-md mx-4 text-center">
-        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-check text-2xl text-green-600"></i>
+<div id="successModal"
+    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 items-center justify-center min-h-screen">
+    <div id="modalContent"
+        class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4 text-center transform scale-90 opacity-0 transition duration-300 ease-out">
+        <div
+            class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-check text-2xl text-green-600 dark:text-green-300"></i>
         </div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">Venda Finalizada!</h3>
-        <p class="text-gray-600 mb-6">A venda foi processada com sucesso.</p>
+        <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Venda Finalizada!</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-6">A venda foi processada com sucesso.</p>
         <button id="newSaleBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
             Nova Venda
         </button>
     </div>
 </div>
 
+
+
 <script>
     // Dados de exemplo dos produtos
     (() => {
-        const products = [
-            { id: 1, name: 'Smartphone Samsung', code: '001', price: 899.99, stock: 15, image: '📱' },
-            { id: 2, name: 'Notebook Dell', code: '002', price: 2499.99, stock: 8, image: '💻' },
-            { id: 3, name: 'Mouse Logitech', code: '003', price: 89.99, stock: 25, image: '🖱️' },
-            { id: 4, name: 'Teclado Mecânico', code: '004', price: 299.99, stock: 12, image: '⌨️' },
-            { id: 5, name: 'Monitor 24"', code: '005', price: 699.99, stock: 6, image: '🖥️' },
-            { id: 6, name: 'Headset Gamer', code: '006', price: 199.99, stock: 20, image: '🎧' },
-            { id: 7, name: 'Webcam HD', code: '007', price: 149.99, stock: 30, image: '📹' },
-            { id: 8, name: 'SSD 500GB', code: '008', price: 349.99, stock: 18, image: '💾' },
-        ];
+        $(document).ready(function () {
+            $('#searchProductosInput').focus();
+        });
 
-        let cart = [];
+        $("#clientPdvVenda").select2({
+            placeholder: 'Selecione um cliente',
+            width: '100%',
+            allowClear: true,
+            language: "pt-BR",
+            ajax: {
+                url: '/clientes/select2/lista',
+                dataType: 'json',
+                delay: 250,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                data: function (params) {
+                    return {
+                        search: params.term
+                    }
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                }
+            }
+        });
+
+        function sendVendaToBackend() {
+            const cart = localStorage.getItem('gestao_facil:cartPDV');
+            const cartItems = cart ? JSON.parse(cart) : [];
+
+            if (cartItems.length === 0) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Erro!",
+                    text: "Nenhum item adicionado ao carrinho.",
+                    confirmButtonText: "Ok",
+                });
+                return;
+            }
+
+            const data = {
+                clienteId: $('#clientPdvVenda').val(),
+                data: new Date().toISOString().split('T')[0],
+                vendedorId: null,
+                status: "FATURADO",
+                garantia: "",
+                observacoes: "Venda realizada via PDV",
+                itens: cartItems.map(item => (
+                    {
+                        id: item.id,
+                        quantidade: item.quantity,
+                        preco: item.price
+                    }
+                ))
+            };
+
+            $.ajax({
+                url: '/vendas/criar',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                success: function (data) {
+                    showSuccessModal();
+                    fetchProducts();
+                    limparCarrinhoPDV();
+                },
+                error: function (xhr, status, error) {
+                    console.log(xhr);
+                    const mensagem =
+                        xhr.responseJSON?.message || "Erro inesperado na requisição";
+                    Swal.fire({
+                        toast: true,
+                        position: "bottom-end",
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        icon: "error",
+                        title: "Erro!",
+                        text: mensagem,
+                    });
+                }
+            });
+        }
+
+        function showSuccessModal() {
+            const modal = document.getElementById('successModal');
+            const content = document.getElementById('modalContent');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Aguarda um frame para aplicar as classes de transição
+            requestAnimationFrame(() => {
+                content.classList.remove('opacity-0', 'scale-90');
+                content.classList.add('opacity-100', 'scale-100');
+            });
+        }
+
+        function hideSuccessModal() {
+            const modal = document.getElementById('successModal');
+            const content = document.getElementById('modalContent');
+
+            content.classList.remove('opacity-100', 'scale-100');
+            content.classList.add('opacity-0', 'scale-90');
+
+            // Aguarda a animação terminar antes de esconder o modal
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300); // deve bater com `duration-300`
+        }
+
+        let products = [];
+        let cart = JSON.parse(localStorage.getItem('gestao_facil:cartPDV')) || [];
         let subtotalValue = 0;
         let discountValue = 0;
         let totalValue = 0;
 
-        // Inicialização
         $(document).ready(function () {
-            renderProducts(products);
+            fetchProducts();
             setupEventListeners();
             toggleChangeSection();
+            renderCart();
+            calculateTotals();
         });
+
+        function fetchProducts() {
+            $.ajax({
+                url: '/produtos/lista/geral',
+                method: 'GET',
+                dataType: 'json',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                success: function (data) {
+                    // Adaptar estrutura recebida
+                    products = data.data.map(p => ({
+                        id: p.id,
+                        name: p.nome,
+                        code: p.codigo || '',
+                        price: parseFloat(p.preco),
+                        stock: p.estoque,
+                        image: '🛒' // opcional
+                    }));
+                    renderProducts(products);
+                },
+                error: function () {
+                    alert('Erro ao buscar produtos');
+                }
+            });
+        }
+
 
         // Renderizar produtos
         function renderProducts(productsToRender) {
@@ -182,21 +321,23 @@
                             <p class="text-lg font-bold text-green-600 dark:text-green-400">R$ ${product.price.toFixed(2).replace('.', ',')}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Estoque: ${product.stock}</p>
                         </div>
-                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg transition-colors add-to-cart-btn"
-                                data-product-id="${product.id}">
+                        <button id="addToCartBtn${product.id}" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-lg transition-colors">
                             <i class="fas fa-plus mr-1"></i>
                             Adicionar
                         </button>
                     </div>
                 `;
                 grid.append(productCard);
+                $(`#addToCartBtn${product.id}`).click(() => {
+                    addToCart(product.id);
+                });
             });
         }
 
         // Configurar event listeners
         function setupEventListeners() {
             // Busca de produtos
-            $('#searchInput').on('input', function () {
+            $('#searchProductosInput').on('input', function () {
                 const searchTerm = $(this).val().toLowerCase();
                 const filteredProducts = products.filter(product =>
                     product.name.toLowerCase().includes(searchTerm) ||
@@ -204,16 +345,8 @@
                 );
                 renderProducts(filteredProducts);
             });
-
-            // Adicionar ao carrinho
-            $(document).on('click', '.add-to-cart-btn', function (e) {
-                e.stopPropagation();
-                const productId = parseInt($(this).data('product-id'));
-                addToCart(productId);
-            });
-
             // Limpar carrinho
-            $('#clearCartBtn').on('click', clearCart);
+            $('#clearCartBtn').on('click', limparCarrinhoPDV);
 
             // Método de pagamento
             $('#paymentMethod').on('change', toggleChangeSection);
@@ -232,7 +365,6 @@
             $('#newSaleBtn').on('click', newSale);
         }
 
-        // Adicionar produto ao carrinho
         function addToCart(productId) {
             const product = products.find(p => p.id === productId);
             const existingItem = cart.find(item => item.id === productId);
@@ -254,6 +386,7 @@
                 });
             }
 
+            saveCart();
             renderCart();
             calculateTotals();
         }
@@ -261,11 +394,11 @@
         // Remover do carrinho
         function removeFromCart(productId) {
             cart = cart.filter(item => item.id !== productId);
+            saveCart();
             renderCart();
             calculateTotals();
         }
 
-        // Alterar quantidade
         function updateQuantity(productId, newQuantity) {
             const item = cart.find(item => item.id === productId);
             if (item) {
@@ -273,6 +406,7 @@
                     removeFromCart(productId);
                 } else if (newQuantity <= item.stock) {
                     item.quantity = newQuantity;
+                    saveCart();
                     renderCart();
                     calculateTotals();
                 } else {
@@ -281,10 +415,11 @@
             }
         }
 
+
         // Renderizar carrinho
         function renderCart() {
             const cartContainer = $('#cartItems');
-
+            cartContainer.empty();
             if (cart.length === 0) {
                 cartContainer.html(`
                     <div class="text-center text-gray-500 py-8">
@@ -297,24 +432,20 @@
                 return;
             }
 
-            let cartHtml = '';
             cart.forEach(item => {
-                cartHtml += `
+                const cartHtml = `
                     <div class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-3 mb-3">
                         <div class="flex justify-between items-start mb-2">
                             <h4 class="font-medium text-sm text-gray-800 dark:text-white">${item.name}</h4>
-                            <button class="text-red-500 hover:text-red-700 text-sm" 
-                                    onclick="removeFromCart(${item.id})">
+                            <button type="button" id="removeFromCartBtn${item.id}" class="text-red-500 hover:text-red-700 text-sm">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-2">
-                                <button class="w-6 h-6 bg-gray-300 dark:bg-gray-900 rounded text-xs"
-                                        onclick="updateQuantity(${item.id}, ${item.quantity - 1})">-</button>
+                                <button type="button" id="decreaseQuantityBtn${item.id}" class="w-6 h-6 bg-gray-300 dark:bg-gray-900 rounded text-xs">-</button>
                                 <span class="text-sm font-medium">${item.quantity}</span>
-                                <button class="w-6 h-6 bg-gray-300 dark:bg-gray-900 rounded text-xs"
-                                        onclick="updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+                                <button type="button" id="increaseQuantityBtn${item.id}" class="w-6 h-6 bg-gray-300 dark:bg-gray-900 rounded text-xs">+</button>
                             </div>
                             <div class="text-right">
                                 <p class="text-xs text-gray-500">R$ ${item.price.toFixed(2).replace('.', ',')}</p>
@@ -323,9 +454,13 @@
                         </div>
                     </div>
                 `;
+                cartContainer.append(cartHtml);
+
+                $(`#decreaseQuantityBtn${item.id}`).on('click', () => updateQuantity(item.id, item.quantity - 1));
+                $(`#increaseQuantityBtn${item.id}`).on('click', () => updateQuantity(item.id, item.quantity + 1));
+                $(`#removeFromCartBtn${item.id}`).on('click', () => removeFromCart(item.id));
             });
 
-            cartContainer.html(cartHtml);
             $('#finalizeSaleBtn').prop('disabled', false);
         }
 
@@ -378,12 +513,15 @@
         }
 
         // Limpar carrinho
-        function clearCart() {
+        function limparCarrinhoPDV() {
             cart = [];
+            saveCart();
             renderCart();
             calculateTotals();
         }
-
+        function saveCart() {
+            localStorage.setItem('gestao_facil:cartPDV', JSON.stringify(cart));
+        }
         // Finalizar venda
         function finalizeSale() {
             if (cart.length === 0) {
@@ -400,19 +538,18 @@
                 }
             }
 
-            // Simular processamento da venda
-            $('#successModal').removeClass('hidden').addClass('flex');
+            sendVendaToBackend();
         }
 
         // Nova venda
         function newSale() {
-            clearCart();
-            $('#clientSelect').val('');
+            limparCarrinhoPDV();
+            $('#clientPdvVenda').val('');
             $('#discountValue').val('');
             $('#receivedAmount').val('');
             $('#paymentMethod').val('money');
             toggleChangeSection();
-            $('#successModal').removeClass('flex').addClass('hidden');
+            hideSuccessModal();
         }
 
         // Máscaras para campos monetários

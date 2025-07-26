@@ -5,6 +5,8 @@ import { VendasAcoes } from "./acoes";
 import { Vendas } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { formatCurrency } from "../../utils/formatters";
+import { formatDate } from "date-fns";
+import { ptBR } from "date-fns/locale";
 export const tableVendas = async (
   req: Request,
   res: Response
@@ -53,7 +55,9 @@ export const tableVendas = async (
       return `<span onclick="visualizarVenda('${id}')" class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 hover:bg-primary/10 rounded-md cursor-pointer"># ${id}</span>`;
     })
     .format("data", function (row) {
-      const data = new Date(row).toLocaleDateString("pt-BR");
+      const data = formatDate(new Date(row), "dd/MM/yyyy", {
+        locale: ptBR,
+      });
       return `<span class="px-2 py-1 dark:bg-gray-600 bg-gray-200  rounded-md">${data}</span>`;
     })
     .format("status", function (status) {
