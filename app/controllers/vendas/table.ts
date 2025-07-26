@@ -21,15 +21,10 @@ export const tableVendas = async (
       valor: "decimal",
     })
     .where(
-      req.query.status
-        ? {
-            OR: [
-              {
-                status: req.query.status as string,
-              },
-            ],
-          }
-        : {}
+      {
+        contaId: customData.contaId,
+        status: req.query.status ? req.query.status as string : undefined
+      }
     )
     .format("vendedorId", async function (value) {
       const vendedor = await prisma.usuarios.findFirst({

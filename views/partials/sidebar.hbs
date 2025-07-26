@@ -1,0 +1,132 @@
+<a onclick="loadPage('/resumos')"
+    class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+        class="fa-solid fa-chart-simple text-orange-600 px-2"></i> Dashboard</a>
+{{#hasPermission levelPermission 2}}
+<a onclick="loadPage('/vendas/resumo')"
+    class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+        class="fa-solid fa-tags text-green-600 px-2"></i> Vendas</a>
+{{/hasPermission}}
+{{#hasPermission levelPermission 3}}
+<a onclick="loadPage('/produtos/resumo')"
+    class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+        class="fa-solid fa-boxes-stacked text-blue-600 px-2"></i> Produtos</a>
+<div class="relative inline-block">
+    <span data-dropdown-toggle
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md justify-between transition flex items-center">
+        <div>
+            <i class="fa-solid fa-coins text-emerald-600 px-2"></i> Financeiro
+        </div>
+        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+    </span>
+    <div class="absolute z-10 hidden bg-white dark:bg-background-dark border border-border dark:border-border-dark mt-0 rounded-md shadow-lg min-w-full"
+        data-dropdown-menu>
+        <ul class="text-sm text-gray-700 dark:text-gray-200">
+            <li>
+                <a href="javascript:void(0)" class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i class="fa-solid fa-chart-pie text-emerald-600 px-2"></i> Painel financeiro</a>
+            </li>
+            <li>
+                <a href="javascript:void(0)" onclick="loadPage('/lancamentos/resumo')"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i class="fa-solid fa-coins text-emerald-600 px-2"></i> Lançamentos</a>
+            </li>
+        </ul>
+    </div>
+</div>
+{{/hasPermission}}
+{{#hasPermission levelPermission 2}}
+<a onclick="loadPage('/clientes/resumo')"
+    class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+    <i class="fa-solid fa-user-tag text-violet-600 px-2"></i> Cliente/Fornecedor</a>
+{{/hasPermission}}
+{{#hasPermission levelPermission 4}}
+<div class="flex items-center my-6">
+    <div class="flex-grow border-t border-border"></div>
+    <span class="mx-4 text-gray-500 text-xs uppercase">Administração</span>
+    <div class="flex-grow border-t border-border"></div>
+</div>
+
+<a onclick="loadPage('administracao/usuarios/resumo')"
+    class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+    <i class="fa-solid fa-user text-indigo-600 px-2"></i> Usuários</a>
+
+<div class="relative inline-block">
+    <span data-dropdown-toggle
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md justify-between transition flex items-center">
+        <div>
+            <i class="fa-solid fa-cog text-gray-600 px-2"></i> Configurações
+        </div>
+        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+    </span>
+    <div class="absolute z-10 hidden bg-white dark:bg-background-dark border border-border dark:border-border-dark mt-0 rounded-md shadow-lg min-w-full"
+        data-dropdown-menu>
+        <ul class="text-sm text-gray-700 dark:text-gray-200">
+            <li>
+                <a href="javascript:void(0)" onclick="loadPage('/vendas/resumo')"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i class="fa-solid fa-cog text-gray-600 px-2"></i> Parâmetros</a>
+            </li>
+            <li>
+                <a href="javascript:void(0)" onclick="loadPage('/vendas/relatorios')"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i class="fa-solid fa-bell text-gray-600 px-2"></i> Notificação</a>
+            </li>
+        </ul>
+    </div>
+</div>
+{{/hasPermission}}
+{{#hasPermission levelPermission 3}}
+<div class="flex items-center my-6">
+    <div class="flex-grow border-t border-border"></div>
+    <span class="mx-4 text-gray-500 text-xs uppercase">Assinatura</span>
+    <div class="flex-grow border-t border-border"></div>
+</div>
+
+<a onclick="loadPage('plano/assinatura')"
+    class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
+    <i class="fa-solid fa-bolt text-orange-600 px-2"></i> Plano</a>
+
+<div class="flex items-center my-6">
+    <div class="flex-grow border-t border-border"></div>
+    <span class="mx-4 text-gray-500 text-xs uppercase">Autenticação</span>
+    <div class="flex-grow border-t border-border"></div>
+</div>
+{{/hasPermission}}
+<a
+    class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+        class="fa-solid fa-user text-blue-600 px-2"></i> Perfil</a>
+<a onclick="logOut()"
+    class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
+        class="fa-solid fa-right-from-bracket text-red-600 px-2"></i> Sair</a>
+
+
+<script>
+    (() => {
+        const dropdowns = document.querySelectorAll("[data-dropdown-toggle]");
+
+        dropdowns.forEach((button) => {
+            const parent = button.closest(".relative");
+            const menu = parent.querySelector("[data-dropdown-menu]");
+
+            button.addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeAllDropdowns(menu); // fecha outros
+                menu.classList.toggle("hidden");
+            });
+        });
+
+        function closeAllDropdowns(except = null) {
+            document.querySelectorAll("[data-dropdown-menu]").forEach((menu) => {
+                if (menu !== except) menu.classList.add("hidden");
+            });
+        }
+
+        document.addEventListener("click", () => {
+            closeAllDropdowns();
+        });
+    })()
+</script>

@@ -19,6 +19,18 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.removeItem("gestao_facil:token");
       window.location.href = "/login";
     });
+
+  htmx
+    .ajax("GET", "/sidebar/menu", {
+      target: "#content-sidebar-menu",
+      swap: "innerHTML",
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+      },
+    })
+    .catch((error) => {
+      console.error("Request failed:", error);
+    });
 });
 
 function loadPage(pagePath) {

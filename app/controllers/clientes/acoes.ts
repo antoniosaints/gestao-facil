@@ -1,7 +1,7 @@
 import { Clientes } from "@prisma/client";
 
 export const acoes = (row: Clientes) => {
-  return `<div class="flex flex-nowrap items-center space-x-1">
+  return `<div class="flex flex-nowrap items-center gap-1 p-1">
             <button
                 onclick="visualizarProduto('${row.id}')"
                 class="text-cyan-500 px-1 py-[2px] rounded">

@@ -3,6 +3,7 @@ import { Request } from "express";
 export interface CustomData {
   userId: number;
   email: string;
+  permissao: string;
   contaId: number;
   contaStatus: string;
 }

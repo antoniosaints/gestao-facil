@@ -26,7 +26,9 @@ export const criarLancamento = async (
       recorrente = false,
     } = req.body;
 
-    // Validações mínimas
+    const totalParcelas = parcelas > 0 ? parcelas : 1;
+
+   
     if (!descricao || !valorTotal || !tipo || !formaPagamento || !categoriaId) {
       return res
         .status(400)
@@ -37,8 +39,8 @@ export const criarLancamento = async (
     const valorEntradaDecimal = new Decimal(valorEntrada);
     const valorParcelado = valorTotalDecimal.minus(valorEntradaDecimal);
     const valorParcela =
-      parcelas > 0
-        ? valorParcelado.dividedBy(parcelas).toDecimalPlaces(2)
+      totalParcelas > 0
+        ? valorParcelado.dividedBy(totalParcelas).toDecimalPlaces(2)
         : new Decimal(0);
 
     const novoLancamento = await prisma.lancamentoFinanceiro.create({
@@ -62,7 +64,7 @@ export const criarLancamento = async (
     // Criação das parcelas
     const listaParcelas = [];
 
-    for (let i = 0; i < parcelas; i++) {
+    for (let i = 0; i < totalParcelas; i++) {
       const vencimento = dayjs(dataLancamento).add(i, "month").toDate();
 
       listaParcelas.push({
@@ -73,7 +75,7 @@ export const criarLancamento = async (
       });
     }
 
-    if (parcelas > 0) {
+    if (totalParcelas > 0) {
       await prisma.parcela.createMany({ data: listaParcelas });
     }
 

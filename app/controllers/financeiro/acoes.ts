@@ -1,6 +1,6 @@
-import { Produto } from "../../../generated";
+import { LancamentoFinanceiro } from "../../../generated";
 
-export const produtosAcoes = (row: Produto) => {
+export const acoes = (row: LancamentoFinanceiro) => {
   return `<div class="flex flex-nowrap items-center gap-1 p-1">
             <button
                 onclick="visualizarProduto('${row.id}')"
@@ -10,17 +10,12 @@ export const produtosAcoes = (row: Produto) => {
             <button
                 onclick="abrirModalReporProdutos('${row.id}')"
                 class="text-info px-1 py-[2px] rounded">
-                <i class="fa-solid fa-boxes-packing"></i>
+                <i class="fa-solid fa-check-to-slot"></i>
             </button>
             <button
                 onclick="editarProduto('${row.id}')"
                 class="text-success px-1 py-[2px] rounded">
-                <i class="fa-solid fa-user-pen"></i>
-            </button>
-            <button
-                onclick="abrirModalRelatorioProdutoReposicao('${row.id}')"
-                class="text-primary px-1 py-[2px] rounded">
-                <i class="fa-solid fa-file-pdf"></i>
+                <i class="fa-solid fa-file-pen"></i>
             </button>
             <button
                 onclick="excluirProduto('${row.id}')"

@@ -34,13 +34,26 @@ app.engine(
           minimumFractionDigits: 2,
         }).format(valor);
       },
+      ifEquals: (a: any, b: any, opt: any) => {
+        return a === b ? opt.fn(this) : opt.inverse(this);
+      },
+      hasPermission: (level: any, required: any, opt: any) => {
+        return level >= required
+          ? opt.fn(this)
+          : opt.inverse(this);
+      },
       valueExists: (value: any, textTrue: string, textFalse: string) => {
-        if (typeof value !== "undefined" && value !== null && value !== "" && value !== 'null') {
+        if (
+          typeof value !== "undefined" &&
+          value !== null &&
+          value !== "" &&
+          value !== "null"
+        ) {
           return textTrue;
-        }else {
-          return textFalse
+        } else {
+          return textFalse;
         }
-      }
+      },
     },
   })
 );

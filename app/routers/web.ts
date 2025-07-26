@@ -6,6 +6,7 @@ import { webRouterProdutos } from "./produtos/web";
 import { webRouterVendas } from "./vendas/web";
 import { webRouterAdministracao } from "./administracao/web";
 import { webClienteRouter } from "./clientes/web";
+import { webRouterLancamentos } from "./lancamentos/web";
 
 const webRouter = Router();
 
@@ -66,6 +67,7 @@ export const renderSimple = async (
 webRouter.use("/produtos", webRouterProdutos);
 webRouter.use("/vendas", webRouterVendas);
 webRouter.use("/clientes", webClienteRouter);
+webRouter.use("/lancamentos", webRouterLancamentos);
 webRouter.use("/administracao", webRouterAdministracao);
 
 webRouter.get("/", (req, res): any => {
@@ -88,6 +90,39 @@ webRouter.get("/resumos", authenticateJWT, async (req, res): Promise<any> => {
   });
   renderAuth(req, res, "partials/dashboard", { usuario });
 });
+webRouter.get(
+  "/sidebar/menu",
+  authenticateJWT,
+  async (req, res): Promise<any> => {
+    const data = getCustomRequest(req).customData;
+    const usuario = await prisma.usuarios.findUniqueOrThrow({
+      where: {
+        id: data.userId,
+        contaId: data.contaId,
+      },
+    });
+    let levelPermission = 0;
+    switch (usuario.permissao) {
+      case "admin":
+        levelPermission = 4;
+        break;
+      case "gerente":
+        levelPermission = 3;
+        break;
+      case "tecnico":
+      case "vendedor":
+        levelPermission = 2;
+        break;
+      case "usuario":
+        levelPermission = 1;
+        break;
+      default:
+        levelPermission = 0;
+        break;
+    }
+    renderAuth(req, res, "partials/sidebar", { usuario, levelPermission });
+  }
+);
 
 webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
   try {

@@ -37,6 +37,7 @@ export async function authenticateJWT(
       (req as Request & { customData: CustomData }).customData = {
         userId: decoded.id,
         email: decoded.email,
+        permissao: decoded.permissao,
         contaId: decoded.contaId,
         contaStatus: conta?.status ?? "BLOQUEADO",
       };

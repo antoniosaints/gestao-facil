@@ -34,16 +34,25 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     const jwtToken = JwtUtil.encode({
       id: usuario.id,
       contaId: usuario.contaId,
+      permissao: usuario.permissao,
       nome: usuario.nome,
       email: usuario.email,
     });
 
-    res.status(200).json({
+    res.cookie("gestao_facilpermissao", usuario.permissao, {
+      httpOnly: false,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60 * 24,
+    });
+    
+    return res.status(200).json({
       status: 200,
       message: "Login realizado com sucesso",
       data: {
         id: usuario.id,
         nome: usuario.nome,
+        permissao: usuario.permissao,
         email: usuario.email,
         token: jwtToken,
       },

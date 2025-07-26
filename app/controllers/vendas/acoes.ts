@@ -1,5 +1,7 @@
-export const VendasAcoes = (row: any) => {
-  return `<div class="flex flex-nowrap items-center space-x-1">
+import { Vendas } from "../../../generated";
+
+export const VendasAcoes = (row: Vendas) => {
+  return `<div class="flex flex-nowrap items-center gap-1 p-1">
             <button
                 onclick="visualizarVenda('${row.id}')"
                 class="text-cyan-500 px-1 py-[2px] rounded">

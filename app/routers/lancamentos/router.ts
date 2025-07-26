@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { atualizarStatusLancamentos, criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
+import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
+import { tableLancamentos } from "../../controllers/financeiro/table";
 
 const routerLancamentos = Router();
 
 routerLancamentos.post("/", authenticateJWT, criarLancamento);
+routerLancamentos.get("/getDataTable", authenticateJWT, tableLancamentos);
 routerLancamentos.post("/parcelas/:id/pagar", authenticateJWT, pagarParcela);
 routerLancamentos.post("/parcelas/pagar-multiplas", authenticateJWT, pagarMultiplasParcelas);
 routerLancamentos.post("/parcelas/:id/estornar", authenticateJWT, estornarParcela);
