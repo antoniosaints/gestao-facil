@@ -44,6 +44,11 @@ model FaturasContas {
   criadoEm       DateTime     @default(now())
 }
 
+enum GatewayConta {
+  mercadopago
+  asaass
+}
+
 model Contas {
   id                   Int                    @id @default(autoincrement())
   nome                 String
@@ -53,6 +58,7 @@ model Contas {
   vencimento           DateTime               @default(now())
   tipo                 String?
   categoria            String?
+  gateway              GatewayConta           @default(mercadopago)
   email                String
   asaasCustomerId      String
   asaasSubscriptionId  String?
@@ -64,22 +70,34 @@ model Contas {
   MovimentacoesEstoque MovimentacoesEstoque[]
   Usuarios             Usuarios[]
   FaturasContas        FaturasContas[]
+  ContasFinanceiro     ContasFinanceiro[]
+  CategoriaFinanceiro  CategoriaFinanceiro[]
+  LancamentoFinanceiro LancamentoFinanceiro[]
 }
 
 model Usuarios {
-  id            Int            @id @default(autoincrement())
+  id            Int              @id @default(autoincrement())
   contaId       Int
-  Contas        Contas         @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Contas        Contas           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   nome          String
   email         String
   senha         String
-  pushReceiver  Boolean?       @default(true)
-  emailReceiver Boolean?       @default(true)
-  status        Status         @default(ATIVO)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  permissao     PermissaoUsuario @default(usuario)
+  pushReceiver  Boolean?         @default(true)
+  emailReceiver Boolean?         @default(true)
+  status        Status           @default(ATIVO)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   Subscription  Subscription[]
   Vendas        Vendas[]
+}
+
+enum PermissaoUsuario {
+  admin
+  gerente
+  vendedor
+  tecnico
+  usuario
 }
 
 enum TipoCliente {
@@ -100,6 +118,7 @@ model ClientesFornecedores {
   updatedAt            DateTime               @updatedAt
   Vendas               Vendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
+  LancamentoFinanceiro LancamentoFinanceiro[]
 }
 
 enum TipoMovimentacao {
@@ -219,4 +238,78 @@ model PagamentoVendas {
   valor   Decimal         @db.Decimal(10, 2)
   data    DateTime?
   status  StatusPagamento @default(PENDENTE)
+}
+
+model ContasFinanceiro {
+  id           Int                    @id @default(autoincrement())
+  contaId      Int
+  Contas       Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome         String
+  saldoInicial Decimal                @default(0)
+  lancamentos  LancamentoFinanceiro[]
+  createdAt    DateTime               @default(now())
+}
+
+model CategoriaFinanceiro {
+  id          Int                    @id @default(autoincrement())
+  contaId     Int
+  Contas      Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome        String
+  lancamentos LancamentoFinanceiro[]
+  createdAt   DateTime               @default(now())
+}
+
+model LancamentoFinanceiro {
+  id                 Int                       @id @default(autoincrement())
+  contaId            Int
+  Contas             Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  descricao          String
+  valorTotal         Decimal                   @default(0) // total com desconto incluído
+  valorEntrada       Decimal                   @default(0)
+  desconto           Decimal                   @default(0)
+  tipo               TipoLancamentoFinanceiro
+  formaPagamento     FormaPagamentoFinanceiro
+  status             StatusPagamentoFinanceiro
+  recorrente         Boolean                   @default(false)
+  dataLancamento     DateTime
+  clienteId          Int?
+  cliente            ClientesFornecedores?     @relation(fields: [clienteId], references: [id])
+  categoriaId        Int
+  categoria          CategoriaFinanceiro       @relation(fields: [categoriaId], references: [id])
+  parcelas           Parcela[]
+  createdAt          DateTime                  @default(now())
+  ContasFinanceiro   ContasFinanceiro?         @relation(fields: [contasFinanceiroId], references: [id])
+  contasFinanceiroId Int?
+}
+
+model Parcela {
+  id            Int                  @id @default(autoincrement())
+  numero        Int
+  valor         Decimal
+  vencimento    DateTime
+  pago          Boolean              @default(false)
+  dataPagamento DateTime?
+  lancamentoId  Int
+  lancamento    LancamentoFinanceiro @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+}
+
+enum TipoLancamentoFinanceiro {
+  RECEITA
+  DESPESA
+}
+
+enum StatusPagamentoFinanceiro {
+  PENDENTE
+  PAGO
+  ATRASADO
+  PARCIAL
+}
+
+enum FormaPagamentoFinanceiro {
+  DINHEIRO
+  CREDITO
+  DEBITO
+  PIX
+  BOLETO
+  TRANSFERENCIA
 }
