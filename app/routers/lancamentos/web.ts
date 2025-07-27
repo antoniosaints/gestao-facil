@@ -6,6 +6,9 @@ const webRouterLancamentos = Router();
 webRouterLancamentos.get("/resumo", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/index.html");
 });
+webRouterLancamentos.get("/web/dashboard", (req, res) => {
+  renderFileSimple(req, res, "partials/lancamentos/dashboard/home.html");
+});
 webRouterLancamentos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/tabela.html");
 });

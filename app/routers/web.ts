@@ -76,6 +76,11 @@ webRouter.get("/", (req, res): any => {
     layout: "main",
   });
 });
+webRouter.get("/site", (req, res): any => {
+  res.render("partials/site/home", {
+    title: "Gestão Fácil",
+  });
+});
 
 webRouter.get("/login", (req, res) => {
   renderFileSimple(req, res, "partials/login.html");
