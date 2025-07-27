@@ -128,5 +128,13 @@
         document.addEventListener("click", () => {
             closeAllDropdowns();
         });
+
+        sidebar.querySelectorAll("a").forEach((item) => {
+            item.addEventListener("click", () => {
+                if (window.innerWidth < 768) {
+                    sidebar.classList.add("-translate-x-full");
+                }
+            });
+        });
     })()
 </script>

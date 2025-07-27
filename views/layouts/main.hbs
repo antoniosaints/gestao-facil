@@ -124,15 +124,6 @@
       sidebar.classList.add("-translate-x-full");
     });
 
-    // Fechar menu ao clicar em qualquer item
-    sidebar.querySelectorAll("a").forEach((item) => {
-      item.addEventListener("click", () => {
-        if (window.innerWidth < 768) {
-          sidebar.classList.add("-translate-x-full");
-        }
-      });
-    });
-
   </script>
   <script src="/notification/client.js" defer></script>
   <script src="/general.js" defer></script>
