@@ -231,11 +231,14 @@ export const getParcelasAtrasadas = async (
   res: Response
 ): Promise<any> => {
   const hoje = new Date();
-
+  const customData = getCustomRequest(req).customData;
   const parcelas = await prisma.parcela.findMany({
     where: {
       pago: false,
       vencimento: { lt: hoje },
+      lancamento: {
+        contaId: customData.contaId,
+      },
     },
     include: {
       lancamento: {
@@ -265,7 +268,7 @@ export const getResumoPorCliente = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-
+  const customData = getCustomRequest(req).customData;
   const dataFilter =
     inicio && fim
       ? {
@@ -277,61 +280,7 @@ export const getResumoPorCliente = async (
       : {};
 
   const clientes = await prisma.clientesFornecedores.findMany({
-    include: {
-      LancamentoFinanceiro: {
-        where: dataFilter,
-        select: {
-          valorTotal: true,
-          tipo: true,
-        },
-      },
-    },
-  });
-
-  const resultado = clientes.map((cliente) => {
-    const receitas = cliente.LancamentoFinanceiro.filter(
-      (l) => l.tipo === "RECEITA"
-    );
-    const despesas = cliente.LancamentoFinanceiro.filter(
-      (l) => l.tipo === "DESPESA"
-    );
-
-    const totalReceitas = receitas.reduce(
-      (s, l) => s.plus(l.valorTotal),
-      new Decimal(0)
-    );
-    const totalDespesas = despesas.reduce(
-      (s, l) => s.plus(l.valorTotal),
-      new Decimal(0)
-    );
-
-    return {
-      cliente: cliente.nome,
-      receitas: totalReceitas,
-      despesas: totalDespesas,
-      saldo: totalReceitas.minus(totalDespesas),
-    };
-  });
-
-  res.json(resultado);
-};
-export const getTotaisGerais = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  const { inicio, fim } = req.query;
-
-  const dataFilter =
-    inicio && fim
-      ? {
-          dataLancamento: {
-            gte: new Date(inicio as string),
-            lte: new Date(fim as string),
-          },
-        }
-      : {};
-
-  const clientes = await prisma.clientesFornecedores.findMany({
+    where: { contaId: customData.contaId },
     include: {
       LancamentoFinanceiro: {
         where: dataFilter,
@@ -374,6 +323,7 @@ export const getMediaMensalLancamentos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
   const meses = Array.from({ length: 6 })
     .map((_, i) => {
       const mes = subMonths(new Date(), i);
@@ -394,6 +344,7 @@ export const getMediaMensalLancamentos = async (
     const receitas = await prisma.lancamentoFinanceiro.aggregate({
       _sum: { valorTotal: true },
       where: {
+        contaId: customData.contaId,
         tipo: "RECEITA",
         dataLancamento: {
           gte: mes.inicio,
@@ -405,6 +356,7 @@ export const getMediaMensalLancamentos = async (
     const despesas = await prisma.lancamentoFinanceiro.aggregate({
       _sum: { valorTotal: true },
       where: {
+        contaId: customData.contaId,
         tipo: "DESPESA",
         dataLancamento: {
           gte: mes.inicio,
@@ -429,7 +381,9 @@ export const getLancamentosPorConta = async (
   req: Request,
   res: Response
 ): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
   const contas = await prisma.contasFinanceiro.findMany({
+    where: { contaId: customData.contaId },
     include: {
       lancamentos: true,
     },
@@ -464,7 +418,7 @@ export const getLancamentosPorStatus = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-
+  const customData = getCustomRequest(req).customData;
   const dataFilter =
     inicio && fim
       ? {
@@ -477,7 +431,7 @@ export const getLancamentosPorStatus = async (
 
   const status = await prisma.lancamentoFinanceiro.groupBy({
     by: ["status"],
-    where: dataFilter,
+    where: {contaId: customData.contaId, ...dataFilter},
     _count: { _all: true },
     _sum: { valorTotal: true },
   });
@@ -489,7 +443,7 @@ export const getLancamentosPorPagamento = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-
+  const customData = getCustomRequest(req).customData;
   const dataFilter =
     inicio && fim
       ? {
@@ -502,7 +456,7 @@ export const getLancamentosPorPagamento = async (
 
   const formas = await prisma.lancamentoFinanceiro.groupBy({
     by: ["formaPagamento"],
-    where: dataFilter,
+    where: {contaId: customData.contaId, ...dataFilter},
     _sum: { valorTotal: true },
   });
 
@@ -513,7 +467,7 @@ export const getLancamentosPorCategoria = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-
+  const customData = getCustomRequest(req).customData;
   const dataFilter =
     inicio && fim
       ? {
@@ -525,6 +479,7 @@ export const getLancamentosPorCategoria = async (
       : {};
 
   const categorias = await prisma.categoriaFinanceiro.findMany({
+    where: { contaId: customData.contaId },
     include: {
       lancamentos: {
         where: dataFilter,
@@ -564,7 +519,7 @@ export const getLancamentosTotaisGerais = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-
+  const customData = getCustomRequest(req).customData;
   const where =
     inicio && fim
       ? {
@@ -577,12 +532,12 @@ export const getLancamentosTotaisGerais = async (
 
   const receitas = await prisma.lancamentoFinanceiro.aggregate({
     _sum: { valorTotal: true },
-    where: { tipo: "RECEITA", ...where },
+    where: { tipo: "RECEITA", contaId: customData.contaId, ...where },
   });
 
   const despesas = await prisma.lancamentoFinanceiro.aggregate({
     _sum: { valorTotal: true },
-    where: { tipo: "DESPESA", ...where },
+    where: { tipo: "DESPESA", contaId: customData.contaId, ...where },
   });
 
   res.json({

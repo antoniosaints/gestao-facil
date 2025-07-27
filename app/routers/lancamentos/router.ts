@@ -3,7 +3,7 @@ import { authenticateJWT } from "../../middlewares/auth";
 import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
 import { tableLancamentos } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
-import { getDRELancamentos, getDRELancamentosPDF, getLancamentosPorCategoria } from "../../controllers/financeiro/relatorios";
+import { getDRELancamentos, getDRELancamentosPDF, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 
 const routerLancamentos = Router();
 
@@ -24,6 +24,13 @@ routerLancamentos.get("/graficos/receita-despesa-mensal", authenticateJWT, grafi
 routerLancamentos.get("/relatorios/dre-pdf", authenticateJWT, getDRELancamentosPDF);
 routerLancamentos.get("/relatorios/dre", authenticateJWT, getDRELancamentos);
 routerLancamentos.get("/relatorios/categoria", authenticateJWT, getLancamentosPorCategoria);
+routerLancamentos.get("/relatorios/parcelas-atrasadas", authenticateJWT, getParcelasAtrasadas);
+routerLancamentos.get("/relatorios/resumo-clientes", authenticateJWT, getResumoPorCliente);
+routerLancamentos.get("/relatorios/media-mensal", authenticateJWT, getMediaMensalLancamentos);
+routerLancamentos.get("/relatorios/valor-conta", authenticateJWT, getLancamentosPorConta);
+routerLancamentos.get("/relatorios/valor-status", authenticateJWT, getLancamentosPorStatus);
+routerLancamentos.get("/relatorios/valor-pagamento", authenticateJWT, getLancamentosPorPagamento);
+routerLancamentos.get("/relatorios/totais", authenticateJWT, getLancamentosTotaisGerais);
 
 export {
     routerLancamentos
