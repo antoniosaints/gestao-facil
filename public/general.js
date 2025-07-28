@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 });
 
+
 function MaskToInputMoney(element) {
   IMask(element, {
     mask: Number,

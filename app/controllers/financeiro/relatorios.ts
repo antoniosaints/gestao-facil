@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
+import { formatCurrency } from "../../utils/formatters";
 
 export const getDRELancamentos = async (
   req: Request,
@@ -431,10 +432,12 @@ export const getLancamentosPorStatus = async (
 
   const status = await prisma.lancamentoFinanceiro.groupBy({
     by: ["status"],
-    where: {contaId: customData.contaId, ...dataFilter},
+    where: { contaId: customData.contaId, ...dataFilter },
     _count: { _all: true },
     _sum: { valorTotal: true },
   });
+
+  status.map((s) => (s._sum.valorTotal = formatCurrency(s._sum.valorTotal) as any));
 
   res.json(status);
 };
@@ -456,7 +459,7 @@ export const getLancamentosPorPagamento = async (
 
   const formas = await prisma.lancamentoFinanceiro.groupBy({
     by: ["formaPagamento"],
-    where: {contaId: customData.contaId, ...dataFilter},
+    where: { contaId: customData.contaId, ...dataFilter },
     _sum: { valorTotal: true },
   });
 
@@ -541,10 +544,12 @@ export const getLancamentosTotaisGerais = async (
   });
 
   res.json({
-    receitas: receitas._sum.valorTotal || new Decimal(0),
-    despesas: despesas._sum.valorTotal || new Decimal(0),
-    saldo: new Decimal(receitas._sum.valorTotal || 0).minus(
-      despesas._sum.valorTotal || 0
+    receitas: formatCurrency(receitas._sum.valorTotal || new Decimal(0)),
+    despesas: formatCurrency(despesas._sum.valorTotal || new Decimal(0)),
+    saldo: formatCurrency(
+      new Decimal(receitas._sum.valorTotal || 0).minus(
+        despesas._sum.valorTotal || 0
+      )
     ),
   });
 };

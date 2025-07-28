@@ -4,7 +4,10 @@ import { endOfMonth, startOfMonth, subMonths } from "date-fns";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 
-export const graficoByCategoria = async (req: Request, res: Response): Promise<any> => {
+export const graficoByCategoria = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   const { inicio, fim } = req.query;
   const customData = getCustomRequest(req).customData;
   if (!inicio || !fim) {
@@ -63,6 +66,51 @@ export const graficoByCategoria = async (req: Request, res: Response): Promise<a
         label: "Despesas",
         backgroundColor: "#ef4444",
         data: despesas,
+      },
+    ],
+  });
+};
+export const graficoByStatus = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { inicio, fim } = req.query;
+  const customData = getCustomRequest(req).customData;
+  if (!inicio || !fim) {
+    return res.status(400).json({ erro: "Informe o período" });
+  }
+
+  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
+    where: {
+      contaId: customData.contaId,
+      dataLancamento: {
+        gte: new Date(inicio as string) || undefined,
+        lte: new Date(fim as string) || undefined,
+      },
+    },
+  });
+
+
+  const pagos = lancamentos
+    .filter((l) => l.status === "PAGO")
+    .reduce((s, l) => s + Number(l.valorTotal), 0);
+
+  const pendentes = lancamentos
+    .filter((l) => l.status !== "PAGO")
+    .reduce((s, l) => s + Number(l.valorTotal), 0);
+
+  return res.json({
+    labels: ["Pagos", "Pendentes"],
+    datasets: [
+      {
+        label: "Pagos",
+        backgroundColor: "#10b981",
+        data: [pagos],
+      },
+      {
+        label: "Pendentes",
+        backgroundColor: "#ef4444",
+        data: [pendentes],
       },
     ],
   });

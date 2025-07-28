@@ -36,7 +36,7 @@
 
       <div class="flex items-end justify-between">
         <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_clientes_dashboard">
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_receitas_dashboard">
             0
           </h4>
         </div>
@@ -72,13 +72,13 @@
 
       <div class="flex items-end justify-between">
         <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_produtos_dashboard">
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_despesas_dashboard">
             0
           </h4>
         </div>
 
         <span
-          class="flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-500">
+          class="flex items-center gap-1 rounded-full bg-red-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-red-600 dark:bg-red-500/15 dark:text-red-500">
           <i class="fa-solid fa-boxes-packing"></i>
           Total
         </span>
@@ -102,13 +102,13 @@
 
       <div class="flex items-end justify-between">
         <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="produtos_em_baixa_dashboard">
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="saldo_financeiro_dashboard">
             0
           </h4>
         </div>
 
         <span id="produtos_em_baixa_dashboard_alerta"
-          class="flex items-center gap-1 rounded-full bg-red-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-red-600 dark:bg-red-500/15 dark:text-red-500">
+          class="flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-500">
           <i class="fa-solid fa-triangle-exclamation"></i>
           Atenção!
         </span>
@@ -122,7 +122,7 @@
 
         <div>
           <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
-            Parcelas
+            Lançamentos
           </h3>
           <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
             Pendentes
@@ -132,13 +132,13 @@
 
       <div class="flex items-end justify-between">
         <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_vendas_dashboard">
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="resumo_pendentes_total">
             R$ 0,00
           </h4>
         </div>
 
         <span id="porcentagem_vendas_dashboard_alerta"
-          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
+          class="flex items-center gap-1 rounded-full bg-yellow-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-500">
           <i class="fa-solid fa-dollar-sign"></i>
           <span id="porcentagem_vendas_dashboard">0%</span>
         </span>
@@ -151,26 +151,29 @@
     <!-- Gráfico de Barras -->
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4">Balanço mensal</h2>
-      <canvas class="max-h-64" id="barChart"></canvas>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Balanço mensal
+      </h2>
+      <canvas class="max-h-64" id="grafico_receita_despesa_mensal"></canvas>
     </div>
 
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4">Saldo mensal</h2>
-      <canvas class="max-h-64" id="barChart"></canvas>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Saldo mensal</h2>
+      <canvas class="max-h-64" id="grafico_saldo_mensal"></canvas>
     </div>
 
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4">Acompanhamento</h2>
-      <canvas class="max-h-64" id="lineChart"></canvas>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-pie text-emerald-600"></i> Resumo por status
+      </h2>
+      <canvas class="max-h-64" id="grafico_por_status_pagamento"></canvas>
     </div>
 
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4">Por categoria</h2>
-      <canvas class="max-h-64" id="lineChart"></canvas>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-pie text-emerald-600"></i> Resumo por categoria
+      </h2>
+      <canvas class="max-h-64" id="grafico_por_categoria"></canvas>
     </div>
 
     <!-- Últimas Vendas -->
@@ -232,3 +235,194 @@
     </div>
   </div>
 </div>
+
+<script>
+  (() => {
+    function chartByCategoria(data) {
+      new Chart(document.getElementById('grafico_por_categoria'), {
+        type: 'pie',
+        data: {
+          labels: data.labels,
+          datasets: data.datasets,
+        },
+        options: {
+          scales: {
+            y: {
+              display: false,
+              beginAtZero: true
+            },
+            x: {
+              display: false,
+            }
+          },
+          plugins: {
+            title: {
+              display: false
+            },
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+    }
+    function chartByDespesasPorStatus(data) {
+      new Chart(document.getElementById('grafico_por_status_pagamento'), {
+        type: 'pie',
+        data: {
+          labels: data.labels,
+          datasets: data.datasets,
+        },
+        options: {
+          scales: {
+            y: {
+              display: false,
+              beginAtZero: true
+            },
+            x: {
+              display: false,
+            }
+          },
+          plugins: {
+            title: {
+              display: false
+            },
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+    }
+    function chartByReceitaDespesa(data) {
+      new Chart(document.getElementById('grafico_receita_despesa_mensal'), {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: data.datasets,
+        },
+        options: {
+          plugins: {
+            title: {
+              display: false
+            },
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
+            },
+            x: {
+              ticks: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
+            },
+          }
+        }
+      });
+    }
+    function chartBySaldoMensal(data) {
+      new Chart(document.getElementById('grafico_saldo_mensal'), {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: data.datasets,
+        },
+        options: {
+          plugins: {
+            title: {
+              display: false
+            },
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
+            },
+            x: {
+              ticks: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
+            },
+          }
+        }
+      });
+    }
+    async function generateChatsFinanceiro(inicio, fim) {
+      fetch(`/lancamentos/relatorios/totais`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          $("#saldo_financeiro_dashboard").text(data.saldo);
+          $("#total_despesas_dashboard").text(data.despesas);
+          $("#total_receitas_dashboard").text(data.receitas);
+        });
+      fetch(`/lancamentos/relatorios/valor-status`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          $("#resumo_pendentes_total").text(data[1].status === "PENDENTE" ? data[1]._sum.valorTotal : 0);
+        });
+      //Grafico por categoria
+      fetch(`/lancamentos/graficos/categorias?inicio=${inicio}&fim=${fim}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          chartByCategoria(data);
+        });
+      fetch(`/lancamentos/graficos/saldo-mensal`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          chartBySaldoMensal(data);
+        });
+      fetch(`/lancamentos/graficos/receita-despesa-mensal`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          chartByReceitaDespesa(data);
+        });
+      fetch(`/lancamentos/graficos/status?inicio=${inicio}&fim=${fim}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          console.log(data);
+          chartByDespesasPorStatus(data);
+        });
+    };
+
+    generateChatsFinanceiro("2025-01-01", "2025-07-31");
+  })();
+</script>

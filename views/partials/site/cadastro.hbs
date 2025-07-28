@@ -34,7 +34,7 @@
 
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300 min-h-screen">
     <!-- Header -->
-    <header class="bg-white dark:bg-gray-800 shadow-lg transition-colors duration-300">
+    <header class="bg-white hidden dark:bg-gray-800 shadow-lg transition-colors duration-300">
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-3">
                 <div
@@ -64,13 +64,13 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
                 <!-- Left Side - Benefits -->
-                <div class="space-y-8">
+                <div class="space-y-8 hidden sm:block">
                     <div>
                         <h2 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">
                             Comece sua <span class="text-primary-500">gestão inteligente</span> hoje mesmo
                         </h2>
                         <p class="text-xl text-gray-600 dark:text-gray-300">
-                            Junte-se a mais de 5.000 lojistas que já transformaram sua gestão
+                            Junte-se a mais de 100 lojistas que já transformaram sua gestão
                         </p>
                     </div>
 
@@ -143,7 +143,7 @@
                                     +2k</div>
                             </div>
                             <div>
-                                <p class="font-semibold text-gray-800 dark:text-white">Mais de 2.000 lojas ativas</p>
+                                <p class="font-semibold text-gray-800 dark:text-white">Mais de 100 lojas ativas</p>
                                 <div class="flex items-center">
                                     <div class="flex text-yellow-400 mr-2">
                                         <i class="fas fa-star text-sm"></i>
@@ -394,6 +394,18 @@
                             </div>
                         </div>
                     </form>
+
+                    <!-- Footer -->
+                    <div class="mt-8 text-center">
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            Já tem uma conta?
+                            <a href="/login"
+                                class="text-primary-500 hover:text-primary-600 font-semibold transition-colors duration-200">
+                                Clique aqui para entrar
+                            </a>
+                        </p>
+                    </div>
+
 
                     <!-- Security Badge -->
                     <div

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
 import { tableLancamentos } from "../../controllers/financeiro/table";
-import { graficoByCategoria, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
+import { graficoByCategoria, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 
 const routerLancamentos = Router();
@@ -18,6 +18,7 @@ routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos
 routerLancamentos.get("/graficos/categorias", authenticateJWT, graficoByCategoria);
 routerLancamentos.get("/graficos/despesas-categoria", authenticateJWT, graficoDespesasPorCategoria);
+routerLancamentos.get("/graficos/status", authenticateJWT, graficoByStatus);
 routerLancamentos.get("/graficos/saldo-mensal", authenticateJWT, graficoSaldoMensal);
 routerLancamentos.get("/graficos/receita-despesa-mensal", authenticateJWT, graficoReceitaDespesaMensal);
 // relatorios
