@@ -27,12 +27,32 @@ export const tableProdutos = async (
       nome: "string",
       codigo: "string",
     })
-    .format("id", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+    .format("Uid", function (id) {
+      return `<span class="px-2 py-1 flex flex-nowrap truncate w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">#${id}</span>`;
+    })
+    .format("entradas", function (row) {
+      return `
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" value="" class="sr-only peer" ${
+                  row ? "checked" : ""
+                }>
+                <div class="relative w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer dark:bg-red-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-red-600 peer-checked:bg-emerald-600 dark:peer-checked:bg-emerald-600"></div>
+              </label>
+              `;
+    })
+    .format("saidas", function (row) {
+      return `
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" value="" class="sr-only peer" ${
+                  row ? "checked" : ""
+                }>
+                <div class="relative w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer dark:bg-red-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-red-600 peer-checked:bg-emerald-600 dark:peer-checked:bg-emerald-600"></div>
+              </label>
+              `;
     })
     .format("codigo", function (row) {
       const codigo = row || "-";
-      return `<span class="px-2 py-1 text-blue-500 dark:text-blue-300 rounded-md">${codigo}</span>`;
+      return `<span class="px-2 py-1.5 border border-blue-700 text-blue-900 bg-blue-100 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-100 rounded-md">${codigo}</span>`;
     })
     .edit("nome", function (row) {
       return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-100 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
@@ -40,7 +60,7 @@ export const tableProdutos = async (
     .format("preco", (value) => formatCurrency(value))
     .edit("estoque", function (row) {
       const estoque = row.estoque.toString().padStart(2, "0");
-      return `<span class="px-2 py-1 rounded-md dark:bg-gray-600 dark:text-white bg-slate-200">${estoque} ${row.unidade}</span>`;
+      return `<span class="px-2 py-1.5 rounded-md dark:bg-gray-600 dark:text-white bg-slate-200">${estoque} ${row.unidade}</span>`;
     })
     .include(["id", "nome", "preco", "estoque", "codigo"])
     .addColumn("acoes", (row) => {

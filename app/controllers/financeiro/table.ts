@@ -22,10 +22,11 @@ const formateStatus = (status: StatusPagamentoFinanceiro) => {
     case "PAGO":
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-green-800 border-green-400 dark:border-green-900 dark:text-green-300 rounded-xl">${statusFormated}</span>`;
     case "PARCIAL":
+      return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-blue-800 border-blue-400 dark:border-blue-900 dark:text-blue-300 rounded-xl">${statusFormated}</span>`;
     case "PENDENTE":
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-yellow-800 border-yellow-400 dark:border-yellow-900 dark:text-yellow-300 rounded-xl">${statusFormated}</span>`;
-    case "ATRASADO":
-      return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">${statusFormated}</span>`;
+      case "ATRASADO":
+        return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">${statusFormated}</span>`;
     default:
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-primary border-primary/20 rounded-xl">${statusFormated}</span>`;
   }
@@ -97,8 +98,8 @@ export const tableLancamentos = async (
       descricao: "string",
       valorTotal: "decimal",
     })
-    .format("id", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+    .format("Uid", function (id) {
+      return `<span class="px-2 py-1 flex flex-nowrap w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">#${id}</span>`;
     })
     .format("status", function (status) {
       return formateStatus(status);

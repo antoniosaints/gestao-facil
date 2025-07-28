@@ -7,6 +7,7 @@ import { emailScheduleService } from "../../services/emailScheduleQueueService";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { mapperErrorSchema } from "../../mappers/schemasErros";
 import { ResponseHandler } from "../../utils/response";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
@@ -127,6 +128,7 @@ export const saveProduto = async (
     } else {
       await prisma.produto.create({
         data: {
+          Uid: gerarIdUnicoComMetaFinal("PRO"),
           contaId: customData.contaId,
           estoque: data.estoque,
           nome: data.nome,
@@ -186,6 +188,7 @@ export const reposicaoProduto = async (
 
       const movimentacao = await tx.movimentacoesEstoque.create({
         data: {
+          Uid: gerarIdUnicoComMetaFinal("MOV"),
           produtoId: data.produtoId,
           tipo: "ENTRADA",
           status: "CONCLUIDO",

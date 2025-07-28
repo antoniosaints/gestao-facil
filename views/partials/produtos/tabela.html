@@ -2,8 +2,10 @@
     <thead>
         <tr>
             <th>ID</th>
-            <th>Código</th>
             <th>Nome</th>
+            <th>Código</th>
+            <th>Entrada</th>
+            <th>Saída</th>
             <th>Preço</th>
             <th>Qtd</th>
             <th class="flex justify-end">Ações</th>
@@ -58,9 +60,11 @@
             },
         },
         columns: [
-            { data: "id" },
-            { data: "codigo" },
+            { data: "Uid" },
             { data: "nome" },
+            { data: "codigo" },
+            { data: "entradas" },
+            { data: "saidas" },
             { data: "preco" },
             { data: "estoque" },
             {

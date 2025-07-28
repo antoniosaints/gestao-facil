@@ -36,6 +36,7 @@ model FaturasContas {
   id             Int          @id @default(autoincrement())
   contaId        Int
   conta          Contas       @relation(fields: [contaId], references: [id])
+  Uid            String       @default("INV_000")
   asaasPaymentId String       @unique
   vencimento     DateTime
   valor          Float
@@ -57,11 +58,15 @@ model Contas {
   status               Status                 @default(ATIVO)
   vencimento           DateTime               @default(now())
   tipo                 String?
+  documento            String?
+  funcionarios         Int                    @default(0)
   categoria            String?
   gateway              GatewayConta           @default(mercadopago)
   email                String
+  telefone             String?
   asaasCustomerId      String
   asaasSubscriptionId  String?
+  dicasNovidades       Boolean?               @default(false)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   Produto              Produto[]
@@ -80,7 +85,7 @@ model Usuarios {
   contaId       Int
   Contas        Contas           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   nome          String
-  email         String
+  email         String           @unique
   senha         String
   permissao     PermissaoUsuario @default(usuario)
   pushReceiver  Boolean?         @default(true)
@@ -93,6 +98,7 @@ model Usuarios {
 }
 
 enum PermissaoUsuario {
+  root
   admin
   gerente
   vendedor
@@ -109,6 +115,7 @@ model ClientesFornecedores {
   id                   Int                    @id @default(autoincrement())
   contaId              Int
   Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                  String                 @default("CLI_000")
   status               Status                 @default(ATIVO)
   nome                 String
   email                String?
@@ -138,6 +145,7 @@ model MovimentacoesEstoque {
   id                Int                   @id @default(autoincrement())
   contaId           Int
   Contas            Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid               String                @default("MOV_000")
   tipo              TipoMovimentacao      @default(ENTRADA)
   data              DateTime              @default(now())
   notaFiscal        String?
@@ -156,6 +164,7 @@ model Produto {
   id                   Int                    @id @default(autoincrement())
   contaId              Int
   Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                  String                 @default("PRO_000")
   status               Status                 @default(ATIVO)
   nome                 String
   descricao            String?
@@ -184,6 +193,7 @@ model Vendas {
   id              Int                   @id @default(autoincrement())
   contaId         Int
   Contas          Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid             String                @default("VEN_000")
   data            DateTime              @default(now())
   valor           Decimal               @db.Decimal(10, 2)
   clienteId       Int?
@@ -244,6 +254,7 @@ model ContasFinanceiro {
   id           Int                    @id @default(autoincrement())
   contaId      Int
   Contas       Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid          String                 @default("CON_000")
   nome         String
   saldoInicial Decimal                @default(0)
   lancamentos  LancamentoFinanceiro[]
@@ -254,6 +265,7 @@ model CategoriaFinanceiro {
   id          Int                    @id @default(autoincrement())
   contaId     Int
   Contas      Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid         String                 @default("CAT_000")
   nome        String
   lancamentos LancamentoFinanceiro[]
   createdAt   DateTime               @default(now())
@@ -263,8 +275,10 @@ model LancamentoFinanceiro {
   id                 Int                       @id @default(autoincrement())
   contaId            Int
   Contas             Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                String                    @default("FIN_000")
   descricao          String
   valorTotal         Decimal                   @default(0) // total com desconto incluído
+  valorBruto         Decimal                   @default(0)
   valorEntrada       Decimal                   @default(0)
   desconto           Decimal                   @default(0)
   tipo               TipoLancamentoFinanceiro
@@ -285,6 +299,7 @@ model LancamentoFinanceiro {
 model Parcela {
   id            Int                  @id @default(autoincrement())
   numero        Int
+  Uid           String               @default("PAR_000")
   valor         Decimal
   vencimento    DateTime
   pago          Boolean              @default(false)

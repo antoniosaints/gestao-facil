@@ -46,8 +46,8 @@ export const tableVendas = async (
 
       return nomeCliente;
     })
-    .format("id", function (id) {
-      return `<span onclick="visualizarVenda('${id}')" class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 hover:bg-primary/10 rounded-md cursor-pointer"># ${id}</span>`;
+    .edit("Uid", function (row) {
+      return `<span onclick="visualizarVenda('${row.id}')" class="px-2 py-1 flex flex-nowrap w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md cursor-pointer">#${row.Uid}</span>`;
     })
     .format("data", function (row) {
       const data = formatDate(new Date(row), "dd/MM/yyyy", {

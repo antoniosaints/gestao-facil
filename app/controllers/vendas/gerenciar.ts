@@ -7,6 +7,7 @@ import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { addHours, format } from "date-fns";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 
 export const getVenda = async (req: Request, res: Response) => {
   try {
@@ -174,6 +175,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     const resultado = await prisma.$transaction(async (tx) => {
       const venda = await tx.vendas.create({
         data: {
+          Uid: gerarIdUnicoComMetaFinal("VEN"),
           valor: valorTotal,
           clienteId: data.clienteId,
           vendedorId: data.vendedorId || customData.userId,
@@ -219,6 +221,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
 
         await tx.movimentacoesEstoque.create({
           data: {
+            Uid: gerarIdUnicoComMetaFinal("MOV"),
             produtoId: item.id,
             quantidade: item.quantidade,
             status: "CONCLUIDO",

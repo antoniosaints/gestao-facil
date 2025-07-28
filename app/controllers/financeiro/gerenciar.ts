@@ -3,6 +3,10 @@ import Decimal from "decimal.js";
 import dayjs from "dayjs";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import PDFDocument from "pdfkit";
+import { atualizarStatusLancamentos } from "./hooks";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 
 export const criarLancamento = async (
   req: Request,
@@ -28,15 +32,15 @@ export const criarLancamento = async (
 
     const totalParcelas = parcelas > 0 ? parcelas : 1;
 
-   
     if (!descricao || !valorTotal || !tipo || !formaPagamento || !categoriaId) {
       return res
         .status(400)
         .json({ erro: "Campos obrigatórios não preenchidos." });
     }
 
-    const valorTotalDecimal = new Decimal(valorTotal).minus(desconto || 0);
-    const valorEntradaDecimal = new Decimal(valorEntrada);
+    const valorBrutoTotal = new Decimal(valorTotal);
+    const valorTotalDecimal = valorBrutoTotal.minus(desconto || 0);
+    const valorEntradaDecimal = new Decimal(valorEntrada || 0);
     const valorParcelado = valorTotalDecimal.minus(valorEntradaDecimal);
     const valorParcela =
       totalParcelas > 0
@@ -46,8 +50,10 @@ export const criarLancamento = async (
     const novoLancamento = await prisma.lancamentoFinanceiro.create({
       data: {
         descricao,
+        Uid: gerarIdUnicoComMetaFinal("FIN"),
         valorTotal: valorTotalDecimal,
         valorEntrada: valorEntradaDecimal,
+        valorBruto: valorBrutoTotal,
         desconto: new Decimal(desconto || 0),
         tipo,
         formaPagamento,
@@ -68,6 +74,7 @@ export const criarLancamento = async (
       const vencimento = dayjs(dataLancamento).add(i, "month").toDate();
 
       listaParcelas.push({
+        Uid: gerarIdUnicoComMetaFinal("PAR"),
         numero: i + 1,
         valor: valorParcela,
         vencimento,
@@ -79,6 +86,14 @@ export const criarLancamento = async (
       await prisma.parcela.createMany({ data: listaParcelas });
     }
 
+    await enqueuePushNotification(
+      {
+        title: "Lançamento criado.",
+        body: `Um novo lançamento foi criado: ${descricao}, com o valor de R$ ${valorTotal}.`,
+      },
+      customData.contaId
+    );
+
     return res.status(201).json({
       message: "Lançamento criado com sucesso",
       id: novoLancamento.id,
@@ -86,43 +101,6 @@ export const criarLancamento = async (
   } catch (error: any) {
     console.error("Erro ao criar lançamento:", error);
     return res.status(500).json({ erro: "Erro interno ao criar lançamento" });
-  }
-};
-
-export const atualizarStatusLancamentos = async (idConta: number) => {
-  const hoje = dayjs().startOf("day").toDate();
-  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
-    where: { contaId: idConta },
-    include: {
-      parcelas: true,
-    },
-  });
-
-  for (const lancamento of lancamentos) {
-    const totalParcelas = lancamento.parcelas.length;
-    const parcelasPagas = lancamento.parcelas.filter((p) => p.pago).length;
-    const parcelasVencidas = lancamento.parcelas.filter(
-      (p) => !p.pago && dayjs(p.vencimento).isBefore(hoje)
-    ).length;
-
-    let novoStatus: StatusPagamentoFinanceiro;
-
-    if (parcelasPagas === totalParcelas) {
-      novoStatus = "PAGO";
-    } else if (parcelasPagas > 0 && parcelasPagas < totalParcelas) {
-      novoStatus = "PARCIAL";
-    } else if (parcelasVencidas > 0) {
-      novoStatus = "ATRASADO";
-    } else {
-      novoStatus = "PENDENTE";
-    }
-
-    if (lancamento.status !== novoStatus) {
-      await prisma.lancamentoFinanceiro.update({
-        where: { id: lancamento.id },
-        data: { status: novoStatus },
-      });
-    }
   }
 };
 
@@ -262,9 +240,6 @@ export const listarParcelas = async (
     return res.status(500).json({ erro: "Erro ao listar parcelas." });
   }
 };
-
-import PDFDocument from "pdfkit";
-import { StatusPagamentoFinanceiro } from "../../../generated";
 
 export const gerarReciboPdf = async (
   req: Request,

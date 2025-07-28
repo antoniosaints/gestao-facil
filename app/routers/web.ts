@@ -92,9 +92,6 @@ webRouter.get("/login", (req, res): any => {
   });
 });
 
-webRouter.get("/old/login", (req, res) => {
-  renderFileSimple(req, res, "partials/login.html");
-});
 webRouter.get("/resumos", authenticateJWT, async (req, res): Promise<any> => {
   const data = getCustomRequest(req).customData;
   const usuario = await prisma.usuarios.findUniqueOrThrow({
@@ -105,6 +102,7 @@ webRouter.get("/resumos", authenticateJWT, async (req, res): Promise<any> => {
   });
   renderAuth(req, res, "partials/dashboard", { usuario });
 });
+
 webRouter.get(
   "/sidebar/menu",
   authenticateJWT,
@@ -118,6 +116,9 @@ webRouter.get(
     });
     let levelPermission = 0;
     switch (usuario.permissao) {
+      case "root":
+        levelPermission = 5;
+        break;
       case "admin":
         levelPermission = 4;
         break;

@@ -27,7 +27,7 @@ export const tableClientes = async (
       email: "string",
     })
     .format("id", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap w-max text-primary bg-primary/20 rounded-md"># ${id}</span>`;
+      return `<span class="px-2 py-1 flex flex-nowrap w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md"># ${id}</span>`;
     })
     .format("email", function (row) {
       const data = row || "Sem E-mail";
