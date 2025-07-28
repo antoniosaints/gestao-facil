@@ -1,57 +1,98 @@
 <div class="h-full flex items-center justify-center">
     <div
         class="h-full border bg-card dark:bg-card-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full max-w-7xl">
-        <h2 class="text-2xl font-bold mb-4 dark:text-white" id="titulo_detalhes_produto">Detalhes do Produto - {{produto.nome}}</h2>
+        <h2 class="text-xl font-bold mb-4 dark:text-white" id="titulo_detalhes_produto"><i
+                class="fa-solid fa-boxes-packing text-blue-600"></i> {{produto.nome}}</h2>
 
-        <div class="grid grid-cols-2 gap-4 text-sm dark:text-white">
-            <div>
-                <span class="font-semibold">Nome:</span>
-                <span class="ml-2">{{produto.nome}}</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div
+                class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm border border-gray-300 bg-gray-100 dark:bg-gray-900 dark:border-gray-600 p-4 rounded-lg dark:text-white">
+                <div>
+                    <span class="font-semibold">Nome:</span>
+                    <span class="ml-2">{{produto.nome}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Código:</span>
+                    <span class="ml-2">{{or produto.codigo 'N/A'}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Preço:</span>
+                    <span class="ml-2 text-green-800 dark:text-green-400 font-medium">{{formatMoney
+                        produto.preco}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Estoque:</span>
+                    <span class="ml-2">{{produto.estoque}} unidades</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Mínimo em estoque:</span>
+                    <span class="ml-2">{{produto.minimo}}</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Unidade:</span>
+                    <span class="ml-2">UND</span>
+                </div>
+                <div class="col-span-2">
+                    <span class="font-semibold">Descrição:</span>
+                    <p class="mt-1 dark:text-gray-200">
+                        {{or produto.descricao 'N/A'}}
+                    </p>
+                </div>
             </div>
-            <div>
-                <span class="font-semibold">Código:</span>
-                <span class="ml-2">{{or produto.codigo 'N/A'}}</span>
-            </div>
-            <div>
-                <span class="font-semibold">Preço:</span>
-                <span class="ml-2 text-green-600 font-medium">{{formatMoney produto.preco}}</span>
-            </div>
-            <div>
-                <span class="font-semibold">Estoque:</span>
-                <span class="ml-2">{{produto.estoque}} unidades</span>
-            </div>
-            <div>
-                <span class="font-semibold">Mínimo em estoque:</span>
-                <span class="ml-2">{{produto.minimo}}</span>
-            </div>
-            <div>
-                <span class="font-semibold">Unidade:</span>
-                <span class="ml-2">UND</span>
-            </div>
-            <div class="col-span-2">
-                <span class="font-semibold">Descrição:</span>
-                <p class="mt-1 dark:text-gray-200">
-                    {{or produto.descricao 'N/A'}}
-                </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <span
+                    class="rounded-lg inline-flex items-center px-4 py-2.5 border border-green-800 dark:border-green-600 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    <i class="fa-solid fa-turn-down w-7 h-7"></i>
+                    <div class="text-left rtl:text-right">
+                        <div class="mb-1 text-xs">Entradas</div>
+                        <div class="-mt-1 font-sans text-sm font-semibold">0 Und</div>
+                    </div>
+                </span>
+                <span
+                    class="rounded-lg inline-flex items-center px-4 py-2.5 border border-red-800 dark:border-red-600 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                    <i class="fa-solid fa-turn-up w-7 h-7"></i>
+                    <div class="text-left rtl:text-right">
+                        <div class="mb-1 text-xs">Saídas</div>
+                        <div class="-mt-1 font-sans text-sm font-semibold">0 Und</div>
+                    </div>
+                </span>
+                <span
+                    class="rounded-lg inline-flex items-center px-4 py-2.5 border border-yellow-800 dark:border-yellow-600 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    <i class="fa-solid fa-dollar-sign w-7 h-7"></i>
+                    <div class="text-left rtl:text-right">
+                        <div class="mb-1 text-xs">Valor gasto</div>
+                        <div class="-mt-1 font-sans text-sm font-semibold">R$ 0</div>
+                    </div>
+                </span>
+                <span
+                    class="rounded-lg inline-flex items-center px-4 py-2.5 border border-blue-800 dark:border-blue-600 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    <i class="fa-solid fa-money-bills w-7 h-7 mr-2"></i>
+                    <div class="text-left rtl:text-right">
+                        <div class="mb-1 text-xs">Lucro líquido</div>
+                        <div class="-mt-1 font-sans text-sm font-semibold">R$ 0</div>
+                    </div>
+                </span>
             </div>
         </div>
 
+
         <div class="mt-6">
             <button type="button" onclick="loadPage('produtos/resumo')"
-                class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
+                class="text-sm hover:opacity-90 border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-backward"></i> Voltar
             </button>
             <button onclick="abrirModalRelatorioProdutoReposicao({{produto.id}})"
-                class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
+                class="text-sm border border-orange-700 text-orange-900 bg-orange-100 dark:border-orange-500 dark:bg-orange-950 dark:text-orange-100 px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-file-pdf"></i>
                 Relatório
             </button>
-            <button onclick="editarProduto({{produto.id}})" class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
+            <button onclick="editarProduto({{produto.id}})"
+                class="text-sm border border-blue-700 text-blue-900 bg-blue-100 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-100 px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-pen-to-square"></i>
                 Editar
             </button>
             <button onclick="excluirProduto({{produto.id}})"
-                class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
+                class="text-sm border border-red-700 text-red-900 bg-red-100 dark:border-red-500 dark:bg-red-950 dark:text-red-100 px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-trash-can"></i>
                 Excluir
             </button>

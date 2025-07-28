@@ -1,188 +1,226 @@
 <!DOCTYPE html>
-<html lang="pt-br" class="dark">
-
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Gestão Fácil</title>
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#ffffff" id="meta-theme-color" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <link rel="apple-touch-icon" href="/imgs/logo.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <link href="css/datatables.main.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/datatables.css" />
-  <link rel="stylesheet" href="css/swalert.css" />
-  <link rel="stylesheet" href="css/flatpickr.css" />
-  <link rel="stylesheet" href="css/select2.css" />
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="shortcut icon" href="imgs/logo.png" type="image/png" />
-  <script src="js/pluguins/fontawesome.js"></script>
-  <script src="js/pluguins/flatpickr.js"></script>
-  <script src="js/pluguins/flatpickr.pt.js"></script>
-  <script src="js/pluguins/htmx.js"></script>
-  <script src="js/pluguins/tailwind.min.js"></script>
-  <script src="js/pluguins/jquery.js"></script>
-  <script src="js/pluguins/datatables.min.js"></script>
-  <script src="js/pluguins/swalert.js"></script>
-  <script src="tailwind.js"></script>
-  <script src="js/pluguins/select2.js"></script>
-  <script src="js/pluguins/select2.pt.js"></script>
-  <script src="js/pluguins/chartjs.js"></script>
-  <script src="js/pluguins/imask.js"></script>
-  <script src="theme.js" defer></script>
-  <script src="global.js" defer></script>
-</head>
-
-<body
-  class="bg-background dark:bg-background-dark text-text dark:text-text-dark min-h-screen overflow-hidden flex flex-col">
-  <header
-    class="hidden md:flex items-center justify-between border-border dark:border-border-dark bg-card dark:bg-card-dark text-gray-900 dark:text-gray-100 px-6 py-4 shadow z-20">
-    <div class="text-xl font-bold">
-      <i class="fa-solid fa-chart-pie text-orange-400"></i> Gestão Fácil
-    </div>
-    <div class="flex justify-between gap-2 items-center">
-      Bem-vindo, Admin
-      <img src="imgs/logo.png" alt="PR" class="rounded-full w-8 h-8 bg-gray-500" />
-    </div>
-  </header>
-
-  <!-- Botão de abrir menu (mobile) -->
-  <button type="button" id="openSidebarBtn"
-    class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary/70 text-white px-2 py-3 rounded-r-xl shadow-lg">
-    ☰
-  </button>
-
-  <!-- Sidebar -->
-  <aside id="sidebar"
-    class="fixed shadow-md top-0 left-0 h-full w-full md:w-64 border border-border dark:border-border-dark bg-card dark:bg-card-dark p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
-    <!-- Botão fechar (mobile) -->
-    <h1 class="text-2xl font-bold text-primary">
-      <i class="fa-solid fa-chart-pie"></i> Gestão Fácil
-    </h1>
-
-    <nav class="flex flex-col space-y-2">
-      <a onclick="loadPage('/resumos')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-chart-simple px-2"></i> Dashboard</a>
-      <a onclick="loadPage('/produtos/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-boxes-stacked px-2"></i> Produtos</a>
-      <a onclick="loadPage('/vendas/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-tags px-2"></i> Vendas</a>
-      <a onclick="loadPage('/produtos/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
-        <i class="fa-solid fa-user-tag px-2"></i> Cliente/Fornecedor
-      </a>
-
-      <div class="flex items-center my-6">
-        <div class="flex-grow border-t border-border"></div>
-        <span class="mx-4 text-gray-500 text-xs uppercase">Administração</span>
-        <div class="flex-grow border-t border-border"></div>
-      </div>
-
-      <a onclick="loadPage('administracao/usuarios/resumo')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
-        <i class="fa-solid fa-user px-2"></i> Usuários</a>
-
-      <div class="flex items-center my-6">
-        <div class="flex-grow border-t border-border"></div>
-        <span class="mx-4 text-gray-500 text-xs uppercase">Assinatura</span>
-        <div class="flex-grow border-t border-border"></div>
-      </div>
-
-      <a onclick="loadPage('plano/assinatura')"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
-        <i class="fa-solid fa-user px-2"></i> Plano</a>
-
-      <div class="flex items-center my-6">
-        <div class="flex-grow border-t border-border"></div>
-        <span class="mx-4 text-gray-500 text-xs uppercase">Autenticação</span>
-        <div class="flex-grow border-t border-border"></div>
-      </div>
-
-      <a onclick="logOut()"
-        class="hover:text-primary bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
-          class="fa-solid fa-right-from-bracket px-2"></i> Sair</a>
-    </nav>
-
-    <button onclick="toggleTheme()"
-      class="mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
-      <i class="fa-solid fa-sun" id="icon-sun"></i>
-      <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
-    </button>
-    <div class="flex flex-col gap-2">
-      <button style="display: none;" id="subscribeBtn"
-        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-        <i class="fa-solid fa-bell"></i>
-        Inscrever-se
-      </button>
-      <button style="display: none;" id="unsubscribeBtn"
-        class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">
-        <i class="fa-solid fa-ban"></i>
-        Desinscrever
-      </button>
-      <button style="display: none;" id="sendNotificationBtn"
-        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">
-        <i class="fa-solid fa-paper-plane"></i>
-        Enviar Notificação
-      </button>
-    </div>
-    <button id="closeSidebarBtn"
-      class="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 text-center text-white bg-primary w-3/4 max-w-xs py-2 rounded shadow-lg">
-      <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
-    </button>
-  </aside>
-
-  <!-- Conteúdo principal -->
-  <main id="container-main" class="overflow-y-auto h-screen md:h-[calc(100vh-4rem)] p-6 md:ml-64 mt-0">
-    <div class="max-w-7xl mx-auto" id="content"></div>
-  </main>
-
-
-  <script>
-    const sidebar = document.getElementById("sidebar");
-    const openBtn = document.getElementById("openSidebarBtn");
-    const closeBtn = document.getElementById("closeSidebarBtn");
-    const containerMain = document.getElementById("container-main");
-
-    function logOut() {
-      localStorage.removeItem("gestao_facil:token");
-      localStorage.setItem("gestao_facil:isauth", false);
-      window.location.href = "/login";
-    }
-
-    function switchToFullScreen() {
-      containerMain.classList.add("h-screen");
-      containerMain.classList.remove("h-[calc(100vh-5rem)]");
-    }
-    function switchToNormalScreen() {
-      containerMain.classList.remove("h-screen");
-      containerMain.classList.add("h-[calc(100vh-5rem)]");
-    }
-
-    openBtn.addEventListener("click", () => {
-      sidebar.classList.remove("-translate-x-full");
-    });
-
-    closeBtn.addEventListener("click", () => {
-      sidebar.classList.add("-translate-x-full");
-    });
-
-    // Fechar menu ao clicar em qualquer item
-    sidebar.querySelectorAll("a").forEach((item) => {
-      item.addEventListener("click", () => {
-        if (window.innerWidth < 768) {
-          sidebar.classList.add("-translate-x-full");
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes do Produto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'card': '#ffffff',
+                        'card-dark': '#1f2937',
+                        'border': '#e5e7eb',
+                        'border-dark': '#374151'
+                    }
+                }
+            }
         }
-      });
-    });
 
-  </script>
+        // Simulação de dados do produto
+        const produto = {
+            id: 1,
+            nome: "Smartphone Galaxy S24",
+            codigo: "SGS24-128GB",
+            preco: 2899.99,
+            estoque: 25,
+            minimo: 5,
+            descricao: "Smartphone Samsung Galaxy S24 com 128GB de armazenamento, câmera tripla de 50MP, tela Dynamic AMOLED 2X de 6.2 polegadas e processador Exynos 2400."
+        };
 
-  <script src="/notification/client.js" defer></script>
-  <script src="/general.js" defer></script>
+        function formatMoney(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+
+        function getStockStatus(estoque, minimo) {
+            if (estoque <= minimo) return { text: 'Estoque Baixo', color: 'text-red-600 bg-red-50 border-red-200', icon: 'fa-exclamation-triangle' };
+            if (estoque <= minimo * 2) return { text: 'Estoque Médio', color: 'text-yellow-600 bg-yellow-50 border-yellow-200', icon: 'fa-exclamation-circle' };
+            return { text: 'Estoque Normal', color: 'text-green-600 bg-green-50 border-green-200', icon: 'fa-check-circle' };
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        // Simular funções do sistema original
+        function loadPage(page) {
+            alert(`Navegando para: ${page}`);
+        }
+        
+        function abrirModalRelatorioProdutoReposicao(id) {
+            alert(`Abrindo relatório para produto ID: ${id}`);
+        }
+        
+        function editarProduto(id) {
+            alert(`Editando produto ID: ${id}`);
+        }
+        
+        function excluirProduto(id) {
+            if (confirm('Tem certeza que deseja excluir este produto?')) {
+                alert(`Excluindo produto ID: ${id}`);
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <div class="h-full flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-xl w-full max-w-6xl overflow-hidden transition-all duration-300">
+            
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-700 dark:to-purple-700 p-6 text-white relative overflow-hidden">
+                <div class="absolute inset-0 bg-black opacity-10"></div>
+                <div class="relative z-10 flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold mb-2">Detalhes do Produto</h1>
+                        <p class="text-blue-100 font-medium" id="produto-nome"></p>
+                    </div>
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">
+                        <i class="fas fa-moon text-xl"></i>
+                    </button>
+                </div>
+                <div class="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full"></div>
+                <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-white/5 rounded-full"></div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-8">
+                <!-- Info Cards Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Card Código -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+                        <div class="flex items-center mb-3">
+                            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-barcode text-blue-600 dark:text-blue-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Código</h3>
+                                <p class="text-gray-600 dark:text-gray-300 font-mono" id="produto-codigo"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Preço -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+                        <div class="flex items-center mb-3">
+                            <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-dollar-sign text-green-600 dark:text-green-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Preço</h3>
+                                <p class="text-2xl font-bold text-green-600 dark:text-green-400" id="produto-preco"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Estoque -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+                        <div class="flex items-center mb-3">
+                            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-boxes text-purple-600 dark:text-purple-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Estoque</h3>
+                                <div class="flex items-center space-x-2">
+                                    <p class="text-xl font-bold text-gray-900 dark:text-white" id="produto-estoque"></p>
+                                    <span class="text-sm px-2 py-1 rounded-full border font-medium" id="status-estoque"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Mínimo -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+                        <div class="flex items-center mb-3">
+                            <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-chart-line text-orange-600 dark:text-orange-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Mínimo</h3>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white" id="produto-minimo"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Unidade -->
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+                        <div class="flex items-center mb-3">
+                            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-cube text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Unidade</h3>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white">UND</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description Section -->
+                <div class="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 mb-8">
+                    <div class="flex items-start">
+                        <div class="w-12 h-12 bg-gray-100 dark:bg-gray-600 rounded-xl flex items-center justify-center mr-4 flex-shrink-0 mt-1">
+                            <i class="fas fa-align-left text-gray-600 dark:text-gray-400 text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-900 dark:text-white mb-3">Descrição</h3>
+                            <p class="text-gray-700 dark:text-gray-300 leading-relaxed" id="produto-descricao"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap gap-3 pt-6 border-t border-gray-200 dark:border-gray-600">
+                    <button onclick="loadPage('produtos/resumo')" 
+                        class="flex items-center space-x-2 px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-300 font-medium group">
+                        <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform duration-300"></i>
+                        <span>Voltar</span>
+                    </button>
+
+                    <button onclick="abrirModalRelatorioProdutoReposicao(produto.id)" 
+                        class="flex items-center space-x-2 px-6 py-3 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700 rounded-xl hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-all duration-300 font-medium group">
+                        <i class="fas fa-file-pdf group-hover:scale-110 transition-transform duration-300"></i>
+                        <span>Relatório</span>
+                    </button>
+
+                    <button onclick="editarProduto(produto.id)" 
+                        class="flex items-center space-x-2 px-6 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all duration-300 font-medium group">
+                        <i class="fas fa-edit group-hover:rotate-12 transition-transform duration-300"></i>
+                        <span>Editar</span>
+                    </button>
+
+                    <button onclick="excluirProduto(produto.id)" 
+                        class="flex items-center space-x-2 px-6 py-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-all duration-300 font-medium group">
+                        <i class="fas fa-trash group-hover:scale-110 transition-transform duration-300"></i>
+                        <span>Excluir</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Preencher dados do produto
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('produto-nome').textContent = produto.nome;
+            document.getElementById('produto-codigo').textContent = produto.codigo || 'N/A';
+            document.getElementById('produto-preco').textContent = formatMoney(produto.preco);
+            document.getElementById('produto-estoque').textContent = `${produto.estoque} unidades`;
+            document.getElementById('produto-minimo').textContent = `${produto.minimo} unidades`;
+            document.getElementById('produto-descricao').textContent = produto.descricao || 'N/A';
+
+            // Status do estoque
+            const stockStatus = getStockStatus(produto.estoque, produto.minimo);
+            const statusElement = document.getElementById('status-estoque');
+            statusElement.textContent = stockStatus.text;
+            statusElement.className = `text-sm px-2 py-1 rounded-full border font-medium ${stockStatus.color}`;
+        });
+    </script>
 </body>
-
 </html>
