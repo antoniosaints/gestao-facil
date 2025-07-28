@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Gestão Fácil ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            200: '#fed7aa',
+                            300: '#fdba74',
+                            400: '#fb923c',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                            800: '#9a3412',
+                            900: '#7c2d12',
+                        }
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-lg transition-colors duration-300">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-bar text-white text-lg"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Gestão Fácil ERP</h1>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <!-- Theme Toggle -->
+                <button id="themeToggle"
+                    class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200">
+                    <i id="themeIcon" class="fas fa-moon text-gray-600 dark:text-gray-300"></i>
+                </button>
+
+                <a href="/login"
+                    class="text-gray-600 dark:text-gray-300 hover:text-primary-500 transition-colors duration-200">
+                    Já tem conta? <span class="font-semibold">Entre aqui</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+                <!-- Left Side - Benefits -->
+                <div class="space-y-8">
+                    <div>
+                        <h2 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">
+                            Comece sua <span class="text-primary-500">gestão inteligente</span> hoje mesmo
+                        </h2>
+                        <p class="text-xl text-gray-600 dark:text-gray-300">
+                            Junte-se a mais de 5.000 lojistas que já transformaram sua gestão
+                        </p>
+                    </div>
+
+                    <!-- Benefits List -->
+                    <div class="space-y-6">
+                        <div class="flex items-start space-x-4">
+                            <div
+                                class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-check text-green-600 dark:text-green-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">7 dias grátis</h3>
+                                <p class="text-gray-600 dark:text-gray-300">Teste todas as funcionalidades sem
+                                    compromisso</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-4">
+                            <div
+                                class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-bolt text-blue-600 dark:text-blue-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Configuração rápida
+                                </h3>
+                                <p class="text-gray-600 dark:text-gray-300">Em 5 minutos você já estará vendendo</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-4">
+                            <div
+                                class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-headset text-purple-600 dark:text-purple-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Suporte dedicado
+                                </h3>
+                                <p class="text-gray-600 dark:text-gray-300">Nossa equipe te ajuda na migração</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-4">
+                            <div
+                                class="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-shield-alt text-primary-600 dark:text-primary-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Dados seguros</h3>
+                                <p class="text-gray-600 dark:text-gray-300">Criptografia e backup automático</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Social Proof -->
+                    <div
+                        class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="flex -space-x-2">
+                                <div
+                                    class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    JS</div>
+                                <div
+                                    class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    MS</div>
+                                <div
+                                    class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    AL</div>
+                                <div
+                                    class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                    +2k</div>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-800 dark:text-white">Mais de 2.000 lojas ativas</p>
+                                <div class="flex items-center">
+                                    <div class="flex text-yellow-400 mr-2">
+                                        <i class="fas fa-star text-sm"></i>
+                                        <i class="fas fa-star text-sm"></i>
+                                        <i class="fas fa-star text-sm"></i>
+                                        <i class="fas fa-star text-sm"></i>
+                                        <i class="fas fa-star text-sm"></i>
+                                    </div>
+                                    <span class="text-sm text-gray-600 dark:text-gray-300">4.9/5 (500+
+                                        avaliações)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side - Form -->
+                <div
+                    class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700">
+                    <div class="text-center mb-8">
+                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Criar conta gratuita</h3>
+                        <p class="text-gray-600 dark:text-gray-300">Preencha os dados abaixo para começar</p>
+                    </div>
+
+                    <form id="signupForm" class="space-y-6">
+                        <!-- Step Indicator -->
+                        <div class="flex items-center justify-center mb-8">
+                            <div class="flex items-center">
+                                <div
+                                    class="w-8 h-8 bg-primary-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                                    1</div>
+                                <div class="w-16 h-1 bg-primary-500 mx-2"></div>
+                                <div id="step2"
+                                    class="w-8 h-8 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full flex items-center justify-center text-sm font-semibold">
+                                    2</div>
+                                <div class="w-16 h-1 bg-gray-300 dark:bg-gray-600 mx-2"></div>
+                                <div id="step3"
+                                    class="w-8 h-8 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full flex items-center justify-center text-sm font-semibold">
+                                    3</div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Personal Info -->
+                        <div id="step1Form" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Nome *
+                                    </label>
+                                    <input type="text" id="firstName" required
+                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                        placeholder="Seu nome">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Sobrenome *
+                                    </label>
+                                    <input type="text" id="lastName" required
+                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                        placeholder="Seu sobrenome">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    E-mail *
+                                </label>
+                                <input type="email" id="email" required
+                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                    placeholder="seu@email.com">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Telefone *
+                                </label>
+                                <input type="tel" id="phone" required
+                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                    placeholder="(11) 99999-9999">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Senha *
+                                </label>
+                                <div class="relative">
+                                    <input type="password" id="password" required
+                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200 pr-12"
+                                        placeholder="Mínimo 6 caracteres">
+                                    <button type="button" id="togglePassword"
+                                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-2">
+                                    <div class="flex items-center space-x-2 text-sm">
+                                        <div id="passwordStrength" class="flex space-x-1">
+                                            <div class="w-6 h-1 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                                            <div class="w-6 h-1 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                                            <div class="w-6 h-1 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                                            <div class="w-6 h-1 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                                        </div>
+                                        <span id="passwordStrengthText" class="text-gray-500 dark:text-gray-400">Força
+                                            da senha</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" id="nextStep1"
+                                class="w-full bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-semibold text-lg transition-colors duration-200 flex items-center justify-center">
+                                Continuar
+                                <i class="fas fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+
+                        <!-- Step 2: Store Info -->
+                        <div id="step2Form" class="space-y-6 hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Nome da Loja *
+                                </label>
+                                <input type="text" id="storeName" required
+                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                    placeholder="Ex: Boutique Fashion">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Segmento *
+                                </label>
+                                <select id="segment" required
+                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200">
+                                    <option value="">Selecione o segmento</option>
+                                    <option value="moda">Moda e Vestuário</option>
+                                    <option value="eletronicos">Eletrônicos</option>
+                                    <option value="alimentacao">Alimentação</option>
+                                    <option value="farmacia">Farmácia</option>
+                                    <option value="casa">Casa e Decoração</option>
+                                    <option value="beleza">Beleza e Cosméticos</option>
+                                    <option value="esportes">Esportes</option>
+                                    <option value="outros">Outros</option>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        CNPJ
+                                    </label>
+                                    <input type="text" id="cnpj"
+                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                        placeholder="00.000.000/0001-00">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Funcionários *
+                                    </label>
+                                    <select id="employees" required
+                                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200">
+                                        <option value="">Selecione</option>
+                                        <option value="1">Apenas eu</option>
+                                        <option value="2-5">2 a 5 funcionários</option>
+                                        <option value="6-10">6 a 10 funcionários</option>
+                                        <option value="11+">Mais de 10</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="flex space-x-4">
+                                <button type="button" id="backStep1"
+                                    class="flex-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                                    <i class="fas fa-arrow-left mr-2"></i>
+                                    Voltar
+                                </button>
+                                <button type="button" id="nextStep2"
+                                    class="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                                    Continuar
+                                    <i class="fas fa-arrow-right ml-2"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Confirmation -->
+                        <div id="step3Form" class="space-y-6 hidden">
+                            <div class="text-center">
+                                <div
+                                    class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-check text-green-600 dark:text-green-400 text-2xl"></i>
+                                </div>
+                                <h4 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Quase pronto!</h4>
+                                <p class="text-gray-600 dark:text-gray-300">Revise suas informações e confirme o
+                                    cadastro</p>
+                            </div>
+
+                            <!-- Summary -->
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 space-y-4">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600 dark:text-gray-300">Nome:</span>
+                                    <span id="summaryName" class="font-semibold text-gray-800 dark:text-white"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600 dark:text-gray-300">E-mail:</span>
+                                    <span id="summaryEmail" class="font-semibold text-gray-800 dark:text-white"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600 dark:text-gray-300">Loja:</span>
+                                    <span id="summaryStore" class="font-semibold text-gray-800 dark:text-white"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600 dark:text-gray-300">Segmento:</span>
+                                    <span id="summarySegment"
+                                        class="font-semibold text-gray-800 dark:text-white"></span>
+                                </div>
+                            </div>
+
+                            <!-- Terms -->
+                            <div class="space-y-4">
+                                <label class="flex items-start space-x-3">
+                                    <input type="checkbox" id="terms" required
+                                        class="mt-1 w-4 h-4 text-primary-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
+                                    <span class="text-sm text-gray-600 dark:text-gray-300">
+                                        Aceito os <a href="#" class="text-primary-500 hover:underline">Termos de Uso</a>
+                                        e
+                                        <a href="#" class="text-primary-500 hover:underline">Política de Privacidade</a>
+                                    </span>
+                                </label>
+
+                                <label class="flex items-start space-x-3">
+                                    <input type="checkbox" id="newsletter"
+                                        class="mt-1 w-4 h-4 text-primary-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
+                                    <span class="text-sm text-gray-600 dark:text-gray-300">
+                                        Quero receber dicas e novidades por e-mail
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="flex space-x-4">
+                                <button type="button" id="backStep2"
+                                    class="flex-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                                    <i class="fas fa-arrow-left mr-2"></i>
+                                    Voltar
+                                </button>
+                                <button type="submit" id="submitForm"
+                                    class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                                    <i class="fas fa-rocket mr-2"></i>
+                                    Criar Conta Grátis
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Security Badge -->
+                    <div
+                        class="mt-6 flex items-center justify-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-shield-alt text-green-500"></i>
+                        <span>Seus dados estão protegidos com criptografia SSL</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle Functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const html = document.documentElement;
+
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            html.classList.toggle('dark', savedTheme === 'dark');
+            updateThemeIcon(savedTheme === 'dark');
+        } else {
+            updateThemeIcon(false);
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const isDark = html.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        });
+
+        function updateThemeIcon(isDark) {
+            themeIcon.className = isDark ? 'fas fa-sun text-yellow-400' : 'fas fa-moon text-gray-600 dark:text-gray-300';
+        }
+
+        // Password Toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            togglePassword.querySelector('i').classList.toggle('fa-eye');
+            togglePassword.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+
+        // Password Strength Indicator
+        passwordInput.addEventListener('input', () => {
+            const password = passwordInput.value;
+            const strengthBars = document.querySelectorAll('#passwordStrength div');
+            const strengthText = document.getElementById('passwordStrengthText');
+
+            let strength = 0;
+            if (password.length >= 6) strength++;
+            if (password.match(/[a-z]/)) strength++;
+            if (password.match(/[A-Z]/)) strength++;
+            if (password.match(/[0-9]/)) strength++;
+
+            strengthBars.forEach((bar, index) => {
+                bar.className = 'w-6 h-1 rounded';
+                if (index < strength) {
+                    if (strength <= 1) bar.classList.add('bg-red-500');
+                    else if (strength <= 2) bar.classList.add('bg-yellow-500');
+                    else if (strength <= 3) bar.classList.add('bg-blue-500');
+                    else bar.classList.add('bg-green-500');
+                } else {
+                    bar.classList.add('bg-gray-300', 'dark:bg-gray-600');
+                }
+            });
+
+            const strengthTexts = ['Muito fraca', 'Fraca', 'Média', 'Forte', 'Muito forte'];
+            strengthText.textContent = password.length > 0 ? strengthTexts[strength - 1] || 'Muito fraca' : 'Força da senha';
+        });
+
+        // Phone Mask
+        document.getElementById('phone').addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            value = value.replace(/(\d{5})(\d)/, '$1-$2');
+            e.target.value = value;
+        });
+
+        // CNPJ Mask
+        document.getElementById('cnpj').addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            value = value.replace(/(\d{2})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d)/, '$1/$2');
+            value = value.replace(/(\d{4})(\d)/, '$1-$2');
+            e.target.value = value;
+        });
+
+        // Multi-step Form Logic
+        let currentStep = 1;
+
+        function updateStepIndicator(step) {
+            for (let i = 1; i <= 3; i++) {
+                const stepEl = document.getElementById(`step${i}`);
+                if (stepEl) {
+                    if (i <= step) {
+                        stepEl.className = 'w-8 h-8 bg-primary-500 text-white rounded-full flex items-center justify-center text-sm font-semibold';
+                    } else {
+                        stepEl.className = 'w-8 h-8 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full flex items-center justify-center text-sm font-semibold';
+                    }
+                }
+            }
+        }
+
+        function showStep(step) {
+            // Hide all steps
+            for (let i = 1; i <= 3; i++) {
+                const stepForm = document.getElementById(`step${i}Form`);
+                if (stepForm) {
+                    stepForm.classList.add('hidden');
+                }
+            }
+
+            // Show current step
+            const currentStepForm = document.getElementById(`step${step}Form`);
+            if (currentStepForm) {
+                currentStepForm.classList.remove('hidden');
+            }
+
+            updateStepIndicator(step);
+            currentStep = step;
+        }
+
+        // Step navigation
+        document.getElementById('nextStep1').addEventListener('click', () => {
+            if (validateStep1()) {
+                showStep(2);
+            }
+        });
+
+        document.getElementById('nextStep2').addEventListener('click', () => {
+            if (validateStep2()) {
+                updateSummary();
+                showStep(3);
+            }
+        });
+
+        document.getElementById('backStep1').addEventListener('click', () => {
+            showStep(1);
+        });
+
+        document.getElementById('backStep2').addEventListener('click', () => {
+            showStep(2);
+        });
+
+        // Validation functions
+        function validateStep1() {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!firstName || !lastName || !email || !phone || !password) {
+                showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return false;
+            }
+
+            if (password.length < 6) {
+                showNotification('A senha deve ter pelo menos 6 caracteres.', 'error');
+                return false;
+            }
+
+            if (!isValidEmail(email)) {
+                showNotification('Por favor, insira um e-mail válido.', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        function validateStep2() {
+            const storeName = document.getElementById('storeName').value.trim();
+            const segment = document.getElementById('segment').value;
+            const employees = document.getElementById('employees').value;
+
+            if (!storeName || !segment || !employees) {
+                showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Update summary
+        function updateSummary() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('email').value;
+            const storeName = document.getElementById('storeName').value;
+            const segment = document.getElementById('segment');
+
+            document.getElementById('summaryName').textContent = `${firstName} ${lastName}`;
+            document.getElementById('summaryEmail').textContent = email;
+            document.getElementById('summaryStore').textContent = storeName;
+            document.getElementById('summarySegment').textContent = segment.options[segment.selectedIndex].text;
+        }
+
+        // Form submission
+        document.getElementById('signupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const terms = document.getElementById('terms').checked;
+            if (!terms) {
+                showNotification('Você deve aceitar os termos de uso para continuar.', 'error');
+                return;
+            }
+
+            // Simulate form submission
+            const submitBtn = document.getElementById('submitForm');
+            const originalText = submitBtn.innerHTML;
+
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Criando conta...';
+            submitBtn.disabled = true;
+
+            setTimeout(() => {
+                showNotification('Conta criada com sucesso! Redirecionando...', 'success');
+
+                setTimeout(() => {
+                    // Redirect to dashboard or login
+                    window.location.href = '#dashboard';
+                }, 2000);
+            }, 2000);
+        });
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full`;
+
+            const colors = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                info: 'bg-blue-500 text-white',
+                warning: 'bg-yellow-500 text-white'
+            };
+
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                info: 'fas fa-info-circle',
+                warning: 'fas fa-exclamation-triangle'
+            };
+
+            notification.className += ` ${colors[type]}`;
+
+            notification.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <i class="${icons[type]}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+
+            // Auto remove
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        // Initialize
+        showStep(1);
+
+        // Add smooth animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    opacity: 0;
+                    transform: translateX(50px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
+            @keyframes slideInLeft {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
+            .animate-slide-in-right {
+                animation: slideInRight 0.5s ease-out forwards;
+            }
+            
+            .animate-slide-in-left {
+                animation: slideInLeft 0.5s ease-out forwards;
+            }
+            
+            .form-step {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            
+            .form-step.active {
+                opacity: 1;
+                transform: translateX(0);
+                transition: all 0.3s ease-out;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Add form step animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        });
+
+        document.querySelectorAll('[id$="Form"]').forEach(el => {
+            el.classList.add('form-step');
+            observer.observe(el);
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Gestão Fácil ERP</title>
+    <script src="../js/pluguins/fontawesome.js"></script>
+    <script src="../js/pluguins/tailwind.min.js"></script>
+    <script src="../js/pluguins/jquery.js"></script>
+    <script src="../js/pluguins/swalert.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            200: '#fed7aa',
+                            300: '#fdba74',
+                            400: '#fb923c',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                            800: '#9a3412',
+                            900: '#7c2d12',
+                        }
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+</head>
+
+<body
+    class="bg-gradient-to-br from-primary-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 min-h-screen">
+
+    <!-- Background Pattern -->
+    <div class="absolute inset-0 opacity-5 dark:opacity-10">
+        <div class="absolute inset-0" style="background-image: url('data:image/svg+xml,<svg width=" 60" height="60"
+            viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" fill-rule="evenodd">
+                <g fill="%23f97316" fill-opacity="0.1">
+                    <circle cx="7" cy="7" r="7" />
+                    <circle cx="53" cy="7" r="7" />
+                    <circle cx="7" cy="53" r="7" />
+                    <circle cx="53" cy="53" r="7" />
+                </g>
+            </g></svg>');">
+        </div>
+    </div>
+
+    <div class="relative z-10 container mx-auto px-4 py-8 min-h-screen flex items-center">
+        <div class="max-w-6xl mx-auto w-full">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+                <!-- Left Side - Welcome Message & Features -->
+                <div class="space-y-8 hidden sm:block">
+                    <div>
+                        <h2 class="text-5xl font-bold text-gray-800 dark:text-white mb-6 leading-tight">
+                            Bem-vindo de volta ao seu
+                            <span
+                                class="text-primary-500 bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
+                                negócio
+                            </span>
+                        </h2>
+                        <p class="text-xl text-gray-600 dark:text-gray-300">
+                            Acesse sua conta e continue gerenciando sua loja com facilidade
+                        </p>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-2 gap-6">
+                        <div
+                            class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-blue-600 dark:text-blue-400 text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-gray-800 dark:text-white">5.000+</p>
+                                    <p class="text-gray-600 dark:text-gray-300 text-sm">Lojas ativas</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-green-600 dark:text-green-400 text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-gray-800 dark:text-white">98%</p>
+                                    <p class="text-gray-600 dark:text-gray-300 text-sm">Satisfação</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features Preview -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">O que você pode fazer hoje:</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check text-primary-600 dark:text-primary-400"></i>
+                                </div>
+                                <span class="text-gray-700 dark:text-gray-300">Visualizar relatório de vendas do
+                                    mês</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check text-primary-600 dark:text-primary-400"></i>
+                                </div>
+                                <span class="text-gray-700 dark:text-gray-300">Gerenciar produtos com estoque
+                                    baixo</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-check text-primary-600 dark:text-primary-400"></i>
+                                </div>
+                                <span class="text-gray-700 dark:text-gray-300">Acompanhar pedidos em tempo real</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Testimonial -->
+                    <div
+                        class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+                        <div class="flex items-start space-x-4">
+                            <div
+                                class="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center text-white font-bold">
+                                MS
+                            </div>
+                            <div>
+                                <p class="text-gray-700 dark:text-gray-300 italic mb-2">
+                                    "Desde que comecei a usar o Gestão Fácil, minha loja cresceu 150%. A interface é
+                                    muito intuitiva!"
+                                </p>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-semibold text-gray-800 dark:text-white">Maria Silva</span>
+                                    <span class="text-gray-500 dark:text-gray-400">•</span>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Boutique Fashion</span>
+                                    <div class="flex text-yellow-400 ml-2">
+                                        <i class="fas fa-star text-xs"></i>
+                                        <i class="fas fa-star text-xs"></i>
+                                        <i class="fas fa-star text-xs"></i>
+                                        <i class="fas fa-star text-xs"></i>
+                                        <i class="fas fa-star text-xs"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side - Login Form -->
+                <div class="flex justify-center lg:justify-end">
+                    <div class="w-full max-w-md">
+                        <div
+                            class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-gray-200/50 dark:border-gray-700/50">
+
+                            <!-- Form Header -->
+                            <div class="text-center mb-8">
+                                <div
+                                    class="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-user text-white text-2xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Entrar na sua conta
+                                </h3>
+                                <p class="text-gray-600 dark:text-gray-300">Digite suas credenciais para continuar</p>
+                            </div>
+
+                            <!-- Login Form -->
+                            <form id="loginFormularioSistemaSubmit" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        E-mail
+                                    </label>
+                                    <div class="relative">
+                                        <input type="email" name="email" id="email_login_sistema" required
+                                            class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                                            placeholder="seu@email.com">
+                                        <i
+                                            class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Senha
+                                    </label>
+                                    <div class="relative">
+                                        <input type="password" name="password" id="password_login_sistema" required
+                                            class="w-full px-4 py-3 pl-12 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                                            placeholder="Sua senha">
+                                        <i
+                                            class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                        <button type="button" id="togglePassword"
+                                            class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Remember Me & Forgot Password -->
+                                <div class="flex items-center justify-between">
+                                    <label class="flex items-center space-x-2">
+                                        <input type="checkbox" id="remember"
+                                            class="w-4 h-4 text-primary-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">Lembrar de mim</span>
+                                    </label>
+                                    <a href="javascript:void(0)" id="forgotPassword"
+                                        class="text-sm text-primary-500 hover:text-primary-600 transition-colors duration-200">
+                                        Esqueceu a senha?
+                                    </a>
+                                </div>
+
+                                <!-- Login Button -->
+                                <button type="submit" id="loginButton"
+                                    class="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white py-3 rounded-lg font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                                    <i class="fas fa-sign-in-alt mr-2"></i>
+                                    Entrar
+                                </button>
+                            </form>
+                            <!-- Footer -->
+                            <div class="mt-8 text-center">
+                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                    Não tem uma conta?
+                                    <a href="/site/cadastro"
+                                        class="text-primary-500 hover:text-primary-600 font-semibold transition-colors duration-200">
+                                        Cadastre-se gratuitamente
+                                    </a>
+                                </p>
+                            </div>
+
+                            <!-- Security Badge -->
+                            <div
+                                class="mt-6 flex items-center justify-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                                <i class="fas fa-shield-alt text-green-500"></i>
+                                <span>Conexão segura SSL</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal"
+        class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0"
+            id="modalContent">
+            <div class="text-center mb-6">
+                <div
+                    class="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-key text-blue-600 dark:text-blue-400 text-2xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Recuperar senha</h3>
+                <p class="text-gray-600 dark:text-gray-300">Digite seu e-mail para receber as instruções</p>
+            </div>
+
+            <form id="forgotPasswordForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        E-mail cadastrado
+                    </label>
+                    <input type="email" id="forgotEmail" required
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                        placeholder="seu@email.com">
+                </div>
+
+                <div class="flex space-x-4">
+                    <button type="button" id="closeForgotModal"
+                        class="flex-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white py-3 rounded-lg font-semibold transition-colors duration-200">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-semibold transition-colors duration-200">
+                        Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const html = document.documentElement;
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            html.classList.toggle('dark', savedTheme === 'dark');
+        }
+
+        // Password Toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            togglePassword.querySelector('i').classList.toggle('fa-eye');
+            togglePassword.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+
+        // Form Validation
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function validateForm() {
+            const email = document.getElementById('email_login_sistema').value.trim();
+            const password = document.getElementById('password_login_sistema').value;
+
+            if (!email || !password) {
+                showNotification('Por favor, preencha todos os campos.', 'error');
+                return false;
+            }
+
+            if (!validateEmail(email)) {
+                showNotification('Por favor, insira um e-mail válido.', 'error');
+                return false;
+            }
+
+            if (password.length < 6) {
+                showNotification('A senha deve ter pelo menos 6 caracteres.', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Login Form Submission
+        $('#loginFormularioSistemaSubmit').submit((e) => {
+            e.preventDefault();
+
+            if (!validateForm()) {
+                return;
+            }
+            const email = document.getElementById('email_login_sistema').value;
+            const loginButton = document.getElementById('loginButton');
+            const originalText = loginButton.innerHTML;
+
+            const remember = document.getElementById('remember').checked;
+
+            if (remember) {
+                localStorage.setItem('rememberedEmail', email);
+            } else {
+                localStorage.removeItem('rememberedEmail');
+            }
+
+            $.ajax({
+                url: `/login`,
+                method: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({
+                    email: $("#email_login_sistema").val(),
+                    senha: $("#password_login_sistema").val(),
+                }),
+                beforeSend: function (xhr) {
+                    // Show loading state
+                    loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+                    loginButton.disabled = true;
+                },
+                success: (response) => {
+                    localStorage.setItem("gestao_facil:token", response.data.token);
+                    localStorage.setItem("gestao_facil:usuario", response.data.id);
+                    localStorage.setItem("gestao_facil:username", response.data.nome);
+                    localStorage.setItem("gestao_facil:permissao", response.data.permissao);
+                    localStorage.setItem("gestao_facil:isauth", true);
+
+                    showNotification('Login realizado com sucesso! Redirecionando...', 'success');
+
+                    setTimeout(() => {
+                        window.location.href = "/";
+                    }, 1500);
+                },
+                error: (xhr) => {
+                    console.log(xhr);
+                    const mensagem =
+                        xhr.responseJSON?.message || "Erro inesperado na requisição";
+                    Swal.fire({
+                        toast: true,
+                        position: "bottom-end",
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        icon: "error",
+                        title: "Erro!",
+                        text: mensagem,
+                    });
+                    loginButton.innerHTML = originalText;
+                    loginButton.disabled = false;
+                },
+            });
+        });
+
+        // Forgot Password Modal
+        const forgotPasswordLink = document.getElementById('forgotPassword');
+        const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+        const modalContent = document.getElementById('modalContent');
+        const closeForgotModal = document.getElementById('closeForgotModal');
+
+        forgotPasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showModal();
+        });
+
+        closeForgotModal.addEventListener('click', hideModal);
+
+        forgotPasswordModal.addEventListener('click', (e) => {
+            if (e.target === forgotPasswordModal) {
+                hideModal();
+            }
+        });
+
+        function showModal() {
+            forgotPasswordModal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 50);
+        }
+
+        function hideModal() {
+            modalContent.classList.add('scale-95', 'opacity-0');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                forgotPasswordModal.classList.add('hidden');
+            }, 300);
+        }
+
+        // Forgot Password Form
+        document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('forgotEmail').value.trim();
+
+            if (!email) {
+                showNotification('Por favor, digite seu e-mail.', 'error');
+                return;
+            }
+
+            if (!validateEmail(email)) {
+                showNotification('Por favor, insira um e-mail válido.', 'error');
+                return;
+            }
+
+            // Simulate sending reset email
+            setTimeout(() => {
+                showNotification('E-mail de recuperação enviado! Verifique sua caixa de entrada.', 'success');
+                hideModal();
+                document.getElementById('forgotEmail').value = '';
+            }, 1000);
+        });
+
+        // Check for remembered email
+        const rememberedEmail = localStorage.getItem('rememberedEmail');
+        if (rememberedEmail) {
+            document.getElementById('email_login_sistema').value = rememberedEmail;
+            document.getElementById('remember').checked = true;
+        }
+
+        // Notification System
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full`;
+
+            const colors = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                info: 'bg-blue-500 text-white',
+                warning: 'bg-yellow-500 text-white'
+            };
+
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                info: 'fas fa-info-circle',
+                warning: 'fas fa-exclamation-triangle'
+            };
+
+            notification.className += ` ${colors[type]}`;
+
+            notification.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <i class="${icons[type]}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+
+            // Auto remove
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        // Focus Management
+        document.getElementById('email_login_sistema').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('password_login_sistema').focus();
+            }
+        });
+
+        // Add entrance animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            @keyframes slideInLeft {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
+            @keyframes slideInRight {
+                from {
+                    opacity: 0;
+                    transform: translateX(50px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
+            .animate-fade-in-up {
+                animation: fadeInUp 0.6s ease-out forwards;
+            }
+            
+            .animate-slide-in-left {
+                animation: slideInLeft 0.6s ease-out forwards;
+            }
+            
+            .animate-slide-in-right {
+                animation: slideInRight 0.6s ease-out forwards;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Apply entrance animations
+        setTimeout(() => {
+            document.querySelector('.grid > div:first-child').classList.add('animate-slide-in-left');
+            document.querySelector('.grid > div:last-child').classList.add('animate-slide-in-right');
+        }, 100);
+    </script>
+</body>
+
+</html>

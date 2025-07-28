@@ -81,8 +81,18 @@ webRouter.get("/site", (req, res): any => {
     title: "Gestão Fácil",
   });
 });
+webRouter.get("/site/cadastro", (req, res): any => {
+  res.render("partials/site/cadastro", {
+    title: "Gestão Fácil - Cadastro",
+  });
+});
+webRouter.get("/login", (req, res): any => {
+  res.render("partials/site/login", {
+    title: "Gestão Fácil - Login",
+  });
+});
 
-webRouter.get("/login", (req, res) => {
+webRouter.get("/old/login", (req, res) => {
   renderFileSimple(req, res, "partials/login.html");
 });
 webRouter.get("/resumos", authenticateJWT, async (req, res): Promise<any> => {
