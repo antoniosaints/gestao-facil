@@ -96,22 +96,25 @@ export const graficoByStatus = async (
     .reduce((s, l) => s + Number(l.valorTotal), 0);
 
   const pendentes = lancamentos
-    .filter((l) => l.status !== "PAGO")
+    .filter((l) => l.status === "PENDENTE")
+    .reduce((s, l) => s + Number(l.valorTotal), 0);
+
+  const parcial = lancamentos
+    .filter((l) => l.status === "PARCIAL")
+    .reduce((s, l) => s + Number(l.valorTotal), 0);
+
+  const atrasado = lancamentos
+    .filter((l) => l.status === "ATRASADO")
     .reduce((s, l) => s + Number(l.valorTotal), 0);
 
   return res.json({
-    labels: ["Pagos", "Pendentes"],
+    labels: ["Pagos", "Pendentes", "Parcial", "Atrasado"],
     datasets: [
       {
-        label: "Pagos",
-        backgroundColor: "#10b981",
-        data: [pagos],
-      },
-      {
-        label: "Pendentes",
-        backgroundColor: "#ef4444",
-        data: [pendentes],
-      },
+        label: "Valor",
+        backgroundColor: ["#10b981", "#e0d71d", "#4287f5", "#ef4444"],
+        data: [pagos, pendentes, parcial, atrasado],
+      }
     ],
   });
 };
