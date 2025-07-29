@@ -8,6 +8,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { mapperErrorSchema } from "../../mappers/schemasErros";
 import { ResponseHandler } from "../../utils/response";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import Decimal from "decimal.js";
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   const { id } = req.params;
@@ -29,7 +30,10 @@ export const getProduto = async (req: Request, res: Response): Promise<any> => {
     data: produto,
   });
 };
-export const getProdutos = async (req: Request, res: Response): Promise<any> => {
+export const getProdutos = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const produto = await prisma.produto.findMany({
     where: {
@@ -155,6 +159,61 @@ export const saveProduto = async (
     handleError(res, error);
   }
 };
+
+export const getResumoProduto = async (req: Request, res: Response): Promise<any> => {
+  const { produtoId } = req.params;
+  const customData = getCustomRequest(req).customData;
+  if (!produtoId) {
+    return ResponseHandler(res, "produtoId não informado", null, 404);
+  }
+
+  try {
+    const id = Number(produtoId);
+    const produto = await prisma.produto.findUnique({
+      where: { id, contaId: customData.contaId },
+      select: { preco: true },
+    });
+
+    if (!produto) {
+      return ResponseHandler(res, "Produto nao encontrado", null, 404);
+    }
+
+    const movimentacoes = await prisma.movimentacoesEstoque.findMany({
+      where: { produtoId: id, contaId: customData.contaId },
+    });
+
+    let totalGasto = new Decimal(0);
+    let lucroLiquido = new Decimal(0);
+    let totalEntradas = 0;
+    let totalSaidas = 0;
+
+    for (const mov of movimentacoes) {
+      const quantidade = new Decimal(mov.quantidade);
+      const custo = new Decimal(mov.custo);
+      const precoVenda = new Decimal(produto.preco);
+
+      if (mov.tipo === "ENTRADA") {
+        totalGasto = totalGasto.plus(quantidade.times(custo));
+        totalEntradas += mov.quantidade;
+      } else if (mov.tipo === "SAIDA") {
+        const lucro = precoVenda.minus(custo).times(quantidade);
+        lucroLiquido = lucroLiquido.plus(lucro);
+        totalSaidas += mov.quantidade;
+      }
+    }
+
+    return res.json({
+      produtoId: id,
+      totalGasto: totalGasto.toFixed(2),
+      lucroLiquido: lucroLiquido.toFixed(2),
+      totalEntradas,
+      totalSaidas,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const reposicaoProduto = async (
   req: Request,
   res: Response
@@ -178,7 +237,9 @@ export const reposicaoProduto = async (
       });
 
       if (!produtoExistente) {
-        throw new Error("Produto não permite entradas de estoque, altere isso antes de continuar.");
+        throw new Error(
+          "Produto não permite entradas de estoque, altere isso antes de continuar."
+        );
       }
 
       await tx.produto.update({
