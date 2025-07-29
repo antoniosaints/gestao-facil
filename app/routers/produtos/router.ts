@@ -23,7 +23,7 @@ routerProdutos.get(
   authenticateJWT,
   relatorioProdutoMovimentacoes
 );
-routerProdutos.get("", authenticateJWT, tableProdutos);
+routerProdutos.get("/", authenticateJWT, tableProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
 routerProdutos.get("/:id", authenticateJWT, getProduto);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);

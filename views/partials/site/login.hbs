@@ -3,12 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="../manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Gestão Fácil ERP</title>
     <script src="../js/pluguins/fontawesome.js"></script>
     <script src="../js/pluguins/tailwind.min.js"></script>
     <script src="../js/pluguins/jquery.js"></script>
     <script src="../js/pluguins/swalert.js"></script>
+    <script src="../theme.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -390,16 +392,7 @@
                     console.log(xhr);
                     const mensagem =
                         xhr.responseJSON?.message || "Erro inesperado na requisição";
-                    Swal.fire({
-                        toast: true,
-                        position: "bottom-end",
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                        icon: "error",
-                        title: "Erro!",
-                        text: mensagem,
-                    });
+                    showNotification(mensagem, 'error');
                     loginButton.innerHTML = originalText;
                     loginButton.disabled = false;
                 },

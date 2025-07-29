@@ -10,7 +10,6 @@ import {
 } from "./controllers/notifications/push";
 import webRouter from "./routers/web";
 import path from "node:path";
-import { tableVendas } from "./controllers/vendas/table";
 import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
@@ -81,10 +80,6 @@ app.post("/asaas/webhook", webhookAsaasCheck);
 app.post("/mercadopago/webhook", webhookMercadoPago);
 // Rotas Dashboard
 app.get("/dashboard/resumo", authenticateJWT, resumoDashboard);
-
-//  Rotas Vendas
-app.get("/vendas", authenticateJWT, tableVendas);
-
 // Rotas Push
 app.post("/subscribe", authenticateJWT, subscribe);
 app.post("/unsubscribe", authenticateJWT, unsubscribe);

@@ -4,9 +4,11 @@ import { deleteVenda, getResumoVendasMensalChart, getVenda, getVendas, saveVenda
 import { gerarCupomNaoFiscal } from "../../controllers/vendas/cupomNaoFiscal";
 import { gerarCupomPdf } from "../../controllers/vendas/cupomNaoFiscalPdf";
 import { getLucroPorVendas } from "../../controllers/vendas/relatorios";
+import { tableVendas } from "../../controllers/vendas/table";
 
 const routerVendas = Router();
 
+routerVendas.get("/", authenticateJWT, tableVendas);
 routerVendas.post("/criar", authenticateJWT, saveVenda);
 routerVendas.get("/:id", authenticateJWT, getVenda);
 routerVendas.delete("/:id", authenticateJWT, deleteVenda);

@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termos de Uso e Política de Privacidade - Gestão Fácil ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            200: '#fed7aa',
+                            300: '#fdba74',
+                            400: '#fb923c',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                            800: '#9a3412',
+                            900: '#7c2d12',
+                        }
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50 transition-colors duration-300">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-bar text-white text-lg"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Gestão Fácil ERP</h1>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <!-- Theme Toggle -->
+                <button id="themeToggle"
+                    class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200">
+                    <i id="themeIcon" class="fas fa-moon text-gray-600 dark:text-gray-300"></i>
+                </button>
+
+                <a href="/site/cadastro"
+                    class="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200">
+                    Voltar ao Site
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div class="container mx-auto px-4">
+            <nav class="flex space-x-8">
+                <button id="termosTab"
+                    class="py-4 px-2 border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 font-medium text-sm uppercase tracking-wide">
+                    <i class="fas fa-file-contract mr-2"></i>
+                    Termos de Uso
+                </button>
+                <button id="privacidadeTab"
+                    class="py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-medium text-sm uppercase tracking-wide transition-colors duration-200">
+                    <i class="fas fa-shield-alt mr-2"></i>
+                    Política de Privacidade
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Content Container -->
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+
+            <!-- Terms of Use Section -->
+            <div id="termosContent"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-800 dark:text-white mb-4">Termos de Uso</h2>
+                    <p class="text-gray-600 dark:text-gray-300">Última atualização: 29 de julho de 2025</p>
+                </div>
+
+                <div class="prose prose-lg dark:prose-invert max-w-none">
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-info-circle text-primary-500 mr-2"></i>
+                        1. Aceitação dos Termos
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Ao acessar e utilizar o sistema Gestão Fácil ERP, você concorda com os presentes Termos de Uso.
+                        Se você não concorda com qualquer parte destes termos, não deve utilizar nosso serviço.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-laptop text-primary-500 mr-2"></i>
+                        2. Descrição do Serviço
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        O Gestão Fácil ERP é um sistema de gestão empresarial que oferece:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li>Controle de estoque e produtos</li>
+                        <li>Sistema de vendas e PDV</li>
+                        <li>Gestão financeira básica</li>
+                        <li>Controle de clientes e fornecedores</li>
+                        <li>Lançamentos e ordens de serviço</li>
+                        <li>Relatórios gerenciais</li>
+                    </ul>
+
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 mb-6">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
+                            <div>
+                                <h4 class="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">IMPORTANTE -
+                                    Limitações Fiscais</h4>
+                                <p class="text-yellow-700 dark:text-yellow-300">
+                                    <strong>O sistema NÃO possui integração com certificados digitais para emissão de
+                                        documentos fiscais.</strong>
+                                    O sistema emite apenas cupons não fiscais para controle interno. O usuário
+                                    compreende e aceita
+                                    que os documentos gerados pelo sistema não possuem valor fiscal perante a Receita
+                                    Federal,
+                                    servindo exclusivamente para gestão interna da empresa.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-user-check text-primary-500 mr-2"></i>
+                        3. Cadastro e Responsabilidades do Usuário
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        Para utilizar o sistema, você deve:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li>Fornecer informações verdadeiras e atualizadas durante o cadastro</li>
+                        <li>Manter a confidencialidade de suas credenciais de acesso</li>
+                        <li>Ser responsável por todas as atividades realizadas em sua conta</li>
+                        <li>Utilizar o sistema apenas para fins legais e comerciais lícitos</li>
+                        <li>Não compartilhar sua conta com terceiros não autorizados</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-ban text-primary-500 mr-2"></i>
+                        4. Uso Proibido
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        É expressamente proibido:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li>Usar o sistema para atividades ilegais ou fraudulentas</li>
+                        <li>Tentar acessar áreas restritas do sistema</li>
+                        <li>Interferir no funcionamento do sistema ou servidores</li>
+                        <li>Reproduzir, duplicar ou copiar o sistema sem autorização</li>
+                        <li>Usar o sistema para enviar spam ou conteúdo malicioso</li>
+                        <li>Utilizar os cupons não fiscais como documentos fiscais válidos</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-credit-card text-primary-500 mr-2"></i>
+                        5. Planos e Pagamentos
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        O serviço é oferecido mediante pagamento mensal antecipado de R$ 70,00 (setenta reais).
+                        O não pagamento na data de vencimento resultará na suspensão imediata do acesso ao sistema.
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li>Período de teste gratuito de 7 dias para novos usuários</li>
+                        <li>Pagamento deve ser realizado mensalmente de forma antecipada</li>
+                        <li>Não há reembolso proporcional em caso de cancelamento</li>
+                        <li>Preços podem ser alterados mediante aviso prévio de 30 dias</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-database text-primary-500 mr-2"></i>
+                        6. Dados e Backup
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        Realizamos backups regulares dos dados, mas recomendamos que você mantenha cópias próprias
+                        das informações críticas. Em caso de cancelamento da conta, os dados serão mantidos por
+                        30 dias e depois excluídos permanentemente.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-shield-alt text-primary-500 mr-2"></i>
+                        7. Limitação de Responsabilidade
+                    </h3>
+                    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 p-4 mb-6">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-circle text-red-400 mr-3 mt-1"></i>
+                            <div>
+                                <p class="text-red-700 dark:text-red-300">
+                                    <strong>O Gestão Fácil ERP não se responsabiliza por:</strong>
+                                </p>
+                                <ul class="list-disc pl-6 text-red-700 dark:text-red-300 mt-2 space-y-1">
+                                    <li>Questões fiscais ou tributárias decorrentes do uso do sistema</li>
+                                    <li>Perdas financeiras resultantes de decisões baseadas nos dados do sistema</li>
+                                    <li>Problemas causados por uso inadequado dos cupons não fiscais</li>
+                                    <li>Interrupções temporárias do serviço para manutenção</li>
+                                    <li>Perda de dados por falha do usuário ou fatores externos</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-times-circle text-primary-500 mr-2"></i>
+                        8. Cancelamento
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Você pode cancelar sua conta a qualquer momento através do painel administrativo.
+                        O cancelamento entrará em vigor ao final do período já pago. Reservamo-nos o direito
+                        de cancelar contas que violem estes termos.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-edit text-primary-500 mr-2"></i>
+                        9. Alterações nos Termos
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Podemos atualizar estes termos ocasionalmente. Notificaremos sobre mudanças significativas
+                        por e-mail ou através do sistema. O uso continuado após as alterações constitui aceitação
+                        dos novos termos.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-gavel text-primary-500 mr-2"></i>
+                        10. Lei Aplicável
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Estes termos são regidos pelas leis brasileiras. Qualquer disputa será resolvida no
+                        foro da comarca do usuário, conforme estabelecido pelo Código de Defesa do Consumidor.
+                    </p>
+
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 p-4 mt-8">
+                        <div class="flex">
+                            <i class="fas fa-envelope text-blue-400 mr-3 mt-1"></i>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">Contato</h4>
+                                <p class="text-blue-700 dark:text-blue-300">
+                                    Para dúvidas sobre estes termos, entre em contato:
+                                    <strong>contato@gestaofacil.com</strong>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Privacy Policy Section -->
+            <div id="privacidadeContent"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 hidden">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-800 dark:text-white mb-4">Política de Privacidade</h2>
+                    <p class="text-gray-600 dark:text-gray-300">Última atualização: 29 de julho de 2025</p>
+                </div>
+
+                <div class="prose prose-lg dark:prose-invert max-w-none">
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-info-circle text-primary-500 mr-2"></i>
+                        1. Introdução
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos
+                        suas informações pessoais quando você utiliza o Gestão Fácil ERP. Estamos comprometidos
+                        em proteger sua privacidade e cumprir a Lei Geral de Proteção de Dados (LGPD).
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-database text-primary-500 mr-2"></i>
+                        2. Informações que Coletamos
+                    </h3>
+
+                    <h4 class="text-lg font-medium text-gray-800 dark:text-white mb-3">2.1 Dados Pessoais de Cadastro
+                    </h4>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-1">
+                        <li>Nome completo</li>
+                        <li>Endereço de e-mail</li>
+                        <li>Número de telefone</li>
+                        <li>Informações da empresa/loja</li>
+                        <li>CNPJ (quando fornecido)</li>
+                    </ul>
+
+                    <h4 class="text-lg font-medium text-gray-800 dark:text-white mb-3">2.2 Dados de Uso do Sistema</h4>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-1">
+                        <li>Produtos cadastrados no sistema</li>
+                        <li>Informações de clientes da sua empresa</li>
+                        <li>Registros de vendas e transações</li>
+                        <li>Dados financeiros e de estoque</li>
+                        <li>Ordens de serviço e lançamentos</li>
+                    </ul>
+
+                    <h4 class="text-lg font-medium text-gray-800 dark:text-white mb-3">2.3 Dados Técnicos</h4>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-1">
+                        <li>Endereço IP</li>
+                        <li>Tipo de navegador e dispositivo</li>
+                        <li>Logs de acesso ao sistema</li>
+                        <li>Dados de geolocalização (quando autorizado)</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-cogs text-primary-500 mr-2"></i>
+                        3. Como Utilizamos suas Informações
+                    </h3>
+
+                    <h4 class="text-lg font-medium text-gray-800 dark:text-white mb-3">3.1 Finalidades Principais</h4>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-4 space-y-1">
+                        <li>Fornecer e manter o funcionamento do sistema</li>
+                        <li>Processar pagamentos e emitir faturas</li>
+                        <li>Oferecer suporte técnico</li>
+                        <li>Enviar comunicações importantes sobre o serviço</li>
+                        <li>Melhorar a experiência do usuário</li>
+                    </ul>
+
+                    <h4 class="text-lg font-medium text-gray-800 dark:text-white mb-3">3.2 Finalidades Secundárias (com
+                        seu consentimento)</h4>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-1">
+                        <li>Envio de newsletters e dicas de uso</li>
+                        <li>Pesquisas de satisfação</li>
+                        <li>Ofertas de novos recursos ou planos</li>
+                        <li>Análises estatísticas para melhoria do produto</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-share-alt text-primary-500 mr-2"></i>
+                        4. Compartilhamento de Dados
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        <strong>Não vendemos, alugamos ou compartilhamos suas informações pessoais com
+                            terceiros</strong>,
+                        exceto nas seguintes situações:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li><strong>Prestadores de Serviço:</strong> Empresas que nos auxiliam na operação (hospedagem,
+                            pagamentos, e-mail)</li>
+                        <li><strong>Obrigação Legal:</strong> Quando exigido por lei ou ordem judicial</li>
+                        <li><strong>Proteção de Direitos:</strong> Para proteger nossos direitos, propriedade ou
+                            segurança</li>
+                        <li><strong>Consentimento:</strong> Com sua autorização expressa</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-lock text-primary-500 mr-2"></i>
+                        5. Segurança dos Dados
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        Implementamos medidas técnicas e organizacionais para proteger seus dados:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li>Criptografia SSL/TLS para transmissão de dados</li>
+                        <li>Criptografia de dados sensíveis no banco de dados</li>
+                        <li>Controle de acesso restrito aos servidores</li>
+                        <li>Backups regulares e seguros</li>
+                        <li>Monitoramento contínuo de segurança</li>
+                        <li>Política de senhas fortes obrigatórias</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-clock text-primary-500 mr-2"></i>
+                        6. Retenção de Dados
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        Mantemos seus dados pelo tempo necessário para cumprir as finalidades descritas:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li><strong>Dados de Conta:</strong> Durante a vigência da conta + 5 anos (obrigações fiscais)
+                        </li>
+                        <li><strong>Dados de Pagamento:</strong> Conforme exigido pela legislação fiscal</li>
+                        <li><strong>Logs de Sistema:</strong> 12 meses para segurança e auditoria</li>
+                        <li><strong>Dados de Marketing:</strong> Até que você retire o consentimento</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-user-shield text-primary-500 mr-2"></i>
+                        7. Seus Direitos (LGPD)
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        Você tem os seguintes direitos sobre seus dados pessoais:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li><strong>Acesso:</strong> Solicitar informações sobre como tratamos seus dados</li>
+                        <li><strong>Correção:</strong> Corrigir dados incompletos, inexatos ou desatualizados</li>
+                        <li><strong>Eliminação:</strong> Solicitar a exclusão de dados desnecessários</li>
+                        <li><strong>Portabilidade:</strong> Receber seus dados em formato estruturado</li>
+                        <li><strong>Oposição:</strong> Opor-se ao tratamento em determinadas situações</li>
+                        <li><strong>Revogação:</strong> Retirar consentimento a qualquer momento</li>
+                    </ul>
+
+                    <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 p-4 mb-6">
+                        <div class="flex">
+                            <i class="fas fa-hand-paper text-green-400 mr-3 mt-1"></i>
+                            <div>
+                                <h4 class="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">Como Exercer
+                                    seus Direitos</h4>
+                                <p class="text-green-700 dark:text-green-300">
+                                    Para exercer qualquer direito, envie um e-mail para
+                                    <strong>privacidade@gestaofacil.com</strong>
+                                    com sua solicitação. Responderemos em até 15 dias úteis conforme a LGPD.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-cookie-bite text-primary-500 mr-2"></i>
+                        8. Cookies e Tecnologias Similares
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">
+                        Utilizamos cookies para melhorar sua experiência:
+                    </p>
+                    <ul class="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-6 space-y-2">
+                        <li><strong>Cookies Essenciais:</strong> Necessários para o funcionamento do sistema</li>
+                        <li><strong>Cookies de Preferência:</strong> Lembram suas configurações (tema, idioma)</li>
+                        <li><strong>Cookies Analíticos:</strong> Nos ajudam a entender como você usa o sistema</li>
+                        <li><strong>Cookies de Marketing:</strong> Apenas com seu consentimento específico</li>
+                    </ul>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-child text-primary-500 mr-2"></i>
+                        9. Menores de Idade
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Nosso serviço é destinado a empresas e pessoas físicas maiores de 18 anos.
+                        Não coletamos intencionalmente dados de menores de idade. Se identificarmos
+                        tais dados, eles serão excluídos imediatamente.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-globe text-primary-500 mr-2"></i>
+                        10. Transferência Internacional
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Seus dados são armazenados em servidores localizados no Brasil. Caso seja necessária
+                        transferência internacional, garantiremos que o país de destino ofereça nível adequado
+                        de proteção ou utilizaremos cláusulas contratuais padrão.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-edit text-primary-500 mr-2"></i>
+                        11. Alterações nesta Política
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Podemos atualizar esta política ocasionalmente. Notificaremos sobre mudanças significativas
+                        por e-mail e através do sistema com 30 dias de antecedência. Alterações menores serão
+                        comunicadas através da atualização da data nesta página.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+                        <i class="fas fa-exclamation-triangle text-primary-500 mr-2"></i>
+                        12. Incidentes de Segurança
+                    </h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">
+                        Em caso de incidente de segurança que possa afetar seus dados pessoais, notificaremos
+                        você e a Autoridade Nacional de Proteção de Dados (ANPD) conforme exigido pela LGPD,
+                        no prazo máximo de 72 horas após tomarmos conhecimento do incidente.
+                    </p>
+
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 p-4 mt-8">
+                        <div class="flex">
+                            <i class="fas fa-envelope text-blue-400 mr-3 mt-1"></i>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">Encarregado de
+                                    Dados (DPO)</h4>
+                                <p class="text-blue-700 dark:text-blue-300">
+                                    Para questões relacionadas à proteção de dados pessoais, entre em contato com nosso
+                                    Encarregado de Dados: <strong>dpo@gestaofacil.com</strong>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mt-8">
+                        <h4 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Resumo dos seus Direitos
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-eye text-primary-500 mt-1"></i>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">Direito de Acesso</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300">Saber quais dados temos sobre
+                                        você</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-edit text-primary-500 mt-1"></i>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">Direito de Correção</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300">Corrigir dados incorretos</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-trash text-primary-500 mt-1"></i>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">Direito de Eliminação</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300">Solicitar exclusão de dados</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-download text-primary-500 mt-1"></i>
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">Direito de Portabilidade</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300">Receber seus dados</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="window.print()"
+                    class="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                    <i class="fas fa-print mr-2"></i>
+                    Imprimir Documento
+                </button>
+                <button onclick="downloadPDF()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                    <i class="fas fa-download mr-2"></i>
+                    Baixar PDF
+                </button>
+                <a href="mailto:contato@gestaofacil.com"
+                    class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center">
+                    <i class="fas fa-envelope mr-2"></i>
+                    Entrar em Contato
+                </a>
+            </div>
+
+            <!-- Footer Info -->
+            <div class="mt-12 text-center text-gray-600 dark:text-gray-400">
+                <p class="mb-2">
+                    <i class="fas fa-calendar-alt mr-2"></i>
+                    Este documento foi atualizado pela última vez em 29 de julho de 2025
+                </p>
+                <p class="text-sm">
+                    Para dúvidas sobre estes termos, entre em contato conosco através do e-mail:
+                    <a href="mailto:juridico@gestaofacil.com"
+                        class="text-primary-500 hover:text-primary-600 font-semibold">juridico@gestaofacil.com</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle Functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const html = document.documentElement;
+
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            html.classList.toggle('dark', savedTheme === 'dark');
+            updateThemeIcon(savedTheme === 'dark');
+        } else {
+            updateThemeIcon(false);
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const isDark = html.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        });
+
+        function updateThemeIcon(isDark) {
+            themeIcon.className = isDark ? 'fas fa-sun text-yellow-400' : 'fas fa-moon text-gray-600 dark:text-gray-300';
+        }
+
+        // Tab Navigation
+        const termosTab = document.getElementById('termosTab');
+        const privacidadeTab = document.getElementById('privacidadeTab');
+        const termosContent = document.getElementById('termosContent');
+        const privacidadeContent = document.getElementById('privacidadeContent');
+
+        termosTab.addEventListener('click', () => {
+            // Update tabs
+            termosTab.className = 'py-4 px-2 border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 font-medium text-sm uppercase tracking-wide';
+            privacidadeTab.className = 'py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-medium text-sm uppercase tracking-wide transition-colors duration-200';
+
+            // Update content
+            termosContent.classList.remove('hidden');
+            privacidadeContent.classList.add('hidden');
+
+            // Update URL hash
+            window.history.replaceState(null, null, '#termos');
+        });
+
+        privacidadeTab.addEventListener('click', () => {
+            // Update tabs
+            privacidadeTab.className = 'py-4 px-2 border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 font-medium text-sm uppercase tracking-wide';
+            termosTab.className = 'py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-medium text-sm uppercase tracking-wide transition-colors duration-200';
+
+            // Update content
+            privacidadeContent.classList.remove('hidden');
+            termosContent.classList.add('hidden');
+
+            // Update URL hash
+            window.history.replaceState(null, null, '#privacidade');
+        });
+
+        // Check URL hash on load
+        window.addEventListener('load', () => {
+            const hash = window.location.hash;
+            if (hash === '#privacidade') {
+                privacidadeTab.click();
+            }
+        });
+
+        // PDF Download function (placeholder)
+        function downloadPDF() {
+            showNotification('Funcionalidade de download em desenvolvimento. Use a opção de impressão do navegador por enquanto.', 'info');
+        }
+
+        // Notification System
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-md transform transition-all duration-300 translate-x-full`;
+
+            const colors = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                info: 'bg-blue-500 text-white',
+                warning: 'bg-yellow-500 text-white'
+            };
+
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                info: 'fas fa-info-circle',
+                warning: 'fas fa-exclamation-triangle'
+            };
+
+            notification.className += ` ${colors[type]}`;
+
+            notification.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <i class="${icons[type]} mt-1"></i>
+                    <span class="text-sm">${message}</span>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+
+            // Auto remove
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        // Smooth scroll for internal links
+        document.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A' && e.target.getAttribute('href')?.startsWith('#')) {
+                e.preventDefault();
+                const targetId = e.target.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        });
+
+        // Add scroll-to-top functionality
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+            // Show/hide scroll to top button
+            let scrollButton = document.getElementById('scrollToTop');
+            if (!scrollButton && scrollTop > 300) {
+                scrollButton = document.createElement('button');
+                scrollButton.id = 'scrollToTop';
+                scrollButton.className = 'fixed bottom-4 right-4 bg-primary-500 hover:bg-primary-600 text-white p-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-110 z-40';
+                scrollButton.innerHTML = '<i class="fas fa-arrow-up"></i>';
+                scrollButton.onclick = () => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+                document.body.appendChild(scrollButton);
+            } else if (scrollButton && scrollTop <= 300) {
+                scrollButton.remove();
+            }
+        });
+
+        // Add print styles
+        const printStyles = document.createElement('style');
+        printStyles.textContent = `
+            @media print {
+                header, .no-print { display: none !important; }
+                body { background: white !important; color: black !important; }
+                .bg-white, .dark\\:bg-gray-800 { background: white !important; }
+                .text-gray-800, .dark\\:text-white { color: black !important; }
+                .border { border-color: #ccc !important; }
+                .shadow-lg { box-shadow: none !important; }
+                .rounded-xl { border-radius: 0 !important; }
+                h2, h3, h4 { color: black !important; }
+                .bg-yellow-50, .bg-red-50, .bg-blue-50, .bg-green-50 { 
+                    background: #f9f9f9 !important; 
+                    border: 1px solid #ccc !important; 
+                }
+            }
+        `;
+        document.head.appendChild(printStyles);
+    </script>
+</body>
+
+</html>

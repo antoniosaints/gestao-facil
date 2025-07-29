@@ -1,6 +1,8 @@
+{{#hasPermission levelPermission 1}}
 <a onclick="loadPage('/resumos')"
     class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
         class="fa-solid fa-chart-simple text-orange-600 px-2"></i>Dashboard</a>
+{{/hasPermission}}
 {{#hasPermission levelPermission 2}}
 <a onclick="loadPage('/vendas/resumo')"
     class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
@@ -80,30 +82,32 @@
     </div>
 </div>
 {{/hasPermission}}
-{{#hasPermission levelPermission 3}}
+{{#hasPermission levelPermission 1}}
 <div class="flex items-center my-6">
     <div class="flex-grow border-t border-border"></div>
     <span class="mx-4 text-gray-500 text-xs uppercase">Assinatura</span>
     <div class="flex-grow border-t border-border"></div>
 </div>
-
+{{/hasPermission}}
+{{#hasPermission levelPermission 0}}
 <a onclick="loadPage('plano/assinatura')"
     class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition">
     <i class="fa-solid fa-bolt text-orange-600 px-2"></i> Plano</a>
+{{/hasPermission}}
 
 <div class="flex items-center my-6">
     <div class="flex-grow border-t border-border"></div>
     <span class="mx-4 text-gray-500 text-xs uppercase">Autenticação</span>
     <div class="flex-grow border-t border-border"></div>
 </div>
-{{/hasPermission}}
+{{#hasPermission levelPermission 1}}
 <a
     class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
         class="fa-solid fa-user text-blue-600 px-2"></i> Perfil</a>
+{{/hasPermission}}
 <a onclick="logOut()"
     class="bg-background cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
         class="fa-solid fa-right-from-bracket text-red-600 px-2"></i> Sair</a>
-
 
 <script>
     (() => {

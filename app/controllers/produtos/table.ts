@@ -6,13 +6,14 @@ import { produtosAcoes } from "./acoes";
 import { Produto } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
+import { isAccountOverdue } from "../../routers/web";
 export const tableProdutos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const canEdit = await hasPermission(customData, 3);
-  if (customData.contaStatus !== "ATIVO")
+  if (await isAccountOverdue(req))
     return res.status(404).json({
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });

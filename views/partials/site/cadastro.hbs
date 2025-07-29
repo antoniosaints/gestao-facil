@@ -3,9 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="manifest" href="../manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro - Gestão Fácil ERP</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../js/pluguins/fontawesome.js"></script>
+    <script src="../js/pluguins/tailwind.min.js"></script>
+    <script src="../js/pluguins/jquery.js"></script>
+    <script src="../js/pluguins/swalert.js"></script>
+    <script src="../theme.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -29,7 +34,6 @@
             darkMode: 'class'
         }
     </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300 min-h-screen">
@@ -291,11 +295,11 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        CNPJ
+                                        CPF/CNPJ
                                     </label>
                                     <input type="text" id="cnpj"
                                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
-                                        placeholder="00.000.000/0001-00">
+                                        placeholder="CPF ou CNPJ">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -365,9 +369,11 @@
                                     <input type="checkbox" id="terms" required
                                         class="mt-1 w-4 h-4 text-primary-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
                                     <span class="text-sm text-gray-600 dark:text-gray-300">
-                                        Aceito os <a href="#" class="text-primary-500 hover:underline">Termos de Uso</a>
+                                        Aceito os <a href="/site/termos-politica" target="_blank"
+                                            class="text-primary-500 hover:underline">Termos de Uso</a>
                                         e
-                                        <a href="#" class="text-primary-500 hover:underline">Política de Privacidade</a>
+                                        <a href="/site/termos-politica#privacidade" target="_blank"
+                                            class="text-primary-500 hover:underline">Política de Privacidade</a>
                                     </span>
                                 </label>
 
@@ -490,13 +496,131 @@
             e.target.value = value;
         });
 
+        // Função auxiliar para validar CPF
+        function validarCPF(cpf) {
+            cpf = cpf.replace(/\D/g, '');
+
+            if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) {
+                return false;
+            }
+
+            let soma = 0;
+            for (let i = 0; i < 9; i++) {
+                soma += parseInt(cpf.charAt(i)) * (10 - i);
+            }
+            let resto = 11 - (soma % 11);
+            let dv1 = resto < 2 ? 0 : resto;
+
+            if (parseInt(cpf.charAt(9)) !== dv1) {
+                return false;
+            }
+
+            soma = 0;
+            for (let i = 0; i < 10; i++) {
+                soma += parseInt(cpf.charAt(i)) * (11 - i);
+            }
+            resto = 11 - (soma % 11);
+            let dv2 = resto < 2 ? 0 : resto;
+
+            return parseInt(cpf.charAt(10)) === dv2;
+        }
+
+        // Função auxiliar para validar CNPJ
+        function validarCNPJ(cnpj) {
+            cnpj = cnpj.replace(/\D/g, '');
+
+            if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) {
+                return false;
+            }
+
+            let tamanho = cnpj.length - 2;
+            let numeros = cnpj.substring(0, tamanho);
+            let digitos = cnpj.substring(tamanho);
+            let soma = 0;
+            let pos = tamanho - 7;
+
+            for (let i = tamanho; i >= 1; i--) {
+                soma += numeros.charAt(tamanho - i) * pos--;
+                if (pos < 2) pos = 9;
+            }
+
+            let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+            if (resultado != digitos.charAt(0)) return false;
+
+            tamanho = tamanho + 1;
+            numeros = cnpj.substring(0, tamanho);
+            soma = 0;
+            pos = tamanho - 7;
+
+            for (let i = tamanho; i >= 1; i--) {
+                soma += numeros.charAt(tamanho - i) * pos--;
+                if (pos < 2) pos = 9;
+            }
+
+            resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+            return resultado == digitos.charAt(1);
+        }
+
+        // CNPJ Validation
+        document.getElementById('cnpj').addEventListener('blur', (e) => {
+            const value = e.target.value.replace(/\D/g, '');
+            let isValid = false;
+
+            if (value.length === 11) {
+                isValid = validarCPF(value);
+                if (!isValid) {
+                    showNotification('Por favor, insira um CPF válido.', 'error');
+                }
+            } else if (value.length === 14) {
+                isValid = validarCNPJ(value);
+                if (!isValid) {
+                    showNotification('Por favor, insira um CNPJ válido.', 'error');
+                }
+            }
+
+            // Adiciona classe visual baseada na validação
+            if (value.length > 0) {
+                e.target.classList.toggle('border-green-500', isValid);
+                e.target.classList.toggle('dark:border-green-500', isValid);
+                e.target.classList.toggle('border-red-500', !isValid);
+                e.target.classList.toggle('dark:border-red-500', !isValid);
+            }
+        });
         // CNPJ Mask
         document.getElementById('cnpj').addEventListener('input', (e) => {
-            let value = e.target.value.replace(/\D/g, '');
-            value = value.replace(/(\d{2})(\d)/, '$1.$2');
-            value = value.replace(/(\d{3})(\d)/, '$1.$2');
-            value = value.replace(/(\d{3})(\d)/, '$1/$2');
-            value = value.replace(/(\d{4})(\d)/, '$1-$2');
+            let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+
+            // Limita a 14 dígitos (máximo do CNPJ)
+            if (value.length > 14) {
+                value = value.substring(0, 14);
+            }
+
+            // Aplica máscara baseada na quantidade de dígitos
+            if (value.length <= 11) {
+                // Máscara de CPF (000.000.000-00)
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1-$2');
+
+                // Atualiza placeholder e label se necessário
+                e.target.placeholder = "000.000.000-00";
+                if (e.target.dataset.label) {
+                    e.target.dataset.label = "CPF";
+                }
+            } else {
+                // Máscara de CNPJ (00.000.000/0000-00)
+                value = value.replace(/(\d{2})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1/$2');
+                value = value.replace(/(\d{4})(\d)/, '$1-$2');
+
+                // Atualiza placeholder e label se necessário
+                e.target.placeholder = "00.000.000/0000-00";
+                if (e.target.dataset.label) {
+                    e.target.dataset.label = "CNPJ";
+                }
+            }
+
             e.target.value = value;
         });
 
@@ -625,21 +749,58 @@
                 return;
             }
 
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const storeName = document.getElementById('storeName').value.trim();
+            const segment = document.getElementById('segment').value;
+            const employees = document.getElementById('employees').value;
+            const cpfCnpj = document.getElementById('cnpj').value;
+            const newsletter = document.getElementById('newsletter').checked;
+
             // Simulate form submission
             const submitBtn = document.getElementById('submitForm');
             const originalText = submitBtn.innerHTML;
 
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Criando conta...';
-            submitBtn.disabled = true;
 
-            setTimeout(() => {
-                showNotification('Conta criada com sucesso! Redirecionando...', 'success');
-
-                setTimeout(() => {
-                    // Redirect to dashboard or login
-                    window.location.href = '#dashboard';
-                }, 2000);
-            }, 2000);
+            $.ajax({
+                url: `/contas/cadastro`,
+                method: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({
+                    nome: firstName + ' ' + lastName,
+                    email: email,
+                    senha: password,
+                    telefone: phone,
+                    conta: storeName,
+                    tipo: segment,
+                    funcionarios: employees,
+                    dicasNovidades: newsletter,
+                    cpfCnpj: cpfCnpj
+                }),
+                beforeSend: function (xhr) {
+                    // Show loading state
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Criando conta...';
+                    submitBtn.disabled = true;
+                },
+                success: (response) => {
+                    showNotification('Conta criada com sucesso! Redirecionando...', 'success');
+                    setTimeout(() => {
+                        window.location.href = "/login";
+                    }, 1500);
+                },
+                error: (xhr) => {
+                    console.log(xhr);
+                    const mensagem =
+                        xhr.responseJSON?.message || "Erro inesperado na requisição";
+                    showNotification(mensagem, 'error');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                },
+            });
         });
 
         // Notification system

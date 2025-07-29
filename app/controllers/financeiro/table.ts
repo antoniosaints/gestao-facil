@@ -15,6 +15,7 @@ import {
   formatToCapitalize,
 } from "../../helpers/formatters";
 import Decimal from "decimal.js";
+import { isAccountOverdue } from "../../routers/web";
 
 const formateStatus = (status: StatusPagamentoFinanceiro) => {
   const statusFormated = formatToCapitalize(status);
@@ -79,7 +80,7 @@ export const tableLancamentos = async (
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
-  if (customData.contaStatus !== "ATIVO")
+  if (await isAccountOverdue(req))
     return res.status(404).json({
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });

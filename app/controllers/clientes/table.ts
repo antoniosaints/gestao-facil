@@ -4,12 +4,13 @@ import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { acoes } from "./acoes";
 import { Clientes } from "@prisma/client";
+import { isAccountOverdue } from "../../routers/web";
 export const tableClientes = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
-  if (customData.contaStatus !== "ATIVO")
+  if (await isAccountOverdue(req))
     return res.status(404).json({
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });

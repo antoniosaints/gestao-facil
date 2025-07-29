@@ -7,6 +7,7 @@ import { webRouterVendas } from "./vendas/web";
 import { webRouterAdministracao } from "./administracao/web";
 import { webClienteRouter } from "./clientes/web";
 import { webRouterLancamentos } from "./lancamentos/web";
+import { isBefore } from "date-fns";
 
 const webRouter = Router();
 
@@ -24,16 +25,24 @@ const isAccountActive = async (req: Request) => {
   });
   return conta.status === "ATIVO";
 };
+export const isAccountOverdue = async (req: Request) => {
+  const customData = getCustomRequest(req).customData;
+  const conta = await prisma.contas.findUniqueOrThrow({
+    where: { id: customData.contaId },
+  });
+  return isBefore(conta.vencimento, new Date());
+};
 
 export const renderFileAuth = async (
   req: Request,
   res: Response,
   file: string
 ) => {
-  if (await isAccountActive(req)) {
-    res.sendFile(file, { root: "views" });
-  } else {
+  const isOverdue = await isAccountOverdue(req);
+  if (isOverdue) {
     res.redirect("/plano/assinatura");
+  } else {
+    res.sendFile(file, { root: "views" });
   }
 };
 export const renderAuth = async (
@@ -42,10 +51,11 @@ export const renderAuth = async (
   file: string,
   data: any = {}
 ) => {
-  if (await isAccountActive(req)) {
-    res.render(file, data);
-  } else {
+  const isOverdue = await isAccountOverdue(req);
+  if (isOverdue) {
     res.redirect("/plano/assinatura");
+  } else {
+    res.render(file, data);
   }
 };
 export const renderFileSimple = async (
@@ -76,16 +86,22 @@ webRouter.get("/", (req, res): any => {
     layout: "main",
   });
 });
+
 webRouter.get("/site", (req, res): any => {
   res.render("partials/site/home", {
     title: "Gestão Fácil",
   });
 });
+
 webRouter.get("/site/cadastro", (req, res): any => {
   res.render("partials/site/cadastro", {
     title: "Gestão Fácil - Cadastro",
   });
 });
+webRouter.get("/site/termos-politica", (req, res): any => {
+  renderFileSimple(req, res, "partials/site/politica_termos.html");
+});
+
 webRouter.get("/login", (req, res): any => {
   res.render("partials/site/login", {
     title: "Gestão Fácil - Login",
@@ -107,13 +123,21 @@ webRouter.get(
   "/sidebar/menu",
   authenticateJWT,
   async (req, res): Promise<any> => {
+    const isOverdue = await isAccountOverdue(req);
+    
     const data = getCustomRequest(req).customData;
+    
     const usuario = await prisma.usuarios.findUniqueOrThrow({
       where: {
         id: data.userId,
         contaId: data.contaId,
       },
     });
+
+    if (isOverdue) {
+      return res.render("partials/sidebar", { usuario, levelPermission: 0 });
+    }
+
     let levelPermission = 0;
     switch (usuario.permissao) {
       case "root":
@@ -136,16 +160,16 @@ webRouter.get(
         levelPermission = 0;
         break;
     }
-    renderAuth(req, res, "partials/sidebar", { usuario, levelPermission });
+    res.render("partials/sidebar", { usuario, levelPermission });
   }
 );
 
 webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
   try {
-    if ((await isAccountBloqueada(req)) || (await isAccountActive(req))) {
+    if ((await isAccountOverdue(req))) {
       renderFileSimple(req, res, "partials/assinatura/renovacao.html");
     } else {
-      renderFileSimple(req, res, "partials/assinatura/index.html");
+      renderFileSimple(req, res, "partials/assinatura/renovacao.html");
     }
   } catch (error) {
     console.log(error);
