@@ -108,11 +108,8 @@ export const tableLancamentos = async (
     .format("tipo", function (tipo) {
       return formateTipo(tipo);
     })
-    .edit("valorTotal", function (row) {
-      const valorAtual = new Decimal(row.valorTotal);
-      const desconto = new Decimal(row.desconto);
-      const valor = valorAtual.sub(desconto);
-      return formatCurrencyBR(valor.toNumber());
+    .format("valorTotal", function (row) {
+      return formatCurrencyBR(row);
     })
     .format("formaPagamento", function (valor) {
       return formateTipoPagamento(valor);
