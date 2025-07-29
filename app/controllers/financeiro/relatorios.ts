@@ -439,7 +439,10 @@ export const getLancamentosPorStatus = async (
 
   status.map((s) => (s._sum.valorTotal = formatCurrency(s._sum.valorTotal) as any));
 
-  res.json(status);
+  const pendente = status.find((s) => s.status === "PENDENTE")?._sum.valorTotal || 0;
+  const pago = status.find((s) => s.status === "PAGO")?._sum.valorTotal || 0;
+
+  res.json({ pendente, pago });
 };
 export const getLancamentosPorPagamento = async (
   req: Request,

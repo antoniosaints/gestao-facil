@@ -377,7 +377,7 @@
       })
         .then((response) => response.json())
         .then((data) => {
-          $("#resumo_pendentes_total").text(data[1].status === "PENDENTE" ? data[1]._sum.valorTotal : 0);
+          $("#resumo_pendentes_total").text(data.pendente);
         });
       //Grafico por categoria
       fetch(`/lancamentos/graficos/categorias?inicio=${inicio}&fim=${fim}`, {
