@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
-import { StatusPagamentoFinanceiro } from "../../../generated";
 import { prisma } from "../../utils/prisma";
+import { StatusPagamentoFinanceiro } from "../../../generated";
 
 export const atualizarStatusLancamentos = async (idConta: number) => {
   const hoje = dayjs().startOf("day").toDate();

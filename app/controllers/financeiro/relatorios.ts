@@ -233,7 +233,7 @@ export const getParcelasAtrasadas = async (
 ): Promise<any> => {
   const hoje = new Date();
   const customData = getCustomRequest(req).customData;
-  const parcelas = await prisma.parcela.findMany({
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
       pago: false,
       vencimento: { lt: hoje },

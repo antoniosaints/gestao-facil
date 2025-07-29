@@ -2,8 +2,8 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import {
-  FormaPagamentoFinanceiro,
   LancamentoFinanceiro,
+  MetodoPagamento,
   StatusPagamentoFinanceiro,
   TipoLancamentoFinanceiro,
 } from "../../../generated";
@@ -41,7 +41,7 @@ const formateTipo = (tipo: TipoLancamentoFinanceiro) => {
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">${formatted}</span>`;
   }
 };
-const formateTipoPagamento = (tipo: FormaPagamentoFinanceiro) => {
+const formateTipoPagamento = (tipo: MetodoPagamento) => {
   const formatted = formatToCapitalize(tipo);
   const baseClasses = `inline-flex items-center gap-1 px-2 py-0.5 border-2 rounded-xl w-max text-sm`;
 

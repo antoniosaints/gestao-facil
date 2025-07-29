@@ -282,30 +282,35 @@ model LancamentoFinanceiro {
   valorEntrada       Decimal                   @default(0)
   desconto           Decimal                   @default(0)
   tipo               TipoLancamentoFinanceiro
-  formaPagamento     FormaPagamentoFinanceiro
+  formaPagamento     MetodoPagamento
   status             StatusPagamentoFinanceiro
   recorrente         Boolean                   @default(false)
   dataLancamento     DateTime
+  dataEntrada        DateTime?
   clienteId          Int?
   cliente            ClientesFornecedores?     @relation(fields: [clienteId], references: [id])
   categoriaId        Int
   categoria          CategoriaFinanceiro       @relation(fields: [categoriaId], references: [id])
-  parcelas           Parcela[]
+  parcelas           ParcelaFinanceiro[]
   createdAt          DateTime                  @default(now())
   ContasFinanceiro   ContasFinanceiro?         @relation(fields: [contasFinanceiroId], references: [id])
   contasFinanceiroId Int?
 }
 
-model Parcela {
-  id            Int                  @id @default(autoincrement())
-  numero        Int
-  Uid           String               @default("PAR_000")
-  valor         Decimal
-  vencimento    DateTime
-  pago          Boolean              @default(false)
-  dataPagamento DateTime?
-  lancamentoId  Int
-  lancamento    LancamentoFinanceiro @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+model ParcelaFinanceiro {
+  id             Int                  @id @default(autoincrement())
+  numero         Int
+  Uid            String               @default("PAR_000")
+  valor          Decimal
+  vencimento     DateTime
+  pago           Boolean              @default(false)
+  valorPago      Decimal?
+  formaPagamento MetodoPagamento?
+  dataPagamento  DateTime?
+  lancamentoId   Int
+  lancamento     LancamentoFinanceiro @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+
+  @@index([lancamentoId, id])
 }
 
 enum TipoLancamentoFinanceiro {
@@ -318,13 +323,4 @@ enum StatusPagamentoFinanceiro {
   PAGO
   ATRASADO
   PARCIAL
-}
-
-enum FormaPagamentoFinanceiro {
-  DINHEIRO
-  CREDITO
-  DEBITO
-  PIX
-  BOLETO
-  TRANSFERENCIA
 }

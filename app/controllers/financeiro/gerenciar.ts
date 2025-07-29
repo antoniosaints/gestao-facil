@@ -18,6 +18,7 @@ export const criarLancamento = async (
       descricao,
       valorTotal,
       valorEntrada = 0,
+      dataEntrada = null,
       desconto = 0,
       tipo,
       formaPagamento,
@@ -27,15 +28,50 @@ export const criarLancamento = async (
       dataLancamento,
       parcelas = 1,
       contasFinanceiroId,
-      recorrente = false,
     } = req.body;
 
+    if (!parcelas) {
+      return res.status(400).json({ message: "Informe o número de parcelas, para lançamentos à vista, informe 1" });
+    }else {
+      if (parcelas < 0) {
+        return res.status(400).json({ message: "Número de parcelas deve ser de 1 ou mais." });
+      }
+    }
+
     const totalParcelas = parcelas > 0 ? parcelas : 1;
+    let lancamentoRecorrente = false;
+
+    if (totalParcelas > 1) {
+      lancamentoRecorrente = true;
+    }
 
     if (!descricao || !valorTotal || !tipo || !formaPagamento || !categoriaId) {
       return res
         .status(400)
-        .json({ erro: "Campos obrigatórios não preenchidos." });
+        .json({ message: "Campos obrigatórios não preenchidos." });
+    }
+
+    if (valorEntrada) {
+      if (Number(valorEntrada) > Number(valorTotal)) {
+        return res
+          .status(400)
+          .json({ message: "Valor de entrada maior que o valor total." });
+      }
+
+      if (Number(valorEntrada) > 0 && !dataEntrada) {
+        return res.status(400).json({
+          message:
+            "Data de entrada precisa ser informada quando existe um valor de entrada.",
+        });
+      }
+    }
+
+    if (desconto) {
+      if (Number(desconto) > Number(valorTotal)) {
+        return res
+          .status(400)
+          .json({ message: "Desconto maior que o valor total." });
+      }
     }
 
     const valorBrutoTotal = new Decimal(valorTotal);
@@ -53,6 +89,7 @@ export const criarLancamento = async (
         Uid: gerarIdUnicoComMetaFinal("FIN"),
         valorTotal: valorTotalDecimal,
         valorEntrada: valorEntradaDecimal,
+        dataEntrada: dataEntrada ? new Date(dataEntrada) : null,
         valorBruto: valorBrutoTotal,
         desconto: new Decimal(desconto || 0),
         tipo,
@@ -61,11 +98,27 @@ export const criarLancamento = async (
         clienteId: clienteId || null,
         categoriaId,
         contaId: customData.contaId,
-        recorrente,
+        recorrente: lancamentoRecorrente,
         contasFinanceiroId: contasFinanceiroId || null,
         dataLancamento: new Date(dataLancamento),
       },
     });
+
+    if (valorEntrada && Number(valorEntrada) > 0 && dataEntrada) {
+      await prisma.parcelaFinanceiro.create({
+        data: {
+          Uid: gerarIdUnicoComMetaFinal("PAR"),
+          numero: 0,
+          valor: new Decimal(valorEntrada),
+          vencimento: new Date(dataEntrada),
+          pago: true,
+          valorPago: new Decimal(valorEntrada),
+          dataPagamento: new Date(dataEntrada),
+          formaPagamento: "DINHEIRO",
+          lancamentoId: novoLancamento.id,
+        },
+      });
+    }
 
     // Criação das parcelas
     const listaParcelas = [];
@@ -83,13 +136,13 @@ export const criarLancamento = async (
     }
 
     if (totalParcelas > 0) {
-      await prisma.parcela.createMany({ data: listaParcelas });
+      await prisma.parcelaFinanceiro.createMany({ data: listaParcelas });
     }
 
     await enqueuePushNotification(
       {
         title: "Lançamento criado.",
-        body: `Um novo lançamento foi criado: ${descricao}, com o valor de R$ ${valorTotal}.`,
+        body: `Um novo lançamento foi criado: ${descricao}, com o valor de R$ ${valorTotal}`,
       },
       customData.contaId
     );
@@ -100,7 +153,7 @@ export const criarLancamento = async (
     });
   } catch (error: any) {
     console.error("Erro ao criar lançamento:", error);
-    return res.status(500).json({ erro: "Erro interno ao criar lançamento" });
+    return res.status(500).json({ message: "Erro interno ao criar lançamento" });
   }
 };
 
@@ -111,22 +164,24 @@ export const pagarParcela = async (
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   try {
-    const parcela = await prisma.parcela.findUnique({
+    const parcela = await prisma.parcelaFinanceiro.findUnique({
       where: { id: parcelaId },
     });
 
     if (!parcela) {
-      return res.status(404).json({ erro: "Parcela não encontrada." });
+      return res.status(404).json({ message: "Parcela não encontrada." });
     }
 
     if (parcela.pago) {
-      return res.status(400).json({ erro: "Parcela já está paga." });
+      return res.status(400).json({ message: "Parcela já está paga." });
     }
 
-    await prisma.parcela.update({
+    await prisma.parcelaFinanceiro.update({
       where: { id: parcelaId },
       data: {
         pago: true,
+        valorPago: parcela.valor,
+        formaPagamento: "PIX",
         dataPagamento: new Date(),
       },
     });
@@ -136,7 +191,7 @@ export const pagarParcela = async (
     return res.json({ message: "Parcela paga com sucesso." });
   } catch (error: any) {
     console.error("Erro ao pagar parcela:", error);
-    return res.status(500).json({ erro: "Erro ao pagar parcela." });
+    return res.status(500).json({ message: "Erro ao pagar parcela." });
   }
 };
 
@@ -149,14 +204,15 @@ export const pagarMultiplasParcelas = async (
   if (!Array.isArray(ids) || ids.length === 0) {
     return res
       .status(400)
-      .json({ erro: "Informe um array de IDs de parcelas." });
+      .json({ message: "Informe um array de IDs de parcelas." });
   }
 
   try {
-    await prisma.parcela.updateMany({
+    await prisma.parcelaFinanceiro.updateMany({
       where: { id: { in: ids }, pago: false },
       data: {
         pago: true,
+        formaPagamento: "PIX",
         dataPagamento: new Date(),
       },
     });
@@ -166,7 +222,7 @@ export const pagarMultiplasParcelas = async (
     return res.json({ message: "Parcelas pagas com sucesso." });
   } catch (error: any) {
     console.error("Erro ao pagar parcelas:", error);
-    return res.status(500).json({ erro: "Erro ao pagar parcelas." });
+    return res.status(500).json({ message: "Erro ao pagar parcelas." });
   }
 };
 
@@ -177,17 +233,17 @@ export const estornarParcela = async (
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   try {
-    const parcela = await prisma.parcela.findUnique({
+    const parcela = await prisma.parcelaFinanceiro.findUnique({
       where: { id: parcelaId },
     });
 
     if (!parcela || !parcela.pago) {
       return res
         .status(400)
-        .json({ erro: "Parcela não existe ou não foi paga." });
+        .json({ message: "Parcela não existe ou não foi paga." });
     }
 
-    await prisma.parcela.update({
+    await prisma.parcelaFinanceiro.update({
       where: { id: parcelaId },
       data: {
         pago: false,
@@ -199,7 +255,7 @@ export const estornarParcela = async (
 
     return res.json({ message: "Pagamento estornado com sucesso." });
   } catch (error) {
-    return res.status(500).json({ erro: "Erro ao estornar parcela." });
+    return res.status(500).json({ message: "Erro ao estornar parcela." });
   }
 };
 
@@ -210,7 +266,7 @@ export const listarParcelas = async (
   const { clienteId, vencimentoInicio, vencimentoFim } = req.query;
 
   try {
-    const parcelas = await prisma.parcela.findMany({
+    const parcelas = await prisma.parcelaFinanceiro.findMany({
       where: {
         lancamento: {
           clienteId: clienteId ? parseInt(clienteId as string) : undefined,
@@ -237,7 +293,7 @@ export const listarParcelas = async (
 
     return res.json(parcelas);
   } catch (error) {
-    return res.status(500).json({ erro: "Erro ao listar parcelas." });
+    return res.status(500).json({ message: "Erro ao listar parcelas." });
   }
 };
 
@@ -247,7 +303,7 @@ export const gerarReciboPdf = async (
 ): Promise<any> => {
   const parcelaId = parseInt(req.params.id);
 
-  const parcela = await prisma.parcela.findUnique({
+  const parcela = await prisma.parcelaFinanceiro.findUnique({
     where: { id: parcelaId },
     include: {
       lancamento: {
