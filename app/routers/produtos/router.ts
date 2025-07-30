@@ -15,6 +15,7 @@ import {
   saveProduto,
 } from "../../controllers/produtos/produtos";
 import { select2Produtos } from "../../controllers/produtos/hooks";
+import { ListagemMobileProdutos } from "../../controllers/produtos/mobile";
 
 const routerProdutos = Router();
 
@@ -25,6 +26,7 @@ routerProdutos.get(
   relatorioProdutoMovimentacoes
 );
 routerProdutos.get("/", authenticateJWT, tableProdutos);
+routerProdutos.get("/mobile/data", authenticateJWT, ListagemMobileProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
 routerProdutos.get("/:id", authenticateJWT, getProduto);
 routerProdutos.get("/:produtoId/resumo", authenticateJWT, getResumoProduto);

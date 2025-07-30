@@ -5,10 +5,12 @@ import { gerarCupomNaoFiscal } from "../../controllers/vendas/cupomNaoFiscal";
 import { gerarCupomPdf } from "../../controllers/vendas/cupomNaoFiscalPdf";
 import { getLucroPorVendas } from "../../controllers/vendas/relatorios";
 import { tableVendas } from "../../controllers/vendas/table";
+import { ListagemMobileVendas } from "../../controllers/vendas/mobile";
 
 const routerVendas = Router();
 
 routerVendas.get("/", authenticateJWT, tableVendas);
+routerVendas.get("/mobile/data", authenticateJWT, ListagemMobileVendas);
 routerVendas.post("/criar", authenticateJWT, saveVenda);
 routerVendas.get("/:id", authenticateJWT, getVenda);
 routerVendas.delete("/:id", authenticateJWT, deleteVenda);

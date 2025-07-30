@@ -1,12 +1,15 @@
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { formatCurrency } from "../../utils/formatters";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
 
 export const select2Produtos = async (req: Request, res: Response): Promise<any> => {
   const search = (req.query.search as string) || '';
+  const customData = getCustomRequest(req).customData;
 
   const data = await prisma.produto.findMany({
     where: {
+      contaId: customData.contaId,
       nome: {
         contains: search,
       },

@@ -12,6 +12,9 @@ webRouterLancamentos.get("/web/dashboard", (req, res) => {
 webRouterLancamentos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/tabela.html");
 });
+webRouterLancamentos.get("/mobile/lista", (req, res) => {
+  renderFileSimple(req, res, "partials/lancamentos/mobile.html");
+});
 
 export {
   webRouterLancamentos

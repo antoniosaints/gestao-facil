@@ -1,11 +1,11 @@
 <div>
   <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-black dark:text-white"><i class="fa-solid fa-tags text-green-600"></i>
+    <h2 class="text-xl md:text-2xl font-bold text-black dark:text-white"><i class="fa-solid fa-tags text-green-600"></i>
       Vendas
     </h2>
     <div class="flex justify-between gap-2 items-center">
       <button onclick="abrirModalFiltroVendas()"
-        class="bg-success hover:bg-success-dark text-white px-3 py-1.5 text-sm rounded-md">
+        class="bg-success hidden md:block hover:bg-success-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-filter"></i>
       </button>
       <button onclick="abrirModalRelatorioProdutos()"
@@ -14,7 +14,7 @@
       </button>
       <button onclick="loadPage('vendas/formulario')"
         class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
-        <i class="fa-solid fa-circle-plus"></i> Nova Venda
+        <i class="fa-solid fa-circle-plus"></i> <span class="hidden md:inline">Nova Venda</span>
       </button>
       <button onclick="loadPage('vendas/pdv')"
         class="border-2 border-secondary hover:border-secondary-dark px-3 py-1.5 text-sm rounded-md">
@@ -23,9 +23,10 @@
     </div>
   </div>
   <div
-    class="overflow-x-auto shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
+    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
     hx-get="/vendas/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
-
+  <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/vendas/mobile/lista" hx-trigger="load"
+    hx-swap="innerHTML"></div>
 </div>
 
 <div id="modal-container-filtrar-vendas"></div>

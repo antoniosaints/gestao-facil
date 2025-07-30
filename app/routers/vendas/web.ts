@@ -10,6 +10,9 @@ webRouterVendas.get("/resumo", authenticateJWT, (req, res) => {
 webRouterVendas.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/vendas/tabela.html");
 });
+webRouterVendas.get("/mobile/lista", (req, res) => {
+  renderFileSimple(req, res, "partials/vendas/mobile.html");
+});
 webRouterVendas.get("/formulario", (req, res) => {
   renderFileSimple(req, res, "partials/vendas/cadastro.html");
 });

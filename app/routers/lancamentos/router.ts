@@ -4,11 +4,13 @@ import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, li
 import { tableLancamentos } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
+import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
 
 const routerLancamentos = Router();
 
 routerLancamentos.post("/", authenticateJWT, criarLancamento);
 routerLancamentos.get("/getDataTable", authenticateJWT, tableLancamentos);
+routerLancamentos.get("/mobile/data", authenticateJWT, ListagemMobileLancamentos);
 routerLancamentos.post("/parcelas/:id/pagar", authenticateJWT, pagarParcela);
 routerLancamentos.post("/parcelas/pagar-multiplas", authenticateJWT, pagarMultiplasParcelas);
 routerLancamentos.post("/parcelas/:id/estornar", authenticateJWT, estornarParcela);
