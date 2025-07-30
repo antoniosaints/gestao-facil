@@ -111,17 +111,14 @@
                   <div class="text-sm text-gray-500 dark:text-gray-300">Preço: R$ ${venda.valor}</div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
-                        <button onclick="visualizarProduto(${venda.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
+                        <button onclick="visualizarVenda(${venda.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
                             <i class="fa-solid fa-eye"></i>
                         </button>
-                        <button onclick="editarProduto(${venda.id})" class="bg-success text-white px-3 py-1 rounded-md text-sm">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button onclick="abrirModalRelatorioProdutoReposicao(${venda.id})" class="bg-primary text-white px-3 py-1 rounded-md text-sm">
+                        <button onclick="gerarCupomPorVendaId(${venda.id})" class="bg-primary text-white px-3 py-1 rounded-md text-sm">
                             <i class="fa-solid fa-file-pdf"></i>
                         </button>
                       </div>
-                      <button onclick="excluirProduto(${venda.id})" class="bg-danger text-white px-3 py-1 rounded-md text-sm">
+                      <button onclick="excluirVenda(${venda.id})" class="bg-danger text-white px-3 py-1 rounded-md text-sm">
                           <i class="fa-solid fa-trash-can"></i>
                       </button>
                   </div>
