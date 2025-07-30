@@ -18,6 +18,15 @@ export function formatCurrencyBR(value: number): string {
     currency: "BRL",
   }).format(value);
 }
+
+export const formatLabel = (label: string, color: string, icon: string) => {
+  const baseClasses = `inline-flex items-center gap-1 px-2 py-0.5 border-2 rounded-xl w-max text-sm`;
+  return `<span class="${baseClasses} text-${color}-800 border-${color}-400 dark:border-${color}-700 dark:text-${color}-300">
+    <i class="${icon} text-base"></i>
+    <span>${label}</span>
+  </span>`;
+}
+
 export function formatPhone(phone: string): string {
   const cleaned = phone.replace(/\D/g, "");
   if (cleaned.length === 11) {

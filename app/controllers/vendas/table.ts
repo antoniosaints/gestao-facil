@@ -8,6 +8,7 @@ import { formatCurrency } from "../../utils/formatters";
 import { formatDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { isAccountOverdue } from "../../routers/web";
+import { formatLabel } from "../../helpers/formatters";
 export const tableVendas = async (
   req: Request,
   res: Response
@@ -54,42 +55,34 @@ export const tableVendas = async (
       const data = formatDate(new Date(row), "dd/MM/yyyy", {
         locale: ptBR,
       });
-      return `<span class="px-2 py-1 dark:bg-gray-600 bg-gray-200  rounded-md">${data}</span>`;
+
+      return formatLabel(data, "gray", "far fa-calendar-alt");
     })
     .format("status", function (status) {
-      const colors: Record<string, { light: string; dark: string }> = {
-        ORCAMENTO: {
-          light: "bg-yellow-200 text-yellow-800",
-          dark: "dark:bg-yellow-700 dark:text-yellow-300",
-        },
-        FATURADO: {
-          light: "bg-green-200 text-green-800",
-          dark: "dark:bg-green-700 dark:text-green-300",
-        },
-        ANDAMENTO: {
-          light: "bg-blue-200 text-blue-800",
-          dark: "dark:bg-blue-700 dark:text-blue-300",
-        },
-        FINALIZADO: {
-          light: "bg-purple-200 text-purple-800",
-          dark: "dark:bg-purple-700 dark:text-purple-300",
-        },
-        PENDENTE: {
-          light: "bg-orange-200 text-orange-800",
-          dark: "dark:bg-orange-700 dark:text-orange-300",
-        },
-        CANCELADO: {
-          light: "bg-red-200 text-red-800",
-          dark: "dark:bg-red-700 dark:text-red-300",
-        },
-      };
+      let color = "";
 
-      const color = colors[status] || {
-        light: "bg-gray-200 text-gray-800",
-        dark: "dark:bg-gray-700 dark:text-gray-300",
-      };
+      switch (status) {
+        case "ORCAMENTO":
+          color = "yellow";
+          break;
+        case "FATURADO":
+          color = "green";
+          break;
+        case "ANDAMENTO":
+          color = "blue";
+          break;
+        case "FINALIZADO":
+          color = "purple";
+          break;
+        case "PENDENTE":
+          color = "orange";
+          break;
+        case "CANCELADO":
+          color = "red";
+          break;
+      }
 
-      return `<span class="px-2 py-1 rounded-md ${color.light} ${color.dark}">${status}</span>`;
+      return formatLabel(status, color, "fas fa-circle");
     })
 
     .format("valor", function (row) {
