@@ -57,6 +57,7 @@
   }
 
   function renderListaVendas(page = 1) {
+    const container = document.querySelector("#vendas-lista-mobile");
     $.ajax({
       type: "GET",
       url: `/vendas/mobile/data`,
@@ -79,7 +80,7 @@
             position: "bottom-end",
           });
         };
-        document.querySelector("#vendas-lista-mobile").innerHTML = `
+        container.innerHTML = `
             <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
             </div>
@@ -88,7 +89,7 @@
       },
       success: function (response) {
         renderPagination(response.pagination);
-        document.querySelector("#vendas-lista-mobile").innerHTML = "";
+        container.innerHTML = "";
         // Manipular a resposta aqui, se necessário
         if (response.data.length === 0) {
           const noDataHTML = `
@@ -99,16 +100,16 @@
                 </div>
               </div>
           `;
-          document.querySelector("#vendas-lista-mobile").innerHTML = noDataHTML;
+          container.innerHTML = noDataHTML;
           return;
         }
         response.data.forEach((venda) => {
           const dataRender = `
               <div class="rounded-2xl cursor-pointer shadow-md bg-card dark:bg-card-dark p-4">
                   <div class="text-lg font-semibold dark:text-white"># ${venda.Uid}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Status: ${venda.status}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Data: ${venda.data}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Preço: R$ ${venda.valor}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Status: ${venda.status}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Data: ${venda.data}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Preço: R$ ${venda.valor}</div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
                         <button onclick="visualizarVenda(${venda.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
@@ -124,11 +125,11 @@
                   </div>
               </div>
           `;
-          document.querySelector("#vendas-lista-mobile").innerHTML += dataRender;
+          container.innerHTML += dataRender;
         });
       },
       error: function (xhr, status, error) {
-        document.querySelector("#vendas-lista-mobile").innerHTML = "";
+        container.innerHTML = "";
         const mensagem =
           xhr.responseJSON?.message || "Erro inesperado na requisição";
         Swal.fire({

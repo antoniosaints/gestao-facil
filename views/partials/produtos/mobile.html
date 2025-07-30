@@ -14,6 +14,16 @@
     <i class="fa-solid fa-search text-lg"></i>
     <span class="text-xs">Busca</span>
   </button>
+  <button type="button" onclick="salvarProduto()"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-plus text-lg"></i>
+    <span class="text-xs">Novo</span>
+  </button>
+  <button type="button" onclick="abrirModalRelatorioProdutos()"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-file-pdf text-lg"></i>
+    <span class="text-xs">Resumo</span>
+  </button>
   <button type="button" id="navigate-next-page-mobile"
     class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
     <i class="fa-solid fa-arrow-right text-lg"></i>
@@ -57,6 +67,7 @@
   }
 
   function renderListaProdutos(page = 1) {
+    const container = document.querySelector("#produtos-lista-mobile");
     $.ajax({
       type: "GET",
       url: `/produtos/mobile/data`,
@@ -79,7 +90,7 @@
             position: "bottom-end",
           });
         };
-        document.querySelector("#produtos-lista-mobile").innerHTML = `
+        container.innerHTML = `
             <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
             </div>
@@ -88,7 +99,7 @@
       },
       success: function (response) {
         renderPagination(response.pagination);
-        document.querySelector("#produtos-lista-mobile").innerHTML = "";
+        container.innerHTML = "";
         // Manipular a resposta aqui, se necessário
         if (response.data.length === 0) {
           const noDataHTML = `
@@ -99,16 +110,16 @@
                 </div>
               </div>
           `;
-          document.querySelector("#produtos-lista-mobile").innerHTML = noDataHTML;
+          container.innerHTML = noDataHTML;
           return;
         }
         response.data.forEach((produto) => {
           const produtoHTML = `
               <div class="rounded-2xl cursor-pointer shadow-md bg-card dark:bg-card-dark p-4">
                   <div class="text-lg font-semibold dark:text-white">${produto.nome}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Código: ${produto.codigo}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Estoque: ${produto.estoque}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Preço: R$ ${produto.preco}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Código: ${produto.codigo}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Estoque: ${produto.estoque}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Preço: R$ ${produto.preco}</div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
                         <button onclick="visualizarProduto(${produto.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
@@ -130,11 +141,11 @@
                   </div>
               </div>
           `;
-          document.querySelector("#produtos-lista-mobile").innerHTML += produtoHTML;
+          container.innerHTML += produtoHTML;
         });
       },
       error: function (xhr, status, error) {
-        document.querySelector("#produtos-lista-mobile").innerHTML = "";
+        container.innerHTML = "";
         const mensagem =
           xhr.responseJSON?.message || "Erro inesperado na requisição";
         Swal.fire({

@@ -3,7 +3,8 @@ import { prisma } from "../../utils/prisma";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { usuariosAcoes } from "./acoes";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { Usuarios } from "../../../generated";
+import { PermissaoUsuario, Usuarios } from "../../../generated";
+import { formatLabel } from "../../helpers/formatters";
 export const tableUsuarios = async (
   req: Request,
   res: Response
@@ -25,8 +26,29 @@ export const tableUsuarios = async (
       const email = row || "-";
       return `<span class="px-2 py-1.5 border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md"><i class="fa-solid fa-at"></i> ${email}</span>`;
     })
-    .format("permissao", function (row) {
-      return `<span class="px-2 py-1.5 border border-blue-700 text-blue-900 bg-blue-100 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-100 rounded-md"><i class="fa-solid fa-user-lock"></i> ${row}</span>`;
+    .format("permissao", function (row: PermissaoUsuario) {
+      let color = "";
+      
+      switch (row) {
+        case "root":
+          color = "purple";
+         break;
+        case "admin":
+          color = "orange";
+         break;
+        case "gerente":
+          color = "green";
+         break;
+        case "tecnico":
+        case "vendedor":
+          color = "red";
+         break;
+        case "usuario":
+          color = "blue";
+         break;
+      }
+
+      return formatLabel(row, color, "fa-solid fa-user-lock");
     })
     .format("emailReceiver", function (row) {
        return `

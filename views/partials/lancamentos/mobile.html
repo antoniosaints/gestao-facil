@@ -14,6 +14,11 @@
     <i class="fa-solid fa-search text-lg"></i>
     <span class="text-xs">Busca</span>
   </button>
+  <button type="button" 
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-plus text-lg"></i>
+    <span class="text-xs">Novo</span>
+  </button>
   <button type="button" id="navigate-next-page-mobile"
     class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
     <i class="fa-solid fa-arrow-right text-lg"></i>
@@ -57,6 +62,7 @@
   }
 
   function renderListaLancamentos(page = 1) {
+    const container = document.querySelector("#lancamentos-lista-mobile");
     $.ajax({
       type: "GET",
       url: `/lancamentos/mobile/data`,
@@ -79,7 +85,7 @@
             position: "bottom-end",
           });
         };
-        document.querySelector("#lancamentos-lista-mobile").innerHTML = `
+        container.innerHTML = `
             <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
             </div>
@@ -88,7 +94,7 @@
       },
       success: function (response) {
         renderPagination(response.pagination);
-        document.querySelector("#lancamentos-lista-mobile").innerHTML = "";
+        container.innerHTML = "";
         if (response.data.length === 0) {
           const noDataHTML = `
               <div class="flex items-center rounded-md bg-card dark:bg-card-dark justify-center h-[calc(100vh-12rem)]">
@@ -98,16 +104,16 @@
                 </div>
               </div>
           `;
-          document.querySelector("#lancamentos-lista-mobile").innerHTML = noDataHTML;
+          container.innerHTML = noDataHTML;
           return;
         }
         response.data.forEach((row) => {
           const dataRender = `
               <div class="rounded-2xl cursor-pointer shadow-md bg-card dark:bg-card-dark p-4">
                   <div class="text-lg font-semibold dark:text-white"># ${row.Uid}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Status: ${row.status}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Data: ${row.dataLancamento}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-300">Preço: R$ ${row.valorTotal}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Status: ${row.status}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Data: ${row.dataLancamento}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Preço: R$ ${row.valorTotal}</div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
                         <button onclick="visualizarProduto(${row.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
@@ -126,11 +132,11 @@
                   </div>
               </div>
           `;
-          document.querySelector("#lancamentos-lista-mobile").innerHTML += dataRender;
+          container.innerHTML += dataRender;
         });
       },
       error: function (xhr, status, error) {
-        document.querySelector("#lancamentos-lista-mobile").innerHTML = "";
+        container.innerHTML = "";
         const mensagem =
           xhr.responseJSON?.message || "Erro inesperado na requisição";
         Swal.fire({

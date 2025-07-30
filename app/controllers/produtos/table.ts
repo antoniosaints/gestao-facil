@@ -30,8 +30,8 @@ export const tableProdutos = async (
       nome: "string",
       codigo: "string",
     })
-    .format("Uid", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap truncate w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">#${id}</span>`;
+    .edit("Uid", function (row) {
+      return `<span onclick="visualizarProduto('${row.id}')" class="px-2 py-1 flex flex-nowrap cursor-pointer truncate w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">#${row.Uid}</span>`;
     })
     .format("entradas", function (row) {
       return `
@@ -59,7 +59,7 @@ export const tableProdutos = async (
       return `<span class="px-2 py-1.5 border border-blue-700 text-blue-900 bg-blue-100 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-100 rounded-md">${codigo}</span>`;
     })
     .edit("nome", function (row) {
-      return `<span onclick="visualizarProduto('${row.id}')" class="text-blue-700 hover:text-blue-500 dark:text-blue-100 dark:hover:text-blue-300 cursor-pointer">${row.nome}</span>`;
+      return `<span>${row.nome}</span>`;
     })
     .format("preco", (value) => formatCurrency(value))
     .edit("estoque", function (row) {
