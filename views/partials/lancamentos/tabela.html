@@ -14,13 +14,13 @@
 </table>
 
 <script>
-    function reloadTabelaProdutos() {
+    function reloadTabelaLancamentos() {
         const tabela = $("#tabela_lancamentos_listagem_principal").DataTable();
         tabela.ajax.reload(null, false);
     }
     new DataTable("#tabela_lancamentos_listagem_principal", {
         language: {
-            url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json",
+            url: "/lang/pt-Br.json",
         },
         processing: true,
         serverSide: true,
