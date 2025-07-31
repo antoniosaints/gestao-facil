@@ -9,6 +9,9 @@ webRouterLancamentos.get("/resumo", (req, res) => {
 webRouterLancamentos.get("/web/dashboard", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/dashboard/home.html");
 });
+webRouterLancamentos.get("/web/formulario", (req, res) => {
+  renderFileSimple(req, res, "partials/lancamentos/formulario.html");
+});
 webRouterLancamentos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/tabela.html");
 });

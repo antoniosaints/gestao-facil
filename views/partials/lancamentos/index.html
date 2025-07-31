@@ -8,7 +8,7 @@
         class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-file-pdf"></i>
       </button>
-      <button onclick="openClienteFormulario()"
+      <button onclick="openModalFinanceiro()"
         class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-circle-plus"></i> <div class="hidden md:inline">Novo lançamento</div>
       </button>
@@ -20,6 +20,9 @@
     <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/lancamentos/mobile/lista" hx-trigger="load"
     hx-swap="innerHTML"></div>
 </div>
+
+<div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/lancamentos/web/formulario" hx-trigger="load"
+    hx-swap="innerHTML"></div>
 
 <script>
   function visualizarProduto(id) {
