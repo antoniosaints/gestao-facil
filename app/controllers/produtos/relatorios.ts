@@ -169,7 +169,12 @@ export const relatorioProdutoMovimentacoes = async (
   });
 
   if (!conta) {
-    return ResponseHandler(res, "Erro na operação, faça login novamente e tente gerar outro relatório", null, 500);
+    return ResponseHandler(
+      res,
+      "Erro na operação, faça login novamente e tente gerar outro relatório",
+      null,
+      500
+    );
   }
 
   const doc = new PDFDocument({
@@ -248,25 +253,47 @@ export const relatorioProdutoMovimentacoes = async (
 
   // Linhas
   let y = tableTop + rowHeight;
+  const pageHeight = doc.page.height - doc.page.margins.bottom;
+
   doc.font("Roboto").fontSize(8);
 
   movimentos.forEach((p) => {
     const valorUnitario = new Decimal(p.custo);
     const total = valorUnitario.times(p.quantidade);
 
-    // Salva posição antes de desenhar nome
+    // Altura estimada da linha
+    const nomeAltura = doc.heightOfString(p.Produto.nome, {
+      width: colX.preco - colX.notaFiscal - 10,
+    });
+    const linhaAlturaTotal = nomeAltura + 10; // margem extra
+
+    // Verifica se há espaço suficiente na página atual
+    if (y + linhaAlturaTotal > pageHeight) {
+      doc.addPage();
+      y = doc.y;
+
+      // Redesenha os títulos da tabela na nova página
+      doc
+        .font("Roboto-Bold")
+        .text("Id", colX.id, y, {})
+        .text("Nota Fiscal", colX.notaFiscal, y)
+        .text("Status", colX.status, y)
+        .text("Tipo", colX.tipo, y)
+        .text("Data", colX.data, y)
+        .text("Preço (R$)", colX.preco, y)
+        .text("Qtd.", colX.estoque, y)
+        .text("Total (R$)", colX.total, y);
+
+      y += rowHeight;
+      doc.font("Roboto").fontSize(8);
+    }
+
     const nomeY = y;
     doc.text(p.notaFiscal || "SEM NOTA FISCAL", colX.notaFiscal, nomeY, {
       width: colX.preco - colX.notaFiscal - 10,
       lineBreak: true,
     });
 
-    // Calcula altura usada
-    const nomeAltura = doc.heightOfString(p.Produto.nome, {
-      width: colX.preco - colX.notaFiscal - 10,
-    });
-
-    // Escreve os demais campos alinhados no topo da linha
     doc
       .text(`# ${p.id.toString()}`, colX.id, nomeY)
       .text(p.status, colX.status, nomeY)
@@ -276,7 +303,6 @@ export const relatorioProdutoMovimentacoes = async (
       .text(p.quantidade.toString(), colX.estoque, nomeY)
       .text(`${formatarValorMonetario(total)}`, colX.total, nomeY);
 
-    // Linha divisória
     const linhaInferior = nomeY + nomeAltura + 5;
     doc
       .moveTo(30, linhaInferior)
@@ -370,7 +396,10 @@ export const relatorioProdutoMovimentacoes = async (
   doc.end();
 };
 
-export const gerarEtiquetasProduto = async (req: Request, res: Response): Promise<any> => {
+export const gerarEtiquetasProduto = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   const productId = Number(req.params.id);
   const quantidade = Number(req.query.quantidade) || undefined;
 
