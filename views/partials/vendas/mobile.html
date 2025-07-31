@@ -170,10 +170,12 @@
         response.data.forEach((venda) => {
           const dataRender = `
               <div class="rounded-2xl cursor-pointer shadow-md bg-card dark:bg-card-dark p-4">
-                  <div class="text-lg font-semibold dark:text-white"># ${venda.Uid}</div>
+                  <div class="flex justify-between">
+                    <div class="text-md font-semibold dark:text-white">${venda.Uid}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">R$ ${Number(venda.valor).toFixed(2).replace(".", ",")}</div>
+                  </div>  
                   <div class="text-sm text-gray-500 dark:text-gray-400">Status: ${venda.status}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Data: ${venda.data}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Preço: R$ ${venda.valor}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Data: ${new Date(venda.data).toLocaleDateString("pt-BR")}</div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
                         <button onclick="visualizarVenda(${venda.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">

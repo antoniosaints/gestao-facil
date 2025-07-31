@@ -26,8 +26,8 @@ const formateStatus = (status: StatusPagamentoFinanceiro) => {
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-blue-800 border-blue-400 dark:border-blue-900 dark:text-blue-300 rounded-xl">${statusFormated}</span>`;
     case "PENDENTE":
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-yellow-800 border-yellow-400 dark:border-yellow-900 dark:text-yellow-300 rounded-xl">${statusFormated}</span>`;
-      case "ATRASADO":
-        return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">${statusFormated}</span>`;
+    case "ATRASADO":
+      return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">${statusFormated}</span>`;
     default:
       return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-primary border-primary/20 rounded-xl">${statusFormated}</span>`;
   }
@@ -36,9 +36,11 @@ const formateTipo = (tipo: TipoLancamentoFinanceiro) => {
   const formatted = formatToCapitalize(tipo);
   switch (tipo) {
     case "RECEITA":
-      return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-green-800 border-green-400 dark:border-green-900 dark:text-green-300 rounded-xl">${formatted}</span>`;
+      return `<span class="px-2 py-0.5 flex items-center gap-1 border-2 flex-nowrap w-max text-green-800 border-green-400 dark:border-green-900 dark:text-green-300 rounded-xl">
+      <i class="fa-solid fa-caret-up text-base"></i> ${formatted}</span>`;
     case "DESPESA":
-      return `<span class="px-2 py-0.5 flex border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">${formatted}</span>`;
+      return `<span class="px-2 py-0.5 flex items-center gap-1 border-2 flex-nowrap w-max text-red-800 border-red-400 dark:border-red-900 dark:text-red-300 rounded-xl">
+      <i class="fa-solid fa-caret-down text-base"></i> ${formatted}</span>`;
   }
 };
 const formateTipoPagamento = (tipo: MetodoPagamento) => {
@@ -47,12 +49,14 @@ const formateTipoPagamento = (tipo: MetodoPagamento) => {
 
   switch (tipo) {
     case "BOLETO":
+    case "CHEQUE":
       return `<span class="${baseClasses} text-gray-800 border-gray-400 dark:border-gray-900 dark:text-gray-300">
         <i class="fa-regular fa-file-lines text-base"></i>
         <span>${formatted}</span>
       </span>`;
     case "CREDITO":
     case "DEBITO":
+    case "CARTAO":
       return `<span class="${baseClasses} text-violet-800 border-violet-400 dark:border-violet-900 dark:text-violet-300">
         <i class="fa-solid fa-credit-card text-base"></i>
         <span>${formatted}</span>
@@ -70,6 +74,16 @@ const formateTipoPagamento = (tipo: MetodoPagamento) => {
     case "TRANSFERENCIA":
       return `<span class="${baseClasses} text-blue-800 border-blue-400 dark:border-blue-900 dark:text-blue-300">
         <i class="fa-solid fa-money-bill-transfer text-base"></i>
+        <span>${formatted}</span>
+      </span>`;
+    case "GATEWAY":
+      return `<span class="${baseClasses} text-purple-800 border-purple-400 dark:border-purple-900 dark:text-purple-300">
+        <i class="fa-solid fa-link text-base"></i>
+        <span>${formatted}</span>
+      </span>`;
+    default:
+      return `<span class="${baseClasses} text-slate-800 border-slate-400 dark:border-slate-900 dark:text-slate-300">
+        <i class="fa-solid fa-dollar-sign text-base"></i>
         <span>${formatted}</span>
       </span>`;
   }
