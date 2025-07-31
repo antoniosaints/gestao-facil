@@ -1,4 +1,5 @@
-<div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)] md:max-h-full" id="lancamentos-lista-mobile">
+<div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)] md:max-h-full"
+  id="lancamentos-lista-mobile">
 </div>
 <div id="modal-container-buscar-lancamentos"></div>
 
@@ -14,7 +15,7 @@
     <i class="fa-solid fa-search text-lg"></i>
     <span class="text-xs">Busca</span>
   </button>
-  <button type="button" 
+  <button type="button" onclick="openModalFinanceiro()"
     class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
     <i class="fa-solid fa-plus text-lg"></i>
     <span class="text-xs">Novo</span>
@@ -156,7 +157,7 @@
   function renderPagination(pager) {
     const previous = document.querySelector("#navigate-previous-page-mobile");
     const next = document.querySelector("#navigate-next-page-mobile");
-    localStorage.setItem("lancamentos_mobile_TotalPages", pager.totalPages); 
+    localStorage.setItem("lancamentos_mobile_TotalPages", pager.totalPages);
     localStorage.setItem("lancamentos_mobile_page", pager.page);
     previous.disabled = pager.page <= 1;
     next.disabled = pager.page >= pager.totalPages;
