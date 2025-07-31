@@ -1,20 +1,23 @@
-<div class="flex flex-col gap-6">
-  <div class="flex justify-between items-center">
-    <h2 class="text-xl md:text-2xl font-bold text-black dark:text-white">
+<div class="flex flex-col gap-4">
+  <div class="flex flex-col md:flex-row gap-2 justify-between items-center">
+    <h2 class="text-2xl text-left font-bold text-black dark:text-white">
       <i class="fa-solid fa-chart-simple text-orange-600"></i> Dashboard
     </h2>
-    <div class="flex items-center space-x-2 w-content">
+    <div class="flex items-center gap-2 w-content">
       <button type="button" id="limpar_filtro_dashboard_periodo"
         class="bg-red-600 text-white text-nowrap px-3 py-1.5 rounded-md text-sm hover:bg-red-700 transition-colors">
         <i class="fa-solid fa-filter-circle-xmark"></i>
       </button>
-      <input id="filtro_dashboard_periodo"
-        placeholder="Filtrar por período"
+      <input id="filtro_dashboard_periodo" placeholder="Filtrar por período"
         class="rounded-md border w-max bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
       </input>
       <button title="Exportar para PDF!"
-        class="bg-primary text-white text-nowrap px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
-          class="fa-solid fa-file-pdf"></i> Exportar</button>
+        class="bg-primary text-white text-nowrap flex items-center px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
+          class="fa-solid fa-file-pdf"></i>
+        <div class="hidden md:block">
+          Exportar
+        </div>
+      </button>
     </div>
   </div>
 
