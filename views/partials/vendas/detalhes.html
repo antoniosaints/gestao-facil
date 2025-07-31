@@ -25,7 +25,7 @@
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
                         <th class="px-4 py-2 text-left">Produto</th>
-                        <th class="px-4 py-2 text-right">Quantidade</th>
+                        <th class="px-4 py-2 text-right">Qtd</th>
                         <th class="px-4 py-2 text-right">Preço Unitário</th>
                         <th class="px-4 py-2 text-right">Subtotal</th>
                     </tr>
@@ -209,16 +209,16 @@
                 $("#listar_itens_venda").empty();
                 response.data.ItensVendas.map(item => {
                     $("#listar_itens_venda").append(`
-                        <tr class="border-t border-border dark:border-border-dark">
+                        <tr class="border-t text-gray-800 dark:text-gray-200 border-border dark:border-border-dark">
                             <td class="px-4 py-2">${item.produto.nome}</td>
                             <td class="px-4 py-2 text-right">${item.quantidade}</td>
                             <td class="px-4 py-2 text-right font-mono">R$ ${item.valor.replace('.', ',')}</td>
-                            <td class="px-4 py-2 text-right font-mono">R$ ${parseFloat(item.valor) * item.quantidade}</td>
+                            <td class="px-4 py-2 text-right font-mono">R$ ${(parseFloat(item.valor) * item.quantidade).toFixed(2).replace('.', ',')}</td>
                         </tr>
                     `);
                 });
 
-                $("#total_itens_venda_valor").text(`R$ ${response.data.valor.replace('.', ',')}`);
+                $("#total_itens_venda_valor").text(`R$ ${parseFloat(response.data.valor).toFixed(2).replace('.', ',')}`);
             },
             error: function (xhr, status, error) {
                 console.log(error);

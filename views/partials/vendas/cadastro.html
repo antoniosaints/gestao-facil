@@ -118,7 +118,7 @@
                         <thead class="text-xs text-gray-700 uppercase bg-gray-200 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th class="p-2">Produto</th>
-                                <th class="p-2">Quantidade</th>
+                                <th class="p-2">Qtd</th>
                                 <th class="p-2">Preço</th>
                                 <th class="p-2">Subtotal</th>
                                 <th class="p-2">Ações</th>
@@ -258,7 +258,9 @@
         }
 
         const produtoId = produtoData[0].id;
-        const produtoLabel = produtoData[0].text;
+        const lbl = produtoData[0].text;
+        const resultado = lbl.split("Qtd:")[0].trim().replace(/[-\s]+$/, "");
+        const produtoLabel = resultado;
 
         const quantidade = parseFloat(quantidadeRaw);
         const preco = parseFloat(precoRaw.replace(',', '.'));
