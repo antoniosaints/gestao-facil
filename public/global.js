@@ -45,13 +45,13 @@ function loadPage(pagePath) {
     .catch((error) => {
       console.error("Request failed:", error);
     });
-
-  htmx.on("htmx:responseError", (e) => {
-    console.error("HTMX response error:", e.detail.xhr);
-    if (e.detail.xhr.status === 401) {
-      localStorage.removeItem("gestao_facil:token");
-      localStorage.setItem("gestao_facil:isauth", false);
-      window.location.href = "/login";
-    }
-  });
 }
+
+htmx.on("htmx:responseError", (e) => {
+  console.error("HTMX response error:", e.detail.xhr);
+  if (e.detail.xhr.status === 401) {
+    localStorage.removeItem("gestao_facil:token");
+    localStorage.setItem("gestao_facil:isauth", false);
+    window.location.href = "/login";
+  }
+});

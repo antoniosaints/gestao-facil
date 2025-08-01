@@ -81,7 +81,7 @@ webRouter.use("/lancamentos", webRouterLancamentos);
 webRouter.use("/administracao", webRouterAdministracao);
 
 webRouter.get("/", (req, res): any => {
-  res.render("home", {
+  res.render("layouts/home", {
     title: "Dashboard",
     layout: "main",
   });
