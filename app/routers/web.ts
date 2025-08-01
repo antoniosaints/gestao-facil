@@ -132,10 +132,13 @@ webRouter.get(
         id: data.userId,
         contaId: data.contaId,
       },
+      include: {
+        Contas: true
+      }
     });
 
     if (isOverdue) {
-      return res.render("partials/sidebar", { usuario, levelPermission: 0 });
+      return res.render("layouts/sidebar", { usuario, levelPermission: 0, empresa: usuario.Contas.nome });
     }
 
     let levelPermission = 0;
@@ -160,7 +163,7 @@ webRouter.get(
         levelPermission = 0;
         break;
     }
-    res.render("partials/sidebar", { usuario, levelPermission });
+    res.render("layouts/sidebar", { usuario, levelPermission, empresa: usuario.Contas.nome });
   }
 );
 
