@@ -34,6 +34,12 @@ const envSchema = z.object({
   }),
   MP_ACCESS_TOKEN: z.string({
     required_error: "MP_ACCESS_TOKEN é obrigatório",
+  }),
+  EMAIL_PASSWORD: z.string({
+    required_error: "EMAIL_PASSWORD é obrigatório",
+  }),
+  EMAIL_SENDER: z.string({
+    required_error: "EMAIL_SENDER é obrigatório",
   })
 });
 

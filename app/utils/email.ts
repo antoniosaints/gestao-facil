@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { env } from "./dotenv";
 
 // export const emailSender = nodemailer.createTransport({
 //   host: "mail.cas.net.br",
@@ -12,8 +13,8 @@ import nodemailer from "nodemailer";
 export const emailSender = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "costaantonio883@gmail.com",
-    pass: "fsyi aktn wxyf awja",
+    user: env.EMAIL_SENDER,
+    pass: env.EMAIL_PASSWORD,
   },
 });
 
