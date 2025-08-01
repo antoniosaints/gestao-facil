@@ -155,30 +155,55 @@
     <!-- Gráfico de Barras -->
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4">Vendas Mensais</h2>
-      <canvas class="max-h-64" id="barChart"></canvas>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i> Vendas
+          Mensais
+        </h2>
+        <button onclick="loadPage('/vendas/resumo')"
+          class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
+          <i class="fa-solid fa-square-arrow-up-right"></i>
+          Ver mais
+        </button>
+      </div>
+      <canvas class="max-h-64" id="chartVendasMensais"></canvas>
     </div>
 
     <!-- Gráfico de Linhas -->
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4">Acessos por Dia</h2>
-      <canvas class="max-h-64" id="lineChart"></canvas>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i> Saldo mensal
+        </h2>
+        <button onclick="loadPage('/lancamentos/resumo')"
+          class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
+          <i class="fa-solid fa-square-arrow-up-right"></i>
+          Ver mais
+        </button>
+      </div>
+      <canvas class="max-h-64" id="grafico_saldo_mensal"></canvas>
     </div>
 
     <!-- Últimas Vendas -->
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex justify-between items-center mb-1">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Produtos</h2>
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-boxes-packing text-blue-600"></i> Produtos
+        </h2>
         <button onclick="loadPage('produtos/resumo')" type="button"
-          class="text-primary font-bold py-0 px-2 rounded transition duration-300">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-color">
+          <i class="fa-solid fa-square-arrow-up-right"></i>
+          Ver mais
         </button>
       </div>
-      <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
+      <div class="overflow-x-auto max-h-96 relative sm:rounded-lg">
+        <div id="produtos_tabela_dashboard_sem_produtos"
+          class="p-2 text-sm h-80 text-gray-500 dark:text-gray-400 flex justify-center items-center flex-col">
+          <i class="fa-solid fa-boxes-stacked text-5xl"></i>
+          Nenhum produto cadastrado
+        </div>
+        <table id="ultimos_produtos_dashboard_table"
+          class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="bg-gray-200 dark:bg-gray-950 text-gray-600 dark:text-gray-200">
             <tr>
               <th class="p-2">#ID</th>
               <th class="p-2">Produto</th>
@@ -187,25 +212,31 @@
               <th class="p-2">Valor</th>
             </tr>
           </thead>
-          <tbody class="text-gray-700 dark:text-gray-200" id="ultimos_produtos_dashboard_tabela">
-            <tr class="border-t">
-              <td class="p-2" colspan="5">Nenhum produto cadastrado</td>
-            </tr>
+          <tbody class="text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900"
+            id="ultimos_produtos_dashboard_tabela">
           </tbody>
         </table>
       </div>
     </div>
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex justify-between items-center mb-1">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Estoques baixos</h2>
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-box-open text-red-600"></i> Estoques baixos
+        </h2>
         <button onclick="loadPage('partials/produtos/index.html')" type="button"
-          class="text-primary font-bold py-0 px-2 rounded transition duration-300">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          class="border-2 border-gray-300 text-gray-950 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-color">
+          <i class="fa-solid fa-square-arrow-up-right"></i>
+          Ver mais
         </button>
       </div>
-      <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+      <div class="overflow-x-auto max-h-96 relative sm:rounded-lg">
+        <div id="produtos_em_baixa_dashboard_sem_produtos"
+          class="p-2 text-sm h-80 text-gray-500 dark:text-gray-400 flex justify-center items-center flex-col">
+          <i class="fa-solid fa-box-open text-5xl"></i>
+          Nenhum produto em baixa
+        </div>
+        <table id="produtos_em_baixa_dashboard_table"
+          class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
             <tr>
               <th class="p-2">#ID</th>
@@ -215,10 +246,8 @@
               <th class="p-2">Valor</th>
             </tr>
           </thead>
-          <tbody class="text-gray-700 dark:text-gray-200" id="produtos_em_baixa_dashboard_tabela">
-            <tr class="border-t">
-              <td class="p-2 text-center" colspan="5">Nenhum produto em baixa</td>
-            </tr>
+          <tbody class="text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900"
+            id="produtos_em_baixa_dashboard_tabela">
           </tbody>
         </table>
       </div>
@@ -262,9 +291,45 @@
     }
   });
 
+  function chartBySaldoMensal(data) {
+    new Chart(document.getElementById('grafico_saldo_mensal'), {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: data.datasets,
+      },
+      options: {
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          title: {
+            display: false
+          },
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          y: {
+            ticks: {
+              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+            }
+          },
+          x: {
+            ticks: {
+              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+            }
+          },
+        }
+      }
+    });
+  }
+
   function generateChartVendas(data) {
     // Gráfico de Barras
-    new Chart(document.getElementById('barChart'), {
+    new Chart(document.getElementById('chartVendasMensais'), {
       type: 'bar',
       data,
       options: {
@@ -279,6 +344,11 @@
           },
         },
         scales: {
+          x: {
+            ticks: {
+              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+            },
+          },
           y1: {
             ticks: {
               color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
@@ -361,6 +431,8 @@
         $("#total_clientes_dashboard").text(data.clientes);
 
         if (data.produtos.length > 0) {
+          $("#produtos_tabela_dashboard_sem_produtos").addClass("hidden");
+          $("#ultimos_produtos_dashboard_table").removeClass("hidden");
           $("#ultimos_produtos_dashboard_tabela").empty();
           data.produtos.forEach(produto => {
             $("#ultimos_produtos_dashboard_tabela").append(`
@@ -373,9 +445,15 @@
             </tr>
           `);
           });
+        }else {
+          $("#ultimos_produtos_dashboard_table").addClass("hidden");
+          $("#produtos_tabela_dashboard_sem_produtos").removeClass("hidden");
         }
 
         if (data.estoquesBaixos.length > 0) {
+          $("#produtos_em_baixa_dashboard_sem_produtos").addClass("hidden");
+          $("#produtos_em_baixa_dashboard_table").removeClass("hidden");
+
           $("#produtos_em_baixa_dashboard_tabela").empty();
           data.estoquesBaixos.forEach(produto => {
             $("#produtos_em_baixa_dashboard_tabela").append(`
@@ -388,6 +466,9 @@
             </tr>
           `);
           });
+        } else {
+          $("#produtos_em_baixa_dashboard_table").addClass("hidden");
+          $("#produtos_em_baixa_dashboard_sem_produtos").removeClass("hidden");
         }
       },
       error: function (error) {
@@ -409,6 +490,17 @@
         console.log(error);
       }
     });
+
+    fetch(`/lancamentos/graficos/saldo-mensal`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+      }
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        chartBySaldoMensal(data);
+      });
   }
 
   getDadosDashboard();

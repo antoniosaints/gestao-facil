@@ -13,7 +13,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
       telefone,
       conta,
       tipo,
-      funcionarios,
+      funcionarios = 1,
       dicasNovidades,
       cpfCnpj,
     } = req.body;
