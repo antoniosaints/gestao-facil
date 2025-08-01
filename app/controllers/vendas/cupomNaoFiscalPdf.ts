@@ -52,20 +52,34 @@ export const gerarCupomPdf = async (
   doc.fontSize(8).font("Roboto").text(conta.email, {
     align: "center",
   });
+  doc
+    .fontSize(8)
+    .font("Roboto")
+    .text(conta.documento || "N/A", {
+      align: "center",
+    });
+  doc
+    .fontSize(8)
+    .font("Roboto")
+    .text(conta.telefone || "N/A", {
+      align: "center",
+    });
+
+  doc.moveDown(0.5);
+  doc.text("_".repeat(63), { align: "center" });
 
   doc
     .moveDown(0.3)
     .font("Roboto")
     .fontSize(9)
-    .text(`Data: ${dayjs(venda.data).format("DD/MM/YYYY HH:mm")}`)
+    .text(`Data: ${dayjs(venda.data).format("DD/MM/YYYY")}`)
     .text(`Venda Nº: ${venda.id}`)
     .text(`Cliente: ${venda.cliente?.nome || "N/A"}`)
-    .text(`Vendedor: ${venda.vendedor?.nome || "N/A"}`);
+    .text(`Vendedor: ${venda.vendedor?.nome || "N/A"}`)
+    .text(`Garantia: ${venda.garantia || "N/A"}`);
 
   doc.moveDown(0.5);
-  doc.text("=".repeat(42), { align: "center" });
-
-  // Itens
+  
   doc
     .fontSize(9)
     .font("Roboto-Bold")

@@ -504,37 +504,4 @@
   }
 
   getDadosDashboard();
-  // Gráfico de Linhas
-  new Chart(document.getElementById('lineChart'), {
-    type: 'line',
-    data: {
-      labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
-      datasets: [{
-        label: 'Acessos',
-        data: [300, 450, 400, 380, 500, 600, 550],
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16,185,129,0.1)',
-        fill: true,
-        tension: 0.4
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          ticks: {
-            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-          }
-        },
-        y: {
-          ticks: {
-            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-          }
-        }
-      }
-    }
-  });
 </script>
