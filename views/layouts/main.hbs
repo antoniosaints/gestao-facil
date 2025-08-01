@@ -63,7 +63,7 @@
       Gestão Fácil - ERP
     </h1>
 
-    <nav class="flex flex-col space-y-2" id="content-sidebar-menu"></nav>
+    <nav class="flex flex-col space-y-2 select-none" id="content-sidebar-menu"></nav>
 
     <button onclick="toggleTheme()"
       class="mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
@@ -125,6 +125,10 @@
     closeBtn.addEventListener("click", () => {
       sidebar.classList.add("-translate-x-full");
     });
+
+    function openSideBarMobile() {
+      sidebar.classList.remove("-translate-x-full");
+    }
 
   </script>
   <script src="/notification/client.js" defer></script>

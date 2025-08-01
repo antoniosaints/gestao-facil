@@ -13,12 +13,13 @@ export async function canReceivePush(userId: number): Promise<boolean> {
   return usuario.pushReceiver!;
 }
 
-export async function enqueuePushNotification(payload: NotificationPayload, contaId: number) {
+export async function enqueuePushNotification(payload: NotificationPayload, contaId: number, adminsOnly: boolean = false) {
   const subscriptions = await prisma.subscription.findMany({
     where: {
       Usuarios: {
         pushReceiver: true,
-        contaId: contaId
+        contaId: contaId,
+        permissao: adminsOnly ? { in: ["admin", "root"] } : undefined,
       }
     }
   });

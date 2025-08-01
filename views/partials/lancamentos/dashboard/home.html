@@ -1,5 +1,5 @@
 <div class="flex flex-col gap-6">
-  <div class="flex justify-between items-center">
+  <div class="flex flex-col md:flex-row gap-2 justify-between items-center">
     <h2 class="text-xl md:text-2xl font-bold text-black dark:text-white">
       <i class="fa-solid fa-money-bill-trend-up text-emerald-600"></i> Painel financeiro
     </h2>
@@ -13,7 +13,9 @@
       </input>
       <button
         class="bg-primary text-white text-nowrap px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
-          class="fa-solid fa-file-pdf"></i> Exportar</button>
+          class="fa-solid fa-file-pdf"></i>
+        <div class="hidden md:inline">Exportar</div>
+      </button>
     </div>
   </div>
 
@@ -234,10 +236,28 @@
       </div>
     </div>
   </div>
+
 </div>
+
+<nav
+  class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
+  <button type="button" onclick="loadPage('/lancamentos/resumo')"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-money-bill-trend-up text-lg"></i>
+    <span class="text-xs">Lançamentos</span>
+  </button>
+  <button type="button" onclick="openSideBarMobile()"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-bars text-lg"></i>
+    <span class="text-xs">Menu</span>
+  </button>
+</nav>
 
 <script>
   (() => {
+    if (window.innerWidth < 768) {
+      switchToNormalScreen();
+    }
     function chartByCategoria(data) {
       new Chart(document.getElementById('grafico_por_categoria'), {
         type: 'pie',

@@ -78,6 +78,8 @@ model Contas {
   ContasFinanceiro     ContasFinanceiro[]
   CategoriaFinanceiro  CategoriaFinanceiro[]
   LancamentoFinanceiro LancamentoFinanceiro[]
+  Servicos             Servicos[]
+  OrdensServico        OrdensServico[]
 }
 
 model Usuarios {
@@ -126,6 +128,7 @@ model ClientesFornecedores {
   Vendas               Vendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   LancamentoFinanceiro LancamentoFinanceiro[]
+  Assinatura           Assinatura[]
 }
 
 enum TipoMovimentacao {
@@ -178,6 +181,109 @@ model Produto {
   codigo               String?
   ItensVendas          ItensVendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
+  ItensOrdensServico   ItensOrdensServico[]
+}
+
+model Servicos {
+  id                 Int                  @id @default(autoincrement())
+  contaId            Int
+  Contas             Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                String               @default("SER_000")
+  nome               String
+  preco              Decimal              @db.Decimal(10, 2)
+  status             Boolean              @default(true)
+  descricao          String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  Assinatura         Assinatura[]
+  ItensOrdensServico ItensOrdensServico[]
+}
+
+enum StatusOrdemServico {
+  ABERTA
+  ORCAMENTO
+  APROVADA
+  ANDAMENTO
+  FATURADA
+  CANCELADA
+}
+
+model OrdensServico {
+  id                 Int                  @id @default(autoincrement())
+  contaId            Int
+  Contas             Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                String               @default("OS_000")
+  descricao          String?
+  descricaoCliente   String?
+  status             StatusOrdemServico   @default(ABERTA)
+  garantia           String
+  desconto           Decimal              @default(0) @db.Decimal(10, 2)
+  data               DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  ItensOrdensServico ItensOrdensServico[]
+}
+
+enum TipoItemOrdemServico {
+  SERVICO
+  PRODUTO
+}
+
+model ItensOrdensServico {
+  id         Int                  @id @default(autoincrement())
+  itemName   String
+  tipo       TipoItemOrdemServico
+  ordemId    Int
+  ordem      OrdensServico        @relation(fields: [ordemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoId  Int?
+  produto    Produto?             @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  servicoId  Int?
+  servico    Servicos?            @relation(fields: [servicoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  quantidade Int
+  valor      Decimal              @db.Decimal(10, 2)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+}
+
+enum AssinaturaInternaStatus {
+  ATIVA
+  CANCELADA
+  SUSPENSA
+}
+
+enum AssinaturaInternaRecorrencia {
+  MENSAL
+  BIMESTRAL
+  TRIMESTRAL
+  ANUAL
+}
+
+model Assinatura {
+  id              Int                          @id @default(autoincrement())
+  clienteId       Int
+  servicoId       Int
+  inicio          DateTime
+  fim             DateTime?
+  status          AssinaturaInternaStatus      @default(ATIVA)
+  recorrencia     AssinaturaInternaRecorrencia @default(MENSAL)
+  proximaCobranca DateTime
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  cliente         ClientesFornecedores         @relation(fields: [clienteId], references: [id])
+  servico         Servicos                     @relation(fields: [servicoId], references: [id])
+  cobrancas       Cobranca[]
+}
+
+model Cobranca {
+  id            Int        @id @default(autoincrement())
+  assinaturaId  Int
+  vencimento    DateTime
+  pago          Boolean    @default(false)
+  valor         Decimal    @db.Decimal(10, 2)
+  dataPagamento DateTime?
+  assinatura    Assinatura @relation(fields: [assinaturaId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
 enum StatusVenda {

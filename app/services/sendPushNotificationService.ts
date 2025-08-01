@@ -13,12 +13,21 @@ export type NotificationPayload = {
   body: string;
 };
 
-export async function sendPushNotification(payload: NotificationPayload, contaId: number) {
+export async function sendPushNotification(
+  payload: NotificationPayload,
+  contaId: number,
+  adminsOnly: boolean = false
+) {
   const subscriptions = await prisma.subscription.findMany({
-     where: {
+    where: {
       Usuarios: {
         pushReceiver: true,
         contaId: contaId,
+        permissao: adminsOnly
+          ? {
+              in: ["admin", "root"],
+            }
+          : undefined,
       },
     },
   });

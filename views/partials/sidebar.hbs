@@ -12,6 +12,32 @@
 <a onclick="loadPage('/produtos/resumo')"
     class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md transition"><i
         class="fa-solid fa-boxes-stacked text-blue-600 px-2"></i> Produtos</a>
+<div class="relative inline-block hidden">
+    <span data-dropdown-toggle
+        class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md justify-between transition flex items-center">
+        <div>
+            <i class="fa-solid fa-screwdriver-wrench text-yellow-600 px-2"></i> Serviços
+        </div>
+        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+    </span>
+    <div class="absolute z-10 hidden bg-white dark:bg-background-dark border border-border dark:border-border-dark mt-0 rounded-md shadow-lg min-w-full"
+        data-dropdown-menu>
+        <ul class="text-sm text-gray-700 dark:text-gray-200">
+            <li>
+                <a href="javascript:void(0)" onclick="loadPage('/lancamentos/web/dashboard')"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i class="fa-solid fa-scroll text-yellow-600 px-2"></i> Ordens de serviço</a>
+            </li>
+            <li>
+                <a href="javascript:void(0)" onclick="loadPage('/lancamentos/resumo')"
+                    class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <i class="fa-solid fa-screwdriver-wrench text-yellow-600 px-2"></i> Serviços</a>
+            </li>
+        </ul>
+    </div>
+</div>
 <div class="relative inline-block">
     <span data-dropdown-toggle
         class="cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-md justify-between transition flex items-center">
