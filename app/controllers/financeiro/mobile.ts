@@ -29,7 +29,7 @@ export const ListagemMobileLancamentos = async (req: Request, res: Response): Pr
         where,
         skip,
         take,
-        orderBy: { dataLancamento: "asc" },
+        orderBy: { dataLancamento: "desc" },
       }),
       model.count({ where }),
     ]);

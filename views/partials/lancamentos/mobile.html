@@ -160,11 +160,15 @@
           const dataRender = `
               <div class="rounded-2xl cursor-pointer shadow-md bg-card dark:bg-card-dark p-4">
                 <div class="flex justify-between">
-                  <div class="text-md font-semibold dark:text-white">${row.Uid}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Preço: R$ ${row.valorTotal}</div>
+                  <div class="text-sm font-semibold dark:text-white">${row.Uid}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">R$ ${Number(row.valorTotal).toFixed(2).replace(".", ",")}</div>
                 </div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Status: ${row.status}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Data: ${new Date(row.dataLancamento).toLocaleDateString("pt-BR")}</div>
+                <div class="flex justify-between">
+                  <div class="text-xs text-gray-500 dark:text-gray-400">Status: ${row.status}</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">${new Date(row.dataLancamento).toLocaleDateString("pt-BR")}</div>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 truncate">${row.descricao}</div>
+                
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
                         <button onclick="visualizarProduto(${row.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
