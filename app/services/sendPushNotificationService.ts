@@ -1,6 +1,7 @@
 import webPush from "web-push";
 import { prisma } from "../utils/prisma";
 import { env } from "../utils/dotenv";
+import { Subscription } from "../../generated";
 
 webPush.setVapidDetails(
   "mailto:costaantonio883@gmail.com",
@@ -36,7 +37,7 @@ export async function sendPushNotification(
   const message = JSON.stringify(payload);
 
   await Promise.all(
-    subscriptions.map(async (sub: any) => {
+    subscriptions.map(async (sub: Subscription) => {
       try {
         await webPush.sendNotification(
           {
