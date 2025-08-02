@@ -3,253 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modal de Lançamento</title>
+    <title>Agenda - Calendário</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .week-grid {
+            display: grid;
+            grid-template-columns: 80px repeat(7, 1fr);
+        }
+        .day-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+        }
+        .hour-slot {
+            min-height: 60px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .event {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: 1px 0;
+            font-size: 12px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .event:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .today {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .selected-day {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    
-    <!-- Botão para abrir o modal -->
-    <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition duration-200">
-        + Novo Lançamento
-    </button>
-
-    <!-- Sheet Overlay -->
-    <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 transition-opacity duration-300">
-        <!-- Sheet Container -->
-        <div id="sheetContainer" class="fixed top-0 right-0 h-full w-1/2 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
-            <!-- Sheet Header -->
-            <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 sticky top-0 z-10">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-2xl font-bold">Novo Lançamento</h2>
-                    <button onclick="closeModal()" class="text-white hover:text-gray-200 transition duration-200">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 max-w-7xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h1 class="text-3xl font-bold text-gray-800">Minha Agenda</h1>
+                
+                <!-- Navegação de Data -->
+                <div class="flex items-center gap-4">
+                    <button id="prevPeriod" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                        </svg>
+                    </button>
+                    
+                    <div class="text-center">
+                        <h2 id="currentPeriod" class="text-xl font-semibold text-gray-700"></h2>
+                        <p id="currentYear" class="text-sm text-gray-500"></p>
+                    </div>
+                    
+                    <button id="nextPeriod" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                         </svg>
                     </button>
                 </div>
+                
+                <button id="todayBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                    Hoje
+                </button>
+            </div>
+            
+            <!-- Controles de Visualização -->
+            <div class="flex justify-center mt-6 gap-2">
+                <button id="monthView" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    Mês
+                </button>
+                <button id="weekView" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                    Semana
+                </button>
+                <button id="dayView" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                    Dia
+                </button>
+            </div>
+        </div>
+
+        <!-- Área do Calendário -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <!-- Visualização Mensal -->
+            <div id="monthViewContainer" class="view-container">
+                <div class="calendar-grid bg-gray-50 border-b">
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Dom</div>
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Seg</div>
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Ter</div>
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Qua</div>
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Qui</div>
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Sex</div>
+                    <div class="p-3 text-center font-semibold text-gray-600">Sáb</div>
+                </div>
+                <div id="monthGrid" class="calendar-grid"></div>
             </div>
 
-            <!-- Sheet Body -->
-            <div class="p-6">
-                <form id="lancamentoForm" class="space-y-6">
-                    <!-- Grid Layout for Form Fields -->
-                    <div class="grid grid-cols-1 gap-6">
-                        
-                        <!-- Descrição -->
-                        <div>
-                            <label for="descricao" class="block text-sm font-medium text-gray-700 mb-2">
-                                Descrição *
-                            </label>
-                            <input 
-                                type="text" 
-                                id="descricao" 
-                                name="descricao" 
-                                required
-                                placeholder="Ex: Venda de 1 notebook"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
+            <!-- Visualização Semanal -->
+            <div id="weekViewContainer" class="view-container hidden">
+                <div class="week-grid bg-gray-50 border-b">
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r"></div>
+                    <div id="weekHeaders" class="contents"></div>
+                </div>
+                <div id="weekGrid" class="week-grid overflow-y-auto max-h-screen"></div>
+            </div>
 
-                        <!-- Tipo -->
-                        <div>
-                            <label for="tipo" class="block text-sm font-medium text-gray-700 mb-2">
-                                Tipo *
-                            </label>
-                            <select 
-                                id="tipo" 
-                                name="tipo" 
-                                required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                                <option value="">Selecione o tipo</option>
-                                <option value="RECEITA">Receita</option>
-                                <option value="DESPESA">Despesa</option>
-                            </select>
-                        </div>
+            <!-- Visualização Diária -->
+            <div id="dayViewContainer" class="view-container hidden">
+                <div class="day-grid bg-gray-50 border-b">
+                    <div class="p-3 text-center font-semibold text-gray-600 border-r">Hora</div>
+                    <div id="dayHeader" class="p-3 text-center font-semibold text-gray-600"></div>
+                </div>
+                <div id="dayGrid" class="day-grid overflow-y-auto max-h-screen"></div>
+            </div>
+        </div>
 
-                        <!-- Valor Total -->
-                        <div>
-                            <label for="valorTotal" class="block text-sm font-medium text-gray-700 mb-2">
-                                Valor Total *
-                            </label>
-                            <input 
-                                type="number" 
-                                id="valorTotal" 
-                                name="valorTotal" 
-                                required
-                                step="0.01"
-                                placeholder="0,00"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
-
-                        <!-- Valor Entrada -->
-                        <div>
-                            <label for="valorEntrada" class="block text-sm font-medium text-gray-700 mb-2">
-                                Valor Entrada
-                            </label>
-                            <input 
-                                type="number" 
-                                id="valorEntrada" 
-                                name="valorEntrada" 
-                                step="0.01"
-                                placeholder="0,00"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
-
-                        <!-- Data Entrada -->
-                        <div>
-                            <label for="dataEntrada" class="block text-sm font-medium text-gray-700 mb-2">
-                                Data Entrada
-                            </label>
-                            <input 
-                                type="date" 
-                                id="dataEntrada" 
-                                name="dataEntrada" 
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
-
-                        <!-- Desconto -->
-                        <div>
-                            <label for="desconto" class="block text-sm font-medium text-gray-700 mb-2">
-                                Desconto
-                            </label>
-                            <input 
-                                type="number" 
-                                id="desconto" 
-                                name="desconto" 
-                                step="0.01"
-                                placeholder="0,00"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
-
-                        <!-- Forma de Pagamento -->
-                        <div>
-                            <label for="formaPagamento" class="block text-sm font-medium text-gray-700 mb-2">
-                                Forma de Pagamento *
-                            </label>
-                            <select 
-                                id="formaPagamento" 
-                                name="formaPagamento" 
-                                required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                                <option value="">Selecione a forma</option>
-                                <option value="PIX">PIX</option>
-                                <option value="DINHEIRO">Dinheiro</option>
-                                <option value="CARTAO_CREDITO">Cartão de Crédito</option>
-                                <option value="CARTAO_DEBITO">Cartão de Débito</option>
-                                <option value="BOLETO">Boleto</option>
-                                <option value="TRANSFERENCIA">Transferência</option>
-                            </select>
-                        </div>
-
-                        <!-- Cliente -->
-                        <div>
-                            <label for="clienteId" class="block text-sm font-medium text-gray-700 mb-2">
-                                Cliente *
-                            </label>
-                            <select 
-                                id="clienteId" 
-                                name="clienteId" 
-                                required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                                <option value="">Selecione o cliente</option>
-                                <option value="1">João Silva</option>
-                                <option value="2">Maria Santos</option>
-                                <option value="3">Pedro Oliveira</option>
-                            </select>
-                        </div>
-
-                        <!-- Categoria -->
-                        <div>
-                            <label for="categoriaId" class="block text-sm font-medium text-gray-700 mb-2">
-                                Categoria *
-                            </label>
-                            <select 
-                                id="categoriaId" 
-                                name="categoriaId" 
-                                required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                                <option value="">Selecione a categoria</option>
-                                <option value="1">Vendas</option>
-                                <option value="2">Serviços</option>
-                                <option value="3">Equipment</option>
-                                <option value="4">Material</option>
-                            </select>
-                        </div>
-
-                        <!-- Data Lançamento -->
-                        <div>
-                            <label for="dataLancamento" class="block text-sm font-medium text-gray-700 mb-2">
-                                Data Lançamento *
-                            </label>
-                            <input 
-                                type="date" 
-                                id="dataLancamento" 
-                                name="dataLancamento" 
-                                required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
-
-                        <!-- Conta Financeiro -->
-                        <div>
-                            <label for="contasFinanceiroId" class="block text-sm font-medium text-gray-700 mb-2">
-                                Conta Financeira *
-                            </label>
-                            <select 
-                                id="contasFinanceiroId" 
-                                name="contasFinanceiroId" 
-                                required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                                <option value="">Selecione a conta</option>
-                                <option value="1">Conta Corrente Principal</option>
-                                <option value="2">Conta Poupança</option>
-                                <option value="3">Caixa</option>
-                            </select>
-                        </div>
-
-                        <!-- Parcelas -->
-                        <div>
-                            <label for="parcelas" class="block text-sm font-medium text-gray-700 mb-2">
-                                Parcelas *
-                            </label>
-                            <input 
-                                type="number" 
-                                id="parcelas" 
-                                name="parcelas" 
-                                required
-                                min="1"
-                                value="1"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            >
-                        </div>
+        <!-- Modal para Adicionar Evento -->
+        <div id="eventModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <h3 class="text-lg font-semibold mb-4">Adicionar Evento</h3>
+                <form id="eventForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Título</label>
+                        <input type="text" id="eventTitle" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                     </div>
-
-                    <!-- Sheet Footer -->
-                    <div class="sticky bottom-0 bg-white border-t border-gray-200 p-6 -mx-6 -mb-6">
-                        <div class="flex flex-col gap-3">
-                            <button 
-                                type="submit"
-                                class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition duration-200 shadow-lg"
-                            >
-                                Salvar Lançamento
-                            </button>
-                            <button 
-                                type="button" 
-                                onclick="closeModal()"
-                                class="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition duration-200"
-                            >
-                                Cancelar
-                            </button>
-                        </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Data</label>
+                        <input type="date" id="eventDate" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Hora de Início</label>
+                        <input type="time" id="eventStartTime" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Hora de Fim</label>
+                        <input type="time" id="eventEndTime" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                        <textarea id="eventDescription" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="3"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" id="cancelEvent" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                            Salvar
+                        </button>
                     </div>
                 </form>
             </div>
@@ -257,108 +166,382 @@
     </div>
 
     <script>
-        // Funções para controlar o sheet
-        function openModal() {
-            const overlay = document.getElementById('modalOverlay');
-            const sheet = document.getElementById('sheetContainer');
+        class Calendar {
+            constructor() {
+                this.currentDate = new Date();
+                this.currentView = 'month';
+                this.events = this.loadEvents();
+                this.selectedDate = new Date();
+                
+                this.monthNames = [
+                    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                ];
+                
+                this.dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                
+                this.initEventListeners();
+                this.render();
+            }
             
-            overlay.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
+            initEventListeners() {
+                // Navegação
+                document.getElementById('prevPeriod').addEventListener('click', () => this.navigatePrevious());
+                document.getElementById('nextPeriod').addEventListener('click', () => this.navigateNext());
+                document.getElementById('todayBtn').addEventListener('click', () => this.goToToday());
+                
+                // Mudança de visualização
+                document.getElementById('monthView').addEventListener('click', () => this.changeView('month'));
+                document.getElementById('weekView').addEventListener('click', () => this.changeView('week'));
+                document.getElementById('dayView').addEventListener('click', () => this.changeView('day'));
+                
+                // Modal de evento
+                document.getElementById('cancelEvent').addEventListener('click', () => this.closeModal());
+                document.getElementById('eventForm').addEventListener('submit', (e) => this.saveEvent(e));
+                
+                // Fechar modal clicando fora
+                document.getElementById('eventModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'eventModal') this.closeModal();
+                });
+            }
             
-            // Pequeno delay para garantir que o elemento está visível antes da animação
-            setTimeout(() => {
-                overlay.style.opacity = '1';
-                sheet.classList.remove('translate-x-full');
-            }, 10);
+            changeView(view) {
+                this.currentView = view;
+                
+                // Atualizar botões
+                document.querySelectorAll('.view-container').forEach(container => {
+                    container.classList.add('hidden');
+                });
+                
+                document.querySelectorAll('#monthView, #weekView, #dayView').forEach(btn => {
+                    btn.classList.remove('bg-blue-500', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                
+                const activeBtn = document.getElementById(view + 'View');
+                activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                activeBtn.classList.add('bg-blue-500', 'text-white');
+                
+                document.getElementById(view + 'ViewContainer').classList.remove('hidden');
+                
+                this.render();
+            }
             
-            // Define a data atual como padrão
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('dataLancamento').value = today;
+            navigatePrevious() {
+                if (this.currentView === 'month') {
+                    this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+                } else if (this.currentView === 'week') {
+                    this.currentDate.setDate(this.currentDate.getDate() - 7);
+                } else {
+                    this.currentDate.setDate(this.currentDate.getDate() - 1);
+                }
+                this.render();
+            }
+            
+            navigateNext() {
+                if (this.currentView === 'month') {
+                    this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+                } else if (this.currentView === 'week') {
+                    this.currentDate.setDate(this.currentDate.getDate() + 7);
+                } else {
+                    this.currentDate.setDate(this.currentDate.getDate() + 1);
+                }
+                this.render();
+            }
+            
+            goToToday() {
+                this.currentDate = new Date();
+                this.selectedDate = new Date();
+                this.render();
+            }
+            
+            render() {
+                this.updateHeader();
+                
+                if (this.currentView === 'month') {
+                    this.renderMonth();
+                } else if (this.currentView === 'week') {
+                    this.renderWeek();
+                } else {
+                    this.renderDay();
+                }
+            }
+            
+            updateHeader() {
+                const currentPeriod = document.getElementById('currentPeriod');
+                const currentYear = document.getElementById('currentYear');
+                
+                if (this.currentView === 'month') {
+                    currentPeriod.textContent = this.monthNames[this.currentDate.getMonth()];
+                    currentYear.textContent = this.currentDate.getFullYear();
+                } else if (this.currentView === 'week') {
+                    const weekStart = this.getWeekStart(this.currentDate);
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekEnd.getDate() + 6);
+                    
+                    if (weekStart.getMonth() === weekEnd.getMonth()) {
+                        currentPeriod.textContent = `${weekStart.getDate()} - ${weekEnd.getDate()} de ${this.monthNames[weekStart.getMonth()]}`;
+                    } else {
+                        currentPeriod.textContent = `${weekStart.getDate()} ${this.monthNames[weekStart.getMonth()]} - ${weekEnd.getDate()} ${this.monthNames[weekEnd.getMonth()]}`;
+                    }
+                    currentYear.textContent = this.currentDate.getFullYear();
+                } else {
+                    currentPeriod.textContent = `${this.currentDate.getDate()} de ${this.monthNames[this.currentDate.getMonth()]}`;
+                    currentYear.textContent = this.currentDate.getFullYear();
+                }
+            }
+            
+            renderMonth() {
+                const monthGrid = document.getElementById('monthGrid');
+                monthGrid.innerHTML = '';
+                
+                const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+                const lastDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
+                const startDate = new Date(firstDay);
+                startDate.setDate(startDate.getDate() - firstDay.getDay());
+                
+                const today = new Date();
+                
+                for (let i = 0; i < 42; i++) {
+                    const cellDate = new Date(startDate);
+                    cellDate.setDate(startDate.getDate() + i);
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'p-2 min-h-32 border-r border-b bg-white hover:bg-gray-50 cursor-pointer transition-colors';
+                    
+                    const isCurrentMonth = cellDate.getMonth() === this.currentDate.getMonth();
+                    const isToday = cellDate.toDateString() === today.toDateString();
+                    
+                    if (!isCurrentMonth) {
+                        cell.classList.add('text-gray-400', 'bg-gray-50');
+                    }
+                    
+                    if (isToday) {
+                        cell.classList.add('today');
+                    }
+                    
+                    const dayNumber = document.createElement('div');
+                    dayNumber.className = `text-sm font-medium mb-1 ${isToday ? 'text-white' : ''}`;
+                    dayNumber.textContent = cellDate.getDate();
+                    cell.appendChild(dayNumber);
+                    
+                    // Adicionar eventos do dia
+                    const dayEvents = this.getEventsForDate(cellDate);
+                    dayEvents.forEach(event => {
+                        const eventDiv = document.createElement('div');
+                        eventDiv.className = 'event text-xs truncate';
+                        eventDiv.textContent = event.title;
+                        eventDiv.onclick = (e) => {
+                            e.stopPropagation();
+                            this.showEventDetails(event);
+                        };
+                        cell.appendChild(eventDiv);
+                    });
+                    
+                    cell.onclick = () => {
+                        this.selectedDate = new Date(cellDate);
+                        this.openModal();
+                    };
+                    
+                    monthGrid.appendChild(cell);
+                }
+            }
+            
+            renderWeek() {
+                const weekStart = this.getWeekStart(this.currentDate);
+                const weekHeaders = document.getElementById('weekHeaders');
+                const weekGrid = document.getElementById('weekGrid');
+                
+                // Limpar conteúdo
+                weekHeaders.innerHTML = '';
+                weekGrid.innerHTML = '';
+                
+                // Cabeçalhos dos dias
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(weekStart);
+                    date.setDate(weekStart.getDate() + i);
+                    
+                    const header = document.createElement('div');
+                    header.className = 'p-3 text-center font-semibold text-gray-600 border-r';
+                    header.innerHTML = `${this.dayNames[i]}<br><span class="text-sm">${date.getDate()}</span>`;
+                    weekHeaders.appendChild(header);
+                }
+                
+                // Gerar horários (7h às 22h)
+                for (let hour = 7; hour <= 22; hour++) {
+                    // Coluna de hora
+                    const timeLabel = document.createElement('div');
+                    timeLabel.className = 'hour-slot p-2 text-sm text-gray-500 bg-gray-50 border-r flex items-center justify-center';
+                    timeLabel.textContent = `${hour.toString().padStart(2, '0')}:00`;
+                    weekGrid.appendChild(timeLabel);
+                    
+                    // Colunas dos dias
+                    for (let day = 0; day < 7; day++) {
+                        const date = new Date(weekStart);
+                        date.setDate(weekStart.getDate() + day);
+                        
+                        const cell = document.createElement('div');
+                        cell.className = 'hour-slot border-r bg-white hover:bg-gray-50 cursor-pointer transition-colors relative p-1';
+                        
+                        // Verificar eventos neste horário
+                        const events = this.getEventsForDateTime(date, hour);
+                        events.forEach(event => {
+                            const eventDiv = document.createElement('div');
+                            eventDiv.className = 'event text-xs';
+                            eventDiv.textContent = event.title;
+                            eventDiv.onclick = (e) => {
+                                e.stopPropagation();
+                                this.showEventDetails(event);
+                            };
+                            cell.appendChild(eventDiv);
+                        });
+                        
+                        cell.onclick = () => {
+                            this.selectedDate = new Date(date);
+                            document.getElementById('eventStartTime').value = `${hour.toString().padStart(2, '0')}:00`;
+                            document.getElementById('eventEndTime').value = `${(hour + 1).toString().padStart(2, '0')}:00`;
+                            this.openModal();
+                        };
+                        
+                        weekGrid.appendChild(cell);
+                    }
+                }
+            }
+            
+            renderDay() {
+                const dayHeader = document.getElementById('dayHeader');
+                const dayGrid = document.getElementById('dayGrid');
+                
+                dayHeader.innerHTML = `${this.dayNames[this.currentDate.getDay()]}<br><span class="text-sm">${this.currentDate.getDate()} de ${this.monthNames[this.currentDate.getMonth()]}</span>`;
+                dayGrid.innerHTML = '';
+                
+                // Gerar horários (7h às 22h)
+                for (let hour = 7; hour <= 22; hour++) {
+                    // Coluna de hora
+                    const timeLabel = document.createElement('div');
+                    timeLabel.className = 'hour-slot p-2 text-sm text-gray-500 bg-gray-50 border-r flex items-center justify-center';
+                    timeLabel.textContent = `${hour.toString().padStart(2, '0')}:00`;
+                    dayGrid.appendChild(timeLabel);
+                    
+                    // Coluna do dia
+                    const cell = document.createElement('div');
+                    cell.className = 'hour-slot bg-white hover:bg-gray-50 cursor-pointer transition-colors relative p-2';
+                    
+                    // Verificar eventos neste horário
+                    const events = this.getEventsForDateTime(this.currentDate, hour);
+                    events.forEach(event => {
+                        const eventDiv = document.createElement('div');
+                        eventDiv.className = 'event mb-1';
+                        eventDiv.innerHTML = `<strong>${event.title}</strong><br><small>${event.startTime} - ${event.endTime}</small>`;
+                        eventDiv.onclick = (e) => {
+                            e.stopPropagation();
+                            this.showEventDetails(event);
+                        };
+                        cell.appendChild(eventDiv);
+                    });
+                    
+                    cell.onclick = () => {
+                        this.selectedDate = new Date(this.currentDate);
+                        document.getElementById('eventStartTime').value = `${hour.toString().padStart(2, '0')}:00`;
+                        document.getElementById('eventEndTime').value = `${(hour + 1).toString().padStart(2, '0')}:00`;
+                        this.openModal();
+                    };
+                    
+                    dayGrid.appendChild(cell);
+                }
+            }
+            
+            getWeekStart(date) {
+                const start = new Date(date);
+                start.setDate(date.getDate() - date.getDay());
+                return start;
+            }
+            
+            getEventsForDate(date) {
+                const dateStr = date.toISOString().split('T')[0];
+                return this.events.filter(event => event.date === dateStr);
+            }
+            
+            getEventsForDateTime(date, hour) {
+                const dateStr = date.toISOString().split('T')[0];
+                return this.events.filter(event => {
+                    if (event.date !== dateStr) return false;
+                    const startHour = parseInt(event.startTime.split(':')[0]);
+                    const endHour = parseInt(event.endTime.split(':')[0]);
+                    return hour >= startHour && hour <= endHour;
+                });
+            }
+            
+            openModal() {
+                const modal = document.getElementById('eventModal');
+                document.getElementById('eventDate').value = this.selectedDate.toISOString().split('T')[0];
+                modal.classList.remove('hidden');
+            }
+            
+            closeModal() {
+                const modal = document.getElementById('eventModal');
+                modal.classList.add('hidden');
+                document.getElementById('eventForm').reset();
+            }
+            
+            saveEvent(e) {
+                e.preventDefault();
+                
+                const event = {
+                    id: Date.now(),
+                    title: document.getElementById('eventTitle').value,
+                    date: document.getElementById('eventDate').value,
+                    startTime: document.getElementById('eventStartTime').value,
+                    endTime: document.getElementById('eventEndTime').value,
+                    description: document.getElementById('eventDescription').value
+                };
+                
+                this.events.push(event);
+                this.saveEvents();
+                this.closeModal();
+                this.render();
+            }
+            
+            showEventDetails(event) {
+                alert(`${event.title}\n${event.date}\n${event.startTime} - ${event.endTime}\n\n${event.description || 'Sem descrição'}`);
+            }
+            
+            saveEvents() {
+                const eventsData = JSON.stringify(this.events);
+                // Em um ambiente real, você salvaria no localStorage ou enviaria para um servidor
+                // localStorage.setItem('calendarEvents', eventsData);
+            }
+            
+            loadEvents() {
+                // Em um ambiente real, você carregaria do localStorage ou de um servidor
+                // const saved = localStorage.getItem('calendarEvents');
+                // return saved ? JSON.parse(saved) : [];
+                
+                // Eventos de exemplo
+                return [
+                    {
+                        id: 1,
+                        title: 'Reunião de equipe',
+                        date: '2025-08-02',
+                        startTime: '09:00',
+                        endTime: '10:00',
+                        description: 'Reunião semanal da equipe'
+                    },
+                    {
+                        id: 2,
+                        title: 'Apresentação projeto',
+                        date: '2025-08-05',
+                        startTime: '14:00',
+                        endTime: '15:30',
+                        description: 'Apresentar o projeto para o cliente'
+                    }
+                ];
+            }
         }
-
-        function closeModal() {
-            const overlay = document.getElementById('modalOverlay');
-            const sheet = document.getElementById('sheetContainer');
-            
-            overlay.style.opacity = '0';
-            sheet.classList.add('translate-x-full');
-            
-            // Aguarda a animação terminar antes de esconder
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-                document.body.style.overflow = 'auto';
-                // Limpa o formulário
-                document.getElementById('lancamentoForm').reset();
-            }, 300);
-        }
-
-        // Fechar sheet ao clicar no overlay (fora do sheet)
-        document.getElementById('modalOverlay').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
-
-        // Fechar sheet com ESC
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeModal();
-            }
-        });
-
-        // Manipular envio do formulário
-        document.getElementById('lancamentoForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Coletar dados do formulário
-            const formData = new FormData(this);
-            const lancamento = {};
-            
-            for (let [key, value] = formData.entries(), i = 0; i < formData.length; i++) {
-                lancamento[key] = value;
-            }
-            
-            // Converter campos numéricos
-            if (lancamento.valorTotal) lancamento.valorTotal = parseFloat(lancamento.valorTotal);
-            if (lancamento.valorEntrada) lancamento.valorEntrada = parseFloat(lancamento.valorEntrada);
-            if (lancamento.desconto) lancamento.desconto = parseFloat(lancamento.desconto);
-            if (lancamento.clienteId) lancamento.clienteId = parseInt(lancamento.clienteId);
-            if (lancamento.categoriaId) lancamento.categoriaId = parseInt(lancamento.categoriaId);
-            if (lancamento.contasFinanceiroId) lancamento.contasFinanceiroId = parseInt(lancamento.contasFinanceiroId);
-            if (lancamento.parcelas) lancamento.parcelas = parseInt(lancamento.parcelas);
-            
-            // Log dos dados (substitua pela sua lógica de envio)
-            console.log('Dados do lançamento:', lancamento);
-            
-            // Simular sucesso
-            alert('Lançamento salvo com sucesso!');
-            closeModal();
-        });
-
-        // Máscara para valores monetários
-        function formatCurrency(input) {
-            let value = input.value.replace(/\D/g, '');
-            value = (value / 100).toFixed(2);
-            input.value = value;
-        }
-
-        // Aplicar máscara nos campos de valor
-        document.getElementById('valorTotal').addEventListener('blur', function() {
-            if (this.value) {
-                this.value = parseFloat(this.value).toFixed(2);
-            }
-        });
-
-        document.getElementById('valorEntrada').addEventListener('blur', function() {
-            if (this.value) {
-                this.value = parseFloat(this.value).toFixed(2);
-            }
-        });
-
-        document.getElementById('desconto').addEventListener('blur', function() {
-            if (this.value) {
-                this.value = parseFloat(this.value).toFixed(2);
-            }
+        
+        // Inicializar calendário
+        document.addEventListener('DOMContentLoaded', () => {
+            new Calendar();
         });
     </script>
 </body>

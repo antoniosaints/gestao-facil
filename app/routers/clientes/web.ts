@@ -10,6 +10,9 @@ webClienteRouter.get("/resumo", authenticateJWT, (req, res) => {
 webClienteRouter.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/clientes/tabela.html");
 });
+webClienteRouter.get("/sheet/formulario", (req, res) => {
+  renderFileSimple(req, res, "partials/clientes/sheet/cadastro.html");
+});
 webClienteRouter.get("/editar/formulario", (req, res) => {
   const id = req.query.id;
 

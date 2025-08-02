@@ -127,7 +127,8 @@
                         <div>
                             <label for="clienteId" class="block text-sm font-medium mb-1">
                                 <i class="fa-solid fa-user"></i>
-                                Cliente *
+                                Cliente
+                                <a onclick="openModalClientes()" class="text-blue-500 px-2 cursor-pointer">Novo cliente</a>
                             </label>
                             <select id="clienteId" name="clienteId"
                                 class="w-full p-2.5 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
@@ -201,10 +202,6 @@
         // Animação de entrada
         sheet.classList.remove('translate-x-full');
         sheet.classList.add('translate-x-0');
-
-        // Define data atual
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('dataLancamento').value = today;
     }
 
     $("#formaPagamento").select2({
@@ -349,7 +346,7 @@
     })
 
     document.querySelector("#valorEntrada").addEventListener("input", (e) => {
-        const hasValue = e.target.value.length > 0;
+        const hasValue = e.target.value;
         const dataEntrada = document.querySelector("#dataEntrada");
         if (hasValue) {
             dataEntrada.required = true;
@@ -360,5 +357,6 @@
             dataEntrada.value = null;
             dataEntrada.disabled = true;
         }
-    })
+    });
+
 </script>
