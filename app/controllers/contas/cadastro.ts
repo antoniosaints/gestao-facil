@@ -3,6 +3,7 @@ import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
 import { prisma } from "../../utils/prisma";
 import { addDays } from "date-fns";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
 
 export const criarConta = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -77,4 +78,33 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
     console.log(err);
     handleError(res, err);
   }
+};
+
+export const select2Contas = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const search = (req.query.search as string) || "";
+  const { contaId } = getCustomRequest(req).customData;
+  const contas = await prisma.contasFinanceiro.findMany({
+    where: {
+      contaId,
+      nome: {
+        contains: search,
+      },
+    },
+    take: 10,
+    orderBy: { nome: "asc" },
+  });
+
+  if (!contas) {
+    return res.json({ results: [] });
+  }
+
+  const results = contas.map((row) => ({
+    id: row.id,
+    text: row.nome,
+  }));
+
+  res.json({ results });
 };

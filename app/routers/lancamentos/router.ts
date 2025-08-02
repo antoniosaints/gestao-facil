@@ -5,6 +5,8 @@ import { tableLancamentos } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
+import { select2Categorias } from "../../controllers/financeiro/categorias";
+import { select2Contas } from "../../controllers/contas/cadastro";
 
 const routerLancamentos = Router();
 
@@ -34,6 +36,10 @@ routerLancamentos.get("/relatorios/valor-conta", authenticateJWT, getLancamentos
 routerLancamentos.get("/relatorios/valor-status", authenticateJWT, getLancamentosPorStatus);
 routerLancamentos.get("/relatorios/valor-pagamento", authenticateJWT, getLancamentosPorPagamento);
 routerLancamentos.get("/relatorios/totais", authenticateJWT, getLancamentosTotaisGerais);
+// Categorias
+routerLancamentos.get("/categorias/select2", authenticateJWT, select2Categorias);
+// Contas
+routerLancamentos.get("/contas/select2", authenticateJWT, select2Contas);
 
 export {
     routerLancamentos

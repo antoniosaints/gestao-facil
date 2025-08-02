@@ -180,7 +180,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           clienteId: data.clienteId,
           vendedorId: data.vendedorId || customData.userId,
           contaId: customData.contaId,
-          data: addHours(data.data, 4),
+          data: addHours(data.data, 3),
           status: data.status,
           garantia: data.garantia,
         },
@@ -193,6 +193,9 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
 
         if (!produto) {
           throw new Error(`Produto ${item.id} não encontrado`);
+        }
+        if (produto.saidas === false) {
+          throw new Error(`Produto ${produto.nome} não permite saídas, altere isso antes de continuar`);
         }
 
         if (produto.estoque < item.quantidade) {

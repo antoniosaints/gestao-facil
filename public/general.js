@@ -15,6 +15,56 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 });
 
+function showNotification(message, type = "info") {
+  // Remove existing notifications
+  const existingNotification = document.querySelector(".notification");
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+
+  const notification = document.createElement("div");
+  notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full`;
+
+  const colors = {
+    success: "bg-green-500 text-white",
+    error: "bg-red-500 text-white",
+    info: "bg-blue-500 text-white",
+    warning: "bg-yellow-500 text-white",
+  };
+
+  const icons = {
+    success: "fas fa-check-circle",
+    error: "fas fa-exclamation-circle",
+    info: "fas fa-info-circle",
+    warning: "fas fa-exclamation-triangle",
+  };
+
+  notification.className += ` ${colors[type]}`;
+
+  notification.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <i class="${icons[type]}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+
+  document.body.appendChild(notification);
+
+  // Animate in
+  setTimeout(() => {
+    notification.classList.remove("translate-x-full");
+  }, 100);
+
+  // Auto remove
+  setTimeout(() => {
+    notification.classList.add("translate-x-full");
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 300);
+  }, 5000);
+}
 
 function MaskToInputMoney(element) {
   IMask(element, {

@@ -7,6 +7,9 @@ import PDFDocument from "pdfkit";
 import { atualizarStatusLancamentos } from "./hooks";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
+import { addHours } from "date-fns";
+import { formatCurrency } from "../../utils/formatters";
+import { handleError } from "../../utils/handleError";
 
 export const criarLancamento = async (
   req: Request,
@@ -31,10 +34,17 @@ export const criarLancamento = async (
     } = req.body;
 
     if (!parcelas) {
-      return res.status(400).json({ message: "Informe o número de parcelas, para lançamentos à vista, informe 1" });
-    }else {
+      return res
+        .status(400)
+        .json({
+          message:
+            "Informe o número de parcelas, para lançamentos à vista, informe 1",
+        });
+    } else {
       if (parcelas < 0) {
-        return res.status(400).json({ message: "Número de parcelas deve ser de 1 ou mais." });
+        return res
+          .status(400)
+          .json({ message: "Número de parcelas deve ser de 1 ou mais." });
       }
     }
 
@@ -83,77 +93,81 @@ export const criarLancamento = async (
         ? valorParcelado.dividedBy(totalParcelas).toDecimalPlaces(2)
         : new Decimal(0);
 
-    const novoLancamento = await prisma.lancamentoFinanceiro.create({
-      data: {
-        descricao,
-        Uid: gerarIdUnicoComMetaFinal("FIN"),
-        valorTotal: valorTotalDecimal,
-        valorEntrada: valorEntradaDecimal,
-        dataEntrada: dataEntrada ? new Date(dataEntrada) : null,
-        valorBruto: valorBrutoTotal,
-        desconto: new Decimal(desconto || 0),
-        tipo,
-        formaPagamento,
-        status,
-        clienteId: clienteId || null,
-        categoriaId,
-        contaId: customData.contaId,
-        recorrente: lancamentoRecorrente,
-        contasFinanceiroId: contasFinanceiroId || null,
-        dataLancamento: new Date(dataLancamento),
-      },
-    });
-
-    if (valorEntrada && Number(valorEntrada) > 0 && dataEntrada) {
-      await prisma.parcelaFinanceiro.create({
+    const lancamentoTx = await prisma.$transaction(async (tx) => {
+      const novoLancamento = await tx.lancamentoFinanceiro.create({
         data: {
-          Uid: gerarIdUnicoComMetaFinal("PAR"),
-          numero: 0,
-          valor: new Decimal(valorEntrada),
-          vencimento: new Date(dataEntrada),
-          pago: true,
-          valorPago: new Decimal(valorEntrada),
-          dataPagamento: new Date(dataEntrada),
-          formaPagamento: "DINHEIRO",
-          lancamentoId: novoLancamento.id,
+          descricao,
+          Uid: gerarIdUnicoComMetaFinal("FIN"),
+          valorTotal: valorTotalDecimal,
+          valorEntrada: valorEntradaDecimal,
+          dataEntrada: dataEntrada ? new Date(dataEntrada) : null,
+          valorBruto: valorBrutoTotal,
+          desconto: new Decimal(desconto || 0),
+          tipo,
+          formaPagamento,
+          status,
+          clienteId: Number(clienteId) || null,
+          categoriaId: Number(categoriaId),
+          contaId: customData.contaId,
+          recorrente: lancamentoRecorrente,
+          contasFinanceiroId: Number(contasFinanceiroId) || null,
+          dataLancamento: addHours(new Date(dataLancamento), 3),
         },
       });
-    }
 
-    // Criação das parcelas
-    const listaParcelas = [];
+      if (valorEntrada && Number(valorEntrada) > 0 && dataEntrada) {
+        await tx.parcelaFinanceiro.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("PAR"),
+            numero: 0,
+            valor: new Decimal(valorEntrada),
+            vencimento: new Date(dataEntrada),
+            pago: true,
+            valorPago: new Decimal(valorEntrada),
+            dataPagamento: new Date(dataEntrada),
+            formaPagamento: "DINHEIRO",
+            lancamentoId: novoLancamento.id,
+          },
+        });
+      }
 
-    for (let i = 0; i < totalParcelas; i++) {
-      const vencimento = dayjs(dataLancamento).add(i, "month").toDate();
+      // Criação das parcelas
+      const listaParcelas = [];
 
-      listaParcelas.push({
-        Uid: gerarIdUnicoComMetaFinal("PAR"),
-        numero: i + 1,
-        valor: valorParcela,
-        vencimento,
-        lancamentoId: novoLancamento.id,
-      });
-    }
+      for (let i = 0; i < totalParcelas; i++) {
+        const vencimento = dayjs(dataLancamento).add(i, "month").toDate();
 
-    if (totalParcelas > 0) {
-      await prisma.parcelaFinanceiro.createMany({ data: listaParcelas });
-    }
+        listaParcelas.push({
+          Uid: gerarIdUnicoComMetaFinal("PAR"),
+          numero: i + 1,
+          valor: valorParcela,
+          vencimento,
+          lancamentoId: novoLancamento.id,
+        });
+      }
+
+      if (totalParcelas > 0) {
+        await tx.parcelaFinanceiro.createMany({ data: listaParcelas });
+      }
+
+      return novoLancamento;
+    });
 
     await enqueuePushNotification(
       {
         title: "Lançamento criado.",
-        body: `Um novo lançamento foi criado: ${descricao}, com o valor de R$ ${valorTotal}`,
+        body: `Novo lançamento: ${descricao}, com o valor de ${formatCurrency(valorTotalDecimal)}`,
       },
       customData.contaId
     );
 
     return res.status(201).json({
       message: "Lançamento criado com sucesso",
-      id: novoLancamento.id,
+      id: lancamentoTx.id,
     });
   } catch (error: any) {
     console.error("Erro ao criar lançamento:", error);
-    return res.status(500).json({ message: "Erro interno ao criar lançamento" });
+    return handleError(res, error);
   }
 };
 
