@@ -1,15 +1,11 @@
-<div id="modalOverlayFinanceiro"
+<div id="modalOverlayFiltroFinanceiro"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
-
-    <!-- Modal -->
-    <div id="sheetContainerFinanceiro"
+    <div id="sheetContainerFiltroFinanceiro"
         class="bg-gray-100 dark:bg-background-dark w-full max-w-3xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
-
-        <!-- Cabeçalho -->
         <div
             class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
-            <h2 class="text-xl font-bold"><i class="fa-solid fa-coins text-emerald-600"></i> Novo Lançamento</h2>
-            <button onclick="closeModalFinanceiro()"
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-filter text-emerald-600"></i> Filtar Lançamentos</h2>
+            <button onclick="closeModalFiltroFinanceiro()"
                 class="text-gray-800 dark:text-white hover:text-gray-400 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -18,21 +14,9 @@
         </div>
 
         <div class="overflow-y-auto flex">
-            <form id="modalFormularioLancamentos" class="w-full">
+            <form id="modalFormularioFiltroLancamentos" class="w-full">
                 <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
                     <div class="grid grid-cols-1 gap-6">
-
-                        <!-- Descrição -->
-                        <div>
-                            <label for="descricao" class="block text-sm font-medium mb-1">
-                                <i class="fa-solid fa-quote-right"></i>
-                                Descrição *
-                            </label>
-                            <input type="text" id="descricao" name="descricao" required
-                                placeholder="Ex: Venda de 1 notebook"
-                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                        </div>
-
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <!-- Tipo -->
                             <div>
@@ -178,9 +162,9 @@
             <div class="flex gap-3">
                 <label for="botaoSalvarFormularioLancamento"
                     class="w-full px-4 py-2 cursor-pointer flex justify-center text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow transition">
-                    Salvar
+                    Filtrar
                 </label>
-                <button type="button" onclick="closeModalFinanceiro()"
+                <button type="button" onclick="closeModalFiltroFinanceiro()"
                     class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
                     Cancelar
                 </button>
@@ -192,9 +176,9 @@
 
 
 <script>
-    function openModalFinanceiro() {
-        const overlay = document.getElementById('modalOverlayFinanceiro');
-        const modal = document.getElementById('sheetContainerFinanceiro');
+    function openModalFiltroFinanceiro() {
+        const overlay = document.getElementById('modalOverlayFiltroFinanceiro');
+        const modal = document.getElementById('sheetContainerFiltroFinanceiro');
 
         overlay.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -206,9 +190,9 @@
         modal.classList.add('opacity-100', 'scale-100');
     }
 
-    function closeModalFinanceiro() {
-        const overlay = document.getElementById('modalOverlayFinanceiro');
-        const modal = document.getElementById('sheetContainerFinanceiro');
+    function closeModalFiltroFinanceiro() {
+        const overlay = document.getElementById('modalOverlayFiltroFinanceiro');
+        const modal = document.getElementById('sheetContainerFiltroFinanceiro');
 
         modal.classList.remove('opacity-100', 'scale-100');
         modal.classList.add('opacity-0', 'scale-95');
@@ -220,9 +204,9 @@
     }
 
     // Fechamento por ESC e clique fora
-    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFinanceiro());
-    document.getElementById('modalOverlayFinanceiro').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModalFinanceiro();
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFiltroFinanceiro());
+    document.getElementById('modalOverlayFiltroFinanceiro').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModalFiltroFinanceiro();
     });
 
     $("#formaPagamento").select2({
@@ -308,7 +292,7 @@
         }
     });
 
-    document.querySelector("#modalFormularioLancamentos").addEventListener("submit", (e) => {
+    document.querySelector("#modalFormularioFiltroLancamentos").addEventListener("submit", (e) => {
         e.preventDefault();
 
         $.ajax({
@@ -317,9 +301,9 @@
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
             },
-            data: $("#modalFormularioLancamentos").serialize(),
+            data: $("#modalFormularioFiltroLancamentos").serialize(),
             success: function (data) {
-                closeModalFinanceiro();
+                closeModalFiltroFinanceiro();
                 showNotification(data.message, 'success');
                 if (typeof reloadTabelaLancamentos === "function") {
                     reloadTabelaLancamentos();
