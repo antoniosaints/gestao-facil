@@ -18,7 +18,7 @@ export const acoes = (row: LancamentoFinanceiro) => {
                 <i class="fa-solid fa-file-pen"></i>
             </button>
             <button
-                onclick="excluirProduto('${row.id}')"
+                onclick="escluirLancamento('${row.id}')"
                 class="text-danger px-1 py-[2px] rounded">
                 <i class="fa-solid fa-trash-can"></i>
             </button>
