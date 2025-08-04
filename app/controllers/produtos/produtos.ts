@@ -35,9 +35,27 @@ export const getProdutos = async (
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
+  const query = req.query;
   const produto = await prisma.produto.findMany({
+    take: query?.limit ? Number(query?.limit) : 10,
     where: {
       contaId: customData.contaId,
+      ...(query?.search
+        ? {
+            OR: [
+              {
+                nome: {
+                  contains: query?.search as string,
+                },
+              },
+              {
+                codigo: {
+                  contains: query?.search as string,
+                },
+              },
+            ],
+          }
+        : {}),
     },
   });
   if (!produto) {
@@ -160,7 +178,10 @@ export const saveProduto = async (
   }
 };
 
-export const getResumoProduto = async (req: Request, res: Response): Promise<any> => {
+export const getResumoProduto = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   const { produtoId } = req.params;
   const customData = getCustomRequest(req).customData;
   if (!produtoId) {
