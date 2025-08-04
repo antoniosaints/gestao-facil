@@ -158,7 +158,7 @@ export const criarLancamento = async (
     await enqueuePushNotification(
       {
         title: "Lançamento criado.",
-        body: `Novo lançamento: ${descricao}, com o valor de ${formatCurrency(valorTotalDecimal)}`,
+        body: `${lancamentoTx.tipo}: ${descricao}, no valor de ${formatCurrency(valorTotalDecimal)}`,
       },
       customData.contaId
     );
