@@ -99,8 +99,6 @@ export const tableLancamentos = async (
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });
   }
-
-  console.log(new Decimal(parseFloat(req.query?.valorMinimo as string)));
   const builder = new PrismaDataTableBuilder<LancamentoFinanceiro>(
     prisma.lancamentoFinanceiro
   )

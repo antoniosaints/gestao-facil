@@ -395,7 +395,7 @@ export const graficoReceitaDespesaMensal = async (
       {
         label: "Despesas",
         backgroundColor: "#ef4444",
-        data: despesas,
+        data: despesas.map(d => -Math.abs(d)),
         borderWidth: 2,
         borderRadius: 5,
         borderSkipped: false,

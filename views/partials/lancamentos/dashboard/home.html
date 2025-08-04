@@ -217,7 +217,10 @@
               display: false
             },
             legend: {
-              display: false
+              position: 'right',
+              labels: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
             }
           }
         }
