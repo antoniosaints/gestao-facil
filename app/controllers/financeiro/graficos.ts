@@ -127,11 +127,17 @@ export const graficoByContaFinanceira = async (
         label: "Receitas",
         backgroundColor: "#10b981",
         data: receitas,
+        borderWidth: 2,
+        borderRadius: 5,
+        borderSkipped: false,
       },
       {
         label: "Despesas",
         backgroundColor: "#ef4444",
         data: despesas,
+        borderWidth: 2,
+        borderRadius: 5,
+        borderSkipped: false,
       },
     ],
   });
@@ -396,7 +402,9 @@ export const graficoReceitaDespesaMensal = async (
       },
       {
         label: "Saldo",
-        data: receitas.map((r, i) => new Decimal(r).minus(new Decimal(despesas[i])).toNumber()),
+        data: receitas.map((r, i) =>
+          new Decimal(r).minus(new Decimal(despesas[i])).toNumber()
+        ),
         type: "line",
         borderWidth: 2,
         borderRadius: 5,

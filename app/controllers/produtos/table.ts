@@ -7,6 +7,7 @@ import { Produto } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { isAccountOverdue } from "../../routers/web";
+import { formatLabel } from "../../helpers/formatters";
 export const tableProdutos = async (
   req: Request,
   res: Response
@@ -56,7 +57,7 @@ export const tableProdutos = async (
     })
     .format("codigo", function (row) {
       const codigo = row || "-";
-      return `<span class="px-2 py-1.5 border border-blue-700 text-blue-900 bg-blue-100 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-100 rounded-md">${codigo}</span>`;
+      return formatLabel(codigo, "blue", "fa-solid fa-barcode");
     })
     .edit("nome", function (row) {
       return `<span>${row.nome}</span>`;
@@ -64,7 +65,7 @@ export const tableProdutos = async (
     .format("preco", (value) => formatCurrency(value))
     .edit("estoque", function (row) {
       const estoque = row.estoque.toString().padStart(2, "0");
-      return `<span class="px-2 py-1.5 rounded-md dark:bg-gray-600 dark:text-white bg-slate-200">${estoque} ${row.unidade}</span>`;
+      return formatLabel(estoque + " " + row.unidade, "gray", "fa-solid fa-box");
     })
     .include(["id", "nome", "preco", "estoque", "codigo"])
     .addColumn("acoes", (row) => {
