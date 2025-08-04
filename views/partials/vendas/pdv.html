@@ -10,7 +10,7 @@
             <!-- Barra de Busca -->
             <div class="relative">
                 <input type="text" id="searchProductosInput" placeholder="Buscar por nome ou código..."
-                    class="w-full p-2 rounded-md border bg-background dark:bg-background-dark border-border dark:border-border-dark">
+                    class="w-full p-2 rounded-md border bg-background dark:bg-background-dark border-border dark:border-gray-500 outline-none">
             </div>
         </div>
 
@@ -319,7 +319,7 @@
 
             productsToRender.forEach(product => {
                 const productCard = `
-                    <div class="border-border dark:border-border-dark bg-background dark:bg-background-dark shadow-md rounded-lg p-4 card-hover cursor-pointer product-card" 
+                    <div class="border border-gray-200 dark:border-border-dark bg-background dark:bg-background-dark shadow-md rounded-lg p-4 card-hover cursor-pointer product-card" 
                          data-product-id="${product.id}">
                         <div class="text-center mb-3">
                             <h3 class="text-gray-800 dark:text-white text-sm mb-1">${product.name}</h3>

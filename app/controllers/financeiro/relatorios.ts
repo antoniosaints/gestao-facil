@@ -179,6 +179,8 @@ export const getDRELancamentosPDF = async (
   );
 
   doc.pipe(res);
+  doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
+  doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
   // Função para verificar se precisa de nova página
   const checkPageBreak = (doc: any, neededSpace: number) => {
@@ -234,13 +236,13 @@ export const getDRELancamentosPDF = async (
     checkPageBreak(doc, 100);
 
     // Título da seção
-    doc.fontSize(12).font("Helvetica-Bold").text(title, startX, doc.y);
+    doc.fontSize(12).font("Roboto-Bold").text(title, startX, doc.y);
 
     doc.moveDown(0.5);
 
     // Cabeçalho da tabela
     const headerY = doc.y;
-    doc.fontSize(10).font("Helvetica-Bold");
+    doc.fontSize(10).font("Roboto-Bold");
 
     // Desenhar cabeçalhos
     let currentX = startX;
@@ -298,7 +300,7 @@ export const getDRELancamentosPDF = async (
       let currentX = startX;
       const rowY = doc.y;
 
-      doc.fontSize(10).font("Helvetica-Bold");
+      doc.fontSize(10).font("Roboto-Bold");
 
       // Tipo
       doc.text(isReceita ? "R" : "D", currentX, rowY, {
@@ -353,7 +355,7 @@ export const getDRELancamentosPDF = async (
       let currentX = startX;
       const rowY = doc.y;
 
-      doc.fontSize(9).font("Helvetica");
+      doc.fontSize(10).font("Roboto");
 
       const percentage = item.valor.div(total).times(100);
 
@@ -407,16 +409,16 @@ export const getDRELancamentosPDF = async (
   // Cabeçalho do documento
   doc
     .fontSize(16)
-    .font("Helvetica-Bold")
+    .font("Roboto-Bold")
     .text(`DRE - ${conta?.nome}`, { align: "center" });
 
   doc
     .fontSize(12)
-    .font("Helvetica")
+    .font("Roboto")
     .text("Demonstração do resultado do exercício", { align: "center" });
   doc
     .fontSize(12)
-    .font("Helvetica")
+    .font("Roboto")
     .text(
       `Período: ${formatDate(
         addHours(new Date(inicio as string), 3),
@@ -466,7 +468,7 @@ export const getDRELancamentosPDF = async (
   let currentX = startX;
   let rowY = doc.y;
 
-  doc.fontSize(10).font("Helvetica-Bold");
+  doc.fontSize(10).font("Roboto-Bold");
 
   // Linha de totais
   doc.text("(+) Totais", currentX + colWidths.tipo, rowY, {
@@ -540,6 +542,12 @@ export const getDRELancamentosPDFV2 = async (
     },
   };
 
+  const conta = await prisma.contas.findUnique({
+    where: {
+      id: customData.contaId,
+    },
+  });
+
   const categorias = await prisma.categoriaFinanceiro.findMany({
     where: {
       contaId: customData.contaId,
@@ -555,7 +563,11 @@ export const getDRELancamentosPDFV2 = async (
     },
   });
   const dre = {
-    lancamentos: [] as { categoria: string; receita: Decimal; despesa: Decimal }[],
+    lancamentos: [] as {
+      categoria: string;
+      receita: Decimal;
+      despesa: Decimal;
+    }[],
     totalReceitas: new Decimal(0),
     totalDespesas: new Decimal(0),
     lucro: new Decimal(0),
@@ -563,16 +575,14 @@ export const getDRELancamentosPDFV2 = async (
 
   for (const cat of categorias) {
     const receita = new Decimal(
-      cat.lancamentos.filter((l) => l.tipo === "RECEITA").reduce(
-        (s, l) => s.plus(l.valorTotal),
-        new Decimal(0)
-      )
+      cat.lancamentos
+        .filter((l) => l.tipo === "RECEITA")
+        .reduce((s, l) => s.plus(l.valorTotal), new Decimal(0))
     );
     const despesa = new Decimal(
-      cat.lancamentos.filter((l) => l.tipo === "DESPESA").reduce(
-        (s, l) => s.plus(l.valorTotal),
-        new Decimal(0)
-      )
+      cat.lancamentos
+        .filter((l) => l.tipo === "DESPESA")
+        .reduce((s, l) => s.plus(l.valorTotal), new Decimal(0))
     );
 
     if (!receita.isZero() || !despesa.isZero()) {
@@ -595,10 +605,12 @@ export const getDRELancamentosPDFV2 = async (
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="dre_${inicio}_a_${fim}.pdf"`
+    `attachment; filename="dre-v2_${inicio}_a_${fim}.pdf"`
   );
 
   doc.pipe(res);
+  doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
+  doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
   // Função para verificar se precisa de nova página
   const checkPageBreak = (doc: any, neededSpace: number) => {
@@ -654,13 +666,23 @@ export const getDRELancamentosPDFV2 = async (
   // Cabeçalho do documento
   doc
     .fontSize(16)
-    .font("Helvetica-Bold")
-    .text("DRE - Fazenda Modelo", { align: "center" });
+    .font("Roboto-Bold")
+    .text(`DRE - ${conta?.nome}`, { align: "center" });
 
   doc
     .fontSize(12)
-    .font("Helvetica")
+    .font("Roboto")
     .text("Demonstração do resultado do exercício", { align: "center" });
+  doc
+    .fontSize(12)
+    .font("Roboto")
+    .text(
+      `Período: ${formatDate(
+        addHours(new Date(inicio as string), 3),
+        "dd/MM/yyyy"
+      )} a ${formatDate(addHours(new Date(fim as string), 3), "dd/MM/yyyy")}`,
+      { align: "center" }
+    );
 
   doc.moveDown(1.5);
 
@@ -669,8 +691,8 @@ export const getDRELancamentosPDFV2 = async (
   const headerY = doc.y;
 
   doc
-    .fontSize(9) // Reduzir fonte do cabeçalho também
-    .font("Helvetica-Bold");
+    .fontSize(10) // Reduzir fonte do cabeçalho também
+    .font("Roboto-Bold");
 
   doc.text("*", currentX, headerY, {
     width: colWidths.asterisco,
@@ -729,8 +751,8 @@ export const getDRELancamentosPDFV2 = async (
     const rowY = doc.y;
 
     doc
-      .fontSize(8) // Reduzir fonte para caber melhor
-      .font("Helvetica");
+      .fontSize(10) // Reduzir fonte para caber melhor
+      .font("Roboto");
 
     // Asterisco
     doc.text(asterisco, currentX, rowY, {
@@ -818,7 +840,7 @@ export const getDRELancamentosPDFV2 = async (
 
   doc
     .fontSize(9) // Manter consistência na fonte
-    .font("Helvetica-Bold");
+    .font("Roboto-Bold");
 
   drawItem(
     doc,

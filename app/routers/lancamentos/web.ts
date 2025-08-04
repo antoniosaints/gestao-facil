@@ -15,6 +15,9 @@ webRouterLancamentos.get("/web/formulario", (req, res) => {
 webRouterLancamentos.get("/web/filtro", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/modais/filtro.html");
 });
+webRouterLancamentos.get("/web/dre", (req, res) => {
+  renderFileSimple(req, res, "partials/lancamentos/modais/dre.html");
+});
 webRouterLancamentos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/tabela.html");
 });

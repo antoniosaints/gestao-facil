@@ -224,9 +224,6 @@
 
     // Fechamento por ESC e clique fora
     document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFinanceiro());
-    document.getElementById('modalOverlayFinanceiro').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModalFinanceiro();
-    });
 
     $("#formaPagamento").select2({
         placeholder: 'Forma de Pagamento',

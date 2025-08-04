@@ -9,8 +9,8 @@
         <i class="fa-solid fa-filter"></i>
         Filtrar
       </button>
-      <button onclick="abrirModalRelatorioProdutos()"
-        class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
+      <button onclick="openModalDREFinanceiro()"
+        class="border-2 border-orange-500 hover:border-orange-700 text-orange-900 dark:text-orange-200 bg-orange-500/20 px-3 py-1.5 text-sm rounded-lg">
         <i class="fa-solid fa-file-pdf"></i>
       </button>
       <button onclick="openModalFinanceiro()"
@@ -29,6 +29,7 @@
 
 <div class="overflow-x-auto rounded-lg" hx-get="/lancamentos/web/formulario" hx-trigger="load" hx-swap="innerHTML"/></div>
 <div class="overflow-x-auto rounded-lg" hx-get="/lancamentos/web/filtro" hx-trigger="load" hx-swap="innerHTML"></div>
+<div class="overflow-x-auto rounded-lg" hx-get="/lancamentos/web/dre" hx-trigger="load" hx-swap="innerHTML"></div>
 <div class="overflow-x-auto rounded-lg" hx-get="/clientes/sheet/formulario" hx-trigger="load" hx-swap="innerHTML"></div>
 
 <script>
