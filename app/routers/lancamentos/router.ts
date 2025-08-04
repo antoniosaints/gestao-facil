@@ -3,7 +3,7 @@ import { authenticateJWT } from "../../middlewares/auth";
 import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
 import { tableLancamentos } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
-import { getDRELancamentos, getDRELancamentosPDF, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
+import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
 import { select2Categorias } from "../../controllers/financeiro/categorias";
 import { select2Contas } from "../../controllers/contas/cadastro";
@@ -28,6 +28,7 @@ routerLancamentos.get("/graficos/saldo-mensal", authenticateJWT, graficoSaldoMen
 routerLancamentos.get("/graficos/receita-despesa-mensal", authenticateJWT, graficoReceitaDespesaMensal);
 // relatorios
 routerLancamentos.get("/relatorios/dre-pdf", authenticateJWT, getDRELancamentosPDF);
+routerLancamentos.get("/relatorios/dre-pdf-2", authenticateJWT, getDRELancamentosPDFV2);
 routerLancamentos.get("/relatorios/dre", authenticateJWT, getDRELancamentos);
 routerLancamentos.get("/relatorios/categoria", authenticateJWT, getLancamentosPorCategoria);
 routerLancamentos.get("/relatorios/parcelas-atrasadas", authenticateJWT, getParcelasAtrasadas);

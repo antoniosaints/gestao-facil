@@ -3,7 +3,13 @@ import PDFDocument from "pdfkit";
 import { prisma } from "../../utils/prisma";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { endOfMonth, startOfMonth, subMonths } from "date-fns";
+import {
+  addHours,
+  endOfMonth,
+  formatDate,
+  startOfMonth,
+  subMonths,
+} from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 
 export const getDRELancamentos = async (
@@ -104,6 +110,12 @@ export const getDRELancamentosPDF = async (
     },
   };
 
+  const conta = await prisma.contas.findFirst({
+    where: {
+      id: customData.contaId,
+    },
+  });
+
   const categorias = await prisma.categoriaFinanceiro.findMany({
     where: {
       contaId: customData.contaId,
@@ -152,8 +164,14 @@ export const getDRELancamentosPDF = async (
 
   dre.lucro = dre.totalReceitas.minus(dre.totalDespesas);
 
-  // Gerar PDF
-  const doc = new PDFDocument({ margin: 50, size: "A4", layout: "portrait" });
+  // Configuração do PDF
+  const doc = new PDFDocument({
+    margin: 50,
+    size: "A4",
+    layout: "portrait",
+    bufferPages: true,
+  });
+
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
@@ -162,71 +180,667 @@ export const getDRELancamentosPDF = async (
 
   doc.pipe(res);
 
-  doc
-    .fontSize(18)
-    .text("DRE - Demonstrativo de Resultado do Exercício", { align: "center" });
-  doc.moveDown();
-  doc.fontSize(12).text(`Período: ${inicio} a ${fim}`);
-  doc.moveDown();
+  // Função para verificar se precisa de nova página
+  const checkPageBreak = (doc: any, neededSpace: number) => {
+    if (doc.y + neededSpace > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      return true;
+    }
+    return false;
+  };
 
-  // Tabela Receitas
-  doc.fontSize(14).text("Receitas", { underline: true });
-  doc.fontSize(12).text("Categoria".padEnd(30) + "Valor".padEnd(15) + "%");
-  doc.moveDown(0.5);
-  dre.receitas.forEach((r) => {
-    const perc = r.valor
-      .div(dre.totalReceitas)
-      .times(100)
-      .toFixed(1)
-      .padStart(5);
+  // Função para desenhar linha horizontal
+  const drawLine = (doc: any, y?: number) => {
+    const currentY = y || doc.y;
     doc
-      .font("Helvetica")
-      .text(
-        `${r.categoria.padEnd(30)} R$ ${r.valor.toFixed(2).padEnd(12)} ${perc}%`
-      );
-  });
-  doc.moveDown();
-  doc
-    .font("Helvetica")
-    .text(
-      `Total de Receitas:`.padEnd(30) + `R$ ${dre.totalReceitas.toFixed(2)}`
-    );
-  doc.moveDown(1);
+      .moveTo(doc.page.margins.left, currentY)
+      .lineTo(doc.page.width - doc.page.margins.right, currentY)
+      .stroke();
+  };
 
-  // Tabela Despesas
-  doc.fontSize(14).text("Despesas", { underline: true });
-  doc.fontSize(12).text("Categoria".padEnd(30) + "Valor".padEnd(15) + "%");
-  doc.moveDown(0.5);
-  dre.despesas.forEach((d) => {
-    const perc = d.valor
-      .div(dre.totalDespesas)
-      .times(100)
-      .toFixed(1)
-      .padStart(5);
-    doc
-      .font("Helvetica")
-      .text(
-        `${d.categoria.padEnd(30)} R$ ${d.valor.toFixed(2).padEnd(12)} ${perc}%`
-      );
-  });
-  doc.moveDown();
-  doc
-    .font("Helvetica")
-    .text(
-      `Total de Despesas:`.padEnd(30) + `R$ ${dre.totalDespesas.toFixed(2)}`
-    );
-  doc.moveDown(1);
+  // Função para formatar valor monetário
+  const formatCurrency = (value: Decimal): string => {
+    return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
 
-  // Lucro
-  doc
-    .fontSize(14)
-    .font("Helvetica")
-    .text(`Lucro Operacional:`.padEnd(30) + `R$ ${dre.lucro.toFixed(2)}`, {
+  // Função para desenhar tabela
+  const drawTable = (
+    doc: any,
+    data: any[],
+    title: string,
+    isReceita: boolean = true
+  ) => {
+    const startY = doc.y;
+    const pageWidth = doc.page.width;
+    const totalMargins = doc.page.margins.left + doc.page.margins.right;
+    const availableWidth = pageWidth - totalMargins;
+
+    // Larguras das colunas mais balanceadas
+    const colWidths = {
+      tipo: 40,
+      planejamento: 220,
+      debito: 80,
+      credito: 80,
+      saldo: 80,
+      percent: 50,
+    };
+
+    // Calcular posição inicial para centralizar a tabela
+    const totalTableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
+    const startX =
+      doc.page.margins.left + (availableWidth - totalTableWidth) / 2;
+
+    // Verificar se há espaço para o cabeçalho da tabela
+    checkPageBreak(doc, 100);
+
+    // Título da seção
+    doc.fontSize(12).font("Helvetica-Bold").text(title, startX, doc.y);
+
+    doc.moveDown(0.5);
+
+    // Cabeçalho da tabela
+    const headerY = doc.y;
+    doc.fontSize(10).font("Helvetica-Bold");
+
+    // Desenhar cabeçalhos
+    let currentX = startX;
+
+    doc.text("Tipo", currentX, headerY, {
+      width: colWidths.tipo,
+      align: "center",
+    });
+    currentX += colWidths.tipo;
+
+    doc.text("Planejamento", currentX, headerY, {
+      width: colWidths.planejamento,
+      align: "left",
+    });
+    currentX += colWidths.planejamento;
+
+    doc.text("Débito", currentX, headerY, {
+      width: colWidths.debito,
+      align: "right",
+    });
+    currentX += colWidths.debito;
+
+    doc.text("Crédito", currentX, headerY, {
+      width: colWidths.credito,
+      align: "right",
+    });
+    currentX += colWidths.credito;
+
+    doc.text("Saldo", currentX, headerY, {
+      width: colWidths.saldo,
+      align: "right",
+    });
+    currentX += colWidths.saldo;
+
+    doc.text("%", currentX, headerY, {
+      width: colWidths.percent,
       align: "right",
     });
 
+    // Linha abaixo do cabeçalho
+    doc.moveDown(0.3);
+    doc
+      .moveTo(startX, doc.y)
+      .lineTo(startX + totalTableWidth, doc.y)
+      .stroke();
+    doc.moveDown(0.3);
+
+    // Total da seção (receitas ou despesas)
+    const total = isReceita ? dre.totalReceitas : dre.totalDespesas;
+
+    // Linha de total da categoria
+    if (data.length > 0) {
+      checkPageBreak(doc, 20);
+
+      let currentX = startX;
+      const rowY = doc.y;
+
+      doc.fontSize(10).font("Helvetica-Bold");
+
+      // Tipo
+      doc.text(isReceita ? "R" : "D", currentX, rowY, {
+        width: colWidths.tipo,
+        align: "center",
+      });
+      currentX += colWidths.tipo;
+
+      // Planejamento
+      doc.text(
+        `(${isReceita ? "+" : "-"})${title.toUpperCase()}`,
+        currentX,
+        rowY,
+        { width: colWidths.planejamento, align: "left" }
+      );
+      currentX += colWidths.planejamento;
+
+      // Débito
+      doc.text(isReceita ? "0.00" : formatCurrency(total), currentX, rowY, {
+        width: colWidths.debito,
+        align: "right",
+      });
+      currentX += colWidths.debito;
+
+      // Crédito
+      doc.text(isReceita ? formatCurrency(total) : "0.00", currentX, rowY, {
+        width: colWidths.credito,
+        align: "right",
+      });
+      currentX += colWidths.credito;
+
+      // Saldo
+      doc.text(formatCurrency(total), currentX, rowY, {
+        width: colWidths.saldo,
+        align: "right",
+      });
+      currentX += colWidths.saldo;
+
+      // Percentual
+      doc.text("100%", currentX, rowY, {
+        width: colWidths.percent,
+        align: "right",
+      });
+
+      doc.moveDown(0.5);
+    }
+
+    // Itens da categoria
+    data.forEach((item, index) => {
+      checkPageBreak(doc, 20);
+
+      let currentX = startX;
+      const rowY = doc.y;
+
+      doc.fontSize(9).font("Helvetica");
+
+      const percentage = item.valor.div(total).times(100);
+
+      // Tipo
+      doc.text(isReceita ? "R" : "D", currentX, rowY, {
+        width: colWidths.tipo,
+        align: "center",
+      });
+      currentX += colWidths.tipo;
+
+      // Planejamento (nome da categoria)
+      doc.text(item.categoria, currentX, rowY, {
+        width: colWidths.planejamento,
+        align: "left",
+      });
+      currentX += colWidths.planejamento;
+
+      // Débito
+      doc.text(isReceita ? "-" : formatCurrency(item.valor), currentX, rowY, {
+        width: colWidths.debito,
+        align: "right",
+      });
+      currentX += colWidths.debito;
+
+      // Crédito
+      doc.text(isReceita ? formatCurrency(item.valor) : "-", currentX, rowY, {
+        width: colWidths.credito,
+        align: "right",
+      });
+      currentX += colWidths.credito;
+
+      // Saldo
+      doc.text(formatCurrency(item.valor), currentX, rowY, {
+        width: colWidths.saldo,
+        align: "right",
+      });
+      currentX += colWidths.saldo;
+
+      // Percentual
+      doc.text(`${percentage.toFixed(2)}%`, currentX, rowY, {
+        width: colWidths.percent,
+        align: "right",
+      });
+
+      doc.moveDown(0.4);
+    });
+
+    doc.moveDown(0.5);
+  };
+
+  // Cabeçalho do documento
+  doc
+    .fontSize(16)
+    .font("Helvetica-Bold")
+    .text(`DRE - ${conta?.nome}`, { align: "center" });
+
+  doc
+    .fontSize(12)
+    .font("Helvetica")
+    .text("Demonstração do resultado do exercício", { align: "center" });
+  doc
+    .fontSize(12)
+    .font("Helvetica")
+    .text(
+      `Período: ${formatDate(
+        addHours(new Date(inicio as string), 3),
+        "dd/MM/yyyy"
+      )} a ${formatDate(addHours(new Date(fim as string), 3), "dd/MM/yyyy")}`,
+      { align: "center" }
+    );
+
+  doc.moveDown(1);
+
+  // Desenhar tabelas
+  if (dre.receitas.length > 0) {
+    drawTable(doc, dre.receitas, "Receitas", true);
+  }
+
+  if (dre.despesas.length > 0) {
+    drawTable(doc, dre.despesas, "Despesas", false);
+  }
+
+  // Totais e Lucro Líquido
+  checkPageBreak(doc, 80);
+
+  // Calcular posição centralizada para os totais
+  const pageWidth = doc.page.width;
+  const totalMargins = doc.page.margins.left + doc.page.margins.right;
+  const availableWidth = pageWidth - totalMargins;
+
+  const colWidths = {
+    tipo: 40,
+    planejamento: 220,
+    debito: 80,
+    credito: 80,
+    saldo: 80,
+    percent: 50,
+  };
+
+  const totalTableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
+  const startX = doc.page.margins.left + (availableWidth - totalTableWidth) / 2;
+
+  doc
+    .moveTo(startX, doc.y)
+    .lineTo(startX + totalTableWidth, doc.y)
+    .stroke();
+  doc.moveDown(0.5);
+
+  // Totais
+  let currentX = startX;
+  let rowY = doc.y;
+
+  doc.fontSize(10).font("Helvetica-Bold");
+
+  // Linha de totais
+  doc.text("(+) Totais", currentX + colWidths.tipo, rowY, {
+    width: colWidths.planejamento,
+    align: "left",
+  });
+  currentX += colWidths.tipo + colWidths.planejamento;
+
+  doc.text(formatCurrency(dre.totalDespesas), currentX, rowY, {
+    width: colWidths.debito,
+    align: "right",
+  });
+  currentX += colWidths.debito;
+
+  doc.text(formatCurrency(dre.totalReceitas), currentX, rowY, {
+    width: colWidths.credito,
+    align: "right",
+  });
+  currentX += colWidths.credito;
+
+  const saldoTotal = dre.totalReceitas.minus(dre.totalDespesas);
+  doc.text(formatCurrency(saldoTotal.abs()), currentX, rowY, {
+    width: colWidths.saldo,
+    align: "right",
+  });
+
+  doc.moveDown(0.8);
+
+  // Lucro Líquido
+  currentX = startX;
+  rowY = doc.y;
+
+  doc.text("(=) Lucro líquido", currentX + colWidths.tipo, rowY, {
+    width: colWidths.planejamento,
+    align: "left",
+  });
+  currentX +=
+    colWidths.tipo +
+    colWidths.planejamento +
+    colWidths.debito +
+    colWidths.credito;
+
+  const lucroFormatted = dre.lucro.isNegative()
+    ? `-${formatCurrency(dre.lucro.abs())}`
+    : formatCurrency(dre.lucro);
+
+  doc.text(lucroFormatted, currentX, rowY, {
+    width: colWidths.saldo,
+    align: "right",
+  });
+
   doc.end();
 };
+export const getDRELancamentosPDFV2 = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { inicio, fim } = req.query;
+  const customData = getCustomRequest(req).customData;
+
+  if (!inicio || !fim) {
+    return res
+      .status(400)
+      .json({ erro: 'Informe os parâmetros "inicio" e "fim".' });
+  }
+
+  const filtro = {
+    dataLancamento: {
+      gte: new Date(inicio as string),
+      lte: new Date(fim as string),
+    },
+  };
+
+  const categorias = await prisma.categoriaFinanceiro.findMany({
+    where: {
+      contaId: customData.contaId,
+    },
+    include: {
+      lancamentos: {
+        where: filtro,
+        select: {
+          valorTotal: true,
+          tipo: true,
+        },
+      },
+    },
+  });
+  const dre = {
+    lancamentos: [] as { categoria: string; receita: Decimal; despesa: Decimal }[],
+    totalReceitas: new Decimal(0),
+    totalDespesas: new Decimal(0),
+    lucro: new Decimal(0),
+  };
+
+  for (const cat of categorias) {
+    const receita = new Decimal(
+      cat.lancamentos.filter((l) => l.tipo === "RECEITA").reduce(
+        (s, l) => s.plus(l.valorTotal),
+        new Decimal(0)
+      )
+    );
+    const despesa = new Decimal(
+      cat.lancamentos.filter((l) => l.tipo === "DESPESA").reduce(
+        (s, l) => s.plus(l.valorTotal),
+        new Decimal(0)
+      )
+    );
+
+    if (!receita.isZero() || !despesa.isZero()) {
+      dre.lancamentos.push({ categoria: cat.nome, receita, despesa });
+      dre.totalReceitas = dre.totalReceitas.plus(receita);
+      dre.totalDespesas = dre.totalDespesas.plus(despesa);
+    }
+  }
+
+  dre.lucro = dre.totalReceitas.minus(dre.totalDespesas);
+
+  // Configuração do PDF
+  const doc = new PDFDocument({
+    margin: 50,
+    size: "A4",
+    layout: "portrait",
+    bufferPages: true,
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="dre_${inicio}_a_${fim}.pdf"`
+  );
+
+  doc.pipe(res);
+
+  // Função para verificar se precisa de nova página
+  const checkPageBreak = (doc: any, neededSpace: number) => {
+    if (doc.y + neededSpace > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      return true;
+    }
+    return false;
+  };
+
+  // Função para formatar valor monetário de forma mais compacta
+  const formatCurrency = (value: Decimal): string => {
+    const formatted = value.toFixed(2);
+    // Para valores grandes, usar formatação mais compacta
+    if (value.abs().gte(1000000)) {
+      return (value.toNumber() / 1000000).toFixed(1) + "M";
+    } else if (value.abs().gte(1000)) {
+      return formatted.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+    return formatted;
+  };
+
+  // Função para desenhar linha horizontal completa
+  const drawFullLine = (doc: any, y?: number) => {
+    const currentY = y || doc.y;
+    doc
+      .moveTo(doc.page.margins.left, currentY)
+      .lineTo(doc.page.width - doc.page.margins.right, currentY)
+      .stroke();
+  };
+
+  // Configuração das colunas
+  const pageWidth = doc.page.width;
+  const totalMargins = doc.page.margins.left + doc.page.margins.right;
+  const availableWidth = pageWidth - totalMargins;
+
+  // Ajustar larguras para caber na página A4
+  const colWidths = {
+    asterisco: 15,
+    planejamento: 200,
+    debito: 70,
+    credito: 70,
+    saldo: 70,
+    percent: 45,
+  };
+
+  const totalTableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
+
+  // Verificar se a tabela cabe na largura disponível
+  const finalTableWidth = Math.min(totalTableWidth, availableWidth);
+  const startX = doc.page.margins.left + (availableWidth - finalTableWidth) / 2;
+
+  // Cabeçalho do documento
+  doc
+    .fontSize(16)
+    .font("Helvetica-Bold")
+    .text("DRE - Fazenda Modelo", { align: "center" });
+
+  doc
+    .fontSize(12)
+    .font("Helvetica")
+    .text("Demonstração do resultado do exercício", { align: "center" });
+
+  doc.moveDown(1.5);
+
+  // Cabeçalho da tabela única
+  let currentX = startX;
+  const headerY = doc.y;
+
+  doc
+    .fontSize(9) // Reduzir fonte do cabeçalho também
+    .font("Helvetica-Bold");
+
+  doc.text("*", currentX, headerY, {
+    width: colWidths.asterisco,
+    align: "center",
+  });
+  currentX += colWidths.asterisco;
+
+  doc.text("Planejamento", currentX, headerY, {
+    width: colWidths.planejamento,
+    align: "left",
+  });
+  currentX += colWidths.planejamento;
+
+  doc.text("Débito", currentX, headerY, {
+    width: colWidths.debito,
+    align: "right",
+  });
+  currentX += colWidths.debito;
+
+  doc.text("Crédito", currentX, headerY, {
+    width: colWidths.credito,
+    align: "right",
+  });
+  currentX += colWidths.credito;
+
+  doc.text("Saldo", currentX, headerY, {
+    width: colWidths.saldo,
+    align: "right",
+  });
+  currentX += colWidths.saldo;
+
+  doc.text("%", currentX, headerY, {
+    width: colWidths.percent,
+    align: "right",
+  });
+
+  // Linha abaixo do cabeçalho
+  doc.moveDown(0.3);
+  drawFullLine(doc);
+  doc.moveDown(0.3);
+
+  // Função para desenhar uma linha de item
+  const drawItem = (
+    doc: any,
+    asterisco: string,
+    nome: string,
+    debito: string,
+    credito: string,
+    saldo: string,
+    percentual: string,
+    indent: boolean = false
+  ) => {
+    checkPageBreak(doc, 15);
+
+    let currentX = startX;
+    const rowY = doc.y;
+
+    doc
+      .fontSize(8) // Reduzir fonte para caber melhor
+      .font("Helvetica");
+
+    // Asterisco
+    doc.text(asterisco, currentX, rowY, {
+      width: colWidths.asterisco,
+      align: "center",
+    });
+    currentX += colWidths.asterisco;
+
+    // Nome (com indentação se necessário) - truncar se muito longo
+    const nomeText = indent ? `  ${nome}` : nome;
+    const nomeToShow =
+      nomeText.length > 35 ? nomeText.substring(0, 32) + "..." : nomeText;
+    doc.text(nomeToShow, currentX, rowY, {
+      width: colWidths.planejamento,
+      align: "left",
+    });
+    currentX += colWidths.planejamento;
+
+    // Débito
+    doc.text(debito, currentX, rowY, {
+      width: colWidths.debito,
+      align: "right",
+    });
+    currentX += colWidths.debito;
+
+    // Crédito
+    doc.text(credito, currentX, rowY, {
+      width: colWidths.credito,
+      align: "right",
+    });
+    currentX += colWidths.credito;
+
+    // Saldo
+    doc.text(saldo, currentX, rowY, { width: colWidths.saldo, align: "right" });
+    currentX += colWidths.saldo;
+
+    // Percentual
+    doc.text(percentual, currentX, rowY, {
+      width: colWidths.percent,
+      align: "right",
+    });
+
+    doc.moveDown(0.4);
+  };
+
+  // Calcular total geral para percentuais
+  const totalGeral = dre.totalReceitas.plus(dre.totalDespesas);
+
+  // Desenhar todas as despesas primeiro
+  dre.lancamentos.forEach((row) => {
+    const receita = formatCurrency(row.receita);
+    const despesa = formatCurrency(row.despesa);
+    const valorTotal = row.receita.plus(row.despesa);
+    const percentual = totalGeral.isZero()
+      ? "0.00%"
+      : `${valorTotal.div(totalGeral).times(100).toFixed(2)}%`;
+    const saldo = row.receita.minus(row.despesa);
+    const valorFormatado = saldo.isNegative()
+      ? `-${formatCurrency(saldo.abs())}`
+      : formatCurrency(saldo);
+
+    drawItem(
+      doc,
+      "*",
+      row.categoria,
+      despesa || "-",
+      receita || "-",
+      `${valorFormatado}`,
+      percentual
+    );
+  });
+
+  // Linha de separação antes dos totais
+  doc.moveDown(0.2);
+  drawFullLine(doc);
+  doc.moveDown(0.3);
+
+  // Totais
+  const totalDespesasFormatado = formatCurrency(dre.totalDespesas);
+  const totalReceitasFormatado = formatCurrency(dre.totalReceitas);
+  const saldoTotal = dre.totalReceitas.minus(dre.totalDespesas);
+  const saldoTotalFormatado = saldoTotal.isNegative()
+    ? `-${formatCurrency(saldoTotal.abs())}`
+    : formatCurrency(saldoTotal);
+
+  doc
+    .fontSize(9) // Manter consistência na fonte
+    .font("Helvetica-Bold");
+
+  drawItem(
+    doc,
+    "(+)",
+    "Totais",
+    totalDespesasFormatado,
+    totalReceitasFormatado,
+    saldoTotalFormatado,
+    ""
+  );
+
+  // Lucro líquido
+  doc.moveDown(1);
+  const lucroFormatado = dre.lucro.isNegative()
+    ? `-${formatCurrency(dre.lucro.abs())}`
+    : formatCurrency(dre.lucro);
+
+  drawItem(doc, "(=)", "Lucro líquido", "", "", lucroFormatado, "");
+
+  doc.end();
+};
+
 export const getParcelasAtrasadas = async (
   req: Request,
   res: Response
@@ -437,9 +1051,12 @@ export const getLancamentosPorStatus = async (
     _sum: { valorTotal: true },
   });
 
-  status.map((s) => (s._sum.valorTotal = formatCurrency(s._sum.valorTotal) as any));
+  status.map(
+    (s) => (s._sum.valorTotal = formatCurrency(s._sum.valorTotal) as any)
+  );
 
-  const pendente = status.find((s) => s.status === "PENDENTE")?._sum.valorTotal || 0;
+  const pendente =
+    status.find((s) => s.status === "PENDENTE")?._sum.valorTotal || 0;
   const pago = status.find((s) => s.status === "PAGO")?._sum.valorTotal || 0;
 
   res.json({ pendente, pago });

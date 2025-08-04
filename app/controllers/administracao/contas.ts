@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import Decimal from "decimal.js";
 import { handleError } from "../../utils/handleError";
+import { isBefore } from "date-fns";
 
 export const assinaturaConta = async (req: Request, res: Response) => {
     try {
@@ -22,7 +23,7 @@ export const assinaturaConta = async (req: Request, res: Response) => {
         });
 
         const data = {
-            status: conta.status,
+            status: isBefore(conta.vencimento, new Date()) ? "INATIVO" : "ATIVO",
             valor: conta.valor ? `R$ ${new Decimal(conta.valor).toFixed(2).replace('.', ',')}` : "R$ 0,00",
             faturas: conta.FaturasContas.map((fatura) => ({
                 asaasPaymentId: fatura.asaasPaymentId,
