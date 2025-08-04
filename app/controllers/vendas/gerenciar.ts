@@ -85,13 +85,6 @@ export const deleteVenda = async (req: Request, res: Response) => {
 
       return venda;
     });
-    await enqueuePushNotification(
-      {
-        title: "Venda excluida",
-        body: `A venda ${resultado.id} foi excluida.`,
-      },
-      customData.contaId
-    );
     ResponseHandler(res, "Venda excluida com sucesso", resultado);
   } catch (err: any) {
     handleError(res, err);

@@ -10,10 +10,10 @@ webRouterLancamentos.get("/web/dashboard", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/dashboard/home.html");
 });
 webRouterLancamentos.get("/web/formulario", (req, res) => {
-  renderFileSimple(req, res, "partials/lancamentos/formulario.html");
+  renderFileSimple(req, res, "partials/lancamentos/modais/formulario.html");
 });
 webRouterLancamentos.get("/web/filtro", (req, res) => {
-  renderFileSimple(req, res, "partials/lancamentos/filtro.html");
+  renderFileSimple(req, res, "partials/lancamentos/modais/filtro.html");
 });
 webRouterLancamentos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/lancamentos/tabela.html");

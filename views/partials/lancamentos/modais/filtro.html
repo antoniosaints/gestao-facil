@@ -1,0 +1,291 @@
+<div id="modalOverlayFiltroFinanceiro"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
+    <div id="sheetContainerFiltroFinanceiro"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+        <div
+            class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-filter text-emerald-600"></i> Filtrar Lançamentos</h2>
+            <button onclick="closeModalFiltroFinanceiro()"
+                class="text-gray-800 dark:text-white hover:text-gray-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto flex">
+            <form id="modalFormularioFiltroLancamentos" class="w-full">
+                <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <!-- Valor Total -->
+                            <div>
+                                <label for="valorMinimoFilterLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-dollar-sign"></i>
+                                    Valor Mínimo
+                                </label>
+                                <input type="search" id="valorMinimoFilterLancamento" name="valorMinimoFilterLancamento"
+                                    placeholder="0,00"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+
+                            <!-- Parcelas -->
+                            <div>
+                                <label for="valorMaximoFilterLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                    Valor Máximo
+                                </label>
+                                <input type="search" id="valorMaximoFilterLancamento" name="valorMaximoFilterLancamento"
+                                    placeholder="0,00"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                            <!-- Tipo -->
+                            <div>
+                                <label for="tipoLancamentoFiltroLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-coins"></i>
+                                    Tipo
+                                </label>
+                                <select id="tipoLancamentoFiltroLancamento" name="tipoLancamentoFiltroLancamento"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Selecione o tipo</option>
+                                    <option value="RECEITA">Receita</option>
+                                    <option value="DESPESA">Despesa</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="statusFiltroLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-toggle-on"></i>
+                                    Status
+                                </label>
+                                <select id="statusFiltroLancamento" name="statusFiltroLancamento"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Selecione o status</option>
+                                    <option value="PAGO">Pago</option>
+                                    <option value="PENDENTE">Pendente</option>
+                                    <option value="PARCIAL">Parcial</option>
+                                    <option value="ATRASADO">Atrasado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="formaPagamentoFiltroLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-coins"></i>
+                                    Forma de Pagamento
+                                </label>
+                                <select id="formaPagamentoFiltroLancamento" name="formaPagamentoFiltroLancamento"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Selecione a forma</option>
+                                    <option value="PIX">PIX</option>
+                                    <option value="DINHEIRO">Dinheiro</option>
+                                    <option value="CREDITO">Cartão de Crédito</option>
+                                    <option value="DEBITO">Cartão de Débito</option>
+                                    <option value="BOLETO">Boleto</option>
+                                    <option value="TRANSFERENCIA">Transferência</option>
+                                </select>
+                            </div>
+
+                            <!-- Categoria -->
+                            <div>
+                                <label for="categoriaFiltroLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                    Categoria
+                                </label>
+                                <select id="categoriaFiltroLancamento" name="categoriaFiltroLancamento"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
+                            </div>
+                            <!-- Cliente -->
+                            <div>
+                                <label for="clienteFiltroLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-user"></i>
+                                    Cliente
+                                </label>
+                                <select id="clienteFiltroLancamento" name="clienteFiltroLancamento"
+                                    class="w-full p-2.5 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
+                            </div>
+
+                            <div>
+                                <label for="contasFinanceiroFiltroLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-wallet"></i>
+                                    Conta Financeira
+                                </label>
+                                <select id="contasFinanceiroFiltroLancamento" name="contasFinanceiroFiltroLancamento"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Rodapé -->
+        <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+            <div class="flex gap-3">
+                <button type="button" id="buttonSubmitFiltroFinanceiro"
+                    class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow transition">
+                    <i class="fa-solid fa-filter"></i>
+                    Filtrar
+                </button>
+                <button type="button" onclick="closeModalFiltroFinanceiro()"
+                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<script>
+    MaskToInputMoney(document.getElementById('valorMinimoFilterLancamento'));
+    MaskToInputMoney(document.getElementById('valorMaximoFilterLancamento'));
+    function openModalFiltroFinanceiro() {
+        const overlay = document.getElementById('modalOverlayFiltroFinanceiro');
+        const modal = document.getElementById('sheetContainerFiltroFinanceiro');
+
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Força reflow
+        void modal.offsetWidth;
+
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
+    }
+
+    function closeModalFiltroFinanceiro() {
+        const overlay = document.getElementById('modalOverlayFiltroFinanceiro');
+        const modal = document.getElementById('sheetContainerFiltroFinanceiro');
+
+        modal.classList.remove('opacity-100', 'scale-100');
+        modal.classList.add('opacity-0', 'scale-95');
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }, 300);
+    }
+
+    // Fechamento por ESC e clique fora
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFiltroFinanceiro());
+    document.getElementById('modalOverlayFiltroFinanceiro').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModalFiltroFinanceiro();
+    });
+
+    $("#formaPagamentoFiltroLancamento").select2({
+        placeholder: 'Forma de Pagamento',
+        width: '100%',
+        language: "pt-BR",
+        allowClear: true
+    });
+    $("#statusFiltroLancamento").select2({
+        placeholder: 'Status',
+        width: '100%',
+        language: "pt-BR",
+        allowClear: true
+    });
+    $("#tipoLancamentoFiltroLancamento").select2({
+        placeholder: 'Tipo de Lançamento',
+        width: '100%',
+        language: "pt-BR",
+        allowClear: true
+    });
+
+    $("#categoriaFiltroLancamento").select2({
+        placeholder: 'Selecione uma categoria',
+        width: '100%',
+        language: "pt-BR",
+        allowClear: true,
+        ajax: {
+            url: '/lancamentos/categorias/select2',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+   
+    $("#contasFinanceiroFiltroLancamento").select2({
+        placeholder: 'Selecione uma conta',
+        width: '100%',
+        language: "pt-BR",
+        allowClear: true,
+        ajax: {
+            url: '/lancamentos/contas/select2',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+
+    $("#clienteFiltroLancamento").select2({
+        placeholder: 'Selecione um cliente',
+        width: '100%',
+        allowClear: true,
+        language: "pt-BR",
+        ajax: {
+            url: '/clientes/select2/lista',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+
+    document.querySelector("#buttonSubmitFiltroFinanceiro").addEventListener("click", (e) => {
+        if (typeof reloadTabelaLancamentos === "function") {
+            reloadTabelaLancamentos();
+        }
+
+        closeModalFiltroFinanceiro();
+    })
+
+    document.querySelector("#valorEntrada").addEventListener("input", (e) => {
+        const hasValue = e.target.value;
+        const dataEntrada = document.querySelector("#dataEntrada");
+        if (hasValue) {
+            dataEntrada.required = true;
+            dataEntrada.value = new Date().toISOString().split('T')[0];
+            dataEntrada.disabled = false;
+        } else {
+            dataEntrada.required = false;
+            dataEntrada.value = null;
+            dataEntrada.disabled = true;
+        }
+    });
+
+</script>

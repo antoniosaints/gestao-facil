@@ -1,11 +1,15 @@
-<div id="modalOverlayFiltroFinanceiro"
+<div id="modalOverlayFinanceiro"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
-    <div id="sheetContainerFiltroFinanceiro"
-        class="bg-gray-100 dark:bg-background-dark w-full max-w-xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+
+    <!-- Modal -->
+    <div id="sheetContainerFinanceiro"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-3xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+
+        <!-- Cabeçalho -->
         <div
             class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
-            <h2 class="text-xl font-bold"><i class="fa-solid fa-filter text-emerald-600"></i> Filtrar Lançamentos</h2>
-            <button onclick="closeModalFiltroFinanceiro()"
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-coins text-emerald-600"></i> Novo Lançamento</h2>
+            <button onclick="closeModalFinanceiro()"
                 class="text-gray-800 dark:text-white hover:text-gray-400 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -14,17 +18,29 @@
         </div>
 
         <div class="overflow-y-auto flex">
-            <form id="modalFormularioFiltroLancamentos" class="w-full">
+            <form id="modalFormularioLancamentos" class="w-full">
                 <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
                     <div class="grid grid-cols-1 gap-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                        <!-- Descrição -->
+                        <div>
+                            <label for="descricao" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-quote-right"></i>
+                                Descrição *
+                            </label>
+                            <input type="text" id="descricao" name="descricao" required
+                                placeholder="Ex: Venda de 1 notebook"
+                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <!-- Tipo -->
                             <div>
-                                <label for="tipoLancamentoFiltroLancamento" class="block text-sm font-medium mb-1">
+                                <label for="tipo" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-coins"></i>
-                                    Tipo
+                                    Tipo *
                                 </label>
-                                <select id="tipoLancamentoFiltroLancamento" name="tipoLancamentoFiltroLancamento"
+                                <select id="tipoLancamento" name="tipo" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                                     <option value="">Selecione o tipo</option>
                                     <option value="RECEITA">Receita</option>
@@ -34,45 +50,66 @@
 
                             <!-- Valor Total -->
                             <div>
-                                <label for="valorMinimoFilterLancamento" class="block text-sm font-medium mb-1">
+                                <label for="valorTotalLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-dollar-sign"></i>
-                                    Valor Mínimo
+                                    Valor Total *
                                 </label>
-                                <input type="number" id="valorMinimoFilterLancamento" name="valorMinimoFilterLancamento"
-                                    step="0.01" placeholder="0,00"
+                                <input type="text" id="valorTotalLancamento" name="valorTotal" required
+                                    placeholder="0,00"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
 
                             <!-- Parcelas -->
                             <div>
-                                <label for="valorMaximoFilterLancamento" class="block text-sm font-medium mb-1">
+                                <label for="parcelas" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-layer-group"></i>
-                                    Valor Máximo
+                                    Parcelas *
                                 </label>
-                                <input type="number" id="valorMaximoFilterLancamento" name="valorMaximoFilterLancamento"
-                                    step="0.01" placeholder="0,00"
+                                <input type="number" id="parcelas" name="parcelas" required min="1" value="1"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <!-- Valor Entrada -->
                             <div>
-                                <label for="statusFiltroLancamento" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-toggle-on"></i>
-                                    Status
+                                <label for="valorEntrada" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-dollar-sign"></i>
+                                    Valor Entrada
                                 </label>
-                                <select id="statusFiltroLancamento" name="statusFiltroLancamento"
+                                <input type="text" id="valorEntrada" name="valorEntrada"
+                                    placeholder="0,00"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                                    <option value="">Selecione o status</option>
-                                    <option value="PAGO">Pago</option>
-                                    <option value="PENDENTE">Pendente</option>
-                                    <option value="PARCIAL">Parcial</option>
-                                    <option value="ATRASADO">Atrasado</option>
-                                </select>
                             </div>
+
+                            <!-- Data Entrada -->
                             <div>
-                                <label for="formaPagamentoFiltroLancamento" class="block text-sm font-medium mb-1">
+                                <label for="dataEntrada" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-calendar-day"></i>
+                                    Data Entrada
+                                </label>
+                                <input type="date" id="dataEntrada" disabled name="dataEntrada"
+                                    class="w-full p-1.5 rounded-md disabled:bg-gray-300 dark:disabled:bg-gray-900 border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <!-- Desconto -->
+                            <div>
+                                <label for="descontoFormularioLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-dollar-sign"></i>
+                                    Desconto
+                                </label>
+                                <input type="text" id="descontoFormularioLancamento" name="desconto" placeholder="0,00"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+
+                            <!-- Forma de Pagamento -->
+                            <div>
+                                <label for="formaPagamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-coins"></i>
-                                    Forma de Pagamento
+                                    Forma de Pagamento *
                                 </label>
-                                <select id="formaPagamentoFiltroLancamento" name="formaPagamentoFiltroLancamento"
+                                <select id="formaPagamento" name="formaPagamento" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                                     <option value="">Selecione a forma</option>
                                     <option value="PIX">PIX</option>
@@ -83,35 +120,54 @@
                                     <option value="TRANSFERENCIA">Transferência</option>
                                 </select>
                             </div>
+                        </div>
 
-                            <!-- Categoria -->
-                            <div>
-                                <label for="categoriaFiltroLancamento" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-layer-group"></i>
-                                    Categoria
-                                </label>
-                                <select id="categoriaFiltroLancamento" name="categoriaFiltroLancamento"
-                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
-                            </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <!-- Cliente -->
                             <div>
-                                <label for="clienteFiltroLancamento" class="block text-sm font-medium mb-1">
+                                <label for="clienteId" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-user"></i>
                                     Cliente
+                                    <a onclick="openModalClientes()" class="text-blue-500 px-2 cursor-pointer">Novo
+                                        cliente</a>
                                 </label>
-                                <select id="clienteFiltroLancamento" name="clienteFiltroLancamento"
+                                <select id="clienteId" name="clienteId"
                                     class="w-full p-2.5 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
                             </div>
 
+                            <!-- Categoria -->
                             <div>
-                                <label for="contasFinanceiroFiltroLancamento" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-wallet"></i>
-                                    Conta Financeira
+                                <label for="categoriaId" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                    Categoria *
                                 </label>
-                                <select id="contasFinanceiroFiltroLancamento" name="contasFinanceiroFiltroLancamento"
+                                <select id="categoriaId" name="categoriaId" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
                             </div>
                         </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <!-- Data Lançamento -->
+                            <div>
+                                <label for="dataLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-calendar-day"></i>
+                                    Data Lançamento *
+                                </label>
+                                <input type="date" id="dataLancamento" name="dataLancamento" required
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+
+                            <!-- Conta Financeiro -->
+                            <div>
+                                <label for="contasFinanceiroId" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-wallet"></i>
+                                    Conta Financeira *
+                                </label>
+                                <select id="contasFinanceiroId" name="contasFinanceiroId" required
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
+                            </div>
+                        </div>
+                        <input type="submit" class="hidden" id="botaoSalvarFormularioLancamento">
                     </div>
                 </div>
             </form>
@@ -120,12 +176,11 @@
         <!-- Rodapé -->
         <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
             <div class="flex gap-3">
-                <label for="buttonSubmitFiltroFinanceiro"
-                    class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow transition">
-                    <i class="fa-solid fa-filter"></i>
-                    Filtrar
+                <label for="botaoSalvarFormularioLancamento"
+                    class="w-full px-4 py-2 cursor-pointer flex justify-center text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow transition">
+                    Salvar
                 </label>
-                <button type="button" onclick="closeModalFiltroFinanceiro()"
+                <button type="button" onclick="closeModalFinanceiro()"
                     class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
                     Cancelar
                 </button>
@@ -137,9 +192,12 @@
 
 
 <script>
-    function openModalFiltroFinanceiro() {
-        const overlay = document.getElementById('modalOverlayFiltroFinanceiro');
-        const modal = document.getElementById('sheetContainerFiltroFinanceiro');
+    MaskToInputMoney(document.getElementById('valorTotalLancamento'));
+    MaskToInputMoney(document.getElementById('descontoFormularioLancamento'));
+    MaskToInputMoney(document.getElementById('valorEntrada'));
+    function openModalFinanceiro() {
+        const overlay = document.getElementById('modalOverlayFinanceiro');
+        const modal = document.getElementById('sheetContainerFinanceiro');
 
         overlay.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -151,9 +209,9 @@
         modal.classList.add('opacity-100', 'scale-100');
     }
 
-    function closeModalFiltroFinanceiro() {
-        const overlay = document.getElementById('modalOverlayFiltroFinanceiro');
-        const modal = document.getElementById('sheetContainerFiltroFinanceiro');
+    function closeModalFinanceiro() {
+        const overlay = document.getElementById('modalOverlayFinanceiro');
+        const modal = document.getElementById('sheetContainerFinanceiro');
 
         modal.classList.remove('opacity-100', 'scale-100');
         modal.classList.add('opacity-0', 'scale-95');
@@ -165,28 +223,23 @@
     }
 
     // Fechamento por ESC e clique fora
-    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFiltroFinanceiro());
-    document.getElementById('modalOverlayFiltroFinanceiro').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModalFiltroFinanceiro();
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFinanceiro());
+    document.getElementById('modalOverlayFinanceiro').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModalFinanceiro();
     });
 
-    $("#formaPagamentoFiltroLancamento").select2({
+    $("#formaPagamento").select2({
         placeholder: 'Forma de Pagamento',
         width: '100%',
         language: "pt-BR",
     });
-    $("#statusFiltroLancamento").select2({
-        placeholder: 'Status',
-        width: '100%',
-        language: "pt-BR",
-    });
-    $("#tipoLancamentoFiltroLancamento").select2({
+    $("#tipoLancamento").select2({
         placeholder: 'Tipo de Lançamento',
         width: '100%',
         language: "pt-BR",
     });
 
-    $("#categoriaFiltroLancamento").select2({
+    $("#categoriaId").select2({
         placeholder: 'Selecione uma categoria',
         width: '100%',
         language: "pt-BR",
@@ -209,7 +262,7 @@
             }
         }
     });
-    $("#contasFinanceiroFiltroLancamento").select2({
+    $("#contasFinanceiroId").select2({
         placeholder: 'Selecione uma conta',
         width: '100%',
         language: "pt-BR",
@@ -233,7 +286,7 @@
         }
     });
 
-    $("#clienteFiltroLancamento").select2({
+    $("#clienteId").select2({
         placeholder: 'Selecione um cliente',
         width: '100%',
         allowClear: true,
@@ -258,7 +311,7 @@
         }
     });
 
-    document.querySelector("#modalFormularioFiltroLancamentos").addEventListener("submit", (e) => {
+    document.querySelector("#modalFormularioLancamentos").addEventListener("submit", (e) => {
         e.preventDefault();
 
         $.ajax({
@@ -267,9 +320,9 @@
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
             },
-            data: $("#modalFormularioFiltroLancamentos").serialize(),
+            data: $("#modalFormularioLancamentos").serialize(),
             success: function (data) {
-                closeModalFiltroFinanceiro();
+                closeModalFinanceiro();
                 showNotification(data.message, 'success');
                 if (typeof reloadTabelaLancamentos === "function") {
                     reloadTabelaLancamentos();

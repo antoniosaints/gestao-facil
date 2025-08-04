@@ -44,15 +44,9 @@
         </div>
 
         <span
-          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
-          <svg class="fill-current" width="13" height="12" viewBox="0 0 13 12" fill="none"
-            xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd"
-              d="M6.06462 1.62393C6.20193 1.47072 6.40135 1.37432 6.62329 1.37432C6.6236 1.37432 6.62391 1.37432 6.62422 1.37432C6.81631 1.37415 7.00845 1.44731 7.15505 1.5938L10.1551 4.5918C10.4481 4.88459 10.4483 5.35946 10.1555 5.65246C9.86273 5.94546 9.38785 5.94562 9.09486 5.65283L7.37329 3.93247L7.37329 10.125C7.37329 10.5392 7.03751 10.875 6.62329 10.875C6.20908 10.875 5.87329 10.5392 5.87329 10.125L5.87329 3.93578L4.15516 5.65281C3.86218 5.94561 3.3873 5.94546 3.0945 5.65248C2.8017 5.35949 2.80185 4.88462 3.09484 4.59182L6.06462 1.62393Z"
-              fill=""></path>
-          </svg>
-
-          0%
+          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-xs font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
+          <i class="fa-solid fa-coins"></i>
+          Entradas
         </span>
       </div>
     </div>
@@ -80,9 +74,9 @@
         </div>
 
         <span
-          class="flex items-center gap-1 rounded-full bg-red-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-red-600 dark:bg-red-500/15 dark:text-red-500">
-          <i class="fa-solid fa-boxes-packing"></i>
-          Total
+          class="flex items-center gap-1 rounded-full bg-red-100 py-0.5 pl-2 pr-2.5 text-xs font-medium text-red-600 dark:bg-red-500/15 dark:text-red-500">
+          <i class="fa-solid fa-coins"></i>
+          Saídas
         </span>
       </div>
     </div>
@@ -97,7 +91,7 @@
             Saldo
           </h3>
           <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
-            Financeiro
+            Geral
           </span>
         </div>
       </div>
@@ -110,9 +104,9 @@
         </div>
 
         <span id="produtos_em_baixa_dashboard_alerta"
-          class="flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-500">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          Atenção!
+          class="flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-2.5 text-xs font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-500">
+          <i class="fa-solid fa-coins"></i>
+          Lucro
         </span>
       </div>
     </div>
@@ -140,9 +134,11 @@
         </div>
 
         <span id="porcentagem_vendas_dashboard_alerta"
-          class="flex items-center gap-1 rounded-full bg-yellow-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-500">
+          class="flex items-center gap-1 rounded-full bg-yellow-50 py-0.5 pl-2 pr-2.5 text-xs font-medium text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-500">
           <i class="fa-solid fa-dollar-sign"></i>
-          <span id="porcentagem_vendas_dashboard">0%</span>
+          <span id="porcentagem_vendas_dashboard">
+            Revisar
+          </span>
         </span>
       </div>
     </div>
@@ -160,15 +156,15 @@
 
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Saldo mensal</h2>
-      <canvas class="max-h-64" id="grafico_saldo_mensal"></canvas>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Resumo por status
+      </h2>
+      <canvas class="max-h-64" id="grafico_por_status_pagamento"></canvas>
     </div>
 
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-pie text-emerald-600"></i> Resumo por status
-      </h2>
-      <canvas class="max-h-64" id="grafico_por_status_pagamento"></canvas>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Plano de contas</h2>
+      <canvas class="max-h-64" id="grafico_plano_contas"></canvas>
     </div>
 
     <div
@@ -177,66 +173,7 @@
       </h2>
       <canvas class="max-h-64" id="grafico_por_categoria"></canvas>
     </div>
-
-    <!-- Últimas Vendas -->
-    <div
-      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex justify-between items-center mb-1">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Produtos</h2>
-        <button onclick="loadPage('produtos/resumo')" type="button"
-          class="text-primary font-bold py-0 px-2 rounded transition duration-300">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </button>
-      </div>
-      <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
-            <tr>
-              <th class="p-2">#ID</th>
-              <th class="p-2">Produto</th>
-              <th class="p-2">Mínimo</th>
-              <th class="p-2">Estoque</th>
-              <th class="p-2">Valor</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 dark:text-gray-200" id="ultimos_produtos_dashboard_tabela">
-            <tr class="border-t">
-              <td class="p-2" colspan="5">Nenhum produto cadastrado</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div
-      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex justify-between items-center mb-1">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Estoques baixos</h2>
-        <button onclick="loadPage('partials/produtos/index.html')" type="button"
-          class="text-primary font-bold py-0 px-2 rounded transition duration-300">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        </button>
-      </div>
-      <div class="overflow-x-auto max-h-96 relative shadow-md sm:rounded-lg">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-900 text-gray-600 dark:text-gray-200">
-            <tr>
-              <th class="p-2">#ID</th>
-              <th class="p-2">Produto</th>
-              <th class="p-2">Mínimo</th>
-              <th class="p-2">Estoque</th>
-              <th class="p-2">Valor</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 dark:text-gray-200" id="produtos_em_baixa_dashboard_tabela">
-            <tr class="border-t">
-              <td class="p-2 text-center" colspan="5">Nenhum produto em baixa</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   </div>
-
 </div>
 
 <nav
@@ -288,20 +225,15 @@
     }
     function chartByDespesasPorStatus(data) {
       new Chart(document.getElementById('grafico_por_status_pagamento'), {
-        type: 'doughnut',
+        type: 'bar',
         data: {
           labels: data.labels,
           datasets: data.datasets,
         },
         options: {
-          scales: {
-            y: {
-              display: false,
-              beginAtZero: true
-            },
-            x: {
-              display: false,
-            }
+          interaction: {
+            mode: 'index',
+            intersect: false,
           },
           plugins: {
             title: {
@@ -310,6 +242,20 @@
             legend: {
               display: false
             }
+          },
+          scales: {
+            y: {
+              stacked: true,
+              ticks: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
+            },
+            x: {
+              stacked: true,
+              ticks: {
+                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+              }
+            },
           }
         }
       });
@@ -322,6 +268,10 @@
           datasets: data.datasets,
         },
         options: {
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
           plugins: {
             title: {
               display: false
@@ -345,14 +295,18 @@
         }
       });
     }
-    function chartBySaldoMensal(data) {
-      new Chart(document.getElementById('grafico_saldo_mensal'), {
-        type: 'line',
+    function chartByPlanoConta(data) {
+      new Chart(document.getElementById('grafico_plano_contas'), {
+        type: 'bar',
         data: {
           labels: data.labels,
           datasets: data.datasets,
         },
         options: {
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
           plugins: {
             title: {
               display: false
@@ -410,7 +364,7 @@
         .then((data) => {
           chartByCategoria(data);
         });
-      fetch(`/lancamentos/graficos/saldo-mensal`, {
+      fetch(`/lancamentos/graficos/contas?inicio=${inicio}&fim=${fim}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
@@ -418,7 +372,7 @@
       })
         .then((response) => response.json())
         .then((data) => {
-          chartBySaldoMensal(data);
+          chartByPlanoConta(data);
         });
       fetch(`/lancamentos/graficos/receita-despesa-mensal`, {
         method: "GET",

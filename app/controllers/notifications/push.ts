@@ -85,8 +85,8 @@ export const sendNotification = async (req: Request, res: Response) => {
   const { contaId } = getCustomRequest(req).customData;
 
   const payload: NotificationPayload = {
-    title: "Estoque Atualizado",
-    body: "O estoque de um produto foi alterado.",
+    title: "Notificação de teste",
+    body: "Notificação de teste de envio.",
   };
 
   await sendPushNotification(payload, contaId);

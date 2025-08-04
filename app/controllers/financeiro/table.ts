@@ -94,19 +94,31 @@ export const tableLancamentos = async (
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
-  if (await isAccountOverdue(req))
+  if (await isAccountOverdue(req)) {
     return res.status(404).json({
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });
+  }
+
+  console.log(new Decimal(parseFloat(req.query?.valorMinimo as string)));
   const builder = new PrismaDataTableBuilder<LancamentoFinanceiro>(
     prisma.lancamentoFinanceiro
   )
     .where({
-      OR: [
-        {
-          contaId: customData.contaId,
-        },
-      ],
+      contaId: customData.contaId,
+      tipo: req.query?.tipo || undefined,
+      contasFinanceiroId: Number(req.query?.conta) || undefined,
+      status: req.query?.status || undefined,
+      categoriaId: Number(req.query?.categoria) || undefined,
+      formaPagamento: req.query?.pagamento || undefined,
+      clienteId: Number(req.query?.cliente) || undefined,
+      valorTotal:
+        req.query?.valorMinimo && req.query?.valorMaximo
+          ? {
+              gte: new Decimal(parseFloat(req.query?.valorMinimo as string)),
+              lte: new Decimal(parseFloat(req.query?.valorMaximo as string)),
+            }
+          : undefined,
     })
     .search({
       id: "number",

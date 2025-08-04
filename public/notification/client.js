@@ -10,7 +10,7 @@ if (!("Notification" in window) || !("serviceWorker" in navigator)) {
   document.getElementById("unsubscribeBtn").style.display = "none";
 }
 
-document.getElementById("subscribeBtn").addEventListener("click", async () => {
+async function subscribeUserOnReceiverPush() {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return;
 
@@ -52,9 +52,9 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
     const data = await fetch("/subscribe", {
       method: "POST",
       body: JSON.stringify(subscription),
-      headers: { 
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${localStorage.getItem("gestao_facil:token")}`
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
       },
     });
 
@@ -64,31 +64,54 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
 
     const res = await data.json();
 
-    Swal.fire({
-      icon: res.new ? "success" : "info",
-      title: res.new ? "Inscrição em notificações" : "Atualização de inscrição",
-      text: res.message,
-      toast: true,
-      position: "top-end",
-      showConfirmButton: false,
-      timer: 3000,
-    });
+    showNotification(res.message, res.new ? "success" : "info");
     document.getElementById("subscribeBtn").style.display = "none";
     document.getElementById("unsubscribeBtn").style.display = "block";
     document.getElementById("sendNotificationBtn").style.display = "block";
   } catch (error) {
     console.error("Erro ao processar a inscrição:", error);
-    Swal.fire({
-      icon: "error",
-      title: "Erro",
-      text: error.responseJSON.message || "Não foi possível processar a inscrição. Tente novamente mais tarde.",
-      toast: true,
-      position: "top-end",
-      showConfirmButton: false,
-      timer: 3000,
-    });
+    showNotification(error.responseJSON?.message || 'Erro inesperado na requisição', 'error');
   }
-});
+}
+
+async function unsubscribeUserToReceivePush() {
+  const reg = await navigator.serviceWorker.ready;
+  const subscription = await reg.pushManager.getSubscription();
+
+  if (!subscription) {
+    showNotification("Nenhuma inscrição ativa para cancelar.", "info");
+    return;
+  }
+
+  const endpoint = subscription.endpoint;
+
+  const data = await fetch("/unsubscribe", {
+    method: "POST",
+    body: JSON.stringify({ endpoint }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+    },
+  });
+
+  const res = await data.json();
+
+  await subscription.unsubscribe();
+  window.localStorage.removeItem("pushEndpoint");
+
+  showNotification(res.message, res.new ? "success" : "info");
+  document.getElementById("subscribeBtn").style.display = "block";
+  document.getElementById("unsubscribeBtn").style.display = "none";
+  document.getElementById("sendNotificationBtn").style.display = "none";
+}
+
+document
+  .getElementById("subscribeBtn")
+  .addEventListener("click", subscribeUserOnReceiverPush);
+
+document
+  .getElementById("unsubscribeBtn")
+  .addEventListener("click", unsubscribeUserToReceivePush);
 
 // Compara ArrayBuffers de forma segura
 function compareKeys(buf1, buf2) {
@@ -100,54 +123,6 @@ function compareKeys(buf1, buf2) {
 }
 
 document
-  .getElementById("unsubscribeBtn")
-  .addEventListener("click", async () => {
-    const reg = await navigator.serviceWorker.ready;
-    const subscription = await reg.pushManager.getSubscription();
-
-    if (!subscription) {
-      Swal.fire({
-        icon: "error",
-        title: "Erro",
-        text: "Nenhuma inscrição ativa para cancelar.",
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 3000,
-      });
-      return;
-    }
-
-    const endpoint = subscription.endpoint;
-
-    const data = await fetch("/unsubscribe", {
-      method: "POST",
-      body: JSON.stringify({ endpoint }),
-      headers: { 
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${localStorage.getItem("gestao_facil:token")}`
-      },
-    });
-
-    const res = await data.json();
-
-    await subscription.unsubscribe();
-    window.localStorage.removeItem("pushEndpoint");
-
-    Swal.fire({
-      icon: res.new ? "success" : "info",
-      title: res.new ? "Cancelamento efetuado" : "Cancelamento processado",
-      text: res.message,
-      toast: true,
-      position: "top-end",
-      showConfirmButton: false,
-      timer: 3000,
-    });
-    document.getElementById("subscribeBtn").style.display = "block";
-    document.getElementById("unsubscribeBtn").style.display = "none";
-    document.getElementById("sendNotificationBtn").style.display = "none";
-  });
-document
   .getElementById("sendNotificationBtn")
   .addEventListener("click", async () => {
     const reg = await navigator.serviceWorker.ready;
@@ -157,7 +132,7 @@ document
       Swal.fire({
         icon: "error",
         title: "Erro",
-        text: "Você não está inscrito para enviar notificações.",	
+        text: "Você não está inscrito para enviar notificações.",
         toast: true,
         position: "top-end",
         showConfirmButton: false,
@@ -169,12 +144,11 @@ document
     await fetch("/send-notification", {
       method: "POST",
       body: JSON.stringify({}),
-      headers: { 
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${localStorage.getItem("gestao_facil:token")}`
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
       },
     });
-
   });
 
 function urlBase64ToUint8Array(base64String) {

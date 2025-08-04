@@ -28,6 +28,16 @@
         ajax: {
             type: "GET",
             url: `/lancamentos/getDataTable`,
+            data: function (d) {
+              d.tipo = $("#tipoLancamentoFiltroLancamento").val() || null;
+              d.conta = $("#contasFinanceiroFiltroLancamento").val() || null;
+              d.status = $("#statusFiltroLancamento").val() || null;
+              d.categoria = $("#categoriaFiltroLancamento").val() || null;
+              d.pagamento = $("#formaPagamentoFiltroLancamento").val() || null;
+              d.cliente = $("#clienteFiltroLancamento").val() || null;
+              d.valorMinimo = $("#valorMinimoFilterLancamento").val() || null;
+              d.valorMaximo = $("#valorMaximoFilterLancamento").val() || null;
+            },
             beforeSend: function (xhr) {
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {

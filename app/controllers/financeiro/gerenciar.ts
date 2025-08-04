@@ -10,6 +10,7 @@ import { enqueuePushNotification } from "../../services/pushNotificationQueueSer
 import { addHours } from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
+import { parse } from "path";
 
 export const criarLancamento = async (
   req: Request,
@@ -62,13 +63,13 @@ export const criarLancamento = async (
     }
 
     if (valorEntrada) {
-      if (Number(valorEntrada) > Number(valorTotal)) {
+      if (parseFloat(valorEntrada) > parseFloat(valorTotal)) {
         return res
           .status(400)
           .json({ message: "Valor de entrada maior que o valor total." });
       }
 
-      if (Number(valorEntrada) > 0 && !dataEntrada) {
+      if (parseFloat(valorEntrada) > 0 && !dataEntrada) {
         return res.status(400).json({
           message:
             "Data de entrada precisa ser informada quando existe um valor de entrada.",
@@ -77,16 +78,17 @@ export const criarLancamento = async (
     }
 
     if (desconto) {
-      if (Number(desconto) > Number(valorTotal)) {
+      if (parseFloat(desconto) > parseFloat(valorTotal)) {
         return res
           .status(400)
           .json({ message: "Desconto maior que o valor total." });
       }
     }
 
-    const valorBrutoTotal = new Decimal(valorTotal);
-    const valorTotalDecimal = valorBrutoTotal.minus(desconto || 0);
-    const valorEntradaDecimal = new Decimal(valorEntrada || 0);
+    const descontoParsed = desconto ? parseFloat(desconto) : 0;
+    const valorBrutoTotal = new Decimal(parseFloat(valorTotal));
+    const valorTotalDecimal = valorBrutoTotal.minus(descontoParsed || 0);
+    const valorEntradaDecimal = new Decimal(parseFloat(valorEntrada) || 0);
     const valorParcelado = valorTotalDecimal.minus(valorEntradaDecimal);
     const valorParcela =
       totalParcelas > 0
@@ -102,7 +104,7 @@ export const criarLancamento = async (
           valorEntrada: valorEntradaDecimal,
           dataEntrada: dataEntrada ? new Date(dataEntrada) : null,
           valorBruto: valorBrutoTotal,
-          desconto: new Decimal(desconto || 0),
+          desconto: new Decimal(descontoParsed || 0),
           tipo,
           formaPagamento,
           status,
