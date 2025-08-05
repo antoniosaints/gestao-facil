@@ -6,6 +6,7 @@ import { routerVendas } from "./vendas/router";
 import { monitorRouter } from "./monitor/router";
 import { routerLancamentos } from "./lancamentos/router";
 import { routerPrinter } from "./impressao/router";
+import routerUploads from "./uploads/router";
 
 const RouterMain = Router();
 
@@ -16,5 +17,6 @@ RouterMain.use("/lancamentos", routerLancamentos);
 RouterMain.use("/vendas", routerVendas);
 RouterMain.use("/printer", routerPrinter);
 RouterMain.use("/system", monitorRouter);
+RouterMain.use("/uploads", routerUploads);
 
 export { RouterMain };

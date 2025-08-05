@@ -20,6 +20,7 @@
 
 <script>
     document.querySelector("#user_name_container").innerHTML = "Olá, " + localStorage.getItem("gestao_facil:username") + "!";
+
     $(document).ready(function () {
         $('#horario_sistema_atual').html(moment().format('HH:mm:ss'))
         setInterval(function () {

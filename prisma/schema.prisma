@@ -55,6 +55,7 @@ model Contas {
   nome                 String
   valor                Decimal                @db.Decimal(10, 2)
   data                 DateTime
+  profile              String?                @default("imgs/logo.png")
   status               Status                 @default(ATIVO)
   vencimento           DateTime               @default(now())
   tipo                 String?
@@ -119,9 +120,16 @@ model ClientesFornecedores {
   Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   Uid                  String                 @default("CLI_000")
   status               Status                 @default(ATIVO)
+  documento            String?
+  endereco             String?
+  cep                  String?
+  cidade               String?
+  estado               String?
   nome                 String
   email                String?
   telefone             String?
+  whastapp             String?
+  observacaos          String?
   tipo                 TipoCliente            @default(CLIENTE)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
@@ -308,6 +316,8 @@ model Vendas {
   vendedorId      Int?
   vendedor        Usuarios?             @relation(fields: [vendedorId], references: [id])
   garantia        Int?                  @default(0)
+  observacoes     String?               @db.Text
+  desconto        Decimal               @default(0) @db.Decimal(10, 2)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   ItensVendas     ItensVendas[]
