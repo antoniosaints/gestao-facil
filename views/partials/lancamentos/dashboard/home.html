@@ -4,18 +4,13 @@
       <i class="fa-solid fa-money-bill-trend-up text-emerald-600"></i> Painel financeiro
     </h2>
     <div class="flex items-center space-x-2 w-content">
-      <button type="button" id="limpar_filtro_dashboard_periodo"
+      <button type="button" id="limpar_filtro_dashboard_financeiro_periodo"
         class="bg-red-600 text-white text-nowrap px-3 py-1.5 rounded-md text-sm hover:bg-red-700 transition-colors">
         <i class="fa-solid fa-filter-circle-xmark"></i>
       </button>
-      <input id="filtro_dashboard_periodo" placeholder="Filtrar por período"
+      <input id="filtro_dashboard_financeiro_periodo" placeholder="Filtrar por período"
         class="rounded-md border w-max bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
       </input>
-      <button
-        class="bg-primary text-white text-nowrap px-4 py-1.5 rounded-md text-sm hover:bg-primary transition-colors"><i
-          class="fa-solid fa-file-pdf"></i>
-        <div class="hidden md:inline">Exportar</div>
-      </button>
     </div>
   </div>
 
@@ -163,7 +158,8 @@
 
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Plano de contas</h2>
+      <h2 class="text-lg font-semibold mb-4"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Plano de contas
+      </h2>
       <canvas class="max-h-64" id="grafico_plano_contas"></canvas>
     </div>
 
@@ -195,143 +191,206 @@
     if (window.innerWidth < 768) {
       switchToNormalScreen();
     }
+
+    flatpickr("#filtro_dashboard_financeiro_periodo", {
+      mode: "range",
+      altInput: true,
+      altFormat: "d/m/Y",
+      dateFormat: "Y-m-d",
+      locale: "pt",
+      onReady: function (selectedDates, dateStr, instance) {
+        if (localStorage.getItem("filtro_dashboard_financeiro_periodo")) {
+          instance.setDate(localStorage.getItem("filtro_dashboard_financeiro_periodo"));
+        }
+        if (localStorage.getItem("filtro_dashboard_financeiro_periodo")) {
+          $("#limpar_filtro_dashboard_financeiro_periodo").removeClass("hidden");
+        } else {
+          $("#limpar_filtro_dashboard_financeiro_periodo").addClass("hidden");
+        }
+
+        $("#limpar_filtro_dashboard_financeiro_periodo").click(function () {
+          instance.clear();
+          localStorage.removeItem("filtro_dashboard_financeiro_periodo");
+          const inicio = new Date().toISOString().slice(0, 7) + "-01";
+          const fim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0, 10);
+          generateChatsFinanceiro(inicio, fim);
+        })
+      },
+      onChange: function (selectedDates, dateStr, instance) {
+        if (selectedDates.length === 2) {
+          $("#limpar_filtro_dashboard_financeiro_periodo").removeClass("hidden");
+          localStorage.setItem("filtro_dashboard_financeiro_periodo", dateStr);
+          generateChatsFinanceiro(dateStr.split(" até ")[0], dateStr.split(" até ")[1]);
+        } else {
+          $("#limpar_filtro_dashboard_financeiro_periodo").addClass("hidden");
+        }
+      }
+    });
+    let chartByCategoriaInstance = null;
+    let chartByDespesasPorStatusInstance = null;
+    let chartByPlanoContasInstance = null;
+    let chartByReceitasPorStatusInstance = null;
     function chartByCategoria(data) {
-      new Chart(document.getElementById('grafico_por_categoria'), {
-        type: 'pie',
-        data: {
-          labels: data.labels,
-          datasets: data.datasets,
-        },
-        options: {
-          scales: {
-            y: {
-              display: false,
-              beginAtZero: true
-            },
-            x: {
-              display: false,
-            }
+      if (chartByCategoriaInstance) {
+        chartByCategoriaInstance.data.labels = data.labels;
+        chartByCategoriaInstance.data.datasets = data.datasets;
+        chartByCategoriaInstance.update();
+      } else {
+        chartByCategoriaInstance = new Chart(document.getElementById('grafico_por_categoria'), {
+          type: 'pie',
+          data: {
+            labels: data.labels,
+            datasets: data.datasets,
           },
-          plugins: {
-            title: {
-              display: false
+          options: {
+            scales: {
+              y: {
+                display: false,
+                beginAtZero: true
+              },
+              x: {
+                display: false,
+              }
             },
-            legend: {
-              position: 'right',
-              labels: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+            plugins: {
+              title: {
+                display: false
+              },
+              legend: {
+                position: 'right',
+                labels: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
               }
             }
           }
-        }
-      });
+        });
+      }
     }
     function chartByDespesasPorStatus(data) {
-      new Chart(document.getElementById('grafico_por_status_pagamento'), {
-        type: 'bar',
-        data: {
-          labels: data.labels,
-          datasets: data.datasets,
-        },
-        options: {
-          interaction: {
-            mode: 'index',
-            intersect: false,
+      if (chartByDespesasPorStatusInstance) {
+        chartByDespesasPorStatusInstance.data.labels = data.labels;
+        chartByDespesasPorStatusInstance.data.datasets = data.datasets;
+        chartByDespesasPorStatusInstance.update();
+      } else {
+        chartByDespesasPorStatusInstance = new Chart(document.getElementById('grafico_por_status_pagamento'), {
+          type: 'bar',
+          data: {
+            labels: data.labels,
+            datasets: data.datasets,
           },
-          plugins: {
-            title: {
-              display: false
+          options: {
+            interaction: {
+              mode: 'index',
+              intersect: false,
             },
-            legend: {
-              display: false
+            plugins: {
+              title: {
+                display: false
+              },
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                stacked: true,
+                ticks: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
+              },
+              x: {
+                stacked: true,
+                ticks: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
+              },
             }
-          },
-          scales: {
-            y: {
-              stacked: true,
-              ticks: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-              }
-            },
-            x: {
-              stacked: true,
-              ticks: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-              }
-            },
           }
-        }
-      });
+        });
+      }
     }
     function chartByReceitaDespesa(data) {
-      new Chart(document.getElementById('grafico_receita_despesa_mensal'), {
-        type: 'bar',
-        data: {
-          labels: data.labels,
-          datasets: data.datasets,
-        },
-        options: {
-          interaction: {
-            mode: 'index',
-            intersect: false,
+      if (chartByReceitasPorStatusInstance) {
+        chartByReceitasPorStatusInstance.data.labels = data.labels;
+        chartByReceitasPorStatusInstance.data.datasets = data.datasets;
+        chartByReceitasPorStatusInstance.update();
+      } else {
+        chartByReceitasPorStatusInstance = new Chart(document.getElementById('grafico_receita_despesa_mensal'), {
+          type: 'bar',
+          data: {
+            labels: data.labels,
+            datasets: data.datasets,
           },
-          plugins: {
-            title: {
-              display: false
+          options: {
+            interaction: {
+              mode: 'index',
+              intersect: false,
             },
-            legend: {
-              display: false
+            plugins: {
+              title: {
+                display: false
+              },
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                ticks: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
+              },
+              x: {
+                ticks: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
+              },
             }
-          },
-          scales: {
-            y: {
-              ticks: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-              }
-            },
-            x: {
-              ticks: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-              }
-            },
           }
-        }
-      });
+        });
+      }
     }
     function chartByPlanoConta(data) {
-      new Chart(document.getElementById('grafico_plano_contas'), {
-        type: 'bar',
-        data: {
-          labels: data.labels,
-          datasets: data.datasets,
-        },
-        options: {
-          interaction: {
-            mode: 'index',
-            intersect: false,
+      if (chartByPlanoContasInstance) {
+        chartByPlanoContasInstance.data.labels = data.labels;
+        chartByPlanoContasInstance.data.datasets = data.datasets;
+        chartByPlanoContasInstance.update();
+      } else {
+        chartByPlanoContasInstance = new Chart(document.getElementById('grafico_plano_contas'), {
+          type: 'bar',
+          data: {
+            labels: data.labels,
+            datasets: data.datasets,
           },
-          plugins: {
-            title: {
-              display: false
+          options: {
+            interaction: {
+              mode: 'index',
+              intersect: false,
             },
-            legend: {
-              display: false
+            plugins: {
+              title: {
+                display: false
+              },
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                ticks: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
+              },
+              x: {
+                ticks: {
+                  color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                }
+              },
             }
-          },
-          scales: {
-            y: {
-              ticks: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-              }
-            },
-            x: {
-              ticks: {
-                color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-              }
-            },
           }
-        }
-      });
+        });
+      }
     }
     async function generateChatsFinanceiro(inicio, fim) {
       fetch(`/lancamentos/relatorios/totais`, {
@@ -395,11 +454,12 @@
       })
         .then((response) => response.json())
         .then((data) => {
-          console.log(data);
           chartByDespesasPorStatus(data);
         });
     };
 
-    generateChatsFinanceiro("2025-01-01", "2025-12-31");
+    const inicio = new Date().toISOString().slice(0, 7) + "-01";
+    const fim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0, 10);
+    generateChatsFinanceiro(inicio, fim);
   })();
 </script>
