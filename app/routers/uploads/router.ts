@@ -45,7 +45,7 @@ const storage = multer.diskStorage({
 
     // Apaga todos os arquivos da pasta
     if (fs.existsSync(dir)) {
-      const arquivos = globSync(path.join(dir, "profile.*"));
+      const arquivos = globSync(path.join(dir, "*"));
       for (const filePath of arquivos) {
         try {
           fs.unlinkSync(filePath);
