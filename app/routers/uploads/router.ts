@@ -6,22 +6,16 @@ import fs from "fs";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { authenticateJWT } from "../../middlewares/auth";
 import { prisma } from "../../utils/prisma";
+import { mainPath } from "../../config/path";
 
 const routerUploads = Router();
-const rootPath = path.resolve(__dirname);
 
 // Configuração do Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const customData = getCustomRequest(req).customData;
     const pathName = `account_${customData.contaId}`;
-    const dir = path.join(
-      rootPath,
-      "../../../public",
-      "uploads",
-      "profiles",
-      pathName
-    );
+    const dir = path.join(mainPath, "public", "uploads", "profiles", pathName);
 
     console.log(dir);
 
@@ -37,7 +31,7 @@ const storage = multer.diskStorage({
     const filename = filenameBase + ext;
     const pathName = `account_${customData.contaId}`;
 
-    const dir = path.join("../../../public", "uploads", "profiles", pathName);
+    const dir = path.join(mainPath, "public", "uploads", "profiles", pathName);
 
     // Apaga todos os arquivos da pasta
     if (fs.existsSync(dir)) {
