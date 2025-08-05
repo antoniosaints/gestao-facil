@@ -3,12 +3,12 @@ import multer, { MulterError } from "multer";
 import { globSync } from "glob";
 import path from "path";
 import fs from "fs";
-import { rootPath } from "../../config/path";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { authenticateJWT } from "../../middlewares/auth";
 import { prisma } from "../../utils/prisma";
 
 const routerUploads = Router();
+const rootPath = path.resolve(__dirname);
 
 // Configuração do Multer
 const storage = multer.diskStorage({
@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
     const customData = getCustomRequest(req).customData;
     const dir = path.join(
       rootPath,
-      "../public",
+      "../../../public",
       "profiles",
       String(customData.contaId),
       "profile"
@@ -37,7 +37,7 @@ const storage = multer.diskStorage({
 
     const dir = path.join(
       rootPath,
-      "../public",
+      "../../../public",
       "profiles",
       String(customData.contaId),
       "profile"
