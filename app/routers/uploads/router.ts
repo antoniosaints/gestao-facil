@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
     const customData = getCustomRequest(req).customData;
     const dir = path.join(
       rootPath,
-      "../../public",
+      "../../../code/public",
       "profiles",
       String(customData.contaId),
       "profile"
@@ -37,7 +37,7 @@ const storage = multer.diskStorage({
 
     const dir = path.join(
       rootPath,
-      "../../public",
+      "../../../code/public",
       "profiles",
       String(customData.contaId),
       "profile"
