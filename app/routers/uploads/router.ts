@@ -17,6 +17,8 @@ const storage = multer.diskStorage({
     const dir = path.join(
       rootPath,
       "../public",
+      "uploads",
+      "profiles",
       String(customData.contaId),
       "profile"
     );
@@ -35,13 +37,15 @@ const storage = multer.diskStorage({
     const dir = path.join(
       rootPath,
       "../public",
+      "uploads",
+      "profiles",
       String(customData.contaId),
       "profile"
     );
 
     // Apaga todos os arquivos da pasta
     if (fs.existsSync(dir)) {
-      const arquivos = globSync(path.join(dir, ".*"));
+      const arquivos = globSync(path.join(dir, "profile.*"));
       for (const filePath of arquivos) {
         try {
           fs.unlinkSync(filePath);
@@ -90,7 +94,7 @@ routerUploads.post(
         return res.status(400).json({ message: "Arquivo não enviado." });
       }
 
-      const path = `${customData.contaId}/profile/${req.file.filename}`;
+      const path = `uploads/profiles/${customData.contaId}/profile/${req.file.filename}`;
 
       await prisma.contas.update({
         where: { id: customData.contaId },
@@ -99,7 +103,7 @@ routerUploads.post(
 
       return res.json({
         message: "Imagem de perfil enviada com sucesso, recarregue a pagina para aplicar.",
-        path: `/public/${customData.contaId}/profile/${req.file.filename}`,
+        path: `/public/uploads/profiles/${customData.contaId}/profile/${req.file.filename}`,
       });
     });
   }
