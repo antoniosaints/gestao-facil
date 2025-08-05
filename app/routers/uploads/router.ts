@@ -14,12 +14,13 @@ const rootPath = path.resolve(__dirname);
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const customData = getCustomRequest(req).customData;
+    const pathName = `account_${customData.contaId}`;
     const dir = path.join(
       rootPath,
-      "../../../code/public",
+      "../../../public",
+      "uploads",
       "profiles",
-      String(customData.contaId),
-      "profile"
+      pathName
     );
 
     console.log(dir);
@@ -34,14 +35,9 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname).toLowerCase();
     const filenameBase = "profile" + String(customData.contaId);
     const filename = filenameBase + ext;
+    const pathName = `account_${customData.contaId}`;
 
-    const dir = path.join(
-      rootPath,
-      "../../../code/public",
-      "profiles",
-      String(customData.contaId),
-      "profile"
-    );
+    const dir = path.join("../../../public", "uploads", "profiles", pathName);
 
     // Apaga todos os arquivos da pasta
     if (fs.existsSync(dir)) {
@@ -67,7 +63,11 @@ const upload = multer({
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Formato de arquivo inválido, apenas arquivos JPEG, PNG, GIF ou WebP."));
+      cb(
+        new Error(
+          "Formato de arquivo inválido, apenas arquivos JPEG, PNG, GIF ou WebP."
+        )
+      );
     }
   },
 });
@@ -78,7 +78,7 @@ routerUploads.post(
   authenticateJWT,
   async (req: Request, res: Response): Promise<any> => {
     const customData = getCustomRequest(req).customData;
-
+    const pathName = `account_${customData.contaId}`;
     upload.single("profileImage")(req, res, async (err) => {
       if (err instanceof MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
@@ -94,7 +94,7 @@ routerUploads.post(
         return res.status(400).json({ message: "Arquivo não enviado." });
       }
 
-      const path = `profiles/${customData.contaId}/profile/${req.file.filename}`;
+      const path = `uploads/profiles/${pathName}/${req.file.filename}`;
 
       await prisma.contas.update({
         where: { id: customData.contaId },
@@ -102,8 +102,9 @@ routerUploads.post(
       });
 
       return res.json({
-        message: "Imagem de perfil enviada com sucesso, recarregue a pagina para aplicar.",
-        path: `/public/profiles/${customData.contaId}/profile/${req.file.filename}`,
+        message:
+          "Imagem de perfil enviada com sucesso, recarregue a pagina para aplicar.",
+        path: `/public/uploads/profiles/${pathName}/profile/${req.file.filename}`,
       });
     });
   }
