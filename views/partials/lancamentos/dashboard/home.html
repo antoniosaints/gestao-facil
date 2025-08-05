@@ -16,7 +16,7 @@
 
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
     <!-- Metric Item Start -->
-    <div onclick="loadPage('/clientes/resumo')"
+    <div onclick="loadPage('/lancamentos/resumo')"
       class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-emerald-50 dark:bg-emerald-950/50 px-6 pb-5 pt-6">
       <div class="mb-6 flex items-center gap-3">
         <i class="fa-solid fa-arrow-up h-8 w-8 bg-emerald-500/10 p-2 rounded-md text-emerald-500"></i>
@@ -76,7 +76,7 @@
       </div>
     </div>
 
-    <div onclick="loadPage('/produtos/resumo')"
+    <div onclick="loadPage('/lancamentos/resumo')"
       class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-blue-50 dark:bg-blue-950/50 px-6 pb-5 pt-6">
       <div class="mb-6 flex items-center gap-3">
         <i class="fa-solid fa-money-bill-trend-up w-8 h-8 bg-blue-500/10 p-2 rounded-md text-blue-500"></i>
@@ -106,7 +106,7 @@
       </div>
     </div>
 
-    <div onclick="loadPage('/vendas/resumo')"
+    <div onclick="loadPage('/lancamentos/resumo')"
       class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-yellow-50 dark:bg-yellow-950/50 px-6 pb-5 pt-6">
       <div class="mb-6 flex items-center gap-3">
         <i class="fa-solid fa-hourglass-end h-8 w-8 bg-yellow-500/10 p-2 rounded-md text-yellow-400"></i>
@@ -214,13 +214,15 @@
           const inicio = new Date().toISOString().slice(0, 7) + "-01";
           const fim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0, 10);
           generateChatsFinanceiro(inicio, fim);
+          showNotification("Período removido!", "success");
         })
       },
       onChange: function (selectedDates, dateStr, instance) {
-        if (selectedDates.length === 2) {
+        if (dateStr.split(" até ").length === 2) {
           $("#limpar_filtro_dashboard_financeiro_periodo").removeClass("hidden");
           localStorage.setItem("filtro_dashboard_financeiro_periodo", dateStr);
           generateChatsFinanceiro(dateStr.split(" até ")[0], dateStr.split(" até ")[1]);
+          showNotification("Gráficos atualizados!", "success");
         } else {
           $("#limpar_filtro_dashboard_financeiro_periodo").addClass("hidden");
         }

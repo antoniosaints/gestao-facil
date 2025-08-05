@@ -62,14 +62,18 @@ export const criarLancamento = async (
         .json({ message: "Campos obrigatórios não preenchidos." });
     }
 
-    if (valorEntrada) {
-      if (parseFloat(valorEntrada) > parseFloat(valorTotal)) {
+    const valorTotalFormated = new Decimal(valorTotal.replace(",", "."));
+    const valorEntradaFormated = new Decimal(valorEntrada.replace(",", ".") || 0);
+    const descontoFormated = new Decimal(desconto.replace(",", ".") || 0);  
+
+    if (valorEntradaFormated) {
+      if (valorEntradaFormated.toNumber() > valorTotalFormated.toNumber()) {
         return res
           .status(400)
           .json({ message: "Valor de entrada maior que o valor total." });
       }
 
-      if (parseFloat(valorEntrada) > 0 && !dataEntrada) {
+      if (valorEntradaFormated.toNumber() > 0 && !dataEntrada) {
         return res.status(400).json({
           message:
             "Data de entrada precisa ser informada quando existe um valor de entrada.",
@@ -77,18 +81,16 @@ export const criarLancamento = async (
       }
     }
 
-    if (desconto) {
-      if (parseFloat(desconto) > parseFloat(valorTotal)) {
+    if (descontoFormated) {
+      if (descontoFormated.toNumber() > valorTotalFormated.toNumber()) {
         return res
           .status(400)
           .json({ message: "Desconto maior que o valor total." });
       }
     }
 
-    const descontoParsed = desconto ? parseFloat(desconto) : 0;
-    const valorBrutoTotal = new Decimal(parseFloat(valorTotal));
-    const valorTotalDecimal = valorBrutoTotal.minus(descontoParsed || 0);
-    const valorEntradaDecimal = new Decimal(parseFloat(valorEntrada) || 0);
+    const valorTotalDecimal = valorTotalFormated.minus(descontoFormated || 0);
+    const valorEntradaDecimal = valorEntradaFormated;
     const valorParcelado = valorTotalDecimal.minus(valorEntradaDecimal);
     const valorParcela =
       totalParcelas > 0
@@ -103,8 +105,8 @@ export const criarLancamento = async (
           valorTotal: valorTotalDecimal,
           valorEntrada: valorEntradaDecimal,
           dataEntrada: dataEntrada ? new Date(dataEntrada) : null,
-          valorBruto: valorBrutoTotal,
-          desconto: new Decimal(descontoParsed || 0),
+          valorBruto: valorTotalFormated,
+          desconto: descontoFormated,
           tipo,
           formaPagamento,
           status,
@@ -117,15 +119,15 @@ export const criarLancamento = async (
         },
       });
 
-      if (valorEntrada && Number(valorEntrada) > 0 && dataEntrada) {
+      if (valorEntrada && valorEntradaFormated.toNumber() > 0 && dataEntrada) {
         await tx.parcelaFinanceiro.create({
           data: {
             Uid: gerarIdUnicoComMetaFinal("PAR"),
             numero: 0,
-            valor: new Decimal(valorEntrada),
+            valor: valorEntradaFormated,
             vencimento: addHours(new Date(dataEntrada), 3),
             pago: true,
-            valorPago: new Decimal(valorEntrada),
+            valorPago: valorEntradaFormated,
             dataPagamento: addHours(new Date(dataEntrada), 3),
             formaPagamento: "DINHEIRO",
             lancamentoId: novoLancamento.id,
