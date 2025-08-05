@@ -22,6 +22,8 @@ const storage = multer.diskStorage({
       "profile"
     );
 
+    console.log(dir);
+
     // Garante que o diretório exista
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
