@@ -7,11 +7,13 @@ import { monitorRouter } from "./monitor/router";
 import { routerLancamentos } from "./lancamentos/router";
 import { routerPrinter } from "./impressao/router";
 import routerUploads from "./uploads/router";
+import { routerUsuarios } from "./administracao/usuarios/router";
 
 const RouterMain = Router();
 
 RouterMain.use("/contas", routerContas);
 RouterMain.use("/produtos", routerProdutos);
+RouterMain.use("/usuarios", routerUsuarios);
 RouterMain.use("/clientes", routerClientes);
 RouterMain.use("/lancamentos", routerLancamentos);
 RouterMain.use("/vendas", routerVendas);

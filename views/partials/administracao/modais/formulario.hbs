@@ -1,0 +1,272 @@
+<div id="modalOverlayFormularioUsuarios"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
+    <div id="sheetContainerFormularioUsuarios"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+        <div
+            class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-user text-blue-600"></i> Formulario de usuários
+            </h2>
+            <button onclick="closeModalFormulariousuarios()"
+                class="text-gray-800 dark:text-white hover:text-gray-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <form id="modalFormularioUsuariosSistema" class="w-full">
+            <div class="overflow-y-auto flex">
+                <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <!-- Valor Total -->
+                            <div class="col-span-2">
+                                <label for="nomeUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-user"></i>
+                                    Nome <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="nomeUsuarioFormulario" name="nome"
+                                    placeholder="Digite o nome do usuário" required
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                            <div>
+                                <label for="emailUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-envelope"></i>
+                                    E-mail
+                                </label>
+                                <input type="text" id="emailUsuarioFormulario" name="email" required
+                                    placeholder="Digite o email"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                            <div>
+                                <label for="senhaUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-lock"></i>
+                                    Senha
+                                </label>
+                                <input type="password" id="senhaUsuarioFormulario" name="senha" required
+                                    placeholder="......"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                            <!-- Tipo -->
+                            <div>
+                                <label for="statusUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-toggle-on"></i>
+                                    Status
+                                </label>
+                                <select id="statusUsuarioFormulario" name="status"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Selecione o status</option>
+                                    <option value="ATIVO">Ativo</option>
+                                    <option value="INATIVO">Inativo</option>
+                                    <option value="BLOQUEADO">Bloqueado</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="permissaoUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-lock"></i>
+                                    Permissão
+                                </label>
+                                <select id="permissaoUsuarioFormulario" name="permissao"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Selecione a permissão</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="gerente">Gerente</option>
+                                    <option value="vendedor">Vendedor</option>
+                                    <option value="tecnico">Técnico</option>
+                                    <option value="usuario">Usuário</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="notificacoesUsuariosFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-bell"></i>
+                                    Permitir notificaçoes
+                                </label>
+                                <label for="notificacoesUsuariosFormulario"
+                                    class="border block bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                    <div class="flex items-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="notificacoesUsuariosFormulario"
+                                                name="pushReceiver" class="sr-only peer" />
+                                            <div
+                                                class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                            </div>
+                                            <span
+                                                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Notificações</span>
+                                        </label>
+                                    </div>
+                                </label>
+                            </div>
+                            <div>
+                                <label for="emailsUsuariosFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-envelope"></i>
+                                    Permitir emails
+                                </label>
+                                <label for="emailsUsuariosFormulario"
+                                    class="border block bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                    <div class="flex items-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="emailsUsuariosFormulario" name="emailReceiver"
+                                                class="sr-only peer" />
+                                            <div
+                                                class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                            </div>
+                                            <span
+                                                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">E-mails</span>
+                                        </label>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rodapé -->
+            <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+                <div class="flex gap-3">
+                    <button type="submit" id="buttonSubmitFormularioUsuarios"
+                        class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow transition">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Salvar
+                    </button>
+                    <button type="button" onclick="closeModalFormulariousuarios()"
+                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:border-gray-600 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+
+            <input type="hidden" name="id" id="idUsuarioFormulario">
+        </form>
+    </div>
+</div>
+
+
+<script>
+    function openModalFormulariousuarios(id = null) {
+        const overlay = document.getElementById('modalOverlayFormularioUsuarios');
+        const modal = document.getElementById('sheetContainerFormularioUsuarios');
+
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Força reflow
+        void modal.offsetWidth;
+
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
+
+        if (id) {
+            $("#idUsuarioFormulario").val(id);
+            $.ajax({
+                url: `/usuarios/get/${id}`,
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+                },
+                dataType: "json",
+                success: function (response) {
+                    const form = document.getElementById('modalFormularioUsuariosSistema');
+                    console.log(response);
+                    form.id.value = response.data.id;
+                    form.email.value = response.data.email;
+                    form.nome.value = response.data.nome;
+                    if (response.data.permissao === "root") {
+                        form.permissao.disabled = true;
+                        $("#permissaoUsuarioFormulario").select2({
+                            placeholder: "Root"
+                        });
+                    }else {
+                        form.permissao.disabled = false;
+                        $("#permissaoUsuarioFormulario").select2({
+                            placeholder: 'Permissão'
+                        })
+                    }
+                    form.permissao.value = response.data.permissao;
+                    form.status.value = response.data.status;
+                    form.pushReceiver.checked = response.data.pushReceiver;
+                    form.emailReceiver.checked = response.data.emailReceiver;
+
+                    $("#statusUsuarioFormulario").trigger('change');
+                    $("#permissaoUsuarioFormulario").trigger('change');
+                },
+                error: function (error) {
+                    console.log(error);
+                    showNotification(error.responseJSON?.message || 'Erro inesperado na requisição', 'error');
+                    closeModalFormulariousuarios();
+                }
+            })
+        }else {
+            $("#idUsuarioFormulario").val(null);
+            const form = document.getElementById('modalFormularioUsuariosSistema');
+            form.reset();
+            form.permissao.disabled = false;
+            $("#permissaoUsuarioFormulario").select2({
+                placeholder: 'Permissão'
+            })
+
+            $("#statusUsuarioFormulario").trigger('change');
+            $("#permissaoUsuarioFormulario").trigger('change');
+        }
+    }
+
+    function closeModalFormulariousuarios() {
+        const overlay = document.getElementById('modalOverlayFormularioUsuarios');
+        const modal = document.getElementById('sheetContainerFormularioUsuarios');
+
+        modal.classList.remove('opacity-100', 'scale-100');
+        modal.classList.add('opacity-0', 'scale-95');
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }, 300);
+    }
+
+    // Fechamento por ESC e clique fora
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFormulariousuarios());
+    document.getElementById('modalOverlayFormularioUsuarios').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModalFormulariousuarios();
+    });
+
+    $("#permissaoUsuarioFormulario").select2({
+        placeholder: 'Permissão',
+        width: '100%',
+        language: "pt-BR",
+    });
+    $("#statusUsuarioFormulario").select2({
+        placeholder: 'Status',
+        width: '100%',
+        language: "pt-BR",
+    });
+
+
+    document.querySelector("#modalFormularioUsuariosSistema").addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        $.ajax({
+            url: "/usuarios/salvar",
+            method: "POST",
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+            },
+            data: $("#modalFormularioUsuariosSistema").serialize(),
+            dataType: "json",
+            success: function (data) {
+                showNotification(data.message, 'success');
+                closeModalFormulariousuarios();
+                if (typeof reloadTabelaUsuarios === "function") {
+                    reloadTabelaUsuarios();
+                }
+                if (typeof renderListaUsuarios === "function") {
+                    renderListaUsuarios();
+                }
+            },
+            error: function (error) {
+                console.log(error);
+                showNotification(error?.responseJSON?.message || "Ocorreu um erro inesperado", 'error');
+            }
+        });
+    })
+</script>

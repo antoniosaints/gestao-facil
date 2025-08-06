@@ -13,24 +13,10 @@
     </thead>
 </table>
 <script>
-    function editarProduto(id) {
-        localStorage.setItem("produtoId", id);
-        htmx.ajax("GET", "partials/produtos/formulario.html", {
-            target: "#content",
-            swap: "innerHTML",
-        });
-    }
-    function visualizarProduto(id) {
-        localStorage.setItem("produtoId", id);
-        htmx.ajax("GET", "partials/produtos/detalhes.html", {
-            target: "#content",
-            swap: "innerHTML",
-        });
-    }
-    function excluirProduto(id) {
+    function excluirusuarioSistema(id) {
         Swal.fire({
-            title: "Excluir produto",
-            text: "Tem certeza que deseja excluir este produto?",
+            title: "Excluir usuário",
+            text: "Tem certeza que deseja excluir este usuário?",
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#3085d6",
@@ -42,7 +28,7 @@
                 $.ajax({
                     dataType: "json",
                     type: "DELETE",
-                    url: `${baseUrl}/produtos/${id}`,
+                    url: `/usuarios/delete/${id}`,
                     beforeSend: function (xhr) {
                         const tokenJWT = localStorage.getItem("gestao_facil:token");
                         if (tokenJWT) {
@@ -59,38 +45,27 @@
                         });
                     },
                     success: function (response) {
-                        Swal.fire({
-                            title: "Produto excluído!",
-                            text: "O produto foi excluído com sucesso!",
-                            icon: "success",
-                            toast: true,
-                            showConfirmButton: false,
-                            position: "bottom-end",
-                            timer: 3000,
-                        });
-                        $("#tabela_usuarios_listagem_principal").DataTable().ajax.reload();
+                        Swal.close();
+                        showNotification(response.message, 'success');
+                        if (typeof reloadTabelaUsuarios === "function") {
+                            reloadTabelaUsuarios();
+                        }
                     },
                     error: function (error) {
-                        Swal.fire({
-                            title: "Erro ao excluir produto!",
-                            text: "Ocorreu um erro ao excluir o produto. Por favor, tente novamente.",
-                            icon: "error",
-                            confirmButtonColor: "#3085d6",
-                            confirmButtonText: "OK",
-                        });
+                        console.log(error);
+                        Swal.close();
+                        showNotification(error.responseJSON?.message || 'Erro inesperado na requisição', 'error');
                     }
                 })
             }
         });
     }
-    function salvarProduto() {
-        localStorage.removeItem("produtoId");
-        htmx.ajax("GET", "partials/produtos/formulario.html", {
-            target: "#content",
-            swap: "innerHTML",
-        });
-    }
 
+
+    function reloadTabelaUsuarios() {
+        const tabela = $("#tabela_usuarios_listagem_principal").DataTable();
+        tabela.ajax.reload(null, false);
+    }
     new DataTable("#tabela_usuarios_listagem_principal", {
         language: {
             url: "/lang/pt-Br.json",

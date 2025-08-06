@@ -4,7 +4,7 @@
             <i class="fa-solid fa-user text-indigo-600"></i>
             Usuários
         </h2>
-        <button onclick="salvarProduto()"
+        <button onclick="openModalFormulariousuarios()"
             class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
             <i class="fa-solid fa-circle-plus"></i> Novo usuário
         </button>
@@ -12,3 +12,5 @@
     <div class="overflow-x-auto shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
         hx-get="/administracao/usuarios/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
 </div>
+
+{{> administracao/modais/formulario}}
