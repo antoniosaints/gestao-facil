@@ -31,6 +31,7 @@ export const tableVendas = async (
       vendedorId: permission ? undefined : customData.userId,
     })
     .format("vendedorId", async function (value) {
+      if (!value) return "-";
       const vendedor = await prisma.usuarios.findFirst({
         where: { id: value },
         select: { nome: true },
