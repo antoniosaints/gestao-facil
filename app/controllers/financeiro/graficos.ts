@@ -391,6 +391,7 @@ export const graficoReceitaDespesaMensal = async (
         borderWidth: 2,
         borderRadius: 5,
         borderSkipped: false,
+        order: 2
       },
       {
         label: "Despesas",
@@ -399,6 +400,7 @@ export const graficoReceitaDespesaMensal = async (
         borderWidth: 2,
         borderRadius: 5,
         borderSkipped: false,
+        order: 2
       },
       {
         label: "Saldo",
@@ -414,6 +416,7 @@ export const graficoReceitaDespesaMensal = async (
         pointRadius: 0,
         fill: true,
         backgroundColor: "rgba(59, 130, 246, 0.1)",
+        order: 1
       },
     ],
   });
