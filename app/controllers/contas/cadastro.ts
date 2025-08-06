@@ -87,7 +87,7 @@ export const dadosConta = async (req: Request, res: Response): Promise<any> => {
       where: {
         id: data.contaId,
         Usuarios: {
-          every: {
+          some: {
             id: data.userId,
           }
         },
