@@ -66,8 +66,10 @@ async function subscribeUserOnReceiverPush() {
 
     showNotification(res.message, res.new ? "success" : "info");
     document.getElementById("subscribeBtn").style.display = "none";
+    document.getElementById("subscribeBtnHeader").style.display = "none";
     document.getElementById("unsubscribeBtn").style.display = "block";
-    document.getElementById("sendNotificationBtn").style.display = "block";
+    document.getElementById("unsubscribeBtnHeader").style.display = window.innerWidth < 768 ? "block" : "none";
+    // document.getElementById("sendNotificationBtn").style.display = "block";
   } catch (error) {
     console.error("Erro ao processar a inscrição:", error);
     showNotification(error.responseJSON?.message || 'Erro inesperado na requisição', 'error');
@@ -101,8 +103,10 @@ async function unsubscribeUserToReceivePush() {
 
   showNotification(res.message, res.new ? "success" : "info");
   document.getElementById("subscribeBtn").style.display = "block";
+  document.getElementById("subscribeBtnHeader").style.display = window.innerWidth < 768 ? "block" : "none";
   document.getElementById("unsubscribeBtn").style.display = "none";
-  document.getElementById("sendNotificationBtn").style.display = "none";
+  document.getElementById("unsubscribeBtnHeader").style.display = "none";
+  // document.getElementById("sendNotificationBtn").style.display = "none";
 }
 
 document
@@ -111,6 +115,13 @@ document
 
 document
   .getElementById("unsubscribeBtn")
+  .addEventListener("click", unsubscribeUserToReceivePush);
+document
+  .getElementById("subscribeBtnHeader")
+  .addEventListener("click", subscribeUserOnReceiverPush);
+
+document
+  .getElementById("unsubscribeBtnHeader")
   .addEventListener("click", unsubscribeUserToReceivePush);
 
 // Compara ArrayBuffers de forma segura

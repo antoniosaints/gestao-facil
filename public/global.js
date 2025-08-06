@@ -34,14 +34,13 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function loadPage(pagePath) {
-  htmx
-    .ajax("GET", pagePath, {
-      target: "#content",
-      swap: "innerHTML",
-      headers: {
-        Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
-      },
-    });
+  htmx.ajax("GET", pagePath, {
+    target: "#content",
+    swap: "innerHTML",
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+    },
+  });
 }
 
 htmx.on("htmx:responseError", (e) => {

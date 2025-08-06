@@ -114,7 +114,12 @@
               timer: 3000,
             });
             if (!retornar) {
-              reloadTabelaVendas();
+              if (typeof reloadTabelaVendas === "function") {
+                reloadTabelaVendas();
+              }
+              if (typeof renderListaVendas === "function") {
+                renderListaVendas();
+              }
             } else {
               loadPage('/vendas/resumo');
             }

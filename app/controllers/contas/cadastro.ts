@@ -84,14 +84,24 @@ export const dadosConta = async (req: Request, res: Response): Promise<any> => {
   try {
     const data = getCustomRequest(req).customData;
     const conta = await prisma.contas.findFirst({
-      where: { id: data.contaId },
+      where: {
+        id: data.contaId,
+        Usuarios: {
+          every: {
+            id: data.userId,
+          }
+        },
+      },
+      include: {
+        Usuarios: true,
+      },
     });
     return res.json(conta);
   } catch (err: any) {
     console.log(err);
     handleError(res, err);
   }
-}
+};
 
 export const select2Contas = async (
   req: Request,

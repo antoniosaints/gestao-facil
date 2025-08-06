@@ -107,10 +107,20 @@ export const deleteUsuario = async (
   }
 
   try {
+    const userRoot = await prisma.usuarios.findFirst({
+      where: {
+        id: Number(req.params.id),
+        contaId: customData.contaId
+      },
+    })
+
+    if (userRoot?.permissao === "root") {
+      return ResponseHandler(res, "Usuário root nao pode ser deletado!", null, 400);
+    }
     await prisma.usuarios.delete({
       where: {
         id: Number(req.params.id),
-        contaId: customData.contaId,
+        contaId: customData.contaId
       },
     });
     return ResponseHandler(res, "Usuário deletado com sucesso!");
