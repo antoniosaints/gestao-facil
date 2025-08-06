@@ -3,6 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { hasPermission } from "../../helpers/userPermission";
 
 export const graficoByCategoria = async (
   req: Request,
@@ -277,8 +278,23 @@ export const graficoDespesasPorCategoria = async (
     ],
   });
 };
-export const graficoSaldoMensal = async (req: Request, res: Response) => {
+export const graficoSaldoMensal = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
+  if (!await hasPermission(customData, 3)) {
+    return res.json({
+      labels: [],
+      datasets: [
+        {
+          label: "Saldo",
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
+          fill: true,
+          tension: 0.3,
+          data: [],
+        },
+      ],
+    });
+  }
   const meses = Array.from({ length: 6 }).map((_, i) => {
     const ref = subMonths(new Date(), 5 - i);
     return {
@@ -391,16 +407,16 @@ export const graficoReceitaDespesaMensal = async (
         borderWidth: 2,
         borderRadius: 5,
         borderSkipped: false,
-        order: 2
+        order: 2,
       },
       {
         label: "Despesas",
         backgroundColor: "#ef4444",
-        data: despesas.map(d => -Math.abs(d)),
+        data: despesas.map((d) => -Math.abs(d)),
         borderWidth: 2,
         borderRadius: 5,
         borderSkipped: false,
-        order: 2
+        order: 2,
       },
       {
         label: "Saldo",
@@ -416,7 +432,7 @@ export const graficoReceitaDespesaMensal = async (
         pointRadius: 0,
         fill: true,
         backgroundColor: "rgba(59, 130, 246, 0.1)",
-        order: 1
+        order: 1,
       },
     ],
   });

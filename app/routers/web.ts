@@ -18,13 +18,7 @@ const isAccountBloqueada = async (req: Request) => {
   });
   return conta.status === "BLOQUEADO";
 };
-const isAccountActive = async (req: Request) => {
-  const customData = getCustomRequest(req).customData;
-  const conta = await prisma.contas.findUniqueOrThrow({
-    where: { id: customData.contaId },
-  });
-  return conta.status === "ATIVO";
-};
+
 export const isAccountOverdue = async (req: Request) => {
   const customData = getCustomRequest(req).customData;
   const conta = await prisma.contas.findUniqueOrThrow({
@@ -124,21 +118,25 @@ webRouter.get(
   authenticateJWT,
   async (req, res): Promise<any> => {
     const isOverdue = await isAccountOverdue(req);
-    
+
     const data = getCustomRequest(req).customData;
-    
+
     const usuario = await prisma.usuarios.findUniqueOrThrow({
       where: {
         id: data.userId,
         contaId: data.contaId,
       },
       include: {
-        Contas: true
-      }
+        Contas: true,
+      },
     });
 
     if (isOverdue) {
-      return res.render("layouts/sidebar", { usuario, levelPermission: 0, empresa: usuario.Contas.nome });
+      return res.render("layouts/sidebar", {
+        usuario,
+        levelPermission: 0,
+        empresa: usuario.Contas.nome,
+      });
     }
 
     let levelPermission = 0;
@@ -163,13 +161,17 @@ webRouter.get(
         levelPermission = 0;
         break;
     }
-    res.render("layouts/sidebar", { usuario, levelPermission, empresa: usuario.Contas.nome });
+    res.render("layouts/sidebar", {
+      usuario,
+      levelPermission,
+      empresa: usuario.Contas.nome,
+    });
   }
 );
 
 webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
   try {
-    if ((await isAccountOverdue(req))) {
+    if (await isAccountOverdue(req)) {
       renderFileSimple(req, res, "partials/assinatura/renovacao.html");
     } else {
       renderFileSimple(req, res, "partials/assinatura/renovacao.html");

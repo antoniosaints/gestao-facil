@@ -6,12 +6,14 @@ import { ResponseHandler } from "../../utils/response";
 import Decimal from "decimal.js";
 import { formatCurrency } from "../../utils/formatters";
 import { getLastMonth, getThisMonth } from "./hooks";
+import { hasPermission } from "../../helpers/userPermission";
 
 export const resumoDashboard = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { contaId, userId } = getCustomRequest(req).customData;
+  const customData = getCustomRequest(req).customData;
+  const permission = await hasPermission(customData, 3);
   const { inicio, fim } = req.query as { inicio: string; fim: string };
 
   let dateFilter = {
@@ -32,7 +34,8 @@ export const resumoDashboard = async (
         where: {
           OR: [
             {
-              contaId: contaId,
+              contaId: customData.contaId,
+              vendedorId: permission ? undefined : customData.userId,
               status: {
                 in: ["FATURADO", "FINALIZADO"],
               },
@@ -48,7 +51,8 @@ export const resumoDashboard = async (
         where: {
           OR: [
             {
-              contaId: contaId,
+              contaId: customData.contaId,
+              vendedorId: permission ? undefined : customData.userId,
               status: {
                 in: ["FATURADO", "FINALIZADO"],
               },
@@ -65,7 +69,8 @@ export const resumoDashboard = async (
         where: {
           OR: [
             {
-              contaId: contaId,
+              contaId: customData.contaId,
+              vendedorId: permission ? undefined : customData.userId,
               status: {
                 in: ["FATURADO", "FINALIZADO"],
               },
@@ -107,7 +112,7 @@ export const resumoDashboard = async (
           preco: true,
         },
         where: {
-          OR: [{ contaId: contaId }],
+          OR: [{ contaId: customData.contaId }],
         },
       });
 
@@ -120,7 +125,7 @@ export const resumoDashboard = async (
 
       const clientes = await tsc.clientesFornecedores.count({
         where: {
-          OR: [{ contaId: contaId }],
+          OR: [{ contaId: customData.contaId }],
         },
       });
 

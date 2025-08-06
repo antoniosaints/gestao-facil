@@ -2,11 +2,31 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import Decimal from "decimal.js";
+import { hasPermission } from "../../helpers/userPermission";
 
-export async function getLucroPorVendas(req: Request, res: Response): Promise<any> {
+export async function getLucroPorVendas(
+  req: Request,
+  res: Response
+): Promise<any> {
   try {
     const { inicio, fim, id } = req.query;
     const customData = getCustomRequest(req).customData;
+
+    if (!(await hasPermission(customData, 3))) {
+      return res.json({
+        labels: [],
+        datasets: [
+          {
+            label: "Vendas",
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
+            fill: true,
+            tension: 0.3,
+            data: [],
+          },
+        ],
+      });
+    }
 
     if (!inicio || !fim) {
       return res
@@ -67,8 +87,10 @@ export async function getLucroPorVendas(req: Request, res: Response): Promise<an
         };
       }
 
-      lucroPorVenda[vendaId].totalVenda = lucroPorVenda[vendaId].totalVenda.plus(receita);
-      lucroPorVenda[vendaId].totalCusto = lucroPorVenda[vendaId].totalCusto.plus(custo);
+      lucroPorVenda[vendaId].totalVenda =
+        lucroPorVenda[vendaId].totalVenda.plus(receita);
+      lucroPorVenda[vendaId].totalCusto =
+        lucroPorVenda[vendaId].totalCusto.plus(custo);
       lucroPorVenda[vendaId].lucro = lucroPorVenda[vendaId].lucro.plus(lucro);
 
       vendaTotal = vendaTotal.plus(receita);

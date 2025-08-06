@@ -41,14 +41,15 @@ function loadPage(pagePath) {
       headers: {
         Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
       },
-    })
-    .catch((error) => {
-      console.error("Request failed:", error);
     });
 }
 
 htmx.on("htmx:responseError", (e) => {
-  console.error("HTMX response error:", e.detail.xhr);
+  showNotification(
+    JSON.parse(e.detail.xhr.responseText)?.message ||
+      "Erro inesperado na requisição",
+    "error"
+  );
   if (e.detail.xhr.status === 401) {
     localStorage.removeItem("gestao_facil:token");
     localStorage.setItem("gestao_facil:isauth", false);

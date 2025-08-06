@@ -8,6 +8,7 @@ import { prisma } from "../../utils/prisma";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { addHours, format } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { hasPermission } from "../../helpers/userPermission";
 
 export const getVenda = async (req: Request, res: Response) => {
   try {
@@ -46,16 +47,19 @@ export const getVendas = async (req: Request, res: Response) => {
     const vendas = await prisma.vendas.findMany({
       where: {
         contaId: customData.contaId,
-      }
+      },
     });
     ResponseHandler(res, "Vendas encontradas", vendas);
   } catch (err: any) {
     handleError(res, err);
   }
 };
-export const deleteVenda = async (req: Request, res: Response) => {
+export const deleteVenda = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    if (!(await hasPermission(customData, 3))) {
+      return ResponseHandler(res, "Nível de permissão insuficiente!", null, 403);
+    }
     const resultado = await prisma.$transaction(async (tx) => {
       const items = await tx.itensVendas.findMany({
         where: {
@@ -85,7 +89,7 @@ export const deleteVenda = async (req: Request, res: Response) => {
 
       return venda;
     });
-    ResponseHandler(res, "Venda excluida com sucesso", resultado);
+    return ResponseHandler(res, "Venda excluida com sucesso", resultado);
   } catch (err: any) {
     handleError(res, err);
   }
@@ -93,15 +97,17 @@ export const deleteVenda = async (req: Request, res: Response) => {
 export const getResumoVendasMensalChart = async (
   req: Request,
   res: Response
-) => {
+): Promise<any> => {
   try {
-     const customData = getCustomRequest(req).customData;
+    const customData = getCustomRequest(req).customData;
+    const permission = await hasPermission(customData, 3);
     const vendas = await prisma.vendas.findMany({
       where: {
         status: {
           in: ["FATURADO", "FINALIZADO"],
         },
         contaId: customData.contaId,
+        vendedorId: permission ? undefined : customData.userId,
       },
       select: {
         data: true,
@@ -188,7 +194,9 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           throw new Error(`Produto ${item.id} não encontrado`);
         }
         if (produto.saidas === false) {
-          throw new Error(`Produto ${produto.nome} não permite saídas, altere isso antes de continuar`);
+          throw new Error(
+            `Produto ${produto.nome} não permite saídas, altere isso antes de continuar`
+          );
         }
 
         if (produto.estoque < item.quantidade) {

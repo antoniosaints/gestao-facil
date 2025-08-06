@@ -8,6 +8,7 @@ import { formatLabel } from "../../helpers/formatters";
 import { isAccountOverdue } from "../../routers/web";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
+import { hasPermission } from "../../helpers/userPermission";
 export const tableUsuarios = async (
   req: Request,
   res: Response
@@ -93,12 +94,17 @@ export const tableUsuarios = async (
   return res.json(data);
 };
 
-export const deleteUsuario = async (req: Request, res: Response): Promise<any> => {
+export const deleteUsuario = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   if (await isAccountOverdue(req))
-    return res.status(404).json({
-      message: "Conta inativa ou bloqueada, verifique seu plano",
-    });
+    return ResponseHandler(res, "Conta inativa ou bloqueada!", null, 404);
+
+  if (!(await hasPermission(customData, 4))) {
+    return ResponseHandler(res, "Nível de permissão insuficiente!", null, 403);
+  }
 
   try {
     await prisma.usuarios.delete({
@@ -118,9 +124,10 @@ export const saveUsuario = async (
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   if (await isAccountOverdue(req))
-    return res.status(404).json({
-      message: "Conta inativa ou bloqueada, verifique seu plano",
-    });
+    return ResponseHandler(res, "Conta inativa ou bloqueada!", null, 404);
+  if (!(await hasPermission(customData, 4))) {
+    return ResponseHandler(res, "Nível de permissão insuficiente!", null, 403);
+  }
 
   if (!req.body || !req.body.email || !req.body.nome || !req.body.senha) {
     return res.status(400).json({

@@ -9,6 +9,7 @@ import { formatDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { isAccountOverdue } from "../../routers/web";
 import { formatLabel } from "../../helpers/formatters";
+import { hasPermission } from "../../helpers/userPermission";
 export const tableVendas = async (
   req: Request,
   res: Response
@@ -18,16 +19,17 @@ export const tableVendas = async (
     return res.status(404).json({
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });
+
+  const permission = await hasPermission(customData, 3);
   const builder = new PrismaDataTableBuilder<Vendas>(prisma.vendas)
     .search({
       valor: "decimal",
     })
-    .where(
-      {
-        contaId: customData.contaId,
-        status: req.query.status ? req.query.status as string : undefined
-      }
-    )
+    .where({
+      contaId: customData.contaId,
+      status: req.query.status ? (req.query.status as string) : undefined,
+      vendedorId: permission ? undefined : customData.userId,
+    })
     .format("vendedorId", async function (value) {
       const vendedor = await prisma.usuarios.findFirst({
         where: { id: value },
@@ -86,9 +88,7 @@ export const tableVendas = async (
     })
 
     .format("valor", function (row) {
-      return `<span class="px-2 py-1 rounded-md">${formatCurrency(
-        row
-      )}</span>`;
+      return `<span class="px-2 py-1 rounded-md">${formatCurrency(row)}</span>`;
     })
     .addColumn("acoes", (row) => {
       return VendasAcoes(row);

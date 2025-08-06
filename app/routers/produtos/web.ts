@@ -4,11 +4,18 @@ import { renderFileAuth, renderFileSimple, renderSimple } from "../web";
 import { prisma } from "../../utils/prisma";
 import Decimal from "decimal.js";
 import { formatCurrency } from "../../utils/formatters";
+import { hasPermission } from "../../helpers/userPermission";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { ResponseHandler } from "../../utils/response";
 
 const webRouterProdutos = Router();
 
-webRouterProdutos.get("/resumo", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/produtos/index.html");
+webRouterProdutos.get("/resumo", authenticateJWT, async (req, res): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  if (!(await hasPermission(customData, 3))) {
+    return ResponseHandler(res, "Nível de permissão insuficiente!", null, 403);
+  }
+  return renderFileAuth(req, res, "partials/produtos/index.html");
 });
 webRouterProdutos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/produtos/tabela.html");
