@@ -5,12 +5,14 @@
             Usuários
         </h2>
         <button onclick="openModalFormulariousuarios()"
-            class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
+            class="bg-secondary hidden md:block hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
             <i class="fa-solid fa-circle-plus"></i> Novo usuário
         </button>
     </div>
-    <div class="overflow-x-auto shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
+    <div class="overflow-x-auto hidden md:block shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
         hx-get="/administracao/usuarios/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
+    <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/administracao/usuarios/mobile/lista" hx-trigger="load"
+        hx-swap="innerHTML"></div>
 </div>
 
 {{> administracao/modais/formulario}}

@@ -6,6 +6,9 @@ const webRouterAdministracao = Router();
 webRouterAdministracao.get("/usuarios/resumo", (req, res) => {
   renderSimple(req, res, "partials/administracao/index", {});
 });
+webRouterAdministracao.get("/usuarios/mobile/lista", (req, res) => {
+  renderFileSimple(req, res, "partials/administracao/mobile.html");
+});
 webRouterAdministracao.get("/usuarios/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/administracao/tabela.html");
 });

@@ -3,7 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { usuariosAcoes } from "./acoes";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { PermissaoUsuario, Usuarios } from "../../../generated";
+import { PermissaoUsuario, Prisma, Usuarios } from "../../../generated";
 import { formatLabel } from "../../helpers/formatters";
 import { isAccountOverdue } from "../../routers/web";
 import { handleError } from "../../utils/handleError";
@@ -118,6 +118,58 @@ export const deleteUsuario = async (
     handleError(res, error);
   }
 };
+
+export const listagemMobileUsuarios = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const {
+    search = undefined,
+    limit = "10",
+    page = "1",
+  } = req.query as { search: string; limit: string; page: string };
+
+  try {
+    const model = prisma.usuarios;
+
+    const where: Prisma.UsuariosWhereInput = { contaId: customData.contaId };
+    if (search) {
+      where.OR = [
+        { nome: { contains: search } },
+        { email: { contains: search } }
+      ];
+    }
+
+    const take = Number(limit);
+    const skip = (Number(page) - 1) * take;
+
+    const [data, total] = await Promise.all([
+      model.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "asc" },
+      }),
+      model.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / take);
+
+    res.json({
+      data,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: take,
+        totalPages,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || "Erro ao buscar os dados" });
+  }
+};
+
 export const saveUsuario = async (
   req: Request,
   res: Response
