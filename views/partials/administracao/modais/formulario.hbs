@@ -17,106 +17,104 @@
         <form id="modalFormularioUsuariosSistema" class="w-full">
             <div class="overflow-y-auto flex">
                 <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
-                    <div class="grid grid-cols-1 gap-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <!-- Valor Total -->
-                            <div class="col-span-2">
-                                <label for="nomeUsuarioFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-user"></i>
-                                    Nome <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" id="nomeUsuarioFormulario" name="nome"
-                                    placeholder="Digite o nome do usuário" required
-                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                            </div>
-                            <div>
-                                <label for="emailUsuarioFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-envelope"></i>
-                                    E-mail
-                                </label>
-                                <input type="text" id="emailUsuarioFormulario" name="email" required
-                                    placeholder="Digite o email"
-                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                            </div>
-                            <div>
-                                <label for="senhaUsuarioFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-lock"></i>
-                                    Senha
-                                </label>
-                                <input type="password" id="senhaUsuarioFormulario" name="senha" required
-                                    placeholder="......"
-                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                            </div>
-                            <!-- Tipo -->
-                            <div>
-                                <label for="statusUsuarioFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-toggle-on"></i>
-                                    Status
-                                </label>
-                                <select id="statusUsuarioFormulario" name="status"
-                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                                    <option value="">Selecione o status</option>
-                                    <option value="ATIVO">Ativo</option>
-                                    <option value="INATIVO">Inativo</option>
-                                    <option value="BLOQUEADO">Bloqueado</option>
-                                </select>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Valor Total -->
+                        <div class="col-span-2">
+                            <label for="nomeUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-user"></i>
+                                Nome <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="nomeUsuarioFormulario" name="nome"
+                                placeholder="Digite o nome do usuário" required
+                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label for="emailUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-envelope"></i>
+                                E-mail
+                            </label>
+                            <input type="text" id="emailUsuarioFormulario" name="email" required
+                                placeholder="Digite o email"
+                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label for="senhaUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-lock"></i>
+                                Senha
+                            </label>
+                            <input type="password" id="senhaUsuarioFormulario" name="senha" required
+                                placeholder="......"
+                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        </div>
+                        <!-- Tipo -->
+                        <div class="col-span-2 md:col-span-1">
+                            <label for="statusUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-toggle-on"></i>
+                                Status
+                            </label>
+                            <select id="statusUsuarioFormulario" name="status"
+                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                <option value="">Selecione o status</option>
+                                <option value="ATIVO">Ativo</option>
+                                <option value="INATIVO">Inativo</option>
+                                <option value="BLOQUEADO">Bloqueado</option>
+                            </select>
+                        </div>
 
-                            <div>
-                                <label for="permissaoUsuarioFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-lock"></i>
-                                    Permissão
-                                </label>
-                                <select id="permissaoUsuarioFormulario" name="permissao"
-                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                                    <option value="">Selecione a permissão</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="gerente">Gerente</option>
-                                    <option value="vendedor">Vendedor</option>
-                                    <option value="tecnico">Técnico</option>
-                                    <option value="usuario">Usuário</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="notificacoesUsuariosFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-bell"></i>
-                                    Permitir notificaçoes
-                                </label>
-                                <label for="notificacoesUsuariosFormulario"
-                                    class="border block bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
-                                    <div class="flex items-center">
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="notificacoesUsuariosFormulario"
-                                                name="pushReceiver" class="sr-only peer" />
-                                            <div
-                                                class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
-                                            </div>
-                                            <span
-                                                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Notificações</span>
-                                        </label>
-                                    </div>
-                                </label>
-                            </div>
-                            <div>
-                                <label for="emailsUsuariosFormulario" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-envelope"></i>
-                                    Permitir emails
-                                </label>
-                                <label for="emailsUsuariosFormulario"
-                                    class="border block bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
-                                    <div class="flex items-center">
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="emailsUsuariosFormulario" name="emailReceiver"
-                                                class="sr-only peer" />
-                                            <div
-                                                class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
-                                            </div>
-                                            <span
-                                                class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">E-mails</span>
-                                        </label>
-                                    </div>
-                                </label>
-                            </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label for="permissaoUsuarioFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-lock"></i>
+                                Permissão
+                            </label>
+                            <select id="permissaoUsuarioFormulario" name="permissao"
+                                class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                <option value="">Selecione a permissão</option>
+                                <option value="admin">Admin</option>
+                                <option value="gerente">Gerente</option>
+                                <option value="vendedor">Vendedor</option>
+                                <option value="tecnico">Técnico</option>
+                                <option value="usuario">Usuário</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label for="notificacoesUsuariosFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-bell"></i>
+                                Permitir notificaçoes
+                            </label>
+                            <label for="notificacoesUsuariosFormulario"
+                                class="border block bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                <div class="flex items-center">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="notificacoesUsuariosFormulario" name="pushReceiver"
+                                            class="sr-only peer" />
+                                        <div
+                                            class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                        </div>
+                                        <span
+                                            class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Notificações</span>
+                                    </label>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label for="emailsUsuariosFormulario" class="block text-sm font-medium mb-1">
+                                <i class="fa-solid fa-envelope"></i>
+                                Permitir emails
+                            </label>
+                            <label for="emailsUsuariosFormulario"
+                                class="border block bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                <div class="flex items-center">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="emailsUsuariosFormulario" name="emailReceiver"
+                                            class="sr-only peer" />
+                                        <div
+                                            class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                        </div>
+                                        <span
+                                            class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">E-mails</span>
+                                    </label>
+                                </div>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -175,12 +173,14 @@
                     if (response.data.permissao === "root") {
                         form.permissao.disabled = true;
                         $("#permissaoUsuarioFormulario").select2({
-                            placeholder: "Root"
+                            placeholder: "Root",
+                            width: '100%',
                         });
-                    }else {
+                    } else {
                         form.permissao.disabled = false;
                         $("#permissaoUsuarioFormulario").select2({
-                            placeholder: 'Permissão'
+                            placeholder: 'Permissão',
+                            width: '100%',
                         })
                     }
                     form.permissao.value = response.data.permissao;
@@ -198,13 +198,14 @@
                     closeModalFormulariousuarios();
                 }
             })
-        }else {
+        } else {
             $("#idUsuarioFormulario").val(null);
             const form = document.getElementById('modalFormularioUsuariosSistema');
             form.reset();
             form.permissao.disabled = false;
             $("#permissaoUsuarioFormulario").select2({
-                placeholder: 'Permissão'
+                placeholder: 'Permissão',
+                width: '100%',
             })
 
             $("#statusUsuarioFormulario").trigger('change');
