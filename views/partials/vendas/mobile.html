@@ -169,7 +169,7 @@
         }
         response.data.forEach((venda) => {
           const dataRender = `
-              <div class="rounded-2xl cursor-pointer border dark:border-border-dark shadow-md bg-card dark:bg-card-dark p-4">
+              <div class="rounded-2xl cursor-pointer border dark:border-border-dark bg-card dark:bg-card-dark p-4">
                   <div class="flex justify-between">
                     <div class="text-sm font-semibold dark:text-white">${venda.Uid}</div>
                     <div class="text-sm text-green-500 dark:text-green-400">R$ ${Number(venda.valor).toFixed(2).replace(".", ",")}</div>

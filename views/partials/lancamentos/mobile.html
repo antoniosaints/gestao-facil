@@ -159,7 +159,7 @@
         response.data.forEach((row) => {
           const lineRowColor = row.tipo === "RECEITA" ? "green" : "red";
           const dataRender = `
-              <div class="rounded-2xl cursor-pointer border dark:border-border-dark shadow-md bg-card dark:bg-card-dark p-4">
+              <div class="rounded-2xl cursor-pointer border dark:border-border-dark bg-card dark:bg-card-dark p-4">
                 <div class="flex justify-between">
                   <div class="text-sm font-semibold text-gray-500 dark:text-gray-50"><i class="fa-solid fa-circle mr-1 text-${lineRowColor}-500 dark:text-${lineRowColor}-400">${row.tipo}</i> ${row.Uid}</div>
                   <div class="text-sm text-${lineRowColor}-500 dark:text-${lineRowColor}-400">R$ ${Number(row.valorTotal).toFixed(2).replace(".", ",")}</div>
