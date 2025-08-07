@@ -14,6 +14,10 @@ export const relatorioProdutos = async (
 ): Promise<any> => {
   const produtos = await prisma.produto.findMany();
   const customData = getCustomRequest(req).customData;
+  const query = req.query;
+
+  if (query.fontSize) {
+  }
 
   const conta = await prisma.contas.findUnique({
     where: {
@@ -53,13 +57,26 @@ export const relatorioProdutos = async (
 
   doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
   doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
-  doc.font("Roboto").fontSize(12);
+  doc.font("Roboto").fontSize(query.fontSize ? Number(query.fontSize) : 12);
 
   // Cabeçalho
+  // Coordenadas do topo
+  const marginTop = 40;
+  const marginLeft = 40;
+  const imageWidth = 80;
+  const imageHeight = 80;
+  const textLeft = marginLeft + imageWidth + 20; // Espaço entre imagem e texto
+
+  // Cabeçalho com imagem à esquerda e texto ao lado
+  doc.image(`./public/${conta.profile}`, marginLeft, marginTop, {
+    fit: [imageWidth, imageHeight],
+  });
+
   doc
     .font("Roboto-Bold")
     .fontSize(18)
-    .text(`Relatório de Produtos - ${conta.nome}`, { align: "center" });
+    .text(`Relatório de Produtos - ${conta.nome}`, textLeft, marginTop);
+
   doc
     .font("Roboto")
     .fontSize(10)
@@ -67,19 +84,21 @@ export const relatorioProdutos = async (
       `E-mail: ${conta.email} | Categoria: ${
         conta.categoria || "Sem categoria"
       }`,
-      {
-        align: "center",
-      }
-    );
-  doc.text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, {
-    align: "center",
-  });
+      textLeft
+    )
+    .text(`Documento: ${conta.documento}`, textLeft)
+    .text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, textLeft);
+
   doc.moveDown(2);
+
+  const headerHeight = Math.max(imageHeight, doc.y - marginTop);
+
+  doc.y = marginTop + headerHeight + 20;
 
   // Configuração da Tabela
   const tableTop = doc.y;
   const rowHeight = 20;
-  const colX = { id: 30, nome: 60, preco: 420, estoque: 480, total: 510 };
+  const colX = { id: 30, nome: 60, preco: 300, estoque: 400, total: 470 };
 
   // Títulos
   doc
@@ -92,7 +111,7 @@ export const relatorioProdutos = async (
 
   // Linhas
   let y = tableTop + rowHeight;
-  doc.font("Roboto").fontSize(8);
+  doc.font("Roboto").fontSize(query.fontSize ? Number(query.fontSize) : 10);
 
   produtos.forEach((p) => {
     const valorUnitario = new Decimal(p.preco);
@@ -202,13 +221,26 @@ export const relatorioProdutoMovimentacoes = async (
   doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
   doc.font("Roboto").fontSize(12);
 
+  const marginTop = 40;
+  const marginLeft = 40;
+  const imageWidth = 80;
+  const imageHeight = 80;
+  const textLeft = marginLeft + imageWidth + 20; // Espaço entre imagem e texto
+
   // Cabeçalho
+  doc.image(`./public/${conta.profile}`, marginLeft, marginTop, {
+    fit: [imageWidth, imageHeight],
+  });
+
   doc
     .font("Roboto-Bold")
     .fontSize(18)
-    .text(`Relatório de Reposição - ${movimentos[0].Produto.nome}`, {
-      align: "center",
-    });
+    .text(
+      `Relatório - ${movimentos[0].Produto.nome}`,
+      textLeft,
+      marginTop
+    );
+
   doc
     .font("Roboto")
     .fontSize(10)
@@ -216,14 +248,16 @@ export const relatorioProdutoMovimentacoes = async (
       `E-mail: ${conta.email} | Categoria: ${
         conta.categoria || "Sem categoria"
       }`,
-      {
-        align: "center",
-      }
-    );
-  doc.text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, {
-    align: "center",
-  });
+      textLeft
+    )
+    .text(`Documento: ${conta.documento}`, textLeft)
+    .text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, textLeft);
+
   doc.moveDown(2);
+
+  const headerHeight = Math.max(imageHeight, doc.y - marginTop);
+
+  doc.y = marginTop + headerHeight + 20;
 
   // Configuração da Tabela
   const tableTop = doc.y;

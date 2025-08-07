@@ -68,6 +68,10 @@ export const gerarCupomPdf = async (
   doc.moveDown(0.5);
   doc.text("_".repeat(63), { align: "center" });
 
+  doc.image(`./public/${conta.profile}`, 15, 10, {
+    fit: [40, 40],
+  });
+
   doc
     .moveDown(0.3)
     .font("Roboto")
@@ -79,7 +83,7 @@ export const gerarCupomPdf = async (
     .text(`Garantia: ${venda.garantia || "N/A"}`);
 
   doc.moveDown(0.5);
-  
+
   doc
     .fontSize(9)
     .font("Roboto-Bold")
