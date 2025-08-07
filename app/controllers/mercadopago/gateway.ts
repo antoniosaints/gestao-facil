@@ -3,6 +3,7 @@ import { mercadoPagoPreference } from "../../utils/mercadoPago";
 import { randomUUID } from "crypto";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
+import { env } from "../../utils/dotenv";
 
 export async function criarLinkAssinatura(req: Request, res: Response): Promise<any> {
   try {
@@ -15,20 +16,24 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
         items: [
           {
             id: randomUUID(),
-            title: `Assinatura Mensal Gestaofacil`,
+            title: `Mensalidade Gestao Fácil - ERP`,
             quantity: 1,
             unit_price: 70,
           },
         ],
         payer: {
           email: conta.email,
+          name: conta.nome,
+          identification: {
+            number: String(conta.documento).replace(/[-.]/g, ""),
+          },
         },
         back_urls: {
-          success: "https://gestaofacil.tudoofertas.app.br?success=true",
-          failure: "https://gestaofacil.tudoofertas.app.br?success=false",
-          pending: "https://gestaofacil.tudoofertas.app.br?success=pending",
+          success: `${env.BASE_URL}?success=true`,
+          failure: `${env.BASE_URL}?success=false`,
+          pending: `${env.BASE_URL}?success=pending`,
         },
-        notification_url: "https://gestaofacil.tudoofertas.app.br/mercadopago/webhook",
+        notification_url: `${env.BASE_URL}/mercadopago/webhook`,
         external_reference: String(customData.contaId),
         auto_return: "approved",
       },
