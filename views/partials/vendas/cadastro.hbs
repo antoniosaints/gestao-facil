@@ -1,6 +1,6 @@
 <div class="h-[calc(100vh + 5rem)] flex flex-col justify-center">
     <h2 class="text-xl md:text-2xl font-bold mb-6" id="titulo_cadastro_venda">
-        <i class="fa-solid fa-tags"></i> Nova venda
+        <i class="fa-solid fa-tags text-green-600"></i> Nova venda
     </h2>
     <div
         class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
@@ -24,9 +24,9 @@
                 <div class="md:col-span-3">
                     <label class="block text-sm mb-1">Status <span class="text-red-500">*</span></label>
                     <select required name="status" id="select_status_venda_formulario"
-                        class="w-full p-[10px] rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                         <option value="ORCAMENTO">Orçamento</option>
-                        <option value="FATURADO" selected>Faturado</option>
+                        {{!-- <option value="FATURADO" selected>Faturado</option> --}}
                         <option value="ANDAMENTO">Em andamento</option>
                         <option value="FINALIZADO">Finalizado</option>
                         <option value="PENDENTE">Pendente</option>
@@ -53,7 +53,7 @@
                     <label for="tipo_desconto" class="block text-sm mb-1">Tipo <span
                             class="text-red-500">*</span></label>
                     <select required name="tipo_desconto" id="select_tipo_desconto_formulario"
-                        class="w-full p-[10px] rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                         <option value="PORCENTAGEM">Porcentagem</option>
                         <option value="VALOR">Valor</option>
                     </select>
@@ -152,10 +152,28 @@
     MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
     MaskToInputMoney(document.getElementById('input_desconto_venda_formulario'));
 
+    function setCartFromVendaRealizada(venda) {
+        const cartItems = [];
+
+        venda.itens.forEach(item => {
+            const newItem = {
+                id: item.id,
+                produto: item.produto,
+                quantidade: item.quantidade,
+                preco: item.preco,
+                subtotal: item.subtotal
+            };
+            cartItems.push(newItem);
+        })
+
+        localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
+        atualizarTabelaCart();
+    }
+
     $("#formulario_cadastro_venda").submit((e) => {
         e.preventDefault();
 
-        const cart = localStorage.getItem('gestao_facil:cart');
+        const cart = localStorage.getItem('gestao_facil:cartVendas');
         const cartItems = cart ? JSON.parse(cart) : [];
 
         if (cartItems.length === 0) {
@@ -252,7 +270,7 @@
         $('#input_quantidade_venda_formulario').val('');
         $('#input_preco_venda_formulario').val('');
     }
-    function addToCart() {
+    function addToCartVendas() {
         const produtoData = $("#select_produto_venda_formulario").select2("data");
         const quantidadeRaw = $('#input_quantidade_venda_formulario').val();
         const precoRaw = $('#input_preco_venda_formulario').val();
@@ -285,7 +303,7 @@
             return;
         }
 
-        const cart = localStorage.getItem('gestao_facil:cart');
+        const cart = localStorage.getItem('gestao_facil:cartVendas');
         let cartItems = cart ? JSON.parse(cart) : [];
 
         // Verifica se o produto já foi adicionado
@@ -309,25 +327,25 @@
         };
 
         cartItems.push(newItem);
-        localStorage.setItem('gestao_facil:cart', JSON.stringify(cartItems));
+        localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
 
         atualizarTabelaCart();
         clearFormularioAddItem();
     }
 
 
-    function removeFromCart(produtoId) {
-        const cart = localStorage.getItem('gestao_facil:cart');
+    function removeFromCartVendas(produtoId) {
+        const cart = localStorage.getItem('gestao_facil:cartVendas');
         let cartItems = cart ? JSON.parse(cart) : [];
 
         const novoCarrinho = cartItems.filter(item => Number(item.id) !== produtoId);
 
-        localStorage.setItem('gestao_facil:cart', JSON.stringify(novoCarrinho));
+        localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(novoCarrinho));
         atualizarTabelaCart();
     }
 
-    function calculateTotalCart() {
-        const cart = localStorage.getItem('gestao_facil:cart');
+    function calculateTotalCartVendas() {
+        const cart = localStorage.getItem('gestao_facil:cartVendas');
         const cartItems = cart ? JSON.parse(cart) : [];
 
         const total = cartItems.reduce((sum, item) => {
@@ -337,13 +355,13 @@
         return total.toFixed(2);
     }
 
-    function clearCart() {
-        localStorage.removeItem('gestao_facil:cart');
+    function clearCartVendas() {
+        localStorage.removeItem('gestao_facil:cartVendas');
         atualizarTabelaCart();
     }
 
     function atualizarTabelaCart() {
-        const cart = localStorage.getItem('gestao_facil:cart');
+        const cart = localStorage.getItem('gestao_facil:cartVendas');
         const cartItems = cart ? JSON.parse(cart) : [];
 
         const tbody = document.querySelector('#tabela-carrinho-vendas tbody');
@@ -369,7 +387,7 @@
                                 <td class="p-2">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
                                 <td class="p-2">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
                                 <td class="p-2">
-                                    <button type="button" class="text-red-500 hover:underline" onclick="removeFromCart(${item.id})">Remover</button>
+                                    <button type="button" class="text-red-500 hover:underline" onclick="removeFromCartVendas(${item.id})">Remover</button>
                                 </td>
                                 `;
 
@@ -449,7 +467,6 @@
             }
         }
     });
-
     $('#select_produto_venda_formulario').on('select2:select', function (e) {
         var data = e.params.data;
         $.ajax({
@@ -503,12 +520,12 @@
             }
         })
     });
-    $("#titulo_cadastro_venda").html(`<i class="fa-solid fa-tags"></i> Cadastro de Venda`);
+    $("#titulo_cadastro_venda").html(`<i class="fa-solid fa-tags text-green-600"></i> Cadastro de Venda`);
     $("#btn_adicionar_produto_venda").on('click', function () {
-        addToCart();
+        addToCartVendas();
     });
     $("#btn_limpar_carrinho").on('click', function () {
-        clearCart();
+        clearCartVendas();
     });
-    clearCart();
+    clearCartVendas();
 </script>

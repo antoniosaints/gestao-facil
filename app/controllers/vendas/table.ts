@@ -52,7 +52,10 @@ export const tableVendas = async (
       return nomeCliente;
     })
     .edit("Uid", function (row) {
-      return `<span onclick="visualizarVenda('${row.id}')" class="px-2 py-1 flex flex-nowrap w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md cursor-pointer">#${row.Uid}</span>`;
+      const status = row.status;
+      return `<span onclick="visualizarVenda('${row.id}')" class="px-2 py-1 flex flex-nowrap items-center justify-center gap-2 w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md cursor-pointer">
+              ${status === "FATURADO" ? '<i class="fa-solid fa-file-invoice-dollar text-green-500"></i>' : '<i class="fa-solid fa-file-invoice text-yellow-500"></i>'}${row.Uid}
+            </span>`;
     })
     .format("data", function (row) {
       const data = formatDate(new Date(row), "dd/MM/yyyy", {

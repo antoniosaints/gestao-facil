@@ -16,20 +16,12 @@ export const vendaSchema = z.object({
     })
     .transform((val) => (val ? Number(val) : undefined)),
 
-  status: z.enum(
-    [
-      "ORCAMENTO",
-      "FATURADO",
-      "ANDAMENTO",
-      "FINALIZADO",
-      "PENDENTE",
-      "CANCELADO",
-    ],
-    {
+  status: z
+    .enum(["ORCAMENTO", "ANDAMENTO", "FINALIZADO", "PENDENTE", "CANCELADO"], {
       required_error: "O campo status é obrigatório",
       invalid_type_error: "O campo status deve ser uma string",
-    }
-  ),
+    })
+    .default("FINALIZADO"),
   observacoes: z
     .string({
       invalid_type_error: "O campo observacoes deve ser uma string",
