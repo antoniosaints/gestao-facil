@@ -1,0 +1,110 @@
+<div id="modalOverlayFiltroVendas"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
+    <div id="sheetContainerFiltroVendas"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-lg mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+        <div
+            class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-filter text-emerald-600"></i> Filtar vendas</h2>
+            <button onclick="closeModalFiltroVendas()"
+                class="text-gray-800 dark:text-white hover:text-gray-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto flex">
+            <form id="modalFormularioFiltroLancamentos" class="w-full">
+                <div class="gap-4 p-4 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <!-- Valor Total -->
+                            <div>
+                                <label for="status_vendas_tabela" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-calendar-day"></i>
+                                    Status
+                                </label>
+                                <select id="status_vendas_tabela" name="status_vendas_tabela"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Todos</option>
+                                    <option value="FATURADO">Faturado</option>
+                                    <option value="PENDENTE">Pendente</option>
+                                    <option value="FINALIZADO">Finalizado</option>
+                                    <option value="ORCAMENTO">Orçamento</option>
+                                    <option value="CANCELADO">Cancelado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="vendedor_vendas" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-users"></i>
+                                    Vendedor
+                                </label>
+                                <select id="vendedor_vendas" name="vendedor_vendas"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Rodapé -->
+        <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+            <div class="flex gap-3">
+                <button type="button" onclick="filtrarTabelaVendas()"
+                    class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium border-2 border-emerald-500 hover:border-emerald-700 text-emerald-900 dark:text-emerald-200 bg-emerald-500/20 rounded-md shadow transition">
+                    <i class="fa-solid fa-filter"></i>
+                    Aplicar
+                </button>
+                <button type="button" onclick="closeModalFiltroVendas()"
+                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:border-gray-500 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<script>
+    function openModalFiltroVendas() {
+        const overlay = document.getElementById('modalOverlayFiltroVendas');
+        const modal = document.getElementById('sheetContainerFiltroVendas');
+
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Força reflow
+        void modal.offsetWidth;
+
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
+    }
+
+    function closeModalFiltroVendas() {
+        const overlay = document.getElementById('modalOverlayFiltroVendas');
+        const modal = document.getElementById('sheetContainerFiltroVendas');
+
+        modal.classList.remove('opacity-100', 'scale-100');
+        modal.classList.add('opacity-0', 'scale-95');
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }, 300);
+    }
+
+    // Fechamento por ESC e clique fora
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFiltroVendas());
+    document.getElementById('modalOverlayFiltroVendas').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModalFiltroVendas();
+    });
+
+    function filtrarTabelaVendas() {
+        reloadTabelaVendas();
+        closeModalFiltroVendas();
+    }
+</script>

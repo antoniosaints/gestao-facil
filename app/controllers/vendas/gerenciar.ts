@@ -139,15 +139,15 @@ export const getResumoVendasMensalChart = async (
         {
           label: "Valor Total (R$)",
           data: valores,
-          backgroundColor: "rgba(75, 192, 192, 0.5)",
-          borderColor: "rgba(75, 192, 192, 1)",
+          backgroundColor: "#1ae010",
+          borderColor: "#1ae010",
           yAxisID: "y1",
         },
         {
-          label: "Quantidade de Vendas",
+          label: "Qtd de Vendas",
           data: quantidades,
-          backgroundColor: "rgba(255, 159, 64, 0.5)",
-          borderColor: "rgba(255, 159, 64, 1)",
+          backgroundColor: "#1037e3",
+          borderColor: "#1037e3",
           yAxisID: "y2",
         },
       ],
@@ -171,17 +171,23 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       return total.add(new Decimal(item.quantidade).mul(item.preco));
     }, new Decimal(0));
 
+    const descontoTotal = data.desconto
+      ? new Decimal(data.desconto)
+      : new Decimal(0);
+
     const resultado = await prisma.$transaction(async (tx) => {
       const venda = await tx.vendas.create({
         data: {
           Uid: gerarIdUnicoComMetaFinal("VEN"),
-          valor: valorTotal,
+          valor: valorTotal.minus(descontoTotal),
           clienteId: data.clienteId,
+          observacoes: data.observacoes,
           vendedorId: data.vendedorId || customData.userId,
           contaId: customData.contaId,
           data: addHours(data.data, 3),
           status: data.status,
           garantia: data.garantia,
+          desconto: data.desconto ? new Decimal(data.desconto) : new Decimal(0),
         },
       });
 

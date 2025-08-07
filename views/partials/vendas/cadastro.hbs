@@ -44,7 +44,7 @@
 
                 <div class="md:col-span-2">
                     <label class="block text-sm mb-1">Garantia</label>
-                    <input type="text" name="garantia" id="input_garantia_venda_formulario"
+                    <input type="number" name="garantia" id="input_garantia_venda_formulario"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
                         placeholder="Ex: 90 dias" />
                 </div>
@@ -114,7 +114,8 @@
                             class="fa-solid fa-cart-shopping"></i> Limpar</button>
                 </div>
                 <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-                    <table id="tabela-carrinho-vendas" class="w-full text-sm text-left rtl:text-right text-gray-700 dark:text-gray-300">
+                    <table id="tabela-carrinho-vendas"
+                        class="w-full text-sm text-left rtl:text-right text-gray-700 dark:text-gray-300">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-200 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th class="p-2">Produto</th>
@@ -138,7 +139,9 @@
             </div>
 
             <div class="flex justify-between">
-                <button onclick="loadPage('/vendas/resumo')" type="button" class="px-4 py-2 bg-secondary text-white rounded-md mt-4"><i class="fa-solid fa-backward"></i> Voltar</button>
+                <button onclick="loadPage('/vendas/resumo')" type="button"
+                    class="px-4 py-2 bg-secondary text-white rounded-md mt-4"><i class="fa-solid fa-backward"></i>
+                    Voltar</button>
                 <button type="submit" class="px-4 py-2 bg-primary dark:bg-primary-dark text-white rounded-md mt-4"><i
                         class="fa-regular fa-money-bill-1"></i> Salvar venda</button>
             </div>
@@ -147,17 +150,7 @@
 </div>
 <script>
     MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
-    MaskToInputPercentage(document.getElementById('input_desconto_venda_formulario'));
-
-    $("#select_tipo_desconto_formulario").on('change', function () {
-        if (this.value === "PORCENTAGEM") {
-            $("#input_desconto_venda_formulario").attr('placeholder', 'Ex: 1,99');
-            MaskToInputPercentage(document.getElementById('input_desconto_venda_formulario'));
-        } else {
-            MaskToInputMoney(document.getElementById('input_desconto_venda_formulario'));
-            $("#input_desconto_venda_formulario").attr('placeholder', 'Ex: 20,00');
-        }
-    });
+    MaskToInputMoney(document.getElementById('input_desconto_venda_formulario'));
 
     $("#formulario_cadastro_venda").submit((e) => {
         e.preventDefault();
@@ -175,6 +168,22 @@
             return;
         }
 
+        let descontoTotal = 0;
+        subtotalValue = cartItems.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+
+        const discountInput = $('#input_desconto_venda_formulario').val().replace('.', '').replace(',', '.');
+        const discountType = $('#select_tipo_desconto_formulario').val();
+
+        if (discountInput && !isNaN(discountInput)) {
+            if (discountType === 'PORCENTAGEM') {
+                descontoTotal = subtotalValue * (parseFloat(discountInput) / 100);
+            } else {
+                descontoTotal = parseFloat(discountInput);
+            }
+        } else {
+            descontoTotal = 0;
+        }
+
         const data = {
             clienteId: $('#select_cliente_venda_formulario').val(),
             data: $('#input_data_venda_formulario').val(),
@@ -182,6 +191,7 @@
             status: $('#select_status_venda_formulario').val(),
             garantia: $('#input_garantia_venda_formulario').val(),
             observacoes: $('#input_observacoes_venda_formulario').val(),
+            desconto: descontoTotal,
             itens: cartItems.map(item => (
                 {
                     id: item.id,
@@ -316,9 +326,6 @@
         atualizarTabelaCart();
     }
 
-
-    function updateCart() { };
-
     function calculateTotalCart() {
         const cart = localStorage.getItem('gestao_facil:cart');
         const cartItems = cart ? JSON.parse(cart) : [];
@@ -334,8 +341,6 @@
         localStorage.removeItem('gestao_facil:cart');
         atualizarTabelaCart();
     }
-
-    function saveVenda() { };
 
     function atualizarTabelaCart() {
         const cart = localStorage.getItem('gestao_facil:cart');

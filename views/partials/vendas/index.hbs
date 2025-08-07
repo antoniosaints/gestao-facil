@@ -4,47 +4,28 @@
       Vendas
     </h2>
     <div class="justify-between gap-2 items-center hidden md:flex">
-      <button onclick="abrirModalFiltroVendas()"
-        class="bg-success hidden md:block hover:bg-success-dark text-white px-3 py-1.5 text-sm rounded-md">
+      <button onclick="openModalFiltroVendas()"
+        class="border-2 border-blue-500 hover:border-blue-700 text-blue-900 dark:text-blue-200 bg-blue-500/20 px-3 py-1.5 text-sm rounded-lg">
         <i class="fa-solid fa-filter"></i>
-      </button>
-      <button onclick="abrirModalRelatorioProdutos()"
-        class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
-        <i class="fa-solid fa-file-pdf"></i>
       </button>
       <button onclick="loadPage('vendas/formulario')"
         class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-circle-plus"></i> <span class="hidden md:inline">Nova Venda</span>
       </button>
       <button onclick="loadPage('vendas/pdv')"
-        class="border-2 border-secondary hover:border-secondary-dark px-3 py-1.5 text-sm rounded-md">
+        class="border-2 border-secondary hover:border-secondary-dark px-3 py-1.5 text-sm rounded-lg">
         <i class="fa-solid fa-cart-arrow-down"></i> PDV
       </button>
     </div>
   </div>
   <div
-    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/vendas/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
-  <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/vendas/mobile/lista" hx-trigger="load"
-    hx-swap="innerHTML"></div>
-</div>
-
-<div id="modal-container-filtrar-vendas"></div>
-<div id="modal-template-filtrar-vendas" class="hidden">
-  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" hx-get="/vendas/filtro"
-    hx-trigger="load" hx-swap="innerHTML">
+    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700">
+    {{> vendas/tabela}}
   </div>
+  <div class="overflow-x-auto block md:hidden rounded-lg">{{> vendas/mobile}}</div>
 </div>
-
+{{> vendas/modais/filtro}}
 <script>
-  function editarVenda(id) {
-    localStorage.setItem("produtoId", id);
-    htmx.ajax("GET", "partials/produtos/formulario.html", {
-      target: "#content",
-      swap: "innerHTML",
-    });
-  }
-
   async function gerarCupomPorVendaId(vendaId) {
     try {
       const resp = await fetch(`/vendas/cupom-pdf/${vendaId}`, {
@@ -72,6 +53,7 @@
     localStorage.setItem("vendaId", id);
     loadPage("/vendas/detalhe");
   }
+
   function excluirVenda(id, retornar = false) {
     Swal.fire({
       title: "Excluir venda",

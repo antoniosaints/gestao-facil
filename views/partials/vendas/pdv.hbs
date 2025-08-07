@@ -196,10 +196,27 @@
                 return;
             }
 
+            let descontoTotal = 0;
+            subtotalValue = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+            const discountInput = $('#discountValue').val().replace(',', '.');
+            const discountType = $('#discountType').val();
+
+            if (discountInput && !isNaN(discountInput)) {
+                if (discountType === 'percentage') {
+                    descontoTotal = subtotalValue * (parseFloat(discountInput) / 100);
+                } else {
+                    descontoTotal = parseFloat(discountInput);
+                }
+            } else {
+                descontoTotal = 0;
+            }
+
             const data = {
                 clienteId: $('#clientPdvVenda').val(),
                 data: new Date().toISOString().split('T')[0],
                 vendedorId: null,
+                desconto: descontoTotal,
                 status: "FATURADO",
                 garantia: "",
                 observacoes: "Venda realizada via PDV",
@@ -573,10 +590,12 @@
         }
 
         // Máscaras para campos monetários
-        $('#discountValue, #receivedAmount').on('input', function () {
-            let value = $(this).val().replace(/\D/g, '');
-            value = (value / 100).toFixed(2).replace('.', ',');
-            $(this).val(value);
-        });
+        // $('#discountValue, #receivedAmount').on('input', function () {
+        //     let value = $(this).val().replace(/\D/g, '');
+        //     value = (value / 100).toFixed(2).replace('.', ',');
+        //     $(this).val(value);
+        // });
+        MaskToInputMoney(document.getElementById('receivedAmount'));
+        MaskToInputMoney(document.getElementById('discountValue'));
     })();
 </script>

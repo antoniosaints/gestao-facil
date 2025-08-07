@@ -7,11 +7,13 @@ document.addEventListener("DOMContentLoaded", async function () {
       document.getElementById("subscribeBtn").style.display = "none";
       document.getElementById("subscribeBtnHeader").style.display = "none";
       document.getElementById("unsubscribeBtn").style.display = "block";
-      document.getElementById("unsubscribeBtnHeader").style.display = window.innerWidth < 768 ? "block" : "none";
+      document.getElementById("unsubscribeBtnHeader").style.display =
+        window.innerWidth < 768 ? "block" : "none";
       // document.getElementById("sendNotificationBtn").style.display = "block";
     } else {
       document.getElementById("subscribeBtn").style.display = "block";
-      document.getElementById("subscribeBtnHeader").style.display = window.innerWidth < 768 ? "block" : "none";
+      document.getElementById("subscribeBtnHeader").style.display =
+        window.innerWidth < 768 ? "block" : "none";
       document.getElementById("unsubscribeBtn").style.display = "none";
       document.getElementById("unsubscribeBtnHeader").style.display = "none";
       // document.getElementById("sendNotificationBtn").style.display = "none";
@@ -80,6 +82,14 @@ function MaskToInputMoney(element) {
     normalizeZeros: true,
     radix: ",",
     mapToRadix: ["."],
+  });
+}
+
+function MaskMoneyNative(element) {
+  $(element).on("input", function (e) {
+    let value = $(this).val().replace(/\D/g, "");
+    value = (value / 100).toFixed(2).replace(".", ",");
+    $(this).val(value);
   });
 }
 

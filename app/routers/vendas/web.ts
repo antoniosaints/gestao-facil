@@ -1,31 +1,21 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { renderFileAuth, renderFileSimple } from "../web";
+import { renderAuth, renderFileAuth, renderFileSimple, renderSimple } from "../web";
 
 const webRouterVendas = Router();
 
 webRouterVendas.get("/resumo", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/vendas/index.html");
-});
-webRouterVendas.get("/tabela", (req, res) => {
-  renderFileSimple(req, res, "partials/vendas/tabela.html");
-});
-webRouterVendas.get("/mobile/lista", (req, res) => {
-  renderFileSimple(req, res, "partials/vendas/mobile.html");
+  renderAuth(req, res, "partials/vendas/index");
 });
 webRouterVendas.get("/formulario", (req, res) => {
-  renderFileSimple(req, res, "partials/vendas/cadastro.html");
+  renderSimple(req, res, "partials/vendas/cadastro", {});
 });
 webRouterVendas.get("/pdv", (req, res) => {
-  renderFileSimple(req, res, "partials/vendas/pdv.html");
+  renderSimple(req, res, "partials/vendas/pdv", {});
 });
 webRouterVendas.get("/detalhe", authenticateJWT, (req, res) => {
-  renderFileAuth(req, res, "partials/vendas/detalhes.html");
+  renderAuth(req, res, "partials/vendas/detalhes");
 });
-webRouterVendas.get("/filtro", (req, res) => {
-  renderFileSimple(req, res, "partials/vendas/modais/filtro.html");
-});
-
 
 export {
   webRouterVendas

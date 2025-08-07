@@ -44,7 +44,17 @@ export const vendaSchema = z.object({
       message: "vendedorId inválido",
     })
     .transform((val) => (val ? Number(val) : undefined)),
-
+  desconto: z
+    .string({
+      invalid_type_error: "O campo desconto deve ser uma string",
+    })
+    .transform((val) => {
+      if (val) {
+        return parseFloat(val.replace(",", "."));
+      }
+      return null;
+    })
+    .optional(),
   garantia: z
     .string({
       invalid_type_error: "O campo garantia deve ser uma string",
