@@ -12,12 +12,13 @@ export const relatorioProdutos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const produtos = await prisma.produto.findMany();
-  const customData = getCustomRequest(req).customData;
   const query = req.query;
-
-  if (query.fontSize) {
-  }
+  const customData = getCustomRequest(req).customData;
+  const produtos = await prisma.produto.findMany({
+    where: {
+      contaId: customData.contaId,
+    },
+  });
 
   const conta = await prisma.contas.findUnique({
     where: {
@@ -154,9 +155,11 @@ export const relatorioProdutoMovimentacoes = async (
   res: Response
 ): Promise<any> => {
   const orderBy = (req.query.orderBy as any) || "asc";
+  const customData = getCustomRequest(req).customData;
   const movimentos = await prisma.movimentacoesEstoque.findMany({
     where: {
       produtoId: parseInt(req.params.id),
+      contaId: customData.contaId,
     },
     orderBy: {
       data: orderBy,
@@ -178,8 +181,6 @@ export const relatorioProdutoMovimentacoes = async (
       data: null,
     });
   }
-
-  const customData = getCustomRequest(req).customData;
 
   const conta = await prisma.contas.findUnique({
     where: {
