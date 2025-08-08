@@ -383,13 +383,16 @@ model ContasFinanceiro {
 }
 
 model CategoriaFinanceiro {
-  id          Int                    @id @default(autoincrement())
-  contaId     Int
-  Contas      Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid         String                 @default("CAT_000")
-  nome        String
-  lancamentos LancamentoFinanceiro[]
-  createdAt   DateTime               @default(now())
+  id                  Int                    @id @default(autoincrement())
+  contaId             Int
+  Contas              Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                 String                 @default("CAT_000")
+  nome                String
+  parentId            Int?
+  Parent              CategoriaFinanceiro?   @relation("Subcategorias", fields: [parentId], references: [id])
+  lancamentos         LancamentoFinanceiro[]
+  createdAt           DateTime               @default(now())
+  CategoriaFinanceiro CategoriaFinanceiro[]  @relation("Subcategorias")
 }
 
 model LancamentoFinanceiro {
