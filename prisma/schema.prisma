@@ -158,6 +158,8 @@ model MovimentacoesEstoque {
   Contas            Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   Uid               String                @default("MOV_000")
   tipo              TipoMovimentacao      @default(ENTRADA)
+  vendaId           Int?
+  Vendas            Vendas?               @relation(fields: [vendaId], references: [id], onDelete: Cascade)
   data              DateTime              @default(now())
   notaFiscal        String?
   frete             Decimal?              @db.Decimal(10, 2)
@@ -304,24 +306,25 @@ enum StatusVenda {
 }
 
 model Vendas {
-  id              Int                   @id @default(autoincrement())
-  contaId         Int
-  Contas          Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid             String                @default("VEN_000")
-  data            DateTime              @default(now())
-  valor           Decimal               @db.Decimal(10, 2)
-  clienteId       Int?
-  status          StatusVenda           @default(ORCAMENTO)
-  cliente         ClientesFornecedores? @relation(fields: [clienteId], references: [id])
-  vendedorId      Int?
-  vendedor        Usuarios?             @relation(fields: [vendedorId], references: [id])
-  garantia        Int?                  @default(0)
-  observacoes     String?               @db.Text
-  desconto        Decimal               @default(0) @db.Decimal(10, 2)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  ItensVendas     ItensVendas[]
-  PagamentoVendas PagamentoVendas?
+  id                   Int                    @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                  String                 @default("VEN_000")
+  data                 DateTime               @default(now())
+  valor                Decimal                @db.Decimal(10, 2)
+  clienteId            Int?
+  status               StatusVenda            @default(ORCAMENTO)
+  cliente              ClientesFornecedores?  @relation(fields: [clienteId], references: [id])
+  vendedorId           Int?
+  vendedor             Usuarios?              @relation(fields: [vendedorId], references: [id])
+  garantia             Int?                   @default(0)
+  observacoes          String?                @db.Text
+  desconto             Decimal                @default(0) @db.Decimal(10, 2)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  ItensVendas          ItensVendas[]
+  PagamentoVendas      PagamentoVendas?
+  MovimentacoesEstoque MovimentacoesEstoque[]
 }
 
 model ItensVendas {
