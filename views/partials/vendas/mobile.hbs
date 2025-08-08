@@ -168,14 +168,18 @@
           return;
         }
         response.data.forEach((venda) => {
+          const colorStatus = venda.status === "FATURADO" ? "green" : "gray";
           const dataRender = `
               <div class="rounded-2xl cursor-pointer border dark:border-border-dark bg-card dark:bg-card-dark p-4">
                   <div class="flex justify-between">
                     <div class="text-sm font-semibold dark:text-white">${venda.Uid}</div>
                     <div class="text-sm text-green-500 dark:text-green-400">R$ ${Number(venda.valor).toFixed(2).replace(".", ",")}</div>
                   </div>  
-                  <div class="text-xs text-gray-500 dark:text-gray-400">Status: ${venda.status}</div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400">Data: ${new Date(venda.data).toLocaleDateString("pt-BR")}</div>
+                  <div class="flex justify-between">
+                    <div class="text-xs text-${colorStatus}-500 dark:text-${colorStatus}-400">${venda.status}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">${new Date(venda.data).toLocaleDateString("pt-BR")}</div>
+                  </div>  
+                  <div class="text-xs text-gray-500 dark:text-gray-400">${venda.observacoes || "-"}</div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
                         <button onclick="visualizarVenda(${venda.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
@@ -184,6 +188,13 @@
                         <button onclick="gerarCupomPorVendaId(${venda.id})" class="bg-primary text-white px-3 py-1 rounded-md text-sm">
                             <i class="fa-solid fa-file-pdf"></i>
                         </button>
+                        ${!venda.faturado
+              ? `<button onclick="efetivarVenda(${venda.id})" class="bg-green-500 text-white px-3 py-1 rounded-md text-sm">
+                              <i class="fa-solid fa-circle-check"></i>
+                          </button>`
+              : `<button onclick="estornarVenda(${venda.id})" class="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm">
+                              <i class="fa-solid fa-undo"></i>
+                          </button>`}
                       </div>
                       <button onclick="excluirVenda(${venda.id})" class="bg-danger text-white px-3 py-1 rounded-md text-sm">
                           <i class="fa-solid fa-trash-can"></i>
