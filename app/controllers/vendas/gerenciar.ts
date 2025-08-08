@@ -9,6 +9,7 @@ import { enqueuePushNotification } from "../../services/pushNotificationQueueSer
 import { addHours, format } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
+import { formatCurrency } from "../../utils/formatters";
 
 export const efetivarVenda = async (
   req: Request,
@@ -388,9 +389,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     await enqueuePushNotification(
       {
         title: "Opa! Nova venda.",
-        body: `Uma nova venda no valor de R$ ${valorTotal.toFixed(
-          2
-        )} foi realizada`,
+        body: `Uma nova venda no valor de ${formatCurrency(valorTotal.minus(descontoTotal))} foi realizada`,
       },
       customData.contaId
     );
