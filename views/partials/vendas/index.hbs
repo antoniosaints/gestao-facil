@@ -55,6 +55,59 @@
     loadPage("/vendas/detalhe");
   }
 
+  function estornarVenda(id) {
+    Swal.fire({
+      title: "Estornar venda",
+      text: "Tem certeza que deseja estornar esta venda?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      confirmButtonText: "Sim, estornar!",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          dataType: "json",
+          type: "GET",
+          url: `/vendas/estornar/${id}`,
+          beforeSend: function (xhr) {
+            const tokenJWT = localStorage.getItem("gestao_facil:token");
+            if (tokenJWT) {
+              xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
+            }
+            Swal.fire({
+              title: "Carregando...",
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              showConfirmButton: false,
+              didOpen: () => {
+                Swal.showLoading();
+              },
+            });
+          },
+          success: function (response) {
+            Swal.close();
+            showNotification("Venda estornada com sucesso!", "success");
+
+            if (typeof reloadTabelaVendas === "function") {
+              reloadTabelaVendas();
+            }
+            if (typeof renderListaVendas === "function") {
+              renderListaVendas();
+            }
+          },
+          error: function (error) {
+            console.log(error);
+            Swal.close();
+            showNotification(
+              error.responseJSON?.message || "Ocorreu um erro ao estornar a venda. Por favor, tente novamente.",
+              "error"
+            );
+          },
+        });
+      }
+    });
+  }
   function excluirVenda(id, retornar = false) {
     Swal.fire({
       title: "Excluir venda",

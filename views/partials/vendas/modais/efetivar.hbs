@@ -4,8 +4,8 @@
         class="bg-gray-100 dark:bg-background-dark w-full max-w-lg mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
         <div
             class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
-            <h2 class="text-xl font-bold"><i class="fa-solid fa-filter text-emerald-600"></i> Filtar vendas</h2>
-            <button onclick="closeModalFiltroVendas()"
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-circle-check text-green-600"></i> Efetivar venda</h2>
+            <button onclick="closeModalEfetivarVendas()"
                 class="text-gray-800 dark:text-white hover:text-gray-400 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -13,64 +13,99 @@
             </button>
         </div>
 
-        <div class="overflow-y-auto flex">
-            <form id="modalFormularioEfetivarVendas" class="w-full">
+        <form id="modalFormularioEfetivarVendas" class="w-full">
+            <div class="overflow-y-auto flex">
                 <div class="gap-4 p-4 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
                     <div class="grid grid-cols-1 gap-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <!-- Valor Total -->
                             <div>
-                                <label for="status_vendas_tabela" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-calendar-day"></i>
-                                    Forma de pagamento
+                                <label for="formaPagamentoEfetivacaoVenda" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-tags"></i>
+                                    Forma de pagamento <span class="text-danger">*</span>
                                 </label>
-                                <select id="status_vendas_tabela" name="status_vendas_tabela"
+                                <select required id="formaPagamentoEfetivacaoVenda" name="pagamento"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
-                                    <option value="">Todos</option>
-                                    <option value="FATURADO">Faturado</option>
-                                    <option value="PENDENTE">Pendente</option>
-                                    <option value="FINALIZADO">Finalizado</option>
-                                    <option value="ORCAMENTO">Orçamento</option>
-                                    <option value="CANCELADO">Cancelado</option>
+                                    <option value="PIX">PIX</option>
+                                    <option value="DINHEIRO">DINHEIRO</option>
+                                    <option value="CARTAO">CARTÃO</option>
+                                    <option value="BOLETO">BOLETO</option>
+                                    <option value="TRANSFERENCIA">TRANSFERÊNCIA</option>
+                                    <option value="CHEQUE">CHEQUE</option>
+                                    <option value="CREDITO">CRÉDITO</option>
+                                    <option value="DEBITO">DÉBITO</option>
+                                    <option value="GATEWAY">GATEWAY</option>
+                                    <option value="OUTRO">OUTRO</option>
+
                                 </select>
                             </div>
                             <div>
-                                <label for="vendedor_vendas" class="block text-sm font-medium mb-1">
-                                    <i class="fa-solid fa-users"></i>
-                                    Data do pagamento
+                                <label for="dataPagamentoEfetivarVenda" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-calendar-day"></i>
+                                    Data do pagamento <span class="text-danger">*</span>
                                 </label>
-                                <input type="date" id="vendedor_vendas" name="vendedor_vendas"
+                                <input type="text" required id="dataPagamentoEfetivarVenda"
+                                    name="dataPagamento"
+                                    placeholder="00/00/0000"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                            <div>
+                                <label for="contaFinanceiraEfetivarVenda" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-tags"></i>
+                                    Conta
+                                </label>
+                                <select id="contaFinanceiraEfetivarVenda" name="conta"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                </select>
+                            </div>
+                            <div>
+                                <label for="categoriaEfetivarVenda" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-calendar-day"></i>
+                                    Categoria <span class="text-danger">*</span>
+                                </label>
+                                <select required id="categoriaEfetivarVenda" name="categoria"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                </select>
                             </div>
                         </div>
                     </div>
                 </div>
-            </form>
-        </div>
-
-        <!-- Rodapé -->
-        <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
-            <div class="flex gap-3">
-                <button type="button" onclick="filtrarTabelaVendas()"
-                    class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium border-2 border-emerald-500 hover:border-emerald-700 text-emerald-900 dark:text-emerald-200 bg-emerald-500/20 rounded-md shadow transition">
-                    <i class="fa-solid fa-filter"></i>
-                    Aplicar
-                </button>
-                <button type="button" onclick="closeModalFiltroVendas()"
-                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:border-gray-500 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
-                    Cancelar
-                </button>
             </div>
-        </div>
+            <input type="hidden" name="id">
+            <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+                <div class="flex gap-3">
+                    <button type="submit"
+                        class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium border-2 border-emerald-500 hover:border-emerald-700 text-emerald-900 dark:text-emerald-200 bg-emerald-500/20 rounded-md shadow transition">
+                        <i class="fa-solid fa-check"></i>
+                        Efetivar
+                    </button>
+                    <button type="button" onclick="closeModalEfetivarVendas()"
+                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:border-gray-500 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
 
     </div>
 </div>
 
 
 <script>
-    function openModalFiltroVendas() {
+    flatpickr("#dataPagamentoEfetivarVenda", {
+        altInput: true,
+        altFormat: "j \\de F \\de Y",
+        dateFormat: "Y-m-d",
+        locale: "pt",
+    });
+
+
+    function efetivarVenda(id) {
         const overlay = document.getElementById('modalOverlayEfetivarVendas');
         const modal = document.getElementById('sheetContainerEfetivarVendas');
+
+        const form = document.getElementById('modalFormularioEfetivarVendas');
+        form.id.value = id;
 
         overlay.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -82,7 +117,7 @@
         modal.classList.add('opacity-100', 'scale-100');
     }
 
-    function closeModalFiltroVendas() {
+    function closeModalEfetivarVendas() {
         const overlay = document.getElementById('modalOverlayEfetivarVendas');
         const modal = document.getElementById('sheetContainerEfetivarVendas');
 
@@ -96,13 +131,97 @@
     }
 
     // Fechamento por ESC e clique fora
-    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFiltroVendas());
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalEfetivarVendas());
     document.getElementById('modalOverlayEfetivarVendas').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModalFiltroVendas();
+        if (e.target === e.currentTarget) closeModalEfetivarVendas();
     });
 
-    function filtrarTabelaVendas() {
-        reloadTabelaVendas();
-        closeModalFiltroVendas();
-    }
+    $("#contaFinanceiraEfetivarVenda").select2({
+        placeholder: 'Selecione uma conta',
+        width: '100%',
+        language: "pt-BR",
+        ajax: {
+            url: '/lancamentos/contas/select2',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+
+    $("#categoriaEfetivarVenda").select2({
+        placeholder: 'Selecione uma categoria',
+        width: '100%',
+        language: "pt-BR",
+        ajax: {
+            url: '/lancamentos/categorias/select2',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+
+    $("#modalFormularioEfetivarVendas").submit(function (e) {
+        e.preventDefault();
+
+        const form = document.getElementById('modalFormularioEfetivarVendas');
+
+        const dataPagamento = form.dataPagamento.value.trim();
+        const pagamento = form.pagamento.value.trim();
+        const conta = form.conta.value.trim();
+        const categoria = form.categoria.value.trim();
+        const id = form.id.value.trim();
+
+        if (!dataPagamento || !pagamento || !categoria) {
+            showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
+            return;
+        }
+
+        $.ajax({
+            url: `/vendas/efetivar/${id}`,
+            method: 'POST',
+            data: $('#modalFormularioEfetivarVendas').serialize(),
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            success: function (data) {
+                closeModalEfetivarVendas();
+                showNotification(data.message, 'success');
+                if (typeof reloadTabelaVendas === "function") {
+                    reloadTabelaVendas();
+                }
+                if (typeof renderListaVendas === "function") {
+                    renderListaVendas();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.log(xhr);
+                const mensagem = xhr.responseJSON?.message || "Erro inesperado na requisição";
+                showNotification(mensagem, 'error');
+            }
+        });
+    });
 </script>

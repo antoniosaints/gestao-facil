@@ -11,27 +11,28 @@ export const efetivarVendaSchema = z.object(
         "CHEQUE",
         "CREDITO",
         "DEBITO",
+        "BOLETO",
         "OUTRO",
         "GATEWAY",
       ],
       {
         required_error: "O campo pagamento é obrigatório",
         invalid_type_error:
-          "O campo pagamento deve ser {PIX, DINHEIRO, CARTAO, TRANSFERENCIA, CHEQUE, CREDITO, DEBITO, OUTRO ou GATEWAY}",
+          "O campo pagamento deve ser {PIX, DINHEIRO, CARTAO, TRANSFERENCIA, CHEQUE, CREDITO, DEBITO, BOLETO, OUTRO ou GATEWAY}",
       }
     ),
     dataPagamento: z.string({
       required_error: "O campo dataPagamento é obrigatório",
       invalid_type_error: "O campo dataPagamento deve ser uma string",
     }),
-    conta: z.number({
+    conta: z.string({
       required_error: "O campo conta é obrigatório",
       invalid_type_error: "O campo conta deve ser um número",
-    }),
-    categoria: z.number({
+    }).transform((val) => Number(val)).optional(),
+    categoria: z.string({
       required_error: "O campo categoria é obrigatório",
       invalid_type_error: "O campo categoria deve ser um número",
-    })
+    }).transform((val) => Number(val)),
   },
   { required_error: "Informe os dados de pagamento" }
 );
