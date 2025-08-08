@@ -153,7 +153,7 @@
                                     <i class="fa-solid fa-calendar-day"></i>
                                     Data Lançamento *
                                 </label>
-                                <input type="date" id="dataLancamento" name="dataLancamento" required
+                                <input type="text" placeholder="dd/mm/aaaa" id="dataLancamento" name="dataLancamento" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
 
@@ -192,9 +192,18 @@
 
 
 <script>
-    MaskToInputMoney(document.getElementById('valorTotalLancamento'));
-    MaskToInputMoney(document.getElementById('descontoFormularioLancamento'));
-    MaskToInputMoney(document.getElementById('valorEntrada'));
+    MaskMoneyNative('#valorEntrada');
+    MaskMoneyNative('#descontoFormularioLancamento');
+    MaskMoneyNative('#valorTotalLancamento');
+
+    flatpickr("#dataLancamento", {
+        altInput: true,
+        altFormat: "j \\de F \\de Y",
+        dateFormat: "Y-m-d",
+        locale: "pt",
+    });
+
+
     function openModalFinanceiro() {
         const overlay = document.getElementById('modalOverlayFinanceiro');
         const modal = document.getElementById('sheetContainerFinanceiro');

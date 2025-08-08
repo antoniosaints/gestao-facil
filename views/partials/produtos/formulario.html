@@ -138,26 +138,9 @@
 
 <script>
   switchToFullScreen();
-  IMask(document.getElementById('preco'), {
-    mask: Number,
-    scale: 2,
-    signed: false,
-    thousandsSeparator: '',
-    padFractionalZeros: true,
-    normalizeZeros: true,
-    radix: ',', // separador decimal brasileiro
-    mapToRadix: ['.']
-  });
-  IMask(document.getElementById('precoCompra'), {
-    mask: Number,
-    scale: 2,
-    signed: false,
-    thousandsSeparator: '',
-    padFractionalZeros: true,
-    normalizeZeros: true,
-    radix: ',', // separador decimal brasileiro
-    mapToRadix: ['.']
-  });
+  MaskMoneyNative('#preco');
+  MaskMoneyNative('#precoCompra');
+
   $("#formularioProdutos").off('submit').on('submit', function (e) {
     e.preventDefault();
     const data = {

@@ -39,14 +39,12 @@
         alert("Erro ao gerar o cupom");
         return;
       }
-
       const blob = await resp.blob();
-
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
     } catch (err) {
       console.error("Erro ao gerar o cupom:", err);
-      alert("Erro ao gerar o cupom.");
+      showNotification("Erro ao gerar o cupom.", "error");
     }
   }
 
@@ -140,15 +138,8 @@
             });
           },
           success: function (response) {
-            Swal.fire({
-              title: "Venda excluída!",
-              text: "A venda foi excluído com sucesso!",
-              icon: "success",
-              toast: true,
-              showConfirmButton: false,
-              position: "bottom-end",
-              timer: 3000,
-            });
+            Swal.close();
+            showNotification("Venda excluída com sucesso!", "success");
             if (!retornar) {
               if (typeof reloadTabelaVendas === "function") {
                 reloadTabelaVendas();
@@ -162,23 +153,11 @@
           },
           error: function (error) {
             console.log(error);
-            Swal.fire({
-              title: "Erro ao excluir a venda!",
-              text: error.responseJSON?.message || "Ocorreu um erro ao excluir a venda. Por favor, tente novamente.",
-              icon: "error",
-              confirmButtonColor: "#3085d6",
-              confirmButtonText: "OK",
-            });
+            Swal.close();
+            showNotification(error.responseJSON?.message || "Ocorreu um erro ao excluir a venda. Por favor, tente novamente.", "error");
           },
         });
       }
     });
   }
-  function salvarProduto() {
-    localStorage.removeItem("produtoId");
-    htmx.ajax("GET", "partials/produtos/formulario.html", {
-      target: "#content",
-      swap: "innerHTML",
-    });
-  };
 </script>

@@ -76,11 +76,11 @@ export const gerarCupomPdf = async (
     .moveDown(0.3)
     .font("Roboto")
     .fontSize(9)
+    .text(`ID: ${venda.Uid}`)
     .text(`Data: ${dayjs(venda.data).format("DD/MM/YYYY")}`)
-    .text(`Venda Nº: ${venda.id}`)
     .text(`Cliente: ${venda.cliente?.nome || "N/A"}`)
     .text(`Vendedor: ${venda.vendedor?.nome || "N/A"}`)
-    .text(`Garantia: ${venda.garantia || "N/A"}`);
+    .text(`Garantia: ${venda.garantia ? `${venda.garantia} dias` : "N/A"}`);
 
   doc.moveDown(0.5);
 
@@ -102,8 +102,15 @@ export const gerarCupomPdf = async (
       .text(`${formatarValorMonetario(total)}`, { align: "right" });
     doc.moveDown(0.3);
   });
-  doc.text("_".repeat(63), { align: "center" });
 
+  doc
+    .text(`Desconto:`, { continued: false })
+    .text(`1x ${formatarValorMonetario(venda.desconto)}`, { continued: true })
+    .text(`( - ${formatarValorMonetario(venda.desconto)})`, { align: "right" });
+
+  doc.moveDown(0.3);
+
+  doc.text("_".repeat(63), { align: "center" });
   // Totais
   doc
     .moveDown(0.2)
@@ -119,9 +126,17 @@ export const gerarCupomPdf = async (
       .moveDown(0.3)
       .font("Roboto")
       .fontSize(9)
-      .text(`Pagamento via: ${venda.PagamentoVendas.metodo}`);
+      .text(`Pagamento via: ${venda.PagamentoVendas.metodo}`, {
+        align: "center",
+      });
   }
 
+  // Rodapé
+  doc
+    .moveDown(1)
+    .font("Helvetica-Oblique")
+    .fontSize(8)
+    .text(venda.observacoes ? `* ${venda.observacoes}` : "", { align: "center" })
   // Rodapé
   doc
     .moveDown(1)
