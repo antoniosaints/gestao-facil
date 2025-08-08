@@ -47,21 +47,21 @@
         <div class="mt-6">
             <button type="button" onclick="loadPage('vendas/resumo')"
                 class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
-                <i class="fa-solid fa-backward"></i> Voltar
+                <i class="fa-solid fa-backward"></i> <div class="hidden md:block">Voltar</div>
             </button>
             <button id="imprimir_cupom_venda" class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-file-pdf"></i>
-                Cupom N/F
+                <div class="hidden md:block">Cupom N/F</div>
             </button>
             <button onclick="editarVenda(localStorage.getItem('vendaId'))"
                 class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-pen-to-square"></i>
-                Editar
+                <div class="hidden md:block">Editar</div>
             </button>
             <button onclick="excluirVenda(localStorage.getItem('vendaId'), true)"
                 class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
                 <i class="fa-solid fa-trash-can"></i>
-                Excluir
+                <div class="hidden md:block">Excluir</div>
             </button>
         </div>
     </div>
