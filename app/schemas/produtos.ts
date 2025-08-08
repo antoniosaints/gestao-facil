@@ -126,6 +126,7 @@ export const ReposicaoEstoqueSchema = z.object({
   custo: z
     .string({
       invalid_type_error: "custo deve ser uma string",
+      required_error: "custo é obrigatório",
     })
     .transform((val) => parseFloat(val.replace(",", "."))),
   desconto: moneyFormatter("desconto deve ser uma string").optional(),

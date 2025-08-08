@@ -239,13 +239,10 @@ export const reposicaoProduto = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { data, error, success } = ReposicaoEstoqueSchema.safeParse(req.body);
   const customData = getCustomRequest(req).customData;
+  const { data, error, success } = ReposicaoEstoqueSchema.safeParse(req.body);
   if (!success) {
-    return res.status(400).json({
-      message: "Dados inválidos",
-      data: mapperErrorSchema(error),
-    });
+    return handleError(res, error);
   }
   try {
     const entrada = await prisma.$transaction(async (tx) => {
@@ -282,14 +279,7 @@ export const reposicaoProduto = async (
           desconto: data.desconto,
           frete: data.frete,
         },
-        include: {
-          Produto: {
-            select: {
-              nome: true,
-              unidade: true,
-            },
-          },
-        },
+        include: { Produto: true },
       });
 
       return movimentacao;
