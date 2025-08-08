@@ -17,6 +17,16 @@ export const acoes = (row: LancamentoFinanceiro) => {
                     </button>
             `
             }
+            ${
+              row.status === "PAGO"
+                ? ``
+                : ` <button
+                        onclick="efetivarLancamento('${row.id}')"
+                        class="text-emerald-500 px-1 py-[2px] rounded">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </button>
+            `
+            }
             <button
                 onclick="escluirLancamento('${row.id}')"
                 class="text-danger px-1 py-[2px] rounded">
