@@ -24,6 +24,11 @@ export const getVenda = async (req: Request, res: Response) => {
             nome: true,
           },
         },
+        vendedor: {
+          select: {
+            nome: true,
+          },
+        },
         ItensVendas: {
           include: {
             produto: {
@@ -78,6 +83,19 @@ export const deleteVenda = async (req: Request, res: Response): Promise<any> => 
             },
           },
         });
+
+        // await tx.movimentacoesEstoque.create({
+        //   data: {
+        //     Uid: gerarIdUnicoComMetaFinal("MOV"),
+        //     produtoId: item.produtoId,
+        //     quantidade: item.quantidade,
+        //     status: "CONCLUIDO",
+        //     tipo: "ENTRADA",
+        //     clienteFornecedor: null,
+        //     contaId: customData.contaId,
+        //     custo: new Decimal(item.valor),
+        //   },
+        // });
       }
 
       const venda = await tx.vendas.delete({

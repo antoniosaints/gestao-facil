@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const vendaSchema = z.object({
+  id: z.string().optional(),
   data: z
     .string({
       required_error: "O campo data é obrigatório",

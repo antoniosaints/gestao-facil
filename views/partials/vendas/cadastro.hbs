@@ -1,6 +1,6 @@
 <div class="h-[calc(100vh + 5rem)] flex flex-col justify-center">
     <h2 class="text-xl md:text-2xl font-bold mb-6" id="titulo_cadastro_venda">
-        <i class="fa-solid fa-tags text-green-600"></i> Nova venda
+        <i class="fa-solid fa-tags text-green-600"></i> {{title}}
     </h2>
     <div
         class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
@@ -60,7 +60,7 @@
                 </div>
                 <div class="md:col-span-2">
                     <label for="input_desconto_venda_formulario" class="block text-sm mb-1">Desconto</label>
-                    <input type="text" id="input_desconto_venda_formulario"
+                    <input type="text" id="input_desconto_venda_formulario" name="desconto"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
                         placeholder="Ex: 1,99" />
                 </div>
@@ -137,7 +137,7 @@
                     </table>
                 </div>
             </div>
-
+            <input type="hidden" name="id" id="input_id_venda_formulario" value="{{venda.id}}">
             <div class="flex justify-between">
                 <button onclick="loadPage('/vendas/resumo')" type="button"
                     class="px-4 py-2 bg-secondary text-white rounded-md mt-4"><i class="fa-solid fa-backward"></i>
@@ -149,383 +149,419 @@
     </div>
 </div>
 <script>
-    MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
-    MaskToInputMoney(document.getElementById('input_desconto_venda_formulario'));
 
-    function setCartFromVendaRealizada(venda) {
-        const cartItems = [];
+    (() => {
+        const maskPreco = MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
+        MaskMoneyNative('#input_desconto_venda_formulario');
+        const idVenda = $("#formulario_cadastro_venda").find('input[name="id"]').val();
 
-        venda.itens.forEach(item => {
-            const newItem = {
-                id: item.id,
-                produto: item.produto,
-                quantidade: item.quantidade,
-                preco: item.preco,
-                subtotal: item.subtotal
-            };
-            cartItems.push(newItem);
-        })
+        if (idVenda) {
+            $.ajax({
+                url: `/vendas/${idVenda}`,
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+                },
+                dataType: 'json',
+                success: function ({ data }) {
+                    const formulario = document.getElementById('formulario_cadastro_venda');
+                    if (data.clienteId) $("#select_cliente_venda_formulario").append(new Option(data.cliente.nome, data.clienteId)).trigger('change');
+                    if (data.vendedorId) $("#select_vendedor_venda_formulario").append(new Option(data.vendedor.nome, data.vendedorId)).trigger('change');
+                    formulario.status.value = data.status;
+                    formulario.garantia.value = data.garantia;
+                    formulario.tipo_desconto.value = "VALOR";
+                    formulario.desconto.value = data.desconto.replace('.', ',');
+                    formulario.observacoes.value = data.observacoes;
+                    document.querySelector("#input_data_venda_formulario")._flatpickr.setDate(data.data);
 
-        localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
-        atualizarTabelaCart();
-    }
-
-    $("#formulario_cadastro_venda").submit((e) => {
-        e.preventDefault();
-
-        const cart = localStorage.getItem('gestao_facil:cartVendas');
-        const cartItems = cart ? JSON.parse(cart) : [];
-
-        if (cartItems.length === 0) {
-            Swal.fire({
-                icon: "error",
-                title: "Erro!",
-                text: "Nenhum item adicionado na venda",
-                confirmButtonText: "Ok",
-            });
-            return;
-        }
-
-        let descontoTotal = 0;
-        subtotalValue = cartItems.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-
-        const discountInput = $('#input_desconto_venda_formulario').val().replace('.', '').replace(',', '.');
-        const discountType = $('#select_tipo_desconto_formulario').val();
-
-        if (discountInput && !isNaN(discountInput)) {
-            if (discountType === 'PORCENTAGEM') {
-                descontoTotal = subtotalValue * (parseFloat(discountInput) / 100);
-            } else {
-                descontoTotal = parseFloat(discountInput);
-            }
-        } else {
-            descontoTotal = 0;
-        }
-
-        const data = {
-            clienteId: $('#select_cliente_venda_formulario').val(),
-            data: $('#input_data_venda_formulario').val(),
-            vendedorId: $('#select_vendedor_venda_formulario').val(),
-            status: $('#select_status_venda_formulario').val(),
-            garantia: $('#input_garantia_venda_formulario').val(),
-            observacoes: $('#input_observacoes_venda_formulario').val(),
-            desconto: descontoTotal,
-            itens: cartItems.map(item => (
-                {
-                    id: item.id,
-                    quantidade: item.quantidade,
-                    preco: item.preco
+                    setCartFromVendaRealizada(data);
+                },
+                error: function (error) {
+                    console.log(error);
                 }
-            ))
-        };
+            })
+        }
 
-        $.ajax({
-            url: '/vendas/criar',
-            method: 'POST',
-            data: data,
-            dataType: 'json',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-            },
-            success: function (data) {
+        function setCartFromVendaRealizada(venda) {
+            const cartItems = [];
+
+            venda.ItensVendas.forEach(item => {
+                const newItem = {
+                    id: item.id,
+                    produto: item.produto.nome,
+                    quantidade: item.quantidade,
+                    preco: item.valor,
+                    subtotal: item.valor * item.quantidade
+                };
+                cartItems.push(newItem);
+            })
+
+            localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
+            atualizarTabelaCart();
+        }
+
+        $("#formulario_cadastro_venda").submit((e) => {
+            e.preventDefault();
+
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            const cartItems = cart ? JSON.parse(cart) : [];
+
+            if (cartItems.length === 0) {
                 Swal.fire({
-                    toast: true,
-                    position: "bottom-end",
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
-                    icon: "success",
-                    title: "Sucesso!",
-                    text: "Venda criada com sucesso",
-                });
-                loadPage('/vendas/resumo');
-            },
-            error: function (xhr, status, error) {
-                console.log(xhr);
-                const mensagem =
-                    xhr.responseJSON?.message || "Erro inesperado na requisição";
-                Swal.fire({
-                    toast: true,
-                    position: "bottom-end",
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
                     icon: "error",
                     title: "Erro!",
-                    text: mensagem,
+                    text: "Nenhum item adicionado na venda",
+                    confirmButtonText: "Ok",
                 });
+                return;
             }
+
+            let descontoTotal = 0;
+            subtotalValue = cartItems.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+
+            const discountInput = $('#input_desconto_venda_formulario').val().replace('.', '').replace(',', '.');
+            const discountType = $('#select_tipo_desconto_formulario').val();
+
+            if (discountInput && !isNaN(discountInput)) {
+                if (discountType === 'PORCENTAGEM') {
+                    descontoTotal = subtotalValue * (parseFloat(discountInput) / 100);
+                } else {
+                    descontoTotal = parseFloat(discountInput);
+                }
+            } else {
+                descontoTotal = 0;
+            }
+
+            const data = {
+                clienteId: $('#select_cliente_venda_formulario').val(),
+                data: $('#input_data_venda_formulario').val(),
+                vendedorId: $('#select_vendedor_venda_formulario').val(),
+                status: $('#select_status_venda_formulario').val(),
+                garantia: $('#input_garantia_venda_formulario').val(),
+                observacoes: $('#input_observacoes_venda_formulario').val(),
+                desconto: descontoTotal,
+                id: $("#input_id_venda_formulario").val(),
+                itens: cartItems.map(item => (
+                    {
+                        id: item.id,
+                        quantidade: item.quantidade,
+                        preco: item.preco
+                    }
+                ))
+            };
+
+            $.ajax({
+                url: '/vendas/criar',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                success: function (data) {
+                    Swal.fire({
+                        toast: true,
+                        position: "bottom-end",
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        icon: "success",
+                        title: "Sucesso!",
+                        text: "Venda criada com sucesso",
+                    });
+                    loadPage('/vendas/resumo');
+                },
+                error: function (xhr, status, error) {
+                    console.log(xhr);
+                    const mensagem =
+                        xhr.responseJSON?.message || "Erro inesperado na requisição";
+                    Swal.fire({
+                        toast: true,
+                        position: "bottom-end",
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        icon: "error",
+                        title: "Erro!",
+                        text: mensagem,
+                    });
+                }
+            });
         });
-    });
 
-    flatpickr("#input_data_venda_formulario", {
-        altInput: true,
-        altFormat: "j \\de F \\de Y",
-        dateFormat: "Y-m-d",
-        locale: "pt"
-    });
+        flatpickr("#input_data_venda_formulario", {
+            altInput: true,
+            altFormat: "j \\de F \\de Y",
+            dateFormat: "Y-m-d",
+            locale: "pt"
+        });
 
-    function clearFormularioAddItem() {
-        $('#select_produto_venda_formulario').val(null).trigger('change');
-        $('#input_quantidade_venda_formulario').val('');
-        $('#input_preco_venda_formulario').val('');
-    }
-    function addToCartVendas() {
-        const produtoData = $("#select_produto_venda_formulario").select2("data");
-        const quantidadeRaw = $('#input_quantidade_venda_formulario').val();
-        const precoRaw = $('#input_preco_venda_formulario').val();
+        function clearFormularioAddItem() {
+            $('#select_produto_venda_formulario').val(null).trigger('change');
+            $('#input_quantidade_venda_formulario').val('');
+            $('#input_preco_venda_formulario').val('');
+        }
+        function addToCartVendas() {
+            const produtoData = $("#select_produto_venda_formulario").select2("data");
+            const quantidadeRaw = $('#input_quantidade_venda_formulario').val();
+            const precoRaw = $('#input_preco_venda_formulario').val();
 
-        if (!produtoData.length || !quantidadeRaw || !precoRaw) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Oops...',
-                text: 'Preencha todos os campos (Produto, Quantidade e Preço)!',
-                confirmButtonText: 'Certo!'
-            });
-            return;
+            if (!produtoData.length || !quantidadeRaw || !precoRaw) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'Preencha todos os campos (Produto, Quantidade e Preço)!',
+                    confirmButtonText: 'Certo!'
+                });
+                return;
+            }
+
+            const produtoId = produtoData[0].id;
+            const lbl = produtoData[0].text;
+            const resultado = lbl.split("Qtd:")[0].trim().replace(/[-\s]+$/, "");
+            const produtoLabel = resultado;
+
+            const quantidade = parseFloat(quantidadeRaw);
+            const preco = parseFloat(precoRaw.replace(',', '.'));
+
+            if (isNaN(quantidade) || quantidade <= 0 || isNaN(preco) || preco <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Valores inválidos!',
+                    text: 'Informe valores numéricos válidos para quantidade e preço.',
+                    confirmButtonText: 'Entendi'
+                });
+                return;
+            }
+
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            let cartItems = cart ? JSON.parse(cart) : [];
+
+            // Verifica se o produto já foi adicionado
+            const exists = cartItems.some(item => item.id === produtoId);
+            if (exists) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Produto já adicionado!',
+                    text: 'Este produto já está na lista.',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            const newItem = {
+                id: produtoId,
+                produto: produtoLabel,
+                quantidade,
+                preco: preco.toFixed(2),
+                subtotal: +(quantidade * preco).toFixed(2)
+            };
+
+            cartItems.push(newItem);
+            localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
+
+            atualizarTabelaCart();
+            clearFormularioAddItem();
         }
 
-        const produtoId = produtoData[0].id;
-        const lbl = produtoData[0].text;
-        const resultado = lbl.split("Qtd:")[0].trim().replace(/[-\s]+$/, "");
-        const produtoLabel = resultado;
 
-        const quantidade = parseFloat(quantidadeRaw);
-        const preco = parseFloat(precoRaw.replace(',', '.'));
+        function removeFromCartVendas(produtoId) {
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            let cartItems = cart ? JSON.parse(cart) : [];
 
-        if (isNaN(quantidade) || quantidade <= 0 || isNaN(preco) || preco <= 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Valores inválidos!',
-                text: 'Informe valores numéricos válidos para quantidade e preço.',
-                confirmButtonText: 'Entendi'
-            });
-            return;
+            const novoCarrinho = cartItems.filter(item => Number(item.id) !== produtoId);
+
+            localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(novoCarrinho));
+            atualizarTabelaCart();
         }
 
-        const cart = localStorage.getItem('gestao_facil:cartVendas');
-        let cartItems = cart ? JSON.parse(cart) : [];
+        function calculateTotalCartVendas() {
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            const cartItems = cart ? JSON.parse(cart) : [];
 
-        // Verifica se o produto já foi adicionado
-        const exists = cartItems.some(item => item.id === produtoId);
-        if (exists) {
-            Swal.fire({
-                icon: 'info',
-                title: 'Produto já adicionado!',
-                text: 'Este produto já está na lista.',
-                confirmButtonText: 'OK'
-            });
-            return;
+            const total = cartItems.reduce((sum, item) => {
+                return sum + parseFloat(item.subtotal);
+            }, 0);
+
+            return total.toFixed(2);
         }
 
-        const newItem = {
-            id: produtoId,
-            produto: produtoLabel,
-            quantidade,
-            preco: preco.toFixed(2),
-            subtotal: +(quantidade * preco).toFixed(2)
-        };
+        function clearCartVendas() {
+            localStorage.removeItem('gestao_facil:cartVendas');
+            atualizarTabelaCart();
+        }
 
-        cartItems.push(newItem);
-        localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
+        function atualizarTabelaCart() {
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            const cartItems = cart ? JSON.parse(cart) : [];
 
-        atualizarTabelaCart();
-        clearFormularioAddItem();
-    }
+            const tbody = document.querySelector('#tabela-carrinho-vendas tbody');
+            if (!tbody) return;
 
+            tbody.innerHTML = ''; // Limpa antes de renderizar
 
-    function removeFromCartVendas(produtoId) {
-        const cart = localStorage.getItem('gestao_facil:cartVendas');
-        let cartItems = cart ? JSON.parse(cart) : [];
-
-        const novoCarrinho = cartItems.filter(item => Number(item.id) !== produtoId);
-
-        localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(novoCarrinho));
-        atualizarTabelaCart();
-    }
-
-    function calculateTotalCartVendas() {
-        const cart = localStorage.getItem('gestao_facil:cartVendas');
-        const cartItems = cart ? JSON.parse(cart) : [];
-
-        const total = cartItems.reduce((sum, item) => {
-            return sum + parseFloat(item.subtotal);
-        }, 0);
-
-        return total.toFixed(2);
-    }
-
-    function clearCartVendas() {
-        localStorage.removeItem('gestao_facil:cartVendas');
-        atualizarTabelaCart();
-    }
-
-    function atualizarTabelaCart() {
-        const cart = localStorage.getItem('gestao_facil:cartVendas');
-        const cartItems = cart ? JSON.parse(cart) : [];
-
-        const tbody = document.querySelector('#tabela-carrinho-vendas tbody');
-        if (!tbody) return;
-
-        tbody.innerHTML = ''; // Limpa antes de renderizar
-
-        if (cartItems.length === 0) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
+            if (cartItems.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                                 <td colspan="5" class="p-2 text-center">Nenhum item adicionado</td>
                                 `;
-            tbody.appendChild(tr);
-            return;
-        }
+                tbody.appendChild(tr);
+                return;
+            }
 
-        cartItems.forEach((item, index) => {
-            const tr = document.createElement('tr');
+            cartItems.forEach((item, index) => {
+                const tr = document.createElement('tr');
 
-            tr.innerHTML = `
+                tr.innerHTML = `
                                 <td class="p-2">${item.produto}</td>
                                 <td class="p-2">${item.quantidade}</td>
                                 <td class="p-2">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
                                 <td class="p-2">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
                                 <td class="p-2">
-                                    <button type="button" class="text-red-500 hover:underline" onclick="removeFromCartVendas(${item.id})">Remover</button>
+                                    <button type="button" id="btn_remover_item_carrinho_${item.id}" class="text-red-500 hover:underline">Remover</button>
                                 </td>
                                 `;
 
-            tbody.appendChild(tr);
+                tbody.appendChild(tr);
+                
+                document.querySelector(`#btn_remover_item_carrinho_${item.id}`).addEventListener('click', () => {
+                    removeFromCartVendas(item.id);
+                });
+            });
+        }
+
+
+        $("#select_cliente_venda_formulario").select2({
+            placeholder: 'Selecione um cliente',
+            width: '100%',
+            allowClear: true,
+            language: "pt-BR",
+            ajax: {
+                url: '/clientes/select2/lista',
+                dataType: 'json',
+                delay: 250,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                data: function (params) {
+                    return {
+                        search: params.term
+                    }
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                }
+            }
         });
-    }
-
-
-    $("#select_cliente_venda_formulario").select2({
-        placeholder: 'Selecione um cliente',
-        width: '100%',
-        allowClear: true,
-        language: "pt-BR",
-        ajax: {
-            url: '/clientes/select2/lista',
-            dataType: 'json',
-            delay: 250,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-            },
-            data: function (params) {
-                return {
-                    search: params.term
-                }
-            },
-            processResults: function (data) {
-                return {
-                    results: data.results
-                };
-            }
-        }
-    });
-    $("#select_produto_venda_formulario").select2({
-        placeholder: 'Selecione um produto',
-        width: '100%',
-        allowClear: true,
-        language: "pt-BR",
-        ajax: {
-            url: '/produtos/select2/lista',
-            dataType: 'json',
-            delay: 250,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-            },
-            data: function (params) {
-                return {
-                    search: params.term
-                }
-            },
-            processResults: function (data) {
-                return {
-                    results: data.results
-                };
-            }
-        }
-    });
-    $("#select_vendedor_venda_formulario").select2({
-        placeholder: 'Selecione um vendedor',
-        width: '100%',
-        language: "pt-BR",
-        ajax: {
-            url: '/usuarios/select2/lista',
-            dataType: 'json',
-            delay: 250,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-            },
-            data: function (params) {
-                return {
-                    search: params.term
-                }
-            },
-            processResults: function (data) {
-                return {
-                    results: data.results
-                };
-            }
-        }
-    });
-    $('#select_produto_venda_formulario').on('select2:select', function (e) {
-        var data = e.params.data;
-        $.ajax({
-            url: '/produtos/' + data.id,
-            method: 'GET',
-            dataType: 'json',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-            },
-            success: function (response) {
-                if (response.data) {
-                    if (response.data.estoque <= 0) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Erro ao adicionar produto ao carrinho',
-                            text: 'Produto sem estoque disponível',
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 3000
-                        })
-                        $('#select_produto_venda_formulario').val(null).trigger('change');
-                        return;
+        $("#select_produto_venda_formulario").select2({
+            placeholder: 'Selecione um produto',
+            width: '100%',
+            allowClear: true,
+            language: "pt-BR",
+            ajax: {
+                url: '/produtos/select2/lista',
+                dataType: 'json',
+                delay: 250,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                data: function (params) {
+                    return {
+                        search: params.term
                     }
-
-                    if (response.data.estoque <= response.data.minimo) {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Atenção',
-                            text: 'Produto com estoque baixo, por favor, verificar o estoque antes de adicionar ao carrinho',
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 6000
-                        });
-                    }
-                    $("#input_quantidade_venda_formulario").val(1);
-                    $("#input_preco_venda_formulario").val(response.data.preco.replace('.', ','));
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
                 }
-            },
-            error: function (xhr, status, error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro ao buscar produto',
-                    text: xhr.responseJSON?.message || 'Erro inesperado na requisição, tente novamente',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000
-                })
             }
-        })
-    });
-    $("#titulo_cadastro_venda").html(`<i class="fa-solid fa-tags text-green-600"></i> Cadastro de Venda`);
-    $("#btn_adicionar_produto_venda").on('click', function () {
-        addToCartVendas();
-    });
-    $("#btn_limpar_carrinho").on('click', function () {
+        });
+        $("#select_vendedor_venda_formulario").select2({
+            placeholder: 'Selecione um vendedor',
+            width: '100%',
+            language: "pt-BR",
+            ajax: {
+                url: '/usuarios/select2/lista',
+                dataType: 'json',
+                delay: 250,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                data: function (params) {
+                    return {
+                        search: params.term
+                    }
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                }
+            }
+        });
+        $('#select_produto_venda_formulario').on('select2:select', function (e) {
+            var data = e.params.data;
+            $.ajax({
+                url: '/produtos/' + data.id,
+                method: 'GET',
+                dataType: 'json',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+                },
+                success: function (response) {
+                    if (response.data) {
+                        if (response.data.estoque <= 0) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro ao adicionar produto ao carrinho',
+                                text: 'Produto sem estoque disponível',
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 3000
+                            })
+                            $('#select_produto_venda_formulario').val(null).trigger('change');
+                            return;
+                        }
+
+                        if (response.data.estoque <= response.data.minimo) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Atenção',
+                                text: 'Produto com estoque baixo, por favor, verificar o estoque antes de adicionar ao carrinho',
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 6000
+                            });
+                        }
+                        $("#input_quantidade_venda_formulario").val(1);
+                        $("#input_preco_venda_formulario").val(response.data.preco.replace('.', ','));
+                    }
+                },
+                error: function (xhr, status, error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro ao buscar produto',
+                        text: xhr.responseJSON?.message || 'Erro inesperado na requisição, tente novamente',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    })
+                }
+            })
+        });
+        $("#btn_adicionar_produto_venda").on('click', function () {
+            addToCartVendas();
+        });
+        $("#btn_limpar_carrinho").on('click', function () {
+            clearCartVendas();
+        });
         clearCartVendas();
-    });
-    clearCartVendas();
+
+    })();
 </script>

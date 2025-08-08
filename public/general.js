@@ -73,7 +73,7 @@ function showNotification(message, type = "info") {
 }
 
 function MaskToInputMoney(element) {
-  IMask(element, {
+  return IMask(element, {
     mask: Number,
     scale: 2,
     signed: false,
@@ -94,7 +94,7 @@ function MaskMoneyNative(element) {
 }
 
 function MaskToInputPercentage(element) {
-  IMask(element, {
+  return IMask(element, {
     mask: "num",
     blocks: {
       num: {
