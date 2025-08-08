@@ -89,6 +89,20 @@ const formateTipoPagamento = (tipo: MetodoPagamento) => {
   }
 };
 
+const formatLabelId = (row: LancamentoFinanceiro) => {
+  let color = "text-yellow-500";
+  let label = "";
+  if (row.status === "PAGO") color = "text-green-500";
+  let icon = `<i class="fa-solid ${color} fa-dollar-sign"></i>`;
+  if (row.vendaId) {
+    icon = `<i class="fa-solid ${color} fa-tag"></i>`
+    label = "Vinculado a uma venda";
+  };
+  return `<span title="${label}" class="px-2 py-1 flex flex-nowrap justify-center items-center gap-2 w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">
+    ${icon}${row.Uid}
+  </span>`;
+};
+
 export const tableLancamentos = async (
   req: Request,
   res: Response
@@ -123,8 +137,8 @@ export const tableLancamentos = async (
       descricao: "string",
       valorTotal: "decimal",
     })
-    .format("Uid", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">#${id}</span>`;
+    .edit("Uid", function (row) {
+      return formatLabelId(row);
     })
     .format("status", function (status) {
       return formateStatus(status);
