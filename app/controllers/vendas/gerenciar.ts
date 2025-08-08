@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { vendaSchema } from "../../schemas/vendas";
+import { efetivarVendaSchema, vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
@@ -10,6 +10,120 @@ import { addHours, format } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
 
+export const efetivarVenda = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+
+    const {
+      data: resultado,
+      success,
+      error,
+    } = efetivarVendaSchema.safeParse(req.body);
+    if (!success) {
+      return handleError(res, error);
+    }
+
+    const { pagamento, dataPagamento, conta: contaId, categoria } = resultado;
+
+    const transaction = await prisma.$transaction(async (tx) => {
+      const venda = await tx.vendas.findUniqueOrThrow({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+        },
+      });
+
+      if (venda.faturado) {
+        throw Error("Venda ja efetivada");
+      }
+
+      await tx.vendas.update({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+          status: { not: "FATURADO" },
+        },
+        data: {
+          status: "FATURADO",
+          faturado: true,
+          PagamentoVendas: {
+            upsert: {
+              create: {
+                status: "EFETIVADO",
+                data: new Date(dataPagamento),
+                metodo: pagamento,
+                valor: venda.valor,
+              },
+              update: {
+                status: "EFETIVADO",
+                data: new Date(dataPagamento),
+                metodo: pagamento,
+                valor: venda.valor,
+              },
+            },
+          },
+        },
+      });
+
+      await tx.lancamentoFinanceiro.create({
+        data: {
+          Uid: gerarIdUnicoComMetaFinal("FIN"),
+          contaId: venda.contaId,
+          vendaId: venda.id,
+          valorBruto: venda.valor,
+          valorTotal: venda.valor,
+          desconto: venda.desconto,
+          dataLancamento: new Date(dataPagamento),
+          descricao: `Venda ${venda.Uid}`,
+          status: "PAGO",
+          categoriaId: categoria,
+          contasFinanceiroId: contaId,
+          formaPagamento: pagamento,
+          tipo: "RECEITA"
+        },
+      })
+
+      return venda;
+    });
+
+    ResponseHandler(res, "Venda efetivada", transaction);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+export const estornarVenda = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const venda = await prisma.vendas.update({
+      where: {
+        id: Number(req.params.id),
+        contaId: customData.contaId,
+        status: "FATURADO",
+      },
+      data: {
+        status: "PENDENTE",
+        faturado: false,
+        PagamentoVendas: {
+          delete: true,
+        },
+        LancamentoFinanceiro: {
+          deleteMany: {
+            vendaId: Number(req.params.id),
+          },
+        },
+      },
+    });
+    ResponseHandler(res, "Venda estornada", venda);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
 export const getVenda = async (req: Request, res: Response) => {
   try {
     const customData = getCustomRequest(req).customData;
@@ -29,6 +143,7 @@ export const getVenda = async (req: Request, res: Response) => {
             nome: true,
           },
         },
+        PagamentoVendas: true,
         ItensVendas: {
           include: {
             produto: {
@@ -53,17 +168,28 @@ export const getVendas = async (req: Request, res: Response) => {
       where: {
         contaId: customData.contaId,
       },
+      include: {
+        PagamentoVendas: true,
+      },
     });
     ResponseHandler(res, "Vendas encontradas", vendas);
   } catch (err: any) {
     handleError(res, err);
   }
 };
-export const deleteVenda = async (req: Request, res: Response): Promise<any> => {
+export const deleteVenda = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
     if (!(await hasPermission(customData, 3))) {
-      return ResponseHandler(res, "Nível de permissão insuficiente!", null, 403);
+      return ResponseHandler(
+        res,
+        "Nível de permissão insuficiente!",
+        null,
+        403
+      );
     }
     const resultado = await prisma.$transaction(async (tx) => {
       const items = await tx.itensVendas.findMany({
@@ -193,6 +319,13 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           status: data.status,
           garantia: data.garantia,
           desconto: data.desconto ? new Decimal(data.desconto) : new Decimal(0),
+          PagamentoVendas: {
+            create: {
+              valor: 0,
+              metodo: "OUTRO",
+              status: "PENDENTE",
+            },
+          },
         },
       });
 

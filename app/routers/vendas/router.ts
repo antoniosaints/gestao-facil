@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { deleteVenda, getResumoVendasMensalChart, getVenda, getVendas, saveVenda } from "../../controllers/vendas/gerenciar";
+import { deleteVenda, efetivarVenda, estornarVenda, getResumoVendasMensalChart, getVenda, getVendas, saveVenda } from "../../controllers/vendas/gerenciar";
 import { gerarCupomNaoFiscal } from "../../controllers/vendas/cupomNaoFiscal";
 import { gerarCupomPdf } from "../../controllers/vendas/cupomNaoFiscalPdf";
 import { getLucroPorVendas } from "../../controllers/vendas/relatorios";
@@ -19,6 +19,8 @@ routerVendas.get("/cupom-pdf/:id", authenticateJWT, gerarCupomPdf);
 routerVendas.get("/lista/geral", authenticateJWT, getVendas);
 routerVendas.get("/resumo/mensal", authenticateJWT, getResumoVendasMensalChart);
 routerVendas.get("/resumo/lucro", authenticateJWT, getLucroPorVendas);
+routerVendas.post("/efetivar/:id", authenticateJWT, efetivarVenda);
+routerVendas.get("/estornar/:id", authenticateJWT, estornarVenda);
 
 export {
     routerVendas
