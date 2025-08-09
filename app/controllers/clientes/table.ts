@@ -3,8 +3,25 @@ import { prisma } from "../../utils/prisma";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { acoes } from "./acoes";
-import { Clientes } from "@prisma/client";
 import { isAccountOverdue } from "../../routers/web";
+import { ClientesFornecedores } from "../../../generated";
+import { formatLabel } from "../../helpers/formatters";
+
+const formatLabelId = (row: ClientesFornecedores) => {
+  let color = "text-blue-500";
+  let icon = `<i class="fa-solid ${color} fa-user"></i>`;
+
+  if (row.tipo === "FORNECEDOR") {
+    color = "text-yellow-500";
+    icon = `<i class="fa-solid ${color} fa-building"></i>`
+  };
+  
+  
+  return `<span title="${row.telefone}" class="px-2 py-1 flex flex-nowrap justify-center items-center gap-2 w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">
+    ${icon}${row.Uid}
+  </span>`;
+};
+
 export const tableClientes = async (
   req: Request,
   res: Response
@@ -14,7 +31,7 @@ export const tableClientes = async (
     return res.status(404).json({
       message: "Conta inativa ou bloqueada, verifique seu plano",
     });
-  const builder = new PrismaDataTableBuilder<Clientes>(prisma.clientesFornecedores)
+  const builder = new PrismaDataTableBuilder<ClientesFornecedores>(prisma.clientesFornecedores)
     .where({
       OR: [
         {
@@ -27,20 +44,21 @@ export const tableClientes = async (
       nome: "string",
       email: "string",
     })
-    .format("id", function (id) {
-      return `<span class="px-2 py-1 flex flex-nowrap w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md"># ${id}</span>`;
+    .edit("Uid", function (id) {
+      return formatLabelId(id);
     })
     .format("email", function (row) {
       const data = row || "Sem E-mail";
-      return `<span class="px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-500 dark:text-purple-100 rounded-md">${data}</span>`;
+      return formatLabel(data, "slate", "fa-solid fa-envelope", false);
     })
     .format("status", function (row) {
       const data = row === "ATIVO" ? "Ativo" : "Inativo";
-      return `<span class="px-2 py-1 bg-blue-100 dark:bg-blue-800 text-blue-500 dark:text-blue-100 rounded-md">${data}</span>`;
+      const color = row === "ATIVO" ? "green" : "red";
+      return formatLabel(data, color, "fa-solid fa-user");
     })
     .format("telefone", function (row) {
       const data = row || "Sem Telefone";
-      return `<span class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-100 rounded-md">${data}</span>`;
+      return formatLabel(data, "gray", "fa-solid fa-phone");
     })
     .addColumn("acoes", (row) => {
       return acoes(row);

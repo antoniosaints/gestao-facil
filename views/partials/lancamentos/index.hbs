@@ -21,16 +21,16 @@
     </div>
   </div>
   <div
-    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/lancamentos/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
-  <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/lancamentos/mobile/lista" hx-trigger="load"
-    hx-swap="innerHTML"></div>
+    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700">
+    {{> lancamentos/tabela}}</div>
+  <div class="overflow-x-auto block md:hidden rounded-lg">
+    {{> lancamentos/mobile}}</div>
 </div>
 
-<div class="overflow-x-auto rounded-lg" hx-get="/lancamentos/web/formulario" hx-trigger="load" hx-swap="innerHTML"/></div>
-<div class="overflow-x-auto rounded-lg" hx-get="/lancamentos/web/filtro" hx-trigger="load" hx-swap="innerHTML"></div>
-<div class="overflow-x-auto rounded-lg" hx-get="/lancamentos/web/dre" hx-trigger="load" hx-swap="innerHTML"></div>
-<div class="overflow-x-auto rounded-lg" hx-get="/clientes/sheet/formulario" hx-trigger="load" hx-swap="innerHTML"></div>
+{{> lancamentos/modais/formulario}}
+{{> lancamentos/modais/filtro}}
+{{> lancamentos/modais/dre}}
+{{> clientes/modais/cadastro}}
 
 <script>
   function escluirLancamento(id) {

@@ -42,7 +42,11 @@
 
             <!-- Seleção de Cliente -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-white mb-2">Cliente</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-white mb-2">
+                    Cliente
+                    <a onclick="openModalClientes()" class="text-blue-500 px-2 cursor-pointer">Novo
+                        cliente</a>
+                </label>
                 <select id="clientPdvVenda"
                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
 
@@ -124,6 +128,8 @@
         </div>
     </div>
 </div>
+
+{{> clientes/modais/cadastro}}
 
 <!-- Modal de Sucesso -->
 <div id="successModal"

@@ -4,27 +4,23 @@
         Clientes/Fornecedores
     </h2>
     <div class="flex justify-between gap-2 items-center">
-      <button onclick="abrirModalRelatorioProdutos()"
+      <button
         class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-file-pdf"></i>
       </button>
-      <button onclick="openClienteFormulario()"
+      <button onclick="openModalClientes()"
         class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-circle-plus"></i> <span class="hidden md:inline">Novo cliente</span>
       </button>
     </div>
   </div>
   <div
-    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/clientes/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
+    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700">
+    {{> clientes/tabela}}</div>
+  <div class="ooverflow-x-auto block md:hidden rounded-lg">{{> clientes/mobile}}</div>
 </div>
 
-
-<div id="modal-container-reporestoque-produtos"></div>
-<div id="modal-template-reporestoque-produtos" class="hidden">
-  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-    hx-get="/produtos/reposicao/estoque" hx-trigger="load" hx-swap="innerHTML"></div>
-</div>
+{{> clientes/modais/cadastro}}
 
 <script>
   function visualizarProduto(id) {
@@ -93,7 +89,5 @@
       }
     });
   }
-  function openClienteFormulario(id = null) {
-    loadPage('/clientes/editar/formulario?id=' + id);
-  };
+
 </script>

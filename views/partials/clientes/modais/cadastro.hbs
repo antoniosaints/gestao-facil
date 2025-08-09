@@ -1,289 +1,260 @@
-<div class="h-[calc(100vh + 5rem)] flex flex-col justify-center">
-    <h2 class="text-2xl font-bold mb-6" id="produtoFormularioTitulo">
-        <i class="fa-solid fa-user-tag text-purple-600"></i> {{title}}
-    </h2>
-    <div
-        class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
-        <form id="formularioClientes" class="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <input type="hidden" id="id" name="id" value="{{id}}">
-            <!-- Nome -->
-            <div class="md:col-span-12 lg:col-span-8">
-                <label for="nome" class="block text-sm font-medium mb-1">
-                    Nome <span class="text-red-500">*</span>
-                </label>
-                <input type="text" id="nome" name="nome" required placeholder="Nome do cliente"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
+<!-- Overlay -->
+<div id="modalOverlayClientes"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
 
-            <div class="md:col-span-4">
-                <label for="preco" class="block text-sm font-medium mb-1">
-                    Telefone <span class="text-red-500">*</span>
-                </label>
-                <input type="text" id="preco" name="preco" required placeholder="Telefone"
-                    class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
+    <!-- Modal -->
+    <div id="sheetContainerClientes"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-3xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
 
-            <!-- Código -->
-            <div class="md:col-span-4">
-                <label for="codigo" class="block text-sm font-medium mb-1">CPF/CNPJ</label>
-                <input type="text" id="codigo" name="codigo" placeholder="CPF/CNPJ"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
+        <!-- Cabeçalho -->
+        <div
+            class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-user-tag text-purple-600"></i> Novo Cliente</h2>
+            <button onclick="closeModalClientes()" class="text-gray-800 dark:text-white hover:text-gray-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
 
-            <!-- Preço -->
-            <div class="md:col-span-4">
-                <label for="precoCompra" class="block text-sm font-medium mb-1">
-                    Contato
-                </label>
-                <input type="text" id="precoCompra" name="precoCompra" placeholder="Contato"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
-
-            <!-- Permitir Entrada e Saída de Estoque -->
-            <div class="md:col-span-12 lg:col-span-4 grid grid-cols-1 md:grid-cols-12 items-center">
-                <label for="entrada" class="block text-sm font-medium mb-0 md:col-span-12">
-                    Parâmetros
-                </label>
-                <div class="grid grid-cols-12 gap-2 mt-1 items-center md:col-span-12">
-                    <div class="col-span-6">
-                        <div
-                            class="border bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
-                            <div class="flex items-center">
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="entrada" name="entrada" class="sr-only peer" />
-                                    <div
-                                        class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
-                                    </div>
-                                    <span
-                                        class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Fornecedor</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-span-6">
-                        <div
-                            class="border bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
-                            <div class="flex items-center">
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="saida" name="saida" class="sr-only peer" />
-                                    <div
-                                        class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
-                                    </div>
-                                    <span class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Ativo</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
+        <form id="modalFormularioClientes" class="overflow-y-auto flex flex-col">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
+                <input type="hidden" id="id" name="id">
+                <!-- Nome -->
+                <div class="md:col-span-12 lg:col-span-8">
+                    <label for="nomeCliente" class="block text-sm font-medium mb-1">
+                        Nome <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="nomeCliente" name="nome" required placeholder="Nome do cliente"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
 
-            </div>
+                <div class="md:col-span-4">
+                    <label for="telefoneCliente" class="block text-sm font-medium mb-1">
+                        Telefone
+                    </label>
+                    <input type="text" id="telefoneCliente" name="telefone" placeholder="Telefone"
+                        class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
 
-            <!-- Estoque Inicial -->
-            <div class="md:col-span-4">
-                <label for="estoque" class="block text-sm font-medium mb-1">
-                    E-mail
-                </label>
-                <input type="number" id="estoque" name="estoque" placeholder="E-mail"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
-            <!-- Estoque Inicial -->
-            <div class="md:col-span-4">
-                <label for="estoque" class="block text-sm font-medium mb-1">
-                    WhatsApp
-                </label>
-                <input type="number" id="estoque" name="estoque" placeholder="WhatsApp"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
+                <!-- Código -->
+                <div class="md:col-span-4 lg:col-span-6">
+                    <label for="cpfCnpjCliente" class="block text-sm font-medium mb-1">CPF/CNPJ</label>
+                    <input type="text" id="cpfCnpjCliente" name="documento" placeholder="CPF/CNPJ"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
 
-            <!-- Estoque Mínimo -->
-            <div class="md:col-span-4">
-                <label for="minimo" class="block text-sm font-medium mb-1">
-                    Endereço
-                </label>
-                <input type="number" id="minimo" name="minimo" placeholder="Endereço"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
+                <!-- Preço -->
+                <div class="md:col-span-4 lg:col-span-6">
+                    <label for="contatoCliente" class="block text-sm font-medium mb-1">
+                        WhatsApp
+                    </label>
+                    <input type="text" id="contatoCliente" name="whastapp" placeholder="WhatsApp"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
 
-            <!-- Unidade de medida -->
-            <div class="md:col-span-4">
-                <label for="unidade_select_produto" class="block text-sm font-medium mb-1">
-                    Cidade
-                </label>
-                <input type="number" id="minimo" name="minimo" placeholder="Cidade"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
-            <!-- Unidade de medida -->
-            <div class="md:col-span-4">
-                <label for="unidade_select_produto" class="block text-sm font-medium mb-1">
-                    Estado
-                </label>
-                <input type="number" id="minimo" name="minimo" placeholder="Estado"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
-            <!-- Unidade de medida -->
-            <div class="md:col-span-4">
-                <label for="unidade_select_produto" class="block text-sm font-medium mb-1">
-                    CEP
-                </label>
-                <input type="number" id="minimo" name="minimo" placeholder="CEP"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
-            </div>
+                <!-- Permitir Entrada e Saída de Estoque -->
+                <div class="md:col-span-12 lg:col-span-12 grid grid-cols-1 md:grid-cols-12 items-center">
+                    <span class="block text-sm font-medium mb-0 md:col-span-12">
+                        Parâmetros
+                    </span>
+                    <div class="grid grid-cols-12 gap-2 mt-1 items-center md:col-span-12">
+                        <div class="col-span-6">
+                            <label for="tipoCliente"
+                                class="border block cursor-pointer bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                <div class="flex items-center">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="tipoCliente" name="tipo" class="sr-only peer" />
+                                        <div
+                                            class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                        </div>
+                                        <span
+                                            class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Fornecedor</span>
+                                    </label>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="col-span-6">
+                            <label for="statusCliente"
+                                class="border block cursor-pointer bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                <div class="flex items-center">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="statusCliente" name="status" class="sr-only peer" />
+                                        <div
+                                            class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                        </div>
+                                        <span
+                                            class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Ativo</span>
+                                    </label>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
 
-            <!-- Observação -->
-            <div class="md:col-span-12">
-                <label for="descricao" class="block text-sm font-medium mb-1">Observação</label>
-                <textarea id="descricao" name="descricao" rows="4" placeholder="Adicione observações sobre o produto"
-                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></textarea>
+                </div>
+
+                <!-- Estoque Inicial -->
+                <div class="md:col-span-6">
+                    <label for="emailCliente" class="block text-sm font-medium mb-1">
+                        E-mail
+                    </label>
+                    <input type="email" id="emailCliente" name="email" placeholder="E-mail"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
+
+                <!-- Estoque Mínimo -->
+                <div class="md:col-span-6">
+                    <label for="enderecoCliente" class="block text-sm font-medium mb-1">
+                        Endereço
+                    </label>
+                    <input type="text" id="enderecoCliente" name="endereco" placeholder="Endereço"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
+
+                <!-- Unidade de medida -->
+                <div class="md:col-span-4">
+                    <label for="cidadeCliente" class="block text-sm font-medium mb-1">
+                        Cidade
+                    </label>
+                    <input type="text" id="cidadeCliente" name="cidade" placeholder="Cidade"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
+                <!-- Unidade de medida -->
+                <div class="md:col-span-4">
+                    <label for="estadoCliente" class="block text-sm font-medium mb-1">
+                        Estado
+                    </label>
+                    <input type="text" id="estadoCliente" name="estado" placeholder="Estado"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
+                <!-- Unidade de medida -->
+                <div class="md:col-span-4">
+                    <label for="cepCliente" class="block text-sm font-medium mb-1">
+                        CEP
+                    </label>
+                    <input type="text" id="cepCliente" name="cep" placeholder="CEP"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                </div>
+
+                <!-- Observação -->
+                <div class="md:col-span-12">
+                    <label for="descricaoCliente" class="block text-sm font-medium mb-1">Observação</label>
+                    <textarea id="descricaoCliente" name="observacaos" rows="4"
+                        placeholder="Adicione observações sobre o produto"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></textarea>
+                </div>
             </div>
-
-            <input type="hidden" id="id" name="id" />
-
-            <!-- Botões -->
-            <div class="flex md:col-span-12 gap-2 justify-between">
-                <button type="button" onclick="loadPage('produtos/resumo')"
-                    class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
-                    <i class="fa-solid fa-backward"></i> Voltar
-                </button>
-                <button type="submit"
-                    class="bg-primary text-sm dark:bg-primary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md">
-                    <i class="fa-solid fa-floppy-disk"></i> Salvar
-                </button>
+            <!-- Rodapé -->
+            <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+                <div class="flex gap-3">
+                    <button type="submit"
+                        class="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow transition">
+                        Salvar
+                    </button>
+                    <button type="button" onclick="closeModalClientes()"
+                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                        Cancelar
+                    </button>
+                </div>
             </div>
         </form>
+
+
     </div>
 </div>
 
+
 <script>
-    switchToFullScreen();
-    IMask(document.getElementById('preco'), {
-        mask: Number,
-        scale: 2,
-        signed: false,
-        thousandsSeparator: '',
-        padFractionalZeros: true,
-        normalizeZeros: true,
-        radix: ',', // separador decimal brasileiro
-        mapToRadix: ['.']
-    });
-    IMask(document.getElementById('precoCompra'), {
-        mask: Number,
-        scale: 2,
-        signed: false,
-        thousandsSeparator: '',
-        padFractionalZeros: true,
-        normalizeZeros: true,
-        radix: ',', // separador decimal brasileiro
-        mapToRadix: ['.']
-    });
-    $("#formularioClientes").off('submit').on('submit', function (e) {
-        e.preventDefault();
-        const data = {
-            codigo: $("#codigo").val(),
-            nome: $("#nome").val(),
-            preco: $("#preco").val(),
-            precoCompra: $("#precoCompra").val(),
-            estoque: $("#estoque").val(),
-            minimo: $("#minimo").val(),
-            unidade: $("#unidade_select_produto").val(),
-            saidas: $("#saida").is(':checked'),
-            entradas: $("#entrada").is(':checked'),
-            descricao: $("#descricao").val(),
-            id: $("#id").val(),
-        };
+    function openModalClientes(id = null) {
+        const form = document.getElementById('modalFormularioClientes');
+        const overlay = document.getElementById('modalOverlayClientes');
+        const modal = document.getElementById('sheetContainerClientes');
 
-        $.ajax({
-            url: `/clientes`,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-            },
-            method: "POST",
-            contentType: "application/json",
-            dataType: "json",
-            data: JSON.stringify(data),
-            beforeSend: function (xhr) {
-                Swal.fire({
-                    title: 'Carregando...',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-            },
-            success: function (data) {
-                Swal.fire({
-                    title: 'Sucesso!',
-                    text: 'Produto salvo com sucesso!',
-                    icon: 'success',
-                    toast: true,
-                    position: 'bottom-end',
-                    showConfirmButton: false,
-                    timer: 3000,
-                });
-                loadPage('/produtos/resumo');
-            },
-            error: function (xhr, status, error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro!',
-                    text: xhr.responseJSON?.message || 'Erro inesperado na requisição',
-                    confirmButtonText: 'Ok'
-                });
-            }
-        })
-    });
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
 
-    (() => {
-        $('#unidade_select_produto').select2({
-            placeholder: 'Selecione uma unidade',
-            width: '100%',
-            language: "pt-BR",
-        });
-        if (localStorage.getItem('produtoId')) {
-            $("#estoque").prop("readonly", true);
+        // Força reflow
+        void modal.offsetWidth;
+
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
+
+        if (id) {
+            form.id.value = id;
+
             $.ajax({
-                url: `/produtos/${localStorage.getItem('produtoId')}`,
+                url: "/clientes/" + id,
+                method: "GET",
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
-                },
-                method: 'GET',
-                dataType: 'json',
-                beforeSend: function (xhr) {
-                    Swal.fire({
-                        title: 'Carregando...',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        showConfirmButton: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
+                    'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
                 },
                 success: function ({ data }) {
-                    Swal.close();
-                    $("#id").val(data.id);
-                    $("#codigo").val(data.codigo);
-                    $("#nome").val(data.nome);
-                    $("#preco").val(data.preco);
-                    $("#precoCompra").val(data.precoCompra);
-                    $("#estoque").val(data.estoque);
-                    $("#unidade_select_produto").val(data.unidade).trigger('change');
-                    $("#minimo").val(data.minimo);
-                    $("#entrada").prop("checked", data.entradas === true);
-                    $("#saida").prop("checked", data.saidas === true);
-                    $("#descricao").val(data.descricao);
+                    form.id.value = data.id;
+                    form.nome.value = data.nome;
+                    form.documento.value = data.documento;
+                    form.status.checked = data.status === "ATIVO";
+                    form.tipo.checked = data.tipo === "FORNECEDOR";
+                    form.email.value = data.email;
+                    form.telefone.value = data.telefone;
+                    form.whastapp.value = data.whastapp;
+                    form.endereco.value = data.endereco;
+                    form.cidade.value = data.cidade;
+                    form.estado.value = data.estado;
+                    form.cep.value = data.cep;
+                    form.observacaos.value = data.observacaos;
                 },
                 error: function (error) {
                     console.log(error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Erro ao carregar produto',
-                        text: 'Ocorreu um erro ao carregar o produto. Por favor, tente novamente mais tarde.',
-                    });
-                    loadPage('/produtos/resumo');
+                    showNotification('Cliente não encontrado!', 'error');
+                    closeModalClientes();
                 }
             })
+        } else {
+            form.reset();
+            form.id.value = null;
         }
-    })();
+    }
+
+    function closeModalClientes() {
+        const overlay = document.getElementById('modalOverlayClientes');
+        const modal = document.getElementById('sheetContainerClientes');
+
+        modal.classList.remove('opacity-100', 'scale-100');
+        modal.classList.add('opacity-0', 'scale-95');
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }, 300);
+    }
+
+    // Fechamento por ESC e clique fora
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalClientes());
+
+    document.querySelector("#modalFormularioClientes").addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        $.ajax({
+            url: "/clientes",
+            method: "POST",
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+            },
+            data: $("#modalFormularioClientes").serialize(),
+            success: function (data) {
+                closeModalClientes();
+                showNotification(data.message, 'success');
+                if (typeof reloadTabelaClientes === "function") {
+                    reloadTabelaClientes();
+                }
+                if (typeof renderListaClientes === "function") {
+                    renderListaClientes();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.log(xhr);
+                showNotification(xhr.responseJSON?.message || 'Erro inesperado na requisição', 'error');
+            }
+        })
+    })
 </script>

@@ -19,11 +19,11 @@ export function formatCurrencyBR(value: number): string {
   }).format(value);
 }
 
-export const formatLabel = (label: string, color: string, icon: string) => {
+export const formatLabel = (label: string, color: string, icon: string, capitalize: boolean = true) => {
   const baseClasses = `inline-flex items-center gap-1 px-2 py-0.5 border-2 rounded-xl w-max`;
   return `<span class="${baseClasses} text-${color}-800 border-${color}-400 dark:border-${color}-700 dark:text-${color}-300">
     <i class="${icon}"></i>
-    <span>${formatToCapitalize(label)}</span>
+    <span>${ capitalize ? formatToCapitalize(label) : label}</span>
   </span>`;
 }
 

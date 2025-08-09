@@ -1,4 +1,4 @@
-<table id="tabela_produtos_listagem_principal" class="display">
+<table id="tabela_clientes_listagem_principal" class="display">
     <thead>
         <tr>
             <th>ID</th>
@@ -12,11 +12,11 @@
 </table>
 
 <script>
-    function reloadTabelaProdutos() {
-        const tabela = $("#tabela_produtos_listagem_principal").DataTable();
+    function reloadTabelaClientes() {
+        const tabela = $("#tabela_clientes_listagem_principal").DataTable();
         tabela.ajax.reload(null, false);
     }
-    new DataTable("#tabela_produtos_listagem_principal", {
+    new DataTable("#tabela_clientes_listagem_principal", {
         language: {
             url: "/lang/pt-Br.json",
         },
@@ -58,7 +58,7 @@
             },
         },
         columns: [
-            { data: "id" },
+            { data: "Uid" },
             { data: "status" },
             { data: "nome" },
             { data: "email" },

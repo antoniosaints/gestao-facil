@@ -1,0 +1,248 @@
+<div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)] md:max-h-full" id="vendas-lista-mobile">
+</div>
+<div id="modal-container-buscar-vendas"></div>
+
+<nav
+  class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
+  <button type="button" id="navigate-previous-page-mobile"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-arrow-left text-lg"></i>
+    <span class="text-xs">Anterior</span>
+  </button>
+  <button type="button" onclick="abrirModalBuscarVendas()"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-search text-lg"></i>
+    <span class="text-xs">Busca</span>
+  </button>
+  <button type="button" onclick="toogleDrawerFinanceiro()"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-bars text-lg"></i>
+    <span class="text-xs">Mais</span>
+  </button>
+  <button type="button" id="navigate-next-page-mobile"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-arrow-right text-lg"></i>
+    <span class="text-xs">Próximo</span>
+  </button>
+</nav>
+
+<div id="modal-template-buscar-vendas" class="hidden">
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" hx-target="this"
+    hx-swap="outerHTML">
+    <div
+      class="bg-card dark:bg-card-dark border-t border-border dark:border-border-dark p-6 rounded shadow-xl max-w-[95%] transform transition-all duration-300 scale-95 opacity-0 animate-fade-in">
+      <h2 class="text-xl font-bold mb-4">Buscar registro</h2>
+      <p class="mb-4">Digite o nome do ítem que deseja buscar.</p>
+      <input type="text" id="search-input-vendas-mobile"
+        class="border bg-card dark:bg-card-dark border-border dark:border-border-dark rounded px-4 py-2 w-full mb-4"
+        placeholder="Digite o nome do ítem" />
+      <div class="w-full flex justify-between items-center mb-4">
+        <button class="bg-secondary text-sm dark:bg-secondary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md"
+          onclick="fecharModalBuscarVendas()">
+          <i class="fa-regular fa-circle-xmark"></i>
+          Fechar
+        </button>
+        <button class="bg-primary text-sm dark:bg-primary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md"
+          onclick="renderListaClientes()">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          Buscar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="drawer-bottom-example"
+  class="fixed bottom-20 left-0 hidden right-0 z-10 w-full p-4 overflow-y-auto transition-transform bg-white dark:bg-gray-800 transform-none"
+  tabindex="-1" aria-labelledby="drawer-bottom-label">
+  <h5 id="drawer-bottom-label"
+    class="inline-flex items-center mb-4 text-base font-semibold text-gray-500 dark:text-gray-400">
+    <i class="fa-solid fa-circle-chevron-down mr-2"></i>
+    Menu rápido
+  </h5>
+  <button type="button" onclick="closeDrawerFinanceiro()"
+    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white">
+    <i class="fa-regular fa-circle-xmark"></i>
+    <span class="sr-only">Close menu</span>
+  </button>
+  <div>
+    <div class="grid grid-cols-3 gap-4 p-4 lg:grid-cols-4">
+      <div onclick="loadPage('vendas/pdv')"
+        class="p-4 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700">
+        <div
+          class="flex justify-center items-center p-2 mx-auto mb-2 bg-gray-200 dark:bg-gray-600 rounded-full w-[48px] h-[48px] max-w-[48px] max-h-[48px]">
+          <i class="fa-solid fa-cart-plus text-2xl text-gray-500 dark:text-gray-400"></i>
+        </div>
+        <div class="font-medium text-center text-gray-500 dark:text-gray-400">PDV</div>
+      </div>
+      <div onclick="loadPage('vendas/formulario')"
+        class="p-4 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700">
+        <div
+          class="flex justify-center items-center p-2 mx-auto mb-2 bg-gray-200 dark:bg-gray-600 rounded-full w-[48px] h-[48px] max-w-[48px] max-h-[48px]">
+          <i class="fa-solid fa-plus text-2xl text-gray-500 dark:text-gray-400"></i>
+        </div>
+        <div class="font-medium text-center text-gray-500 dark:text-gray-400">Cadastrar</div>
+      </div>
+      <div onclick="abrirModalRelatorioProdutos()"
+        class="p-4 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700">
+        <div
+          class="flex justify-center items-center p-2 mx-auto mb-2 bg-gray-200 dark:bg-gray-600 rounded-full w-[48px] h-[48px] max-w-[48px] max-h-[48px]">
+          <i class="fa-solid fa-file-pdf text-2xl text-gray-500 dark:text-gray-400"></i>
+        </div>
+        <div class="font-medium text-center text-gray-500 dark:text-gray-400">Relatório</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  switchToNormalScreen();
+  function abrirModalBuscarVendas() {
+    const template = document.getElementById("modal-template-buscar-vendas").innerHTML;
+    document.getElementById("modal-container-buscar-vendas").innerHTML = template;
+  }
+  function fecharModalBuscarVendas() {
+    document.getElementById("modal-container-buscar-vendas").innerHTML = "";
+  }
+
+  function toogleDrawerFinanceiro() {
+    if (document.getElementById("drawer-bottom-example").classList.contains("block")) {
+      closeDrawerFinanceiro();
+      return;
+    }
+    document.getElementById("drawer-bottom-example").classList.remove("hidden");
+    document.getElementById("drawer-bottom-example").classList.add("block");
+  }
+
+  function closeDrawerFinanceiro() {
+    document.getElementById("drawer-bottom-example").classList.remove("block");
+    document.getElementById("drawer-bottom-example").classList.add("hidden");
+  }
+
+  function renderListaClientes(page = 1) {
+    const container = document.querySelector("#vendas-lista-mobile");
+    $.ajax({
+      type: "GET",
+      url: `/vendas/mobile/data`,
+      data: {
+        search: $("#search-input-vendas-mobile").val(),
+        limit: "10",
+        page,
+      },
+      beforeSend: function (xhr) {
+        const tokenJWT = localStorage.getItem("gestao_facil:token");
+        if (tokenJWT) {
+          xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Erro!",
+            text: "Você precisa estar logado para visualizar a página",
+            showConfirmButton: false,
+            timer: 3000,
+            position: "bottom-end",
+          });
+        };
+        container.innerHTML = `
+            <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
+            </div>
+        `;
+        fecharModalBuscarVendas();
+      },
+      success: function (response) {
+        renderPagination(response.pagination);
+        container.innerHTML = "";
+        // Manipular a resposta aqui, se necessário
+        if (response.data.length === 0) {
+          const noDataHTML = `
+              <div class="flex items-center rounded-md bg-card dark:bg-card-dark justify-center h-[calc(100vh-12rem)]">
+                <div class="text-center">
+                    <i class="fa-solid fa-box-open text-4xl text-gray-500 dark:text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 dark:text-gray-300">Nenhum ítem encontrado.</p>
+                </div>
+              </div>
+          `;
+          container.innerHTML = noDataHTML;
+          return;
+        }
+        response.data.forEach((venda) => {
+          const colorStatus = venda.status === "FATURADO" ? "green" : "gray";
+          const dataRender = `
+              <div class="rounded-2xl cursor-pointer border dark:border-border-dark bg-card dark:bg-card-dark p-4">
+                  <div class="flex justify-between">
+                    <div class="text-sm font-semibold dark:text-white">${venda.Uid}</div>
+                    <div class="text-sm text-green-500 dark:text-green-400">R$ ${Number(venda.valor).toFixed(2).replace(".", ",")}</div>
+                  </div>  
+                  <div class="flex justify-between">
+                    <div class="text-xs text-${colorStatus}-500 dark:text-${colorStatus}-400">${venda.status}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">${new Date(venda.data).toLocaleDateString("pt-BR")}</div>
+                  </div>  
+                  <div class="text-xs text-gray-500 dark:text-gray-400">${venda.observacoes || "-"}</div>
+                  <div class="mt-2 flex justify-between gap-2">
+                      <div>
+                        <button onclick="visualizarVenda(${venda.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                        <button onclick="gerarCupomPorVendaId(${venda.id})" class="bg-primary text-white px-3 py-1 rounded-md text-sm">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </button>
+                        ${!venda.faturado
+              ? `<button onclick="efetivarVenda(${venda.id})" class="bg-green-500 text-white px-3 py-1 rounded-md text-sm">
+                              <i class="fa-solid fa-circle-check"></i>
+                          </button>`
+              : `<button onclick="estornarVenda(${venda.id})" class="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm">
+                              <i class="fa-solid fa-undo"></i>
+                          </button>`}
+                      </div>
+                      <button onclick="excluirVenda(${venda.id})" class="bg-danger text-white px-3 py-1 rounded-md text-sm">
+                          <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                  </div>
+              </div>
+          `;
+          container.innerHTML += dataRender;
+        });
+      },
+      error: function (xhr, status, error) {
+        container.innerHTML = "";
+        const mensagem =
+          xhr.responseJSON?.message || "Erro inesperado na requisição";
+        Swal.fire({
+          toast: true,
+          position: "bottom-end",
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          icon: "error",
+          title: "Erro!",
+          text: mensagem,
+        });
+        if (status === 401) window.location.href = "/login";
+      },
+    });
+  }
+  function renderPagination(pager) {
+    const previous = document.querySelector("#navigate-previous-page-mobile");
+    const next = document.querySelector("#navigate-next-page-mobile");
+    localStorage.setItem("vendas_mobile_TotalPages", pager.totalPages);
+    localStorage.setItem("vendas_mobile_page", pager.page);
+    previous.disabled = pager.page <= 1;
+    next.disabled = pager.page >= pager.totalPages;
+  };
+
+  document.querySelector("#navigate-previous-page-mobile").addEventListener("click", () => {
+    const currentPage = localStorage.getItem("vendas_mobile_page") || 1;
+    const page = Number(currentPage) <= 1 ? 1 : Number(currentPage) - 1;
+    renderListaClientes(page);
+  });
+  document.querySelector("#navigate-next-page-mobile").addEventListener("click", () => {
+    const currentPage = localStorage.getItem("vendas_mobile_page") || 1;
+    const totalPages = localStorage.getItem("vendas_mobile_TotalPages") || 1;
+    const page = Number(currentPage) >= Number(totalPages) ? Number(totalPages) : Number(currentPage) + 1;
+    renderListaClientes(page);
+  });
+
+  renderListaClientes();
+</script>
