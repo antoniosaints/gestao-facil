@@ -63,7 +63,7 @@ export class PrismaDataTableBuilder<T> {
     this.model = model;
   }
 
-  addColumn(field: string, callback: (row: T) => any): this {
+  addColumn(field: string, callback: (row: T) => Promise<any> | any): this {
     this.extraColumns[field] = callback;
     return this;
   }
@@ -209,7 +209,7 @@ export class PrismaDataTableBuilder<T> {
           const meta = { field: field as string };
 
           if (this.editors[field]) {
-            formatted[field] = this.editors[field](row, meta);
+            formatted[field] = await this.editors[field](row, meta);
           } else if (this.formatters[field]) {
             const value = (row as any)[field];
             formatted[field] = await this.formatters[field](value, row, meta);

@@ -12,6 +12,7 @@ import { acoes } from "./acoes";
 import {
   formatCurrencyBR,
   formatDateToPtBR,
+  formatLabel,
   formatToCapitalize,
 } from "../../helpers/formatters";
 import Decimal from "decimal.js";
@@ -157,6 +158,19 @@ export const tableLancamentos = async (
     })
     .format("descricao", function (id) {
       return `<span class="px-2 py-1 flex max-w-48 truncate flex-nowrap w-max rounded-md">${id}</span>`;
+    })
+    .edit("recorrente", async (row) => {
+      const parcelas = await prisma.parcelaFinanceiro.findMany({
+        where: {
+          lancamentoId: row.id,
+        },
+      });
+
+      if (parcelas.length <= 1 ) {
+        return formatLabel("à vista", "green", "fa-solid fa-money-bill");
+      }
+
+      return formatLabel(`${parcelas.length} vezes`, "blue", "fa-solid fa-receipt");
     })
     .addColumn("acoes", (row) => {
       return acoes(row);
