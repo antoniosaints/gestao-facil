@@ -116,13 +116,19 @@
         })
             .then((response) => response.blob())
             .then((blob) => {
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `dre_v${version === 2 ? '2' : '1'}_${dataInicio}_${dataFim}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+
+                if (window.innerWidth < 768) {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `dre_v${version === 2 ? '2' : '1'}_${dataInicio}_${dataFim}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                } else {
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, "_blank");
+                }
                 closeModalDREFinanceiro();
             })
             .catch(() => showNotification('Erro ao gerar relatório.', "error"));

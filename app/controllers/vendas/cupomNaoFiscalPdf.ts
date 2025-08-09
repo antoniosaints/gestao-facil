@@ -39,7 +39,7 @@ export const gerarCupomPdf = async (
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `inline; filename=cupom-venda-${venda.id}.pdf`
+    `attachment; filename=cupom-venda-${venda.id}.pdf`
   );
   doc.pipe(res);
   doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");

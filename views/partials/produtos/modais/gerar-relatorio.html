@@ -37,7 +37,7 @@
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "relatorio-produtos.pdf";
+        a.download = `relatorio-produtos-${new Date().toLocaleDateString()}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();

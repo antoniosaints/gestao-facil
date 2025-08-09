@@ -35,13 +35,20 @@
         },
       });
 
-      if (!resp.ok) {
-        alert("Erro ao gerar o cupom");
-        return;
+      if (window.innerWidth < 768) {
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `cupom_${vendaId}_${new Date().toLocaleDateString()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, "_blank");
       }
-      const blob = await resp.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
     } catch (err) {
       console.error("Erro ao gerar o cupom:", err);
       showNotification("Erro ao gerar o cupom.", "error");
