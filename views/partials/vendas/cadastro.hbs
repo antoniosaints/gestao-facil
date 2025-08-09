@@ -3,7 +3,7 @@
         <i class="fa-solid fa-tags text-green-600"></i> {{title}}
     </h2>
     <div
-        class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-2xl shadow-md w-full h-full">
+        class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-md shadow-md w-full h-full">
         <form id="formulario_cadastro_venda" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-6">
@@ -369,7 +369,7 @@
             const cart = localStorage.getItem('gestao_facil:cartVendas');
             let cartItems = cart ? JSON.parse(cart) : [];
 
-            const novoCarrinho = cartItems.filter(item => Number(item.id) !== produtoId);
+            const novoCarrinho = cartItems.filter(item => Number(item.id) !== Number(produtoId));
 
             localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(novoCarrinho));
             atualizarTabelaCart();
@@ -395,38 +395,33 @@
             const cart = localStorage.getItem('gestao_facil:cartVendas');
             const cartItems = cart ? JSON.parse(cart) : [];
 
-            const tbody = document.querySelector('#tabela-carrinho-vendas tbody');
-            if (!tbody) return;
+            const cartBody = $('#tabela-carrinho-vendas tbody');
+            if (!cartBody) return;
 
-            tbody.innerHTML = ''; // Limpa antes de renderizar
+            cartBody.empty();
 
             if (cartItems.length === 0) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                                <td colspan="5" class="p-2 text-center">Nenhum item adicionado</td>
-                                `;
-                tbody.appendChild(tr);
+                const row = `<td colspan="5" class="p-2 text-center">Nenhum item adicionado</td>`;
+                cartBody.append(row);
                 return;
             }
 
             cartItems.forEach((item, index) => {
-                const tr = document.createElement('tr');
+                const row = `<td class="p-2">${item.produto}</td>
+                            <td class="p-2">${item.quantidade}</td>
+                            <td class="p-2">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
+                            <td class="p-2">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
+                            <td class="p-2 text-right">
+                                <button 
+                                    type="button" 
+                                    id="btn_remover_item_${item.id}" 
+                                    class="text-red-900 bg-red-200 dark:text-red-100 dark:bg-red-800 py-1 px-2 rounded-sm">
+                                        Remover
+                                </button>
+                            </td>`;
 
-                tr.innerHTML = `
-                                <td class="p-2">${item.produto}</td>
-                                <td class="p-2">${item.quantidade}</td>
-                                <td class="p-2">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
-                                <td class="p-2">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
-                                <td class="p-2 text-right">
-                                    <button type="button" data-id="btn_remover_item_carrinho_${item.id}" class="text-red-500 hover:underline">Remover</button>
-                                </td>
-                                `;
-
-                tbody.appendChild(tr);
-                document.querySelector(`#btn_remover_item_carrinho_${item.id}`).addEventListener('click', () => {
-                    removeFromCartVendas(item.id);
-                });
-                
+                cartBody.append(row);
+                 $(`#btn_remover_item_${item.id}`).on('click', () => removeFromCartVendas(item.id));
             });
         }
 
