@@ -24,6 +24,8 @@ export const tableVendas = async (
   const builder = new PrismaDataTableBuilder<Vendas>(prisma.vendas)
     .search({
       valor: "decimal",
+      Uid: "string",
+      observacoes: "string",
     })
     .where({
       contaId: customData.contaId,
