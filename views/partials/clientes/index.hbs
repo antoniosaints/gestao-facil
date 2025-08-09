@@ -29,10 +29,10 @@
       swap: "innerHTML",
     });
   }
-  function excluirProduto(id, retornar = false) {
+  function excluirCliente(id) {
     Swal.fire({
-      title: "Excluir produto",
-      text: "Tem certeza que deseja excluir este produto?",
+      title: "Excluir cliente",
+      text: "Tem certeza que deseja excluir este cliente?",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
@@ -44,12 +44,11 @@
         $.ajax({
           dataType: "json",
           type: "DELETE",
-          url: `/produtos/${id}`,
+          headers: {
+            "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token")
+          },
+          url: `/clientes/${id}`,
           beforeSend: function (xhr) {
-            const tokenJWT = localStorage.getItem("gestao_facil:token");
-            if (tokenJWT) {
-              xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
-            }
             Swal.fire({
               title: "Carregando...",
               allowOutsideClick: false,
@@ -61,33 +60,17 @@
             });
           },
           success: function (response) {
-            Swal.fire({
-              title: "Produto excluído!",
-              text: "O produto foi excluído com sucesso!",
-              icon: "success",
-              toast: true,
-              showConfirmButton: false,
-              position: "bottom-end",
-              timer: 3000,
-            });
-            if (!retornar) {
-              reloadTabelaProdutos();
-            } else {
-              loadPage('/produtos/resumo');
-            }
+            Swal.close();
+            showNotification(response.message, "success");
+            if (typeof reloadTabelaClientes === "function") reloadTabelaClientes();
           },
           error: function (error) {
-            Swal.fire({
-              title: "Erro ao excluir produto!",
-              text: "Ocorreu um erro ao excluir o produto. Por favor, tente novamente.",
-              icon: "error",
-              confirmButtonColor: "#3085d6",
-              confirmButtonText: "OK",
-            });
+            console.log(error);
+            Swal.close();
+            showNotification(error.responseJSON?.message || "Erro inesperado na requisição", "error");
           },
         });
       }
     });
   }
-
 </script>

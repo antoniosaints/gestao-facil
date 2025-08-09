@@ -8,15 +8,33 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 export const getCliente = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
+        const customData = getCustomRequest(req).customData;
         const cliente = await prisma.clientesFornecedores.findUnique({
             where: {
                 id: Number(id),
+                contaId: customData.contaId
             },
         });
         if (!cliente) {
             return ResponseHandler(res, "Cliente nao encontrado", null, 404);
         }
         ResponseHandler(res, "Cliente encontrado", cliente);
+    } catch (err: any) {
+        handleError(res, err);
+    }
+}
+
+export const deleteCliente = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { id } = req.params;
+        const customData = getCustomRequest(req).customData;
+        const cliente = await prisma.clientesFornecedores.delete({
+            where: {
+                id: Number(id),
+                contaId: customData.contaId
+            },
+        });
+        ResponseHandler(res, "Cliente deletado", cliente);
     } catch (err: any) {
         handleError(res, err);
     }
