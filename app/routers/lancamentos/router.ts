@@ -5,8 +5,8 @@ import { tableLancamentos } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
-import { select2Categorias } from "../../controllers/financeiro/categorias";
-import { select2Contas } from "../../controllers/contas/cadastro";
+import { deleteCategoria, saveCategoria, select2Categorias } from "../../controllers/financeiro/categorias";
+import { deleteContaFinanceiro, saveContaFinanceiro, select2ContasFinanceiras } from "../../controllers/financeiro/contas";
 
 const routerLancamentos = Router();
 
@@ -40,8 +40,12 @@ routerLancamentos.get("/relatorios/valor-pagamento", authenticateJWT, getLancame
 routerLancamentos.get("/relatorios/totais", authenticateJWT, getLancamentosTotaisGerais);
 // Categorias
 routerLancamentos.get("/categorias/select2", authenticateJWT, select2Categorias);
+routerLancamentos.delete("/categorias/:id", authenticateJWT, deleteCategoria);
+routerLancamentos.post("/categorias", authenticateJWT, saveCategoria);
 // Contas
-routerLancamentos.get("/contas/select2", authenticateJWT, select2Contas);
+routerLancamentos.get("/contas/select2", authenticateJWT, select2ContasFinanceiras);
+routerLancamentos.delete("/contas/:id", authenticateJWT, deleteContaFinanceiro);
+routerLancamentos.post("/contas", authenticateJWT, saveContaFinanceiro);
 
 export {
     routerLancamentos

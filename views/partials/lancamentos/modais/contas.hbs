@@ -1,0 +1,114 @@
+<div id="modalOverlayContasFinanceiras"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
+    <div id="sheetContainerContasFinanceiras"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-md mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+        <div
+            class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-bank text-emerald-600"></i> Formulário de contas
+            </h2>
+            <button onclick="closeModalContasFinanceiras()"
+                class="text-gray-800 dark:text-white hover:text-gray-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <form id="modalFormularioContasFinanceiras" class="w-full">
+            <div class="overflow-y-auto flex">
+                <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="grid grid-cols-1 gap-3">
+                            <!-- Valor Total -->
+                            <div>
+                                <label for="contasFinanceirasInput" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-money-bill"></i>
+                                    Conta bancária
+                                </label>
+                                <input required type="text" placeholder="Ex: Banco X" id="contasFinanceirasInput"
+                                    name="nome"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+                <div class="flex gap-3">
+                    <button type="submit"
+                        class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium border-2 border-emerald-500 hover:border-emerald-700 text-emerald-900 dark:text-emerald-200 bg-emerald-500/20 rounded-md shadow transition">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Registrar
+                    </button>
+                    <button type="button" onclick="closeModalContasFinanceiras()"
+                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:border-gray-500 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script>
+    function openModalContasFinanceiras(id = null) {
+        const overlay = document.getElementById('modalOverlayContasFinanceiras');
+        const modal = document.getElementById('sheetContainerContasFinanceiras');
+
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Força reflow
+        void modal.offsetWidth;
+
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
+    }
+
+    function closeModalContasFinanceiras() {
+        const overlay = document.getElementById('modalOverlayContasFinanceiras');
+        const modal = document.getElementById('sheetContainerContasFinanceiras');
+
+        modal.classList.remove('opacity-100', 'scale-100');
+        modal.classList.add('opacity-0', 'scale-95');
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }, 300);
+    }
+
+    // Fechamento por ESC e clique fora
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalContasFinanceiras());
+
+    $("#modalFormularioContasFinanceiras").submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            url: '/lancamentos/contas',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            success: function (data) {
+                closeModalContasFinanceiras();
+                showNotification(data.message, 'success');
+                const formulario = document.getElementById('modalFormularioContasFinanceiras');
+                formulario.reset();
+                if (typeof reloadTabelaContasFinanceiras === "function") {
+                    reloadTabelaContasFinanceiras();
+                }
+                if (typeof renderListaContasFinanceiras === "function") {
+                    renderListaContasFinanceiras();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.log(xhr);
+                showNotification(xhr.responseJSON?.message || 'Erro inesperado na requisição', 'error');
+            }
+        });
+    });
+</script>

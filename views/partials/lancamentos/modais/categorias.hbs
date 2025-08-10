@@ -1,0 +1,146 @@
+<div id="modalOverlayCategoriasFinanceiras"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
+    <div id="sheetContainerCategoriasFinanceiras"
+        class="bg-gray-100 dark:bg-background-dark w-full max-w-md mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+        <div
+            class="bg-card dark:bg-card-dark px-6 py-4 border-b border-border dark:border-border-dark flex justify-between items-center">
+            <h2 class="text-xl font-bold"><i class="fa-solid fa-file text-emerald-600"></i> Formulário de categorias
+            </h2>
+            <button onclick="closeModalCategoriasFinanceiras()"
+                class="text-gray-800 dark:text-white hover:text-gray-400 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <form id="modalFormularioCategoriasFinanceiras" class="w-full">
+            <div class="overflow-y-auto flex">
+                <div class="gap-4 p-6 max-h-[calc(100vh-8rem)] w-full overflow-y-auto">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="grid grid-cols-1 gap-3">
+                            <!-- Valor Total -->
+                            <div>
+                                <label for="categoriaFinanceiraInput" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-tag"></i>
+                                    Categoria
+                                </label>
+                                <input required type="text" placeholder="Ex: Alimentação" id="categoriaFinanceiraInput"
+                                    name="nome"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                            </div>
+                            <div>
+                                <label for="categoriaFinanceiraPaiFormulario" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                    Categoria Pai
+                                </label>
+                                <select name="categoriaPai" id="categoriaFinanceiraPaiFormulario"
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-card dark:bg-card-dark border-t border-border dark:border-border-dark">
+                <div class="flex gap-3">
+                    <button type="submit"
+                        class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium border-2 border-emerald-500 hover:border-emerald-700 text-emerald-900 dark:text-emerald-200 bg-emerald-500/20 rounded-md shadow transition">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Registrar
+                    </button>
+                    <button type="button" onclick="closeModalCategoriasFinanceiras()"
+                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:border-gray-500 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script>
+    function openModalCategoriaFinanceira(id = null) {
+        const overlay = document.getElementById('modalOverlayCategoriasFinanceiras');
+        const modal = document.getElementById('sheetContainerCategoriasFinanceiras');
+
+        overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Força reflow
+        void modal.offsetWidth;
+
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
+    }
+
+    function closeModalCategoriasFinanceiras() {
+        const overlay = document.getElementById('modalOverlayCategoriasFinanceiras');
+        const modal = document.getElementById('sheetContainerCategoriasFinanceiras');
+
+        modal.classList.remove('opacity-100', 'scale-100');
+        modal.classList.add('opacity-0', 'scale-95');
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }, 300);
+    }
+
+    // Fechamento por ESC e clique fora
+    document.addEventListener('keydown', e => e.key === 'Escape' && closeModalCategoriasFinanceiras());
+
+    $("#categoriaFinanceiraPaiFormulario").select2({
+        placeholder: 'Categoria Pai',
+        width: '100%',
+        language: "pt-BR",
+        ajax: {
+            url: '/lancamentos/categorias/select2',
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            data: function (params) {
+                return {
+                    search: params.term
+                }
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            }
+        }
+    });
+
+    $("#modalFormularioCategoriasFinanceiras").submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            url: '/lancamentos/categorias',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
+            },
+            success: function (data) {
+                closeModalCategoriasFinanceiras();
+                showNotification(data.message, 'success');
+                const formulario = document.getElementById('modalFormularioCategoriasFinanceiras');
+                formulario.reset();
+                if (typeof reloadTabelaCategoriasFinanceiras === "function") {
+                    reloadTabelaCategoriasFinanceiras();
+                }
+                if (typeof renderListaCategoriasFinanceiras === "function") {
+                    renderListaCategoriasFinanceiras();
+                }
+            },
+            error: function (xhr, status, error) {
+                console.log(xhr);
+                showNotification(xhr.responseJSON?.message || 'Erro inesperado na requisição', 'error');
+            }
+        });
+    });
+</script>
