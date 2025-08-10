@@ -232,8 +232,8 @@
           $("#id").val(data.id);
           $("#codigo").val(data.codigo);
           $("#nome").val(data.nome);
-          $("#preco").val(data.preco);
-          $("#precoCompra").val(data.precoCompra);
+          $("#preco").val(parseFloat(data.preco).toFixed(2).replace('.', ','));
+          $("#precoCompra").val(data.precoCompra ? parseFloat(data.precoCompra).toFixed(2).replace('.', ',') : 0);
           $("#estoque").val(data.estoque);
           $("#unidade_select_produto").val(data.unidade).trigger('change');
           $("#minimo").val(data.minimo);
