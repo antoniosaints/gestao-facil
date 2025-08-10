@@ -94,8 +94,11 @@
             processData: false,
             contentType: false,
             success: function (response) {
-                showNotification(response.message, "success");
+                showNotification("Imagem atualizada com sucesso!", "success");
                 closeModalUploadProfileAccount();
+                if (typeof atualizarLogoSistema === "function") {
+                    atualizarLogoSistema();
+                }
             },
             error: function (xhr, status, error) {
                 showNotification(xhr.responseJSON?.message || 'Erro inesperado na requisição', 'error');

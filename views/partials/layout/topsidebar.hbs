@@ -20,14 +20,19 @@
 </div>
 
 <script>
-    fetch(`/contas/infos`, {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
-        }
-    }).then((response) => response.json()).then((data) => {
-        $("#logoSistemaGestaoFacil").attr("src", data.profile);
-        $("#nomeSistemaGestaoFacil").html(data.nome);
-        $("#infoConstaSistema").html(data.Usuarios[0].email);
-    });
+    function atualizarLogoSistema() {
+        fetch(`/contas/infos`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+            }
+        }).then((response) => response.json()).then((data) => {
+            const img = document.getElementById("logoSistemaGestaoFacil");
+            img.src = data.profile + "?_t=" + Date.now();
+            $("#nomeSistemaGestaoFacil").html(data.nome);
+            $("#infoConstaSistema").html(data.Usuarios[0].email);
+        });
+    }
+
+    atualizarLogoSistema();
 </script>

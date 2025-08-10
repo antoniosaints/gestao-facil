@@ -43,7 +43,7 @@
 
 
                 <div class="md:col-span-2">
-                    <label class="block text-sm mb-1">Garantia</label>
+                    <label class="block text-sm mb-1">Garantia (dias)</label>
                     <input type="number" name="garantia" id="input_garantia_venda_formulario"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"
                         placeholder="Ex: 90 dias" />
@@ -109,32 +109,45 @@
             <div>
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-medium mb-2">Itens da Venda</h3>
-                    <button id="btn_limpar_carrinho" type="button"
-                        class="text-sm text-white py-1 px-2 mb-2 rounded bg-red-500 dark:bg-red-600 dark:text-gray-200"><i
-                            class="fa-solid fa-cart-shopping"></i> Limpar</button>
+                    <div>
+
+                        <button onclick="informarValorPropostoCliente()" type="button"
+                            class="text-sm text-white py-1 px-2 mb-2 rounded bg-emerald-500 dark:bg-emerald-600 dark:text-gray-200"><i
+                                class="fa-solid fa-money-bill"></i> Propor</button>
+                        <button id="btn_limpar_carrinho" type="button"
+                            class="text-sm text-white py-1 px-2 mb-2 rounded bg-red-500 dark:bg-red-600 dark:text-gray-200"><i
+                                class="fa-solid fa-cart-shopping"></i> Limpar</button>
+                    </div>
                 </div>
-                <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-                    <table id="tabela-carrinho-vendas"
-                        class="w-full text-sm text-left rtl:text-right text-gray-700 dark:text-gray-300">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-200 dark:bg-gray-700 dark:text-gray-400">
-                            <tr>
-                                <th class="p-2">Produto</th>
-                                <th class="p-2">Qtd</th>
-                                <th class="p-2">Preço</th>
-                                <th class="p-2">Subtotal</th>
-                                <th class="p-2 text-right">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-gray-50 dark:bg-gray-800">
-                            <!-- Exemplo de item -->
-                            <tr>
-                                <td colspan="5" class="p-2 text-center">
-                                    Nenhum
-                                    item adicionado</td>
-                            </tr>
-                            <!-- Outros itens serão adicionados dinamicamente -->
-                        </tbody>
-                    </table>
+                <div class="relative overflow-x-auto sm:rounded-lg">
+                    <div class="grid grid-cols-12 gap-4">
+                        <!-- Lista do carrinho -->
+                        <div id="lista-carrinho-vendas" class="col-span-12 lg:col-span-8 space-y-2">
+                            <div class="p-3 text-center text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-md">
+                                Nenhum item adicionado
+                            </div>
+                        </div>
+
+                        <!-- Total do carrinho -->
+                        <div id="resumo-carrinho-vendas"
+                            class="col-span-12 lg:col-span-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md p-4 shadow-sm">
+                            <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">Resumo</h3>
+                            <div class="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                                <span>Desconto:</span>
+                                <span id="desconto-total-carrinho">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                                <span>Subtotal:</span>
+                                <span id="subtotal-carrinho-vendas">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between text-bold text-md text-gray-700 dark:text-gray-300">
+                                <span>Total:</span>
+                                <span id="total-carrinho-vendas">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
             <input type="hidden" name="id" id="input_id_venda_formulario" value="{{venda.id}}">
@@ -148,39 +161,58 @@
         </form>
     </div>
 </div>
+{{> vendas/modais/proporcional}}
 <script>
 
     (() => {
-        const maskPreco = MaskToInputMoney(document.getElementById('input_preco_venda_formulario'));
+        MaskMoneyNative('#input_preco_venda_formulario');
         MaskMoneyNative('#input_desconto_venda_formulario');
-        const idVenda = $("#formulario_cadastro_venda").find('input[name="id"]').val();
 
-        if (idVenda) {
-            $.ajax({
-                url: `/vendas/${idVenda}`,
-                type: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
-                },
-                dataType: 'json',
-                success: function ({ data }) {
-                    const formulario = document.getElementById('formulario_cadastro_venda');
-                    if (data.clienteId) $("#select_cliente_venda_formulario").append(new Option(data.cliente.nome, data.clienteId)).trigger('change');
-                    if (data.vendedorId) $("#select_vendedor_venda_formulario").append(new Option(data.vendedor.nome, data.vendedorId)).trigger('change');
-                    formulario.status.value = data.status;
-                    formulario.garantia.value = data.garantia;
-                    formulario.tipo_desconto.value = "VALOR";
-                    formulario.desconto.value = data.desconto.replace('.', ',');
-                    formulario.observacoes.value = data.observacoes;
-                    document.querySelector("#input_data_venda_formulario")._flatpickr.setDate(data.data);
+        $('#input_desconto_venda_formulario').on('input', function () {
+            atualizarTabelaCart();
+        });
 
-                    setCartFromVendaRealizada(data);
-                },
-                error: function (error) {
-                    console.log(error);
-                }
-            })
+        $('#select_tipo_desconto_formulario').on('change', function () {
+            atualizarTabelaCart();
+        })
+
+        function getValorTotalCarrinho() {
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            if (!cart) return 0;
+            const cartItems = cart ? JSON.parse(cart) : [];
+            return cartItems.reduce((total, item) => total + item.subtotal, 0);
         }
+
+        function proporValorVendaCliente(valorProposto) {
+            if (!valorProposto) return;
+
+            const valorCarrinho = parseFloat(getValorTotalCarrinho()) || 0; // subtotal
+            const valorPropostoNum = parseFloat(valorProposto) || 0;
+
+            // Se o valor proposto for maior ou igual ao subtotal, desconto = 0
+            if (valorPropostoNum >= valorCarrinho) {
+                $('#input_desconto_venda_formulario').val(0);
+                atualizarTabelaCart();
+                return;
+            }
+
+            $('#select_tipo_desconto_formulario').val('VALOR');
+
+            // Desconto necessário para chegar no valor desejado
+            const valorDescontoNovo = valorCarrinho - valorPropostoNum;
+            $('#input_desconto_venda_formulario').val(valorDescontoNovo.toFixed(2).replace('.', ','));
+            atualizarTabelaCart();
+        }
+
+        function definirValorProporcionalVenda() {
+            const valor = document.getElementById('valorVendaPropostoClienteTotal');
+            const valorTratado = valor.value ? parseFloat(valor.value) : 0;
+            proporValorVendaCliente(valor.value);
+            valor.value = null;
+            closeModalDefinirValorVenda();
+        }
+
+        $("#btnDefinirValorVendaPropostoCliente").click(definirValorProporcionalVenda);
 
         function setCartFromVendaRealizada(venda) {
             const cartItems = [];
@@ -216,22 +248,6 @@
                 return;
             }
 
-            let descontoTotal = 0;
-            subtotalValue = cartItems.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-
-            const discountInput = $('#input_desconto_venda_formulario').val().replace('.', '').replace(',', '.');
-            const discountType = $('#select_tipo_desconto_formulario').val();
-
-            if (discountInput && !isNaN(discountInput)) {
-                if (discountType === 'PORCENTAGEM') {
-                    descontoTotal = subtotalValue * (parseFloat(discountInput) / 100);
-                } else {
-                    descontoTotal = parseFloat(discountInput);
-                }
-            } else {
-                descontoTotal = 0;
-            }
-
             const data = {
                 clienteId: $('#select_cliente_venda_formulario').val(),
                 data: $('#input_data_venda_formulario').val(),
@@ -239,7 +255,7 @@
                 status: $('#select_status_venda_formulario').val(),
                 garantia: $('#input_garantia_venda_formulario').val(),
                 observacoes: $('#input_observacoes_venda_formulario').val(),
-                desconto: descontoTotal,
+                desconto: getValorDesconto(),
                 id: $("#input_id_venda_formulario").val(),
                 itens: cartItems.map(item => (
                     {
@@ -391,38 +407,89 @@
             atualizarTabelaCart();
         }
 
+        function getValorDesconto() {
+            const cart = localStorage.getItem('gestao_facil:cartVendas');
+            const cartItems = cart ? JSON.parse(cart) : [];
+            let descontoTotal = 0;
+
+            if (cartItems.length === 0) {
+                return descontoTotal;
+            }
+
+            subtotalValue = cartItems.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+
+            const discountInput = $('#input_desconto_venda_formulario').val().replace('.', '').replace(',', '.');
+            const discountType = $('#select_tipo_desconto_formulario').val();
+
+            if (discountInput && !isNaN(discountInput)) {
+                if (discountType === 'PORCENTAGEM') {
+                    descontoTotal = subtotalValue * (parseFloat(discountInput) / 100);
+                } else {
+                    descontoTotal = parseFloat(discountInput);
+                }
+            } else {
+                descontoTotal = 0;
+            }
+
+            return descontoTotal;
+        }
+
         function atualizarTabelaCart() {
             const cart = localStorage.getItem('gestao_facil:cartVendas');
             const cartItems = cart ? JSON.parse(cart) : [];
 
-            const cartBody = $('#tabela-carrinho-vendas tbody');
-            if (!cartBody) return;
+            const cartList = $('#lista-carrinho-vendas');
+            const resumoCarrinho = $('#resumo-carrinho-vendas');
+            const subtotalCarrinho = $('#subtotal-carrinho-vendas');
+            const totalCarrinho = $('#total-carrinho-vendas');
+            const descontoCarrinho = $('#desconto-total-carrinho');
 
-            cartBody.empty();
+            cartList.empty();
 
             if (cartItems.length === 0) {
-                const row = `<td colspan="5" class="p-2 text-center">Nenhum item adicionado</td>`;
-                cartBody.append(row);
+                cartList.append(`
+            <div class="p-3 text-center text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-md">
+                Nenhum item adicionado
+            </div>
+        `);
+                descontoCarrinho.text(`R$ 0,00`);
+                subtotalCarrinho.text(`R$ 0,00`);
+                totalCarrinho.text(`R$ 0,00`);
                 return;
             }
 
-            cartItems.forEach((item, index) => {
-                const row = `<td class="p-2">${item.produto}</td>
-                            <td class="p-2">${item.quantidade}</td>
-                            <td class="p-2">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</td>
-                            <td class="p-2">R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</td>
-                            <td class="p-2 text-right">
-                                <button 
-                                    type="button" 
-                                    id="btn_remover_item_${item.id}" 
-                                    class="text-red-900 bg-red-200 dark:text-red-100 dark:bg-red-800 py-1 px-2 rounded-sm">
-                                        Remover
-                                </button>
-                            </td>`;
+            let total = 0;
 
-                cartBody.append(row);
-                 $(`#btn_remover_item_${item.id}`).on('click', () => removeFromCartVendas(item.id));
+            cartItems.forEach(item => {
+                total += parseFloat(item.subtotal);
+
+                const card = `
+            <div class="flex justify-between items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md p-2 shadow-sm">
+                <div class="flex flex-col text-sm">
+                    <span class="font-medium text-gray-800 dark:text-gray-200">${item.produto}</span>
+                    <span class="text-gray-500 dark:text-gray-400">Qtd: ${item.quantidade}</span>
+                </div>
+                <div class="flex flex-col text-right text-sm">
+                    <span class="font-medium text-gray-800 dark:text-gray-200">R$ ${parseFloat(item.preco).toFixed(2).replace('.', ',')}</span>
+                    <span class="text-gray-500 dark:text-gray-400">Subtotal: R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}</span>
+                </div>
+                <button 
+                    type="button" 
+                    id="btn_remover_item_${item.id}" 
+                    class="ml-3 text-red-900 bg-red-200 dark:text-red-100 dark:bg-red-800 py-1 px-2 rounded-sm">
+                        Remover
+                </button>
+            </div>
+        `;
+
+                cartList.append(card);
+                $(`#btn_remover_item_${item.id}`).on('click', () => removeFromCartVendas(item.id));
             });
+
+            // Exibe total no resumo
+            descontoCarrinho.text(`R$ ${getValorDesconto().toFixed(2).replace('.', ',')}`);
+            subtotalCarrinho.text(`R$ ${total.toFixed(2).replace('.', ',')}`);
+            totalCarrinho.text(`R$ ${(total - getValorDesconto()).toFixed(2).replace('.', ',')}`);
         }
 
 
