@@ -221,7 +221,7 @@ export class PrismaDataTableBuilder<T> {
         for (const [extraField, callback] of Object.entries(
           this.extraColumns
         )) {
-          formatted[extraField] = callback(row);
+          formatted[extraField] = await callback(row);
         }
 
         return formatted;

@@ -159,7 +159,7 @@ export const tableLancamentos = async (
     .format("descricao", function (id) {
       return `<span class="px-2 py-1 flex max-w-48 truncate flex-nowrap w-max rounded-md">${id}</span>`;
     })
-    .edit("recorrente", async (row) => {
+    .addColumn("forma", async (row) => {
       const parcelas = await prisma.parcelaFinanceiro.findMany({
         where: {
           lancamentoId: row.id,
