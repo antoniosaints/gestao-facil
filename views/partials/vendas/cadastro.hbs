@@ -28,7 +28,7 @@
                         <option value="ORCAMENTO">Orçamento</option>
                         {{!-- <option value="FATURADO" selected>Faturado</option> --}}
                         <option value="ANDAMENTO">Em andamento</option>
-                        <option value="FINALIZADO">Finalizado</option>
+                        <option value="FINALIZADO" selected>Finalizado</option>
                         <option value="PENDENTE">Pendente</option>
                         <option value="CANCELADO">Cancelado</option>
                     </select>
@@ -309,7 +309,8 @@
             altInput: true,
             altFormat: "j \\de F \\de Y",
             dateFormat: "Y-m-d",
-            locale: "pt"
+            locale: "pt",
+            defaultDate: new Date()
         });
 
         function clearFormularioAddItem() {
