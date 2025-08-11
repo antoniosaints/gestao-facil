@@ -8,6 +8,7 @@ import { webRouterAdministracao } from "./administracao/web";
 import { webClienteRouter } from "./clientes/web";
 import { webRouterLancamentos } from "./lancamentos/web";
 import { isBefore } from "date-fns";
+import { webAdminRouter } from "./gerencia/web";
 
 const webRouter = Router();
 
@@ -69,6 +70,7 @@ export const renderSimple = async (
 };
 
 webRouter.use("/produtos", webRouterProdutos);
+webRouter.use("/gerencia", webAdminRouter);
 webRouter.use("/vendas", webRouterVendas);
 webRouter.use("/clientes", webClienteRouter);
 webRouter.use("/lancamentos", webRouterLancamentos);
@@ -117,10 +119,9 @@ webRouter.get(
   "/sidebar/menu",
   authenticateJWT,
   async (req, res): Promise<any> => {
-    const isOverdue = await isAccountOverdue(req);
-
+    
     const data = getCustomRequest(req).customData;
-
+    
     const usuario = await prisma.usuarios.findUniqueOrThrow({
       where: {
         id: data.userId,
@@ -130,6 +131,16 @@ webRouter.get(
         Contas: true,
       },
     });
+
+    if (usuario.superAdmin === true) {
+      return res.render("layouts/gerencia/sidebar", {
+        usuario,
+        levelPermission: 5,
+        empresa: usuario.Contas.nome,
+      });
+    }
+
+    const isOverdue = await isAccountOverdue(req);
 
     if (isOverdue) {
       return res.render("layouts/sidebar", {

@@ -3,6 +3,7 @@ import { handleError } from "../../utils/handleError";
 import { loginSchema } from "../../schemas/login";
 import { prisma } from "../../utils/prisma";
 import { JwtUtil } from "../../utils/jwt";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
 
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -45,7 +46,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       sameSite: "strict",
       maxAge: 1000 * 60 * 60 * 24,
     });
-    
+
     return res.status(200).json({
       status: 200,
       message: "Login realizado com sucesso",
@@ -63,36 +64,39 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 };
 
 export const checkAuth = async (req: Request, res: Response): Promise<any> => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
-      authenticated: false,
-      message: "Token inválido ou não informado",
-      view: "partials/login.html",
-    });
-  }
-
-  const token = authHeader.split(" ")[1];
-
+  const customData = getCustomRequest(req).customData;
   try {
-    const payload = JwtUtil.verify(token);
-    if (payload) {
+    const usuario = await prisma.usuarios.findUniqueOrThrow({
+      where: {
+        id: customData.userId,
+        contaId: customData.contaId,
+      },
+      include: {
+        Contas: true,
+      },
+    });
+    if (!usuario) {
+      return res.status(401).json({
+        authenticated: false,
+        message: "Usuário nao encontrado",
+      });
+    };
+
+    if (usuario.superAdmin) {
       return res.status(200).json({
         authenticated: true,
-        message: "Token válido",
-        view: "/resumos",
+        message: "Token valido",
+        view: "/gerencia/dashboard",
       });
     }
-    return res.status(401).json({
-      authenticated: false,
-      message: "Token inválido",
+
+    return res.status(200).json({
+      authenticated: true,
+      message: "Token válido",
+      view: "/resumos",
     });
-  } catch {
-    return res.status(401).json({
-      authenticated: false,
-      message: "Token inválido",
-    });
+  } catch (error) {
+    handleError(res, error);
   }
 };
 

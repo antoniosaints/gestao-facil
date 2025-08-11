@@ -70,7 +70,7 @@ app.use(express.json());
 app.use(RouterMain);
 
 app.post("/login", login);
-app.get("/auth/check", checkAuth);
+app.get("/auth/check", authenticateJWT, checkAuth);
 app.get("/auth/verify", verify);
 app.get("/usuarios", authenticateJWT, tableUsuarios);
 app.get("/usuarios/select2/lista", authenticateJWT, select2Usuarios);

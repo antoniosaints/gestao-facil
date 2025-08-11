@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestão Fácil - {{title}}</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#ffffff" id="meta-theme-color" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="/imgs/logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <link href="css/datatables.main.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/datatables.css" />
+  <link rel="stylesheet" href="css/swalert.css" />
+  <link rel="stylesheet" href="css/flatpickr.css" />
+  <link rel="stylesheet" href="css/select2.css" />
+  <link rel="stylesheet" href="css/intro.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="shortcut icon" href="imgs/logo.png" type="image/png" />
+  <script src="js/pluguins/tailwind.min.js"></script>
+  <script src="tailwind.js"></script>
+  <script src="js/pluguins/jquery.js"></script>
+</head>
+
+<body
+  class="bg-background dark:bg-background-dark text-text dark:text-text-dark min-h-screen overflow-hidden flex flex-col">
+  {{> layout/header}}
+
+  <!-- Botão de abrir menu (mobile) -->
+  <button type="button" id="openSidebarBtn"
+    class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary/70 text-white px-2 py-3 rounded-r-xl shadow-lg">
+    ☰
+  </button>
+
+  <!-- Sidebar -->
+  <aside id="sidebar"
+    class="fixed shadow-md overflow-auto top-0 left-0 h-full w-full md:w-64 border border-border dark:border-border-dark bg-card dark:bg-card-dark p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
+    {{> layout/topsidebar}}
+
+    <nav class="flex flex-col space-y-2 select-none" id="content-sidebar-menu"></nav>
+
+    <button onclick="toggleTheme()"
+      class="mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
+      <i class="fa-solid fa-sun" id="icon-sun"></i>
+      <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
+    </button>
+    <div class="flex flex-col gap-2 hidden">
+      <button style="display: none;" id="sendNotificationBtn"
+        class="px-4 py-2 bg-green-600 text-white rounded hidden hover:bg-green-700 transition">
+        <i class="fa-solid fa-paper-plane"></i>
+        Enviar Notificação
+      </button>
+    </div>
+    <button id="closeSidebarBtn"
+      class="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 text-center text-white bg-primary w-3/4 max-w-xs py-2 rounded shadow-lg">
+      <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
+    </button>
+  </aside>
+
+  {{{body}}}
+
+  {{> layout/upload}}
+
+  <script>
+    const sidebar = document.getElementById("sidebar");
+    const openBtn = document.getElementById("openSidebarBtn");
+    const closeBtn = document.getElementById("closeSidebarBtn");
+    const containerMain = document.getElementById("container-main");
+
+    function logOut() {
+      localStorage.removeItem("gestao_facil:token");
+      localStorage.setItem("gestao_facil:isauth", false);
+      window.location.href = "/login";
+    }
+
+    function switchToFullScreen() {
+      containerMain.classList.add("h-screen");
+      containerMain.classList.remove("h-[calc(100vh-5rem)]");
+    }
+    function switchToNormalScreen() {
+      containerMain.classList.remove("h-screen");
+      containerMain.classList.add("h-[calc(100vh-5rem)]");
+    }
+
+    openBtn.addEventListener("click", () => {
+      sidebar.classList.remove("-translate-x-full");
+    });
+
+    closeBtn.addEventListener("click", () => {
+      sidebar.classList.add("-translate-x-full");
+    });
+
+    function openSideBarMobile() {
+      sidebar.classList.remove("-translate-x-full");
+    }
+
+  </script>
+  <script src="js/pluguins/fontawesome.js"></script>
+  <script src="js/pluguins/flatpickr.js"></script>
+  <script src="js/pluguins/flatpickr.pt.js"></script>
+  <script src="js/pluguins/htmx.js"></script>
+  <script src="js/pluguins/datatables.min.js"></script>
+  <script src="js/pluguins/swalert.js"></script>
+  <script src="js/pluguins/select2.js"></script>
+  <script src="js/pluguins/select2.pt.js"></script>
+  <script src="js/pluguins/chartjs.js"></script>
+  <script src="js/pluguins/imask.js"></script>
+  <script src="js/pluguins/qztray.js"></script>
+  <script src="js/pluguins/intro.js"></script>
+  <script src="qztrayFunctions.js"></script>
+  <script src="theme.js" defer></script>
+  <script src="global.js" defer></script>
+  <script src="/notification/client.js" defer></script>
+  <script src="/general.js" defer></script>
+</body>
+
+</html>
