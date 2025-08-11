@@ -1,24 +1,26 @@
-<table id="tabela_produtos_listagem_principal" class="display">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Nome</th>
-            <th>Código</th>
-            <th>Entrada</th>
-            <th>Saída</th>
-            <th>Preço</th>
-            <th>Qtd</th>
-            <th class="flex justify-end">Ações</th>
-        </tr>
-    </thead>
-</table>
+<div id="tabela_produtos_listagem_principal_container" class="hidden">
+    <table id="tabela_produtos_listagem_principal" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Código</th>
+                <th>Entrada</th>
+                <th>Saída</th>
+                <th>Preço</th>
+                <th>Qtd</th>
+                <th class="flex justify-end">Ações</th>
+            </tr>
+        </thead>
+    </table>
+</div>
 
 <script>
     function reloadTabelaProdutos() {
         const tabela = $("#tabela_produtos_listagem_principal").DataTable();
         tabela.ajax.reload(null, false);
     }
-    
+
     new DataTable("#tabela_produtos_listagem_principal", {
         language: {
             url: "/lang/pt-Br.json",
@@ -30,6 +32,7 @@
             type: "GET",
             url: `/produtos`,
             beforeSend: function (xhr) {
+                $("#tabela_produtos_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -58,6 +61,9 @@
                     text: mensagem,
                 });
                 if (status === 401) window.location.href = "/login";
+            },
+            complete: function () {
+                $("#tabela_produtos_listagem_principal_container").fadeIn(100);
             },
         },
         columns: [

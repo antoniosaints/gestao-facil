@@ -1,16 +1,18 @@
-<table id="tabela_vendas_listagem_principal" class="display">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Vendedor</th>
-            <th>Cliente</th>
-            <th>Valor</th>
-            <th>Data</th>
-            <th>Status</th>
-            <th class="flex justify-end">Ações</th>
-        </tr>
-    </thead>
-</table>
+<div id="tabela_vendas_listagem_principal_container" class="hidden">
+    <table id="tabela_vendas_listagem_principal" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Vendedor</th>
+                <th>Cliente</th>
+                <th>Valor</th>
+                <th>Data</th>
+                <th>Status</th>
+                <th class="flex justify-end">Ações</th>
+            </tr>
+        </thead>
+    </table>
+</div>
 
 <script>
     function reloadTabelaVendas() {
@@ -31,6 +33,7 @@
                 d.status = $("#status_vendas_tabela").val() || "";
             },
             beforeSend: function (xhr) {
+                $("#tabela_vendas_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -59,6 +62,9 @@
                     text: mensagem,
                 });
                 if (status === 401) window.location.href = "/login";
+            },
+            complete: function () {
+                $("#tabela_vendas_listagem_principal_container").fadeIn(100);
             },
         },
         columns: [

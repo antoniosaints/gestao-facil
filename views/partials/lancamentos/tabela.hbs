@@ -1,17 +1,19 @@
-<table id="tabela_lancamentos_listagem_principal" class="display">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Status</th>
-            <th>Descrição</th>
-            <th>Valor</th>
-            <th>Tipo</th>
-            <th>Pagamento</th>
-            <th>Data</th>
-            <th class="flex justify-end">Ações</th>
-        </tr>
-    </thead>
-</table>
+<div id="tabela_lancamentos_listagem_principal_container" class="hidden">
+    <table id="tabela_lancamentos_listagem_principal" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Descrição</th>
+                <th>Valor</th>
+                <th>Tipo</th>
+                <th>Pagamento</th>
+                <th>Data</th>
+                <th class="flex justify-end">Ações</th>
+            </tr>
+        </thead>
+    </table>
+</div>
 
 <script>
     function reloadTabelaLancamentos() {
@@ -39,6 +41,7 @@
                 d.valorMaximo = $("#valorMaximoFilterLancamento").val() || null;
             },
             beforeSend: function (xhr) {
+                $("#tabela_lancamentos_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -67,6 +70,9 @@
                     text: mensagem,
                 });
                 if (status === 401) window.location.href = "/login";
+            },
+            complete: function () {
+                $("#tabela_lancamentos_listagem_principal_container").fadeIn(100);
             },
         },
         columns: [

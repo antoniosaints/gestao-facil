@@ -1,17 +1,20 @@
-<table id="tabela_usuarios_listagem_principal" class="display w-full">
-    <thead>
-        <tr>
-            <th>Nome</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Notificação</th>
-            <th>Email</th>
-            <th>Permissão</th>
-            <th>Criado</th>
-            <th>Ações</th>
-        </tr>
-    </thead>
-</table>
+<div id="tabela_usuarios_listagem_principal_container" class="hidden">
+    <table id="tabela_usuarios_listagem_principal" class="display w-full">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Notificação</th>
+                <th>Email</th>
+                <th>Permissão</th>
+                <th>Criado</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
 <script>
     function excluirusuarioSistema(id) {
         Swal.fire({
@@ -76,6 +79,7 @@
             type: "GET",
             url: `/usuarios`,
             beforeSend: function (xhr) {
+                $("#tabela_usuarios_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -107,6 +111,9 @@
                     target: "#content",
                     swap: "innerHTML",
                 });
+            },
+            complete: function () {
+                $("#tabela_usuarios_listagem_principal_container").fadeIn(100);
             },
         },
         columns: [

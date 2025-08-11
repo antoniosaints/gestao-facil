@@ -1,15 +1,17 @@
-<table id="tabela_clientes_listagem_principal" class="display">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Status</th>
-            <th>Nome</th>
-            <th>E-mail</th>
-            <th>Telefone</th>
-            <th class="flex justify-end">Ações</th>
-        </tr>
-    </thead>
-</table>
+<div id="tabela_clientes_listagem_principal_container" class="hidden">
+    <table id="tabela_clientes_listagem_principal" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th class="flex justify-end">Ações</th>
+            </tr>
+        </thead>
+    </table>
+</div>
 
 <script>
     function reloadTabelaClientes() {
@@ -27,6 +29,7 @@
             type: "GET",
             url: `/clientes/getDataTable`,
             beforeSend: function (xhr) {
+                $("#tabela_clientes_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -55,6 +58,9 @@
                     text: mensagem,
                 });
                 if (status === 401) window.location.href = "/login";
+            },
+            complete: function () {
+                $("#tabela_clientes_listagem_principal_container").fadeIn(100);
             },
         },
         columns: [
