@@ -158,7 +158,7 @@
     };
 
     $.ajax({
-      url: `/produtos`,
+      url: `/api/produtos`,
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
       },
@@ -210,7 +210,7 @@
       $("#produtoFormularioTitulo").text(`📝 Editar Produto #${localStorage.getItem('produtoId')}`);
       $("#estoque").prop("readonly", true);
       $.ajax({
-        url: `/produtos/${localStorage.getItem('produtoId')}`,
+        url: `/api/produtos/${localStorage.getItem('produtoId')}`,
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
         },

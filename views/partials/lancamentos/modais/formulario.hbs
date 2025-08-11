@@ -320,7 +320,7 @@
         width: '100%',
         language: "pt-BR",
         ajax: {
-            url: '/lancamentos/categorias/select2',
+            url: '/api/lancamentos/categorias/select2',
             dataType: 'json',
             delay: 250,
             headers: {
@@ -343,7 +343,7 @@
         width: '100%',
         language: "pt-BR",
         ajax: {
-            url: '/lancamentos/contas/select2',
+            url: '/api/lancamentos/contas/select2',
             dataType: 'json',
             delay: 250,
             headers: {
@@ -368,7 +368,7 @@
         allowClear: true,
         language: "pt-BR",
         ajax: {
-            url: '/clientes/select2/lista',
+            url: '/api/clientes/select2/lista',
             dataType: 'json',
             delay: 250,
             headers: {
@@ -440,7 +440,7 @@
         e.preventDefault();
 
         $.ajax({
-            url: "/lancamentos",
+            url: "/api/lancamentos",
             method: "POST",
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")

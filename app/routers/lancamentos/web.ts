@@ -14,7 +14,7 @@ webRouterLancamentos.get("/resumo", authenticateJWT, async (req, res): Promise<a
   }
   renderAuth(req, res, "partials/lancamentos/index");
 });
-webRouterLancamentos.get("/web/dashboard", authenticateJWT, (req, res) => {
+webRouterLancamentos.get("/dashboard", authenticateJWT, (req, res) => {
   renderAuth(req, res, "partials/lancamentos/dashboard/home");
 });
 export {

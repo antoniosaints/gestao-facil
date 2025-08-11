@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import { checkAuth, login, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
-import { tableUsuarios } from "./controllers/administracao/usuarios";
 import {
   sendNotification,
   subscribe,
@@ -13,7 +12,6 @@ import path from "node:path";
 import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
-import { select2Usuarios } from "./controllers/administracao/hooks";
 import { engine } from "express-handlebars";
 import { webhookMercadoPago } from "./controllers/mercadopago/webhook";
 
@@ -72,14 +70,12 @@ app.use(RouterMain);
 app.post("/login", login);
 app.get("/auth/check", authenticateJWT, checkAuth);
 app.get("/auth/verify", verify);
-app.get("/usuarios", authenticateJWT, tableUsuarios);
-app.get("/usuarios/select2/lista", authenticateJWT, select2Usuarios);
 
 // Rotas webhook
 app.post("/asaas/webhook", webhookAsaasCheck);
 app.post("/mercadopago/webhook", webhookMercadoPago);
 // Rotas Dashboard
-app.get("/dashboard/resumo", authenticateJWT, resumoDashboard);
+app.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
 // Rotas Push
 app.post("/subscribe", authenticateJWT, subscribe);
 app.post("/unsubscribe", authenticateJWT, unsubscribe);

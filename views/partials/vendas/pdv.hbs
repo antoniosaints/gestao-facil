@@ -169,7 +169,7 @@
             allowClear: true,
             language: "pt-BR",
             ajax: {
-                url: '/clientes/select2/lista',
+                url: '/api/clientes/select2/lista',
                 dataType: 'json',
                 delay: 250,
                 headers: {
@@ -235,7 +235,7 @@
             };
 
             $.ajax({
-                url: '/vendas/criar',
+                url: '/api/vendas/criar',
                 method: 'POST',
                 data: data,
                 dataType: 'json',
@@ -309,7 +309,7 @@
 
         function fetchProducts(search = null) {
             $.ajax({
-                url: '/produtos/lista/geral',
+                url: '/api/produtos/lista/geral',
                 method: 'GET',
                 dataType: 'json',
                 data: { search },

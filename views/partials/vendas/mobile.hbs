@@ -124,7 +124,7 @@
     const container = document.querySelector("#vendas-lista-mobile");
     $.ajax({
       type: "GET",
-      url: `/vendas/mobile/data`,
+      url: `/api/vendas/mobile/data`,
       data: {
         search: $("#search-input-vendas-mobile").val(),
         limit: "10",

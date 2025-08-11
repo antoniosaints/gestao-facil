@@ -27,7 +27,7 @@
         stateSave: true,
         ajax: {
             type: "GET",
-            url: `/clientes/getDataTable`,
+            url: `/api/clientes/getDataTable`,
             beforeSend: function (xhr) {
                 $("#tabela_clientes_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");

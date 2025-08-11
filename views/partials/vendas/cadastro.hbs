@@ -267,7 +267,7 @@
             };
 
             $.ajax({
-                url: '/vendas/criar',
+                url: '/api/vendas/criar',
                 method: 'POST',
                 data: data,
                 dataType: 'json',
@@ -500,7 +500,7 @@
             allowClear: true,
             language: "pt-BR",
             ajax: {
-                url: '/clientes/select2/lista',
+                url: '/api/clientes/select2/lista',
                 dataType: 'json',
                 delay: 250,
                 headers: {
@@ -524,7 +524,7 @@
             allowClear: true,
             language: "pt-BR",
             ajax: {
-                url: '/produtos/select2/lista',
+                url: '/api/produtos/select2/lista',
                 dataType: 'json',
                 delay: 250,
                 headers: {
@@ -547,7 +547,7 @@
             width: '100%',
             language: "pt-BR",
             ajax: {
-                url: '/usuarios/select2/lista',
+                url: '/api/usuarios/select2/lista',
                 dataType: 'json',
                 delay: 250,
                 headers: {
@@ -568,7 +568,7 @@
         $('#select_produto_venda_formulario').on('select2:select', function (e) {
             var data = e.params.data;
             $.ajax({
-                url: '/produtos/' + data.id,
+                url: '/api/produtos/' + data.id,
                 method: 'GET',
                 dataType: 'json',
                 headers: {

@@ -172,7 +172,7 @@
             form.id.value = id;
 
             $.ajax({
-                url: "/clientes/" + id,
+                url: "/api/clientes/" + id,
                 method: "GET",
                 headers: {
                     'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
@@ -226,7 +226,7 @@
         e.preventDefault();
 
         $.ajax({
-            url: "/clientes",
+            url: "/api/clientes",
             method: "POST",
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")

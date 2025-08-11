@@ -414,12 +414,12 @@
           receitaDespesa,
           status
         ] = await Promise.all([
-          fetchJson(`/lancamentos/relatorios/totais`),
-          fetchJson(`/lancamentos/relatorios/valor-status`),
-          fetchJson(`/lancamentos/graficos/categorias?inicio=${inicio}&fim=${fim}`),
-          fetchJson(`/lancamentos/graficos/contas?inicio=${inicio}&fim=${fim}`),
-          fetchJson(`/lancamentos/graficos/receita-despesa-mensal`),
-          fetchJson(`/lancamentos/graficos/status?inicio=${inicio}&fim=${fim}`)
+          fetchJson(`/api/lancamentos/relatorios/totais`),
+          fetchJson(`/api/lancamentos/relatorios/valor-status`),
+          fetchJson(`/api/lancamentos/graficos/categorias?inicio=${inicio}&fim=${fim}`),
+          fetchJson(`/api/lancamentos/graficos/contas?inicio=${inicio}&fim=${fim}`),
+          fetchJson(`/api/lancamentos/graficos/receita-despesa-mensal`),
+          fetchJson(`/api/lancamentos/graficos/status?inicio=${inicio}&fim=${fim}`)
         ]);
 
         $("#saldo_financeiro_dashboard").text(totais.saldo);

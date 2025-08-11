@@ -107,7 +107,7 @@
             };
 
             $.ajax({
-                url: `/produtos/reposicao`,
+                url: `/api/produtos/reposicao`,
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
                 },
@@ -160,7 +160,7 @@
     function abrirModalReporProdutos(id) {
         if (id) {
             $.ajax({
-                url: `/produtos/${id}`,
+                url: `/api/produtos/${id}`,
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
                 },

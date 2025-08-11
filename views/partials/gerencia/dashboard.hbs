@@ -1,500 +1,354 @@
 <div class="flex flex-col gap-4">
-  <div class="flex flex-col md:flex-row gap-2 justify-between items-center">
-    <h2 class="text-2xl text-left font-bold text-black dark:text-white">
-      <i class="fa-solid fa-chart-simple text-orange-600"></i> Dashboard gerencial
-    </h2>
-    <div class="flex items-center gap-2 w-content">
-      <button type="button" id="limpar_filtro_dashboard_periodo"
-        class="bg-red-600 hidden text-white text-nowrap px-3 py-1.5 rounded-md text-sm hover:bg-red-700 transition-colors">
-        <i class="fa-solid fa-filter-circle-xmark"></i>
-      </button>
-      <input id="filtro_dashboard_periodo" placeholder="Filtrar por período"
-        class="rounded-md border w-max bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-      </input>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
-    <!-- Metric Item Start -->
-    <div onclick="loadPage('/clientes/resumo')"
-      class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-violet-50 dark:bg-violet-950/50 px-6 pb-5 pt-6">
-      <div class="mb-6 flex items-center gap-3">
-        <i class="fa-solid fa-microchip h-8 w-8 bg-violet-500/10 p-2 rounded-md text-violet-500"></i>
-
-        <div>
-          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
-            CPU
-          </h3>
-          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
-            usada
-          </span>
-        </div>
-      </div>
-
-      <div class="flex items-end justify-between">
-        <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_clientes_dashboard">
-            0
-          </h4>
-        </div>
-
-        <span
-          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
-          <svg class="fill-current" width="13" height="12" viewBox="0 0 13 12" fill="none"
-            xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd"
-              d="M6.06462 1.62393C6.20193 1.47072 6.40135 1.37432 6.62329 1.37432C6.6236 1.37432 6.62391 1.37432 6.62422 1.37432C6.81631 1.37415 7.00845 1.44731 7.15505 1.5938L10.1551 4.5918C10.4481 4.88459 10.4483 5.35946 10.1555 5.65246C9.86273 5.94546 9.38785 5.94562 9.09486 5.65283L7.37329 3.93247L7.37329 10.125C7.37329 10.5392 7.03751 10.875 6.62329 10.875C6.20908 10.875 5.87329 10.5392 5.87329 10.125L5.87329 3.93578L4.15516 5.65281C3.86218 5.94561 3.3873 5.94546 3.0945 5.65248C2.8017 5.35949 2.80185 4.88462 3.09484 4.59182L6.06462 1.62393Z"
-              fill=""></path>
-          </svg>
-
-          0%
-        </span>
-      </div>
-    </div>
-
-    <div onclick="loadPage('/produtos/resumo')"
-      class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-blue-50 dark:bg-blue-950/50 px-6 pb-5 pt-6">
-      <div class="mb-6 flex items-center gap-3">
-        <i class="fa-solid fa-memory w-8 h-8 bg-blue-500/10 p-2 rounded-md text-blue-500"></i>
-
-        <div>
-          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
-            Memória
-          </h3>
-          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
-            usada
-          </span>
-        </div>
-      </div>
-
-      <div class="flex items-end justify-between">
-        <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_produtos_dashboard">
-            0
-          </h4>
-        </div>
-
-        <span
-          class="flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-500">
-          <i class="fa-solid fa-boxes-packing"></i>
-          Total
-        </span>
-      </div>
-    </div>
-
-    <div onclick="loadPage('/produtos/resumo')"
-      class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-cyan-50 dark:bg-cyan-950/50 px-6 pb-5 pt-6">
-      <div class="mb-6 flex items-center gap-3">
-        <i class="fa-solid fa-hard-drive w-8 h-8 bg-cyan-500/10 p-2 rounded-md text-cyan-500"></i>
-
-        <div>
-          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
-            Disco
-          </h3>
-          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
-            utilizado
-          </span>
-        </div>
-      </div>
-
-      <div class="flex items-end justify-between">
-        <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="produtos_em_baixa_dashboard">
-            0
-          </h4>
-        </div>
-
-        <span id="produtos_em_baixa_dashboard_alerta"
-          class="flex items-center gap-1 rounded-full bg-cyan-100 py-0.5 pl-2 pr-2.5 text-sm font-medium text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-500">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          Atenção!
-        </span>
-      </div>
-    </div>
-
-    <div onclick="loadPage('/vendas/resumo')"
-      class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-green-50 dark:bg-green-950/50 px-6 pb-5 pt-6">
-      <div class="mb-6 flex items-center gap-3">
-        <i class="fa-solid fa-dollar-sign h-8 w-8 bg-green-500/10 p-2 rounded-md text-green-400"></i>
-
-        <div>
-          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
-            Lucro
-          </h3>
-          <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
-            mensal
-          </span>
-        </div>
-      </div>
-
-      <div class="flex items-end justify-between">
-        <div>
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_vendas_dashboard">
-            R$ 0,00
-          </h4>
-        </div>
-
-        <span id="porcentagem_vendas_dashboard_alerta"
-          class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-sm font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
-          <i class="fa-solid fa-dollar-sign"></i>
-          <span id="porcentagem_vendas_dashboard">0%</span>
-        </span>
-      </div>
-    </div>
-    <!-- Metric Item End -->
-  </div>
-
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-    <!-- Gráfico de Barras -->
-    <div
-      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i> Vendas
-          Mensais
+    <div class="flex flex-col md:flex-row gap-2 justify-between items-center">
+        <h2 class="text-2xl text-left font-bold text-black dark:text-white">
+            <i class="fa-solid fa-chart-simple text-orange-600"></i> Dashboard gerencial
         </h2>
-        <button onclick="loadPage('/vendas/resumo')"
-          class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
-          <i class="fa-solid fa-square-arrow-up-right"></i>
-          Ver mais
-        </button>
-      </div>
-      <canvas class="max-h-64" id="chartVendasMensais"></canvas>
+        <div class="flex items-center gap-2 w-content">
+            <button type="button" id="limpar_filtro_dashboard_gerencia_periodo"
+                class="bg-red-600 hidden text-white text-nowrap px-3 py-1.5 rounded-md text-sm hover:bg-red-700 transition-colors">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+            </button>
+            <input id="filtro_dashboard_gerencia_periodo" placeholder="Filtrar por período"
+                class="rounded-md border w-max bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            </input>
+        </div>
     </div>
 
-    <!-- Gráfico de Linhas -->
-    <div
-      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i> Saldo mensal
-        </h2>
-        <button onclick="loadPage('/lancamentos/resumo')"
-          class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
-          <i class="fa-solid fa-square-arrow-up-right"></i>
-          Ver mais
-        </button>
-      </div>
-      <canvas class="max-h-64" id="grafico_saldo_mensal"></canvas>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
+        <!-- Metric Item Start -->
+        <div
+            class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-violet-50 dark:bg-violet-950/50 px-6 pb-5 pt-6">
+            <div class="mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-microchip h-8 w-8 bg-violet-500/10 p-2 rounded-md text-violet-500"></i>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                        CPU
+                    </h3>
+                    <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+                        usada
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex items-end justify-between">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="consumo_geral_cpu_sistema">
+                        0
+                    </h4>
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-blue-50 dark:bg-blue-950/50 px-6 pb-5 pt-6">
+            <div class="mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-memory w-8 h-8 bg-blue-500/10 p-2 rounded-md text-blue-500"></i>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                        Memória
+                    </h3>
+                    <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+                        usada
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex items-end justify-between">
+                <div>
+                    <h4 class="text-md font-semibold text-gray-800 dark:text-white/90"
+                        id="consumo_geral_memoria_sistema">
+                        0
+                    </h4>
+                </div>
+
+                <span
+                    class="flex items-center gap-1 rounded-full bg-blue-100 py-0.5 pl-2 pr-2.5 text-xs font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-500">
+                    <i class="fa-solid fa-percentage"></i>
+                    <span id="consumo_geral_memoria_sistema_percentage">0%</span>
+                </span>
+            </div>
+        </div>
+
+        <div
+            class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-cyan-50 dark:bg-cyan-950/50 px-6 pb-5 pt-6">
+            <div class="mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-hard-drive w-8 h-8 bg-cyan-500/10 p-2 rounded-md text-cyan-500"></i>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                        Disco
+                    </h3>
+                    <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+                        utilizado
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex items-end justify-between">
+                <div>
+                    <h4 class="text-md font-semibold text-gray-800 dark:text-white/90" id="consumo_geral_disco_sistema">
+                        0
+                    </h4>
+                </div>
+
+                <span
+                    class="flex items-center gap-1 rounded-full bg-cyan-100 py-0.5 pl-2 pr-2.5 text-xs font-medium text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-500">
+                    <i class="fa-solid fa-percentage"></i>
+                    <span id="consumo_geral_disco_sistema_percentage">0%</span>
+                </span>
+            </div>
+        </div>
+
+        <div
+            class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-green-50 dark:bg-green-950/50 px-6 pb-5 pt-6">
+            <div class="mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-dollar-sign h-8 w-8 bg-green-500/10 p-2 rounded-md text-green-400"></i>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                        Lucro
+                    </h3>
+                    <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+                        mensal
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex items-end justify-between">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90" id="total_vendas_dashboard">
+                        R$ 0,00
+                    </h4>
+                </div>
+
+                <span id="porcentagem_vendas_dashboard_alerta"
+                    class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-xs font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                    <span id="porcentagem_vendas_dashboard">0%</span>
+                </span>
+            </div>
+        </div>
+        <!-- Metric Item End -->
     </div>
 
-    <!-- Últimas Vendas -->
-    <div
-      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-boxes-packing text-blue-600"></i> Produtos
-        </h2>
-        <button onclick="loadPage('produtos/resumo')" type="button"
-          class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-color">
-          <i class="fa-solid fa-square-arrow-up-right"></i>
-          Ver mais
-        </button>
-      </div>
-      <div class="overflow-x-auto max-h-96 relative sm:rounded-lg">
-        <div id="produtos_tabela_dashboard_sem_produtos"
-          class="p-2 text-sm h-80 text-gray-500 dark:text-gray-400 flex justify-center items-center flex-col">
-          <i class="fa-solid fa-boxes-stacked text-5xl"></i>
-          Nenhum produto cadastrado
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Gráfico de Barras -->
+        <div
+            class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i>
+                    Vendas
+                    Mensais
+                </h2>
+                <button onclick="loadPage('/vendas/resumo')"
+                    class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
+                    <i class="fa-solid fa-square-arrow-up-right"></i>
+                    Ver mais
+                </button>
+            </div>
+            <canvas class="max-h-64" id="chartVendasMensais"></canvas>
         </div>
-        <table id="ultimos_produtos_dashboard_table"
-          class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-950 text-gray-600 dark:text-gray-200">
-            <tr>
-              <th class="p-2">#ID</th>
-              <th class="p-2">Produto</th>
-              <th class="p-2">Mínimo</th>
-              <th class="p-2">Estoque</th>
-              <th class="p-2">Valor</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900"
-            id="ultimos_produtos_dashboard_tabela">
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div
-      class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-box-open text-red-600"></i> Estoques baixos
-        </h2>
-        <button onclick="loadPage('produtos/resumo')" type="button"
-          class="border-2 border-gray-300 text-gray-950 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-color">
-          <i class="fa-solid fa-square-arrow-up-right"></i>
-          Ver mais
-        </button>
-      </div>
-      <div class="overflow-x-auto max-h-96 relative sm:rounded-lg">
-        <div id="produtos_em_baixa_dashboard_sem_produtos"
-          class="p-2 text-sm h-80 text-gray-500 dark:text-gray-400 flex justify-center items-center flex-col">
-          <i class="fa-solid fa-box-open text-5xl"></i>
-          Nenhum produto em baixa
+
+        <!-- Gráfico de Linhas -->
+        <div
+            class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i>
+                    Saldo mensal
+                </h2>
+                <button onclick="loadPage('/lancamentos/resumo')"
+                    class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
+                    <i class="fa-solid fa-square-arrow-up-right"></i>
+                    Ver mais
+                </button>
+            </div>
+            <canvas class="max-h-64" id="grafico_saldo_mensal"></canvas>
         </div>
-        <table id="produtos_em_baixa_dashboard_table"
-          class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-950 text-gray-600 dark:text-gray-200">
-            <tr>
-              <th class="p-2">#ID</th>
-              <th class="p-2">Produto</th>
-              <th class="p-2">Mínimo</th>
-              <th class="p-2">Estoque</th>
-              <th class="p-2">Valor</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900"
-            id="produtos_em_baixa_dashboard_tabela">
-          </tbody>
-        </table>
-      </div>
     </div>
-  </div>
 </div>
 
 <script>
-  switchToFullScreen();
+    switchToFullScreen();
 
-  flatpickr("#filtro_dashboard_periodo", {
-    mode: "range",
-    altInput: true,
-    altFormat: "d/m/Y",
-    dateFormat: "Y-m-d",
-    locale: "pt",
-    onReady: function (selectedDates, dateStr, instance) {
-      if (localStorage.getItem("filtro_dashboard_periodo")) {
-        instance.setDate(localStorage.getItem("filtro_dashboard_periodo"));
-      }
-      if (localStorage.getItem("filtro_dashboard_periodo")) {
-        $("#limpar_filtro_dashboard_periodo").removeClass("hidden");
-      } else {
-        $("#limpar_filtro_dashboard_periodo").addClass("hidden");
-      }
+    flatpickr("#filtro_dashboard_gerencia_periodo", {
+        mode: "range",
+        altInput: true,
+        altFormat: "d/m/Y",
+        dateFormat: "Y-m-d",
+        locale: "pt",
+        onReady: function (selectedDates, dateStr, instance) {
+            if (localStorage.getItem("filtro_dashboard_gerencia_periodo")) {
+                instance.setDate(localStorage.getItem("filtro_dashboard_gerencia_periodo"));
+            }
+            if (localStorage.getItem("filtro_dashboard_gerencia_periodo")) {
+                $("#limpar_filtro_dashboard_gerencia_periodo").removeClass("hidden");
+            } else {
+                $("#limpar_filtro_dashboard_gerencia_periodo").addClass("hidden");
+            }
 
-      $("#limpar_filtro_dashboard_periodo").click(function () {
-        instance.clear();
-        localStorage.removeItem("filtro_dashboard_periodo");
-        loadPage('/resumos');
-      })
-    },
-    onChange: function (selectedDates, dateStr, instance) {
-      if (selectedDates.length === 2) {
-        $("#limpar_filtro_dashboard_periodo").removeClass("hidden");
-        localStorage.setItem("filtro_dashboard_periodo", dateStr);
-        loadPage('/resumos');
-      } else {
-        $("#limpar_filtro_dashboard_periodo").addClass("hidden");
-      }
+            $("#limpar_filtro_dashboard_gerencia_periodo").click(function () {
+                instance.clear();
+                localStorage.removeItem("filtro_dashboard_gerencia_periodo");
+                loadPage('/resumos');
+            })
+        },
+        onChange: function (selectedDates, dateStr, instance) {
+            if (selectedDates.length === 2) {
+                $("#limpar_filtro_dashboard_gerencia_periodo").removeClass("hidden");
+                localStorage.setItem("filtro_dashboard_gerencia_periodo", dateStr);
+                loadPage('/resumos');
+            } else {
+                $("#limpar_filtro_dashboard_gerencia_periodo").addClass("hidden");
+            }
+        }
+    });
+
+    function chartBySaldoMensal(data) {
+        new Chart(document.getElementById('grafico_saldo_mensal'), {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: data.datasets,
+            },
+            options: {
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    title: {
+                        display: false
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+                        }
+                    },
+                }
+            }
+        });
     }
-  });
 
-  function chartBySaldoMensal(data) {
-    new Chart(document.getElementById('grafico_saldo_mensal'), {
-      type: 'line',
-      data: {
-        labels: data.labels,
-        datasets: data.datasets,
-      },
-      options: {
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        plugins: {
-          title: {
-            display: false
-          },
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          y: {
-            ticks: {
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+    function generateChartVendas(data) {
+        // Gráfico de Barras
+        new Chart(document.getElementById('chartVendasMensais'), {
+            type: 'bar',
+            data,
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: false,
+                    },
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+                        },
+                    },
+                    y1: {
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+                        },
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Valor Total (R$)',
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+                        },
+                        stacked: false,
+                    },
+                    y2: {
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+                        },
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Quantidade de Vendas',
+                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                        stacked: false,
+                    },
+                },
+                elements: {
+                    bar: {
+                        borderRadius: 6
+                    }
+                }
             }
-          },
-          x: {
-            ticks: {
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
+        });
+    }
+
+    function getDadosDashboard() {
+        const periodo = document.querySelector("#filtro_dashboard_gerencia_periodo")._flatpickr.selectedDates;
+        $.ajax({
+            url: '/api/system/monitor/metrics',
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+            },
+            success: function (data) {
+                $("#consumo_geral_disco_sistema").text(`${data.disk?.free?.gb?.toFixed(1)} GB livres`);
+                $("#consumo_geral_disco_sistema_percentage").text(`${data.disk?.usagePercent}%`);
+                $("#consumo_geral_memoria_sistema").text(`${data.memory?.free?.gb?.toFixed(1)} GB / ${data.memory?.total?.gb?.toFixed(1)} GB`);
+                $("#consumo_geral_memoria_sistema_percentage").text(`${data.memory?.usagePercent}%`);
+                $("#consumo_geral_cpu_sistema").text(`${data?.cpuUsage}%`);
+            },
+            error: function (error) {
+                console.log(error);
             }
-          },
-        }
-      }
-    });
-  }
+        });
 
-  function generateChartVendas(data) {
-    // Gráfico de Barras
-    new Chart(document.getElementById('chartVendasMensais'), {
-      type: 'bar',
-      data,
-      options: {
-        responsive: true,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
-        scales: {
-          x: {
-            ticks: {
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+        $.ajax({
+            url: '/api/vendas/resumo/mensal',
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
             },
-          },
-          y1: {
-            ticks: {
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
+            success: function (data) {
+                generateChartVendas(data.data);
             },
-            type: 'linear',
-            position: 'left',
-            title: {
-              display: true,
-              text: 'Valor Total (R$)',
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-            },
-            stacked: false,
-          },
-          y2: {
-            ticks: {
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-            },
-            type: 'linear',
-            position: 'right',
-            title: {
-              display: true,
-              text: 'Quantidade de Vendas',
-              color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-            },
-            grid: {
-              drawOnChartArea: false,
-            },
-            stacked: false,
-          },
-        },
-        elements: {
-          bar: {
-            borderRadius: 6
-          }
-        }
-      }
-    });
-  }
+            error: function (error) {
+                console.log(error);
+            }
+        });
 
-  function getDadosDashboard() {
-    const periodo = document.querySelector("#filtro_dashboard_periodo")._flatpickr.selectedDates;
-    $.ajax({
-      url: '/dashboard/resumo',
-      method: 'GET',
-      data: (() => {
-        if (periodo.length === 2) {
-          const start = new Date(periodo[0]);
-          const end = new Date(periodo[1]);
+        fetch(`/api/lancamentos/graficos/saldo-mensal`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
+            }
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                chartBySaldoMensal(data);
+            });
+    }
 
-          const isSameDay = start.toDateString() === end.toDateString();
-
-          if (isSameDay) {
-            start.setHours(0, 1, 0, 0);   // 00:01
-            end.setHours(23, 59, 0, 0);  // 23:59
-          }
-
-          return {
-            inicio: start.toISOString(),
-            fim: end.toISOString()
-          };
-        }
-
-        return { inicio: null, fim: null };
-      })(),
-      dataType: 'json',
-      headers: {
-        'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
-      },
-      success: function ({ data }) {
-        $("#total_vendas_dashboard").text(data.vendasCount);
-        $("#porcentagem_vendas_dashboard").text(data.percentageByLastMonth.toFixed(2) + "%");
-        data.percentageByLastMonth >= 0 ? $("#porcentagem_vendas_dashboard_alerta").addClass("bg-green-200 dark:bg-green-900 text-green-900 dark:text-green-200") : $("#porcentagem_vendas_dashboard_alerta").addClass("bg-red-200 dark:bg-red-900 text-red-900 dark:text-red-200");
-        $("#total_produtos_dashboard").text(data.produtos.length);
-        $("#produtos_em_baixa_dashboard").text(data.estoquesBaixos.length);
-        $("#produtos_em_baixa_dashboard_alerta").html(data.estoquesBaixos.length > 0
-          ? `<i class="fa-solid fa-triangle-exclamation"></i>
-          Atenção!`
-          : `<i class="fa-solid fa-check-to-slot"></i>
-          Estoque Ok!`);
-        $("#total_clientes_dashboard").text(data.clientes);
-
-        if (data.produtos.length > 0) {
-          $("#produtos_tabela_dashboard_sem_produtos").addClass("hidden");
-          $("#ultimos_produtos_dashboard_table").removeClass("hidden");
-          $("#ultimos_produtos_dashboard_tabela").empty();
-          data.produtos.forEach(produto => {
-            $("#ultimos_produtos_dashboard_tabela").append(`
-            <tr class="border-t">
-              <td class="p-2">${produto.id}</td>
-              <td class="p-2 truncate">${produto.nome}</td>
-              <td class="p-2">${produto.minimo}</td>
-              <td class="p-2">${produto.estoque}</td>
-              <td class="p-2">R$ ${produto.preco}</td>
-            </tr>
-          `);
-          });
-        }else {
-          $("#ultimos_produtos_dashboard_table").addClass("hidden");
-          $("#produtos_tabela_dashboard_sem_produtos").removeClass("hidden");
-        }
-
-        if (data.estoquesBaixos.length > 0) {
-          $("#produtos_em_baixa_dashboard_sem_produtos").addClass("hidden");
-          $("#produtos_em_baixa_dashboard_table").removeClass("hidden");
-
-          $("#produtos_em_baixa_dashboard_tabela").empty();
-          data.estoquesBaixos.forEach(produto => {
-            $("#produtos_em_baixa_dashboard_tabela").append(`
-            <tr class="border-t">
-              <td class="p-2">${produto.id}</td>
-              <td class="p-2 truncate">${produto.nome}</td>
-              <td class="p-2">${produto.minimo}</td>
-              <td class="p-2">${produto.estoque}</td>
-              <td class="p-2">R$ ${produto.preco}</td>
-            </tr>
-          `);
-          });
-        } else {
-          $("#produtos_em_baixa_dashboard_table").addClass("hidden");
-          $("#produtos_em_baixa_dashboard_sem_produtos").removeClass("hidden");
-        }
-      },
-      error: function (error) {
-        console.log(error);
-      }
-    });
-
-    $.ajax({
-      url: '/vendas/resumo/mensal',
-      method: 'GET',
-      dataType: 'json',
-      headers: {
-        'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
-      },
-      success: function (data) {
-        generateChartVendas(data.data);
-      },
-      error: function (error) {
-        console.log(error);
-      }
-    });
-
-    fetch(`/lancamentos/graficos/saldo-mensal`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
-      }
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        chartBySaldoMensal(data);
-      });
-  }
-
-  getDadosDashboard();
+    getDadosDashboard();
 </script>

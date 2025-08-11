@@ -29,7 +29,7 @@
         stateSave: true,
         ajax: {
             type: "GET",
-            url: `/lancamentos/getDataTable`,
+            url: `/api/lancamentos/getDataTable`,
             data: function (d) {
                 d.tipo = $("#tipoLancamentoFiltroLancamento").val() || null;
                 d.conta = $("#contasFinanceiroFiltroLancamento").val() || null;

@@ -114,7 +114,7 @@
     const container = document.querySelector("#lancamentos-lista-mobile");
     $.ajax({
       type: "GET",
-      url: `/lancamentos/mobile/data`,
+      url: `/api/lancamentos/mobile/data`,
       data: {
         search: $("#search-input-lancamentos-mobile").val(),
         limit: "10",

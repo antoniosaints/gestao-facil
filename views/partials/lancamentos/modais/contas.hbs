@@ -86,7 +86,7 @@
         e.preventDefault();
 
         $.ajax({
-            url: '/lancamentos/contas',
+            url: '/api/lancamentos/contas',
             type: 'POST',
             data: $(this).serialize(),
             dataType: 'json',

@@ -85,7 +85,7 @@
         const formData = new FormData(this);
 
         $.ajax({
-            url: "/uploads/profile",
+            url: "/api/uploads/profile",
             type: "POST",
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,

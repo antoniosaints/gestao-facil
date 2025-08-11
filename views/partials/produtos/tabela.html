@@ -30,7 +30,7 @@
         stateSave: true,
         ajax: {
             type: "GET",
-            url: `/produtos`,
+            url: `/api/produtos`,
             beforeSend: function (xhr) {
                 $("#tabela_produtos_listagem_principal_container").fadeOut();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");

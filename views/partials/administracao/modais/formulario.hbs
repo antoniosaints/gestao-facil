@@ -158,7 +158,7 @@
         if (id) {
             $("#idUsuarioFormulario").val(id);
             $.ajax({
-                url: `/usuarios/get/${id}`,
+                url: `/api/usuarios/get/${id}`,
                 type: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
@@ -248,7 +248,7 @@
         e.preventDefault();
 
         $.ajax({
-            url: "/usuarios/salvar",
+            url: "/api/usuarios/salvar",
             method: "POST",
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")

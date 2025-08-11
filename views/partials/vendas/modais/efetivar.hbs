@@ -141,7 +141,7 @@
         width: '100%',
         language: "pt-BR",
         ajax: {
-            url: '/lancamentos/contas/select2',
+            url: '/api/lancamentos/contas/select2',
             dataType: 'json',
             delay: 250,
             headers: {
@@ -165,7 +165,7 @@
         width: '100%',
         language: "pt-BR",
         ajax: {
-            url: '/lancamentos/categorias/select2',
+            url: '/api/lancamentos/categorias/select2',
             dataType: 'json',
             delay: 250,
             headers: {
@@ -201,7 +201,7 @@
         }
 
         $.ajax({
-            url: `/vendas/efetivar/${id}`,
+            url: `/api/vendas/efetivar/${id}`,
             method: 'POST',
             data: $('#modalFormularioEfetivarVendas').serialize(),
             headers: {

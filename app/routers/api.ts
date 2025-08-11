@@ -8,17 +8,19 @@ import { routerLancamentos } from "./lancamentos/router";
 import { routerPrinter } from "./impressao/router";
 import routerUploads from "./uploads/router";
 import { routerUsuarios } from "./administracao/usuarios/router";
+import { routerGerencia } from "./gerencia/router";
 
 const RouterMain = Router();
 
-RouterMain.use("/contas", routerContas);
-RouterMain.use("/produtos", routerProdutos);
-RouterMain.use("/usuarios", routerUsuarios);
-RouterMain.use("/clientes", routerClientes);
-RouterMain.use("/lancamentos", routerLancamentos);
-RouterMain.use("/vendas", routerVendas);
-RouterMain.use("/printer", routerPrinter);
-RouterMain.use("/system", monitorRouter);
-RouterMain.use("/uploads", routerUploads);
+RouterMain.use("/api/contas", routerContas);
+RouterMain.use("/api/produtos", routerProdutos);
+RouterMain.use("/api/usuarios", routerUsuarios);
+RouterMain.use("/api/clientes", routerClientes);
+RouterMain.use("/api/gerencia/", routerGerencia);
+RouterMain.use("/api/lancamentos", routerLancamentos);
+RouterMain.use("/api/vendas", routerVendas);
+RouterMain.use("/api/printer", routerPrinter);
+RouterMain.use("/api/system", monitorRouter);
+RouterMain.use("/api/uploads", routerUploads);
 
 export { RouterMain };

@@ -21,7 +21,7 @@
 
 <script>
     function atualizarLogoSistema() {
-        fetch(`/contas/infos`, {
+        fetch(`/api/contas/infos`, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,

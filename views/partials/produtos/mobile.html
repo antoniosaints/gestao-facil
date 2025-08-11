@@ -70,7 +70,7 @@
     const container = document.querySelector("#produtos-lista-mobile");
     $.ajax({
       type: "GET",
-      url: `/produtos/mobile/data`,
+      url: `/api/produtos/mobile/data`,
       data: {
         search: $("#search-input-produtos-mobile").val(),
         limit: "10",

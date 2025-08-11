@@ -95,7 +95,7 @@
         width: '100%',
         language: "pt-BR",
         ajax: {
-            url: '/lancamentos/categorias/select2',
+            url: '/api/lancamentos/categorias/select2',
             dataType: 'json',
             delay: 250,
             headers: {
@@ -118,7 +118,7 @@
         e.preventDefault();
 
         $.ajax({
-            url: '/lancamentos/categorias',
+            url: '/api/lancamentos/categorias',
             type: 'POST',
             data: $(this).serialize(),
             dataType: 'json',

@@ -29,7 +29,7 @@
 <script>
   async function gerarCupomPorVendaId(vendaId) {
     try {
-      const resp = await fetch(`/vendas/cupom-pdf/${vendaId}`, {
+      const resp = await fetch(`/api/vendas/cupom-pdf/${vendaId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
         },
@@ -74,7 +74,7 @@
         $.ajax({
           dataType: "json",
           type: "GET",
-          url: `/vendas/estornar/${id}`,
+          url: `/api/vendas/estornar/${id}`,
           beforeSend: function (xhr) {
             const tokenJWT = localStorage.getItem("gestao_facil:token");
             if (tokenJWT) {
@@ -128,7 +128,7 @@
         $.ajax({
           dataType: "json",
           type: "DELETE",
-          url: `/vendas/${id}`,
+          url: `/api/vendas/${id}`,
           beforeSend: function (xhr) {
             const tokenJWT = localStorage.getItem("gestao_facil:token");
             if (tokenJWT) {

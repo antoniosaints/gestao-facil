@@ -62,7 +62,7 @@
         $("#formularioProdutosreposicaoRelatorio").submit(function (e) {
             e.preventDefault();
             const orderBy = $("#data_ordenar_relatorio_reposicao").val();
-            fetch(`/produtos/relatorio/reposicao/${id}?orderBy=${orderBy}`, {
+            fetch(`/api/produtos/relatorio/reposicao/${id}?orderBy=${orderBy}`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/pdf",

@@ -1,9 +1,9 @@
 <div class="h-[calc(100vh + 5rem)] flex flex-col justify-center">
-    <h2 class="text-xl md:text-2xl font-bold text-primary dark:text-primary-dark mb-6" id="titulo_detalhes_venda">
-        <i class="fa-solid fa-tags"></i> Detalhes da Venda
+    <h2 class="text-xl md:text-2xl font-bold mb-6" id="titulo_detalhes_venda">
+        <i class="fa-solid fa-tags text-green-600"></i> Detalhes da Venda
     </h2>
     <div
-        class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-md shadow-md w-full h-full">
+        class="border bg-gray-50 dark:bg-gray-800 border-border dark:border-border-dark p-6 rounded-md shadow-md w-full h-full">
         <!-- Informações da Venda -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
             <div>
@@ -22,7 +22,7 @@
         <h3 class="text-md font-medium mb-3">Itens Vendidos</h3>
         <div class="relative overflow-x-auto shadow-md sm:rounded-lg border border-border dark:border-border-dark">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-200 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
                         <th class="px-4 py-2 text-left">Produto</th>
                         <th class="px-4 py-2 text-right">Qtd</th>
@@ -45,24 +45,30 @@
         </div>
 
         <div class="mt-6">
-            <button type="button" onclick="loadPage('vendas/resumo')"
-                class="bg-secondary text-sm hover:opacity-90 text-white px-3 py-1.5 rounded-md">
-                <i class="fa-solid fa-backward"></i> <div class="hidden md:block">Voltar</div>
-            </button>
-            <button id="imprimir_cupom_venda" class="bg-primary text-sm text-white px-3 py-1.5 rounded-md">
-                <i class="fa-solid fa-file-pdf"></i>
-                <div class="hidden md:block">Cupom N/F</div>
-            </button>
-            <button onclick="editarVenda(localStorage.getItem('vendaId'))"
-                class="bg-info text-sm text-white px-3 py-1.5 rounded-md">
-                <i class="fa-solid fa-pen-to-square"></i>
-                <div class="hidden md:block">Editar</div>
-            </button>
-            <button onclick="excluirVenda(localStorage.getItem('vendaId'), true)"
-                class="bg-danger text-sm text-white px-3 py-1.5 rounded-md">
-                <i class="fa-solid fa-trash-can"></i>
-                <div class="hidden md:block">Excluir</div>
-            </button>
+            <div class="flex justify-between">
+                <div class="flex gap-2">
+                    <button type="button" onclick="loadPage('vendas/resumo')"
+                        class="text-sm hover:opacity-90 border flex justify-center items-center gap-2 border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 px-3 py-1.5 rounded-lg">
+                        <i class="fa-solid fa-backward"></i>
+                        <div class="hidden md:block">Voltar</div>
+                    </button>
+                    <button id="imprimir_cupom_venda"
+                        class="text-sm hover:opacity-90 border flex justify-center items-center gap-2 border-orange-700 text-orange-900 bg-orange-100 dark:border-orange-500 dark:bg-orange-950 dark:text-orange-100 px-3 py-1.5 rounded-lg">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        <div class="hidden md:block">Cupom N/F</div>
+                    </button>
+                    <button onclick="editarVenda(localStorage.getItem('vendaId'))"
+                        class="text-sm hover:opacity-90 border flex justify-center items-center gap-2 border-green-700 text-green-900 bg-green-100 dark:border-green-500 dark:bg-green-950 dark:text-green-100 px-3 py-1.5 rounded-lg">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <div class="hidden md:block">Editar</div>
+                    </button>
+                </div>
+                <button onclick="excluirVenda(localStorage.getItem('vendaId'), true)"
+                    class="text-sm hover:opacity-90 border flex justify-center items-center gap-2 border-red-700 text-red-900 bg-red-100 dark:border-red-500 dark:bg-red-950 dark:text-red-100 px-3 py-1.5 rounded-lg">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <div class="hidden md:block">Excluir</div>
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -128,7 +134,7 @@
     // Busca e imprime o cupom
     async function imprimirCupomPorVendaId(vendaId) {
         try {
-            const resp = await fetch(`/vendas/cupom/${vendaId}`, {
+            const resp = await fetch(`/api/vendas/cupom/${vendaId}`, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
                 },
@@ -154,7 +160,7 @@
     }
     async function gerarCupomPorVendaId(vendaId) {
         try {
-            const resp = await fetch(`/vendas/cupom-pdf/${vendaId}`, {
+            const resp = await fetch(`/api/vendas/cupom-pdf/${vendaId}`, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
                 },
@@ -177,7 +183,7 @@
 
     (() => {
         $.ajax({
-            url: '/vendas/' + localStorage.getItem("vendaId"),
+            url: '/api/vendas/' + localStorage.getItem("vendaId"),
             method: 'GET',
             dataType: 'json',
             headers: {
@@ -197,7 +203,7 @@
             success: function (response) {
                 Swal.close();
                 const cliente = response.data.cliente ? response.data.cliente.nome : 'N/A'
-                $("#titulo_detalhes_venda").html(`<i class="fa-solid fa-tags"></i> Detalhes da Venda #${response.data.id}`);
+                $("#titulo_detalhes_venda").html(`<i class="fa-solid fa-tags text-green-600"></i> Detalhes da Venda`);
                 $("#id_venda_detalhes").text(`#${response.data.id}`);
                 $("#imprimir_cupom_venda").click(() => gerarCupomPorVendaId(response.data.id));
                 $("#cliente_venda_detalhes").text(`${cliente}`);

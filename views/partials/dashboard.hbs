@@ -384,7 +384,7 @@
   function getDadosDashboard() {
     const periodo = document.querySelector("#filtro_dashboard_periodo")._flatpickr.selectedDates;
     $.ajax({
-      url: '/dashboard/resumo',
+      url: '/api/dashboard/resumo',
       method: 'GET',
       data: (() => {
         if (periodo.length === 2) {
@@ -470,7 +470,7 @@
     });
 
     $.ajax({
-      url: '/vendas/resumo/mensal',
+      url: '/api/vendas/resumo/mensal',
       method: 'GET',
       dataType: 'json',
       headers: {
@@ -484,7 +484,7 @@
       }
     });
 
-    fetch(`/lancamentos/graficos/saldo-mensal`, {
+    fetch(`/api/lancamentos/graficos/saldo-mensal`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,

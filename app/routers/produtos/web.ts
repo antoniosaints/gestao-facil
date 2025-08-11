@@ -10,13 +10,22 @@ import { ResponseHandler } from "../../utils/response";
 
 const webRouterProdutos = Router();
 
-webRouterProdutos.get("/resumo", authenticateJWT, async (req, res): Promise<any> => {
-  const customData = getCustomRequest(req).customData;
-  if (!(await hasPermission(customData, 3))) {
-    return ResponseHandler(res, "Nível de permissão insuficiente!", null, 403);
+webRouterProdutos.get(
+  "/resumo",
+  authenticateJWT,
+  async (req, res): Promise<any> => {
+    const customData = getCustomRequest(req).customData;
+    if (!(await hasPermission(customData, 3))) {
+      return ResponseHandler(
+        res,
+        "Nível de permissão insuficiente!",
+        null,
+        403
+      );
+    }
+    return renderFileAuth(req, res, "partials/produtos/index.html");
   }
-  return renderFileAuth(req, res, "partials/produtos/index.html");
-});
+);
 webRouterProdutos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/produtos/tabela.html");
 });
@@ -69,7 +78,15 @@ webRouterProdutos.get("/detalhes/:id", authenticateJWT, async (req, res) => {
 
   lucroLiquido = totalVendido.minus(totalGasto || 0) || 0;
 
-  renderSimple(req, res, "partials/produtos/detalhes", { produto, resumo: { totalGasto: formatCurrency(totalGasto), lucroLiquido: formatCurrency(lucroLiquido), totalEntradas, totalSaidas } });
+  renderSimple(req, res, "partials/produtos/detalhes", {
+    produto,
+    resumo: {
+      totalGasto: formatCurrency(totalGasto),
+      lucroLiquido: formatCurrency(lucroLiquido),
+      totalEntradas,
+      totalSaidas,
+    },
+  });
 });
 
 export { webRouterProdutos };

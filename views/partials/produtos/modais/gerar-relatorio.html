@@ -24,7 +24,7 @@
 
 <script>
   function baixarRelatorioProduto() {
-    fetch("/produtos/relatorio", {
+    fetch("/api/produtos/relatorio", {
       method: "GET",
       headers: {
         "Content-Type": "application/pdf",

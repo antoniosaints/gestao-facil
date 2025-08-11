@@ -107,7 +107,7 @@
         if (dataInicio === '') return showNotification('Selecione uma data de inicio.', "error");
         if (dataFim === '') return showNotification('Selecione uma data de fim.', "error");
 
-        fetch(`/lancamentos/relatorios/dre-pdf${version === 2 ? '-2' : ''}?inicio=${dataInicio}&fim=${dataFim}`, {
+        fetch(`/api/lancamentos/relatorios/dre-pdf${version === 2 ? '-2' : ''}?inicio=${dataInicio}&fim=${dataFim}`, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,

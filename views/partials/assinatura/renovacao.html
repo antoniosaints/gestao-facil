@@ -96,7 +96,7 @@
             });
         }
         $.ajax({
-            url: '/contas/assinatura/status',
+            url: '/api/contas/assinatura/status',
             method: 'GET',
             dataType: 'json',
             headers: {
@@ -125,7 +125,7 @@
                     $('#pagamento_fatura_atual_assinatura_text').text("Gerar pagamento");
                     $('#pagamento_fatura_atual_assinatura').click(() => {
                         $.ajax({
-                            url: '/contas/assinatura/mercadopago',
+                            url: '/api/contas/assinatura/mercadopago',
                             method: 'GET',
                             dataType: 'json',
                             headers: {

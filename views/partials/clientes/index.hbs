@@ -47,7 +47,7 @@
           headers: {
             "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token")
           },
-          url: `/clientes/${id}`,
+          url: `/api/clientes/${id}`,
           beforeSend: function (xhr) {
             Swal.fire({
               title: "Carregando...",

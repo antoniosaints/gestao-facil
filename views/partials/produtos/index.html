@@ -76,7 +76,7 @@
         $.ajax({
           dataType: "json",
           type: "DELETE",
-          url: `/produtos/${id}`,
+          url: `/api/produtos/${id}`,
           beforeSend: function (xhr) {
             const tokenJWT = localStorage.getItem("gestao_facil:token");
             if (tokenJWT) {
