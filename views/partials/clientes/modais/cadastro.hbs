@@ -8,7 +8,7 @@
 
         <!-- Cabeçalho -->
         <div
-            class="bg-card dark:bg-card-dark px-6 py-4 flex justify-between items-center">
+            class="bg-inherit border-b border-border dark:border-border-dark px-6 py-4 flex justify-between items-center">
             <h2 class="text-xl font-bold"><i class="fa-solid fa-user-tag text-purple-600"></i> Novo Cliente</h2>
             <button onclick="closeModalClientes()" class="text-gray-800 dark:text-white hover:text-gray-400 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,6 @@
                     <input type="text" id="nomeCliente" name="nome" required placeholder="Nome do cliente"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <div class="md:col-span-4">
                     <label for="telefoneCliente" class="block text-sm font-medium mb-1">
                         Telefone
@@ -36,14 +35,12 @@
                     <input type="text" id="telefoneCliente" name="telefone" placeholder="Telefone"
                         class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <!-- Código -->
                 <div class="md:col-span-4 lg:col-span-6">
                     <label for="cpfCnpjCliente" class="block text-sm font-medium mb-1">CPF/CNPJ</label>
                     <input type="text" id="cpfCnpjCliente" name="documento" placeholder="CPF/CNPJ"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <!-- Preço -->
                 <div class="md:col-span-4 lg:col-span-6">
                     <label for="contatoCliente" class="block text-sm font-medium mb-1">
@@ -52,7 +49,6 @@
                     <input type="text" id="contatoCliente" name="whastapp" placeholder="WhatsApp"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <!-- Permitir Entrada e Saída de Estoque -->
                 <div class="md:col-span-12 lg:col-span-12 grid grid-cols-1 md:grid-cols-12 items-center">
                     <span class="block text-sm font-medium mb-0 md:col-span-12">
@@ -90,9 +86,7 @@
                             </label>
                         </div>
                     </div>
-
                 </div>
-
                 <!-- Estoque Inicial -->
                 <div class="md:col-span-6">
                     <label for="emailCliente" class="block text-sm font-medium mb-1">
@@ -101,7 +95,6 @@
                     <input type="email" id="emailCliente" name="email" placeholder="E-mail"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <!-- Estoque Mínimo -->
                 <div class="md:col-span-6">
                     <label for="enderecoCliente" class="block text-sm font-medium mb-1">
@@ -110,7 +103,6 @@
                     <input type="text" id="enderecoCliente" name="endereco" placeholder="Endereço"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <!-- Unidade de medida -->
                 <div class="md:col-span-4">
                     <label for="cidadeCliente" class="block text-sm font-medium mb-1">
@@ -135,7 +127,6 @@
                     <input type="text" id="cepCliente" name="cep" placeholder="CEP"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
-
                 <!-- Observação -->
                 <div class="md:col-span-12">
                     <label for="descricaoCliente" class="block text-sm font-medium mb-1">Observação</label>
@@ -145,21 +136,19 @@
                 </div>
             </div>
             <!-- Rodapé -->
-            <div class="px-6 py-4 bg-card dark:bg-card-dark">
+            <div class="px-6 py-4 bg-inherit border-t border-border dark:border-border-dark">
                 <div class="flex gap-3">
                     <button type="submit"
                         class="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow transition">
                         Salvar
                     </button>
                     <button type="button" onclick="closeModalClientes()"
-                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                        class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-800 rounded-md transition">
                         Cancelar
                     </button>
                 </div>
             </div>
         </form>
-
-
     </div>
 </div>
 

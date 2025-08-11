@@ -93,6 +93,12 @@ function MaskMoneyNative(element) {
   });
 }
 
+function getValueInputMoney(element) {
+  const valor = $(element).val().replace(/\D/g, "");
+  const numero = parseFloat(String(valor).replace(",", "."));
+  return numero;
+}
+
 function MaskToInputPercentage(element) {
   return IMask(element, {
     mask: "num",

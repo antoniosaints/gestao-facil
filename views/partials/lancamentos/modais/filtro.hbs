@@ -3,7 +3,7 @@
     <div id="sheetContainerFiltroFinanceiro"
         class="bg-gray-100 dark:bg-background-dark w-full max-w-xl mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
         <div
-            class="bg-card dark:bg-card-dark px-6 py-4 flex justify-between items-center">
+            class="bg-inherit border-b border-border dark:border-border-dark px-6 py-4 flex justify-between items-center">
             <h2 class="text-xl font-bold"><i class="fa-solid fa-filter text-emerald-600"></i> Filtrar Lançamentos</h2>
             <button onclick="closeModalFiltroFinanceiro()"
                 class="text-gray-800 dark:text-white hover:text-gray-400 transition">
@@ -118,7 +118,7 @@
         </div>
 
         <!-- Rodapé -->
-        <div class="px-6 py-4 bg-card dark:bg-card-dark">
+        <div class="px-6 py-4 bg-inherit border-t border-border dark:border-border-dark">
             <div class="flex gap-3">
                 <button type="button" id="buttonSubmitFiltroFinanceiro"
                     class="w-full px-4 py-2 cursor-pointer flex justify-center items-center gap-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow transition">
@@ -126,7 +126,7 @@
                     Filtrar
                 </button>
                 <button type="button" onclick="closeModalFiltroFinanceiro()"
-                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-800 rounded-md transition">
                     Cancelar
                 </button>
             </div>
@@ -273,19 +273,4 @@
 
         closeModalFiltroFinanceiro();
     })
-
-    document.querySelector("#valorEntrada").addEventListener("input", (e) => {
-        const hasValue = e.target.value;
-        const dataEntrada = document.querySelector("#dataEntrada");
-        if (hasValue) {
-            dataEntrada.required = true;
-            dataEntrada.value = new Date().toISOString().split('T')[0];
-            dataEntrada.disabled = false;
-        } else {
-            dataEntrada.required = false;
-            dataEntrada.value = null;
-            dataEntrada.disabled = true;
-        }
-    });
-
 </script>

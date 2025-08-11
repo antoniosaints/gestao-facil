@@ -134,9 +134,8 @@ export const tableLancamentos = async (
           : undefined,
     })
     .search({
-      id: "number",
       descricao: "string",
-      valorTotal: "decimal",
+      Uid: "string",
     })
     .edit("Uid", function (row) {
       return formatLabelId(row);
@@ -166,11 +165,11 @@ export const tableLancamentos = async (
         },
       });
 
-      if (parcelas.length <= 1 ) {
+      if (!row.recorrente) {
         return formatLabel("à vista", "green", "fa-solid fa-money-bill");
       }
 
-      return formatLabel(`${parcelas.length} vezes`, "blue", "fa-solid fa-receipt");
+      return formatLabel(`${parcelas.length} ${parcelas.length === 1 ? "vez" : "vezes"}`, "blue", "fa-solid fa-receipt");
     })
     .addColumn("acoes", (row) => {
       return acoes(row);

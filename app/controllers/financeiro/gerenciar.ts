@@ -10,7 +10,6 @@ import { enqueuePushNotification } from "../../services/pushNotificationQueueSer
 import { addHours } from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
-import { parse } from "path";
 
 export const criarLancamento = async (
   req: Request,
@@ -24,6 +23,8 @@ export const criarLancamento = async (
       valorEntrada = 0,
       dataEntrada = null,
       desconto = 0,
+      tipoLancamentoModo = "AVISTA",
+      lancamentoEfetivado,
       tipo,
       formaPagamento,
       status = "PENDENTE",
@@ -33,6 +34,12 @@ export const criarLancamento = async (
       parcelas = 1,
       contasFinanceiroId,
     } = req.body;
+
+    let hasEfetivadoTotal = false;
+
+    if (lancamentoEfetivado && lancamentoEfetivado === "on") {
+      hasEfetivadoTotal = true;
+    }
 
     if (!parcelas) {
       return res
@@ -52,7 +59,7 @@ export const criarLancamento = async (
     const totalParcelas = parcelas > 0 ? parcelas : 1;
     let lancamentoRecorrente = false;
 
-    if (totalParcelas > 1) {
+    if (tipoLancamentoModo === "PARCELADO") {
       lancamentoRecorrente = true;
     }
 
@@ -109,7 +116,7 @@ export const criarLancamento = async (
           desconto: descontoFormated,
           tipo,
           formaPagamento,
-          status,
+          status: hasEfetivadoTotal ? "PAGO" : "PENDENTE",
           clienteId: Number(clienteId) || null,
           categoriaId: Number(categoriaId),
           contaId: customData.contaId,
@@ -129,7 +136,7 @@ export const criarLancamento = async (
             pago: true,
             valorPago: valorEntradaFormated,
             dataPagamento: addHours(new Date(dataEntrada), 3),
-            formaPagamento: "DINHEIRO",
+            formaPagamento,
             lancamentoId: novoLancamento.id,
           },
         });
@@ -145,7 +152,11 @@ export const criarLancamento = async (
           Uid: gerarIdUnicoComMetaFinal("PAR"),
           numero: i + 1,
           valor: valorParcela,
-          vencimento,
+          pago: hasEfetivadoTotal ? true : false,
+          valorPago: hasEfetivadoTotal ? valorParcela : null,
+          formaPagamento: hasEfetivadoTotal ? formaPagamento : null,
+          dataPagamento: hasEfetivadoTotal ? addHours(vencimento, 3) : null,
+          vencimento: addHours(vencimento, 3),
           lancamentoId: novoLancamento.id,
         });
       }

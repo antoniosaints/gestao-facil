@@ -7,7 +7,7 @@
 
         <!-- Cabeçalho -->
         <div
-            class="bg-card dark:bg-card-dark px-6 py-4 flex justify-between items-center">
+            class="bg-inherit border-b border-border dark:border-border-dark px-6 py-4 flex justify-between items-center">
             <h2 class="text-xl font-bold"><i class="fa-solid fa-coins text-emerald-600"></i> Novo Lançamento</h2>
             <button onclick="closeModalFinanceiro()"
                 class="text-gray-800 dark:text-white hover:text-gray-400 transition">
@@ -36,11 +36,11 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <!-- Tipo -->
                             <div>
-                                <label for="tipo" class="block text-sm font-medium mb-1">
+                                <label for="tipoLancamentoFinanceiro" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-coins"></i>
                                     Tipo *
                                 </label>
-                                <select id="tipoLancamento" name="tipo" required
+                                <select id="tipoLancamentoFinanceiro" name="tipo" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                                     <option value="">Selecione o tipo</option>
                                     <option value="RECEITA">Receita</option>
@@ -58,7 +58,24 @@
                                     placeholder="0,00"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
+                            <!-- Valor Total -->
+                            <div>
+                                <label for="metodoLancamentoModoLancamento" class="block text-sm font-medium mb-1">
+                                    <i class="fa-solid fa-coins"></i>
+                                    Método *
+                                </label>
+                                <select name="tipoLancamentoModo" id="metodoLancamentoModoLancamento" required
+                                    class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                    <option value="">Forma de pagamento</option>
+                                    <option value="AVISTA">À vista</option>
+                                    <option value="PARCELADO">Parcelado</option>
+                                </select>
+                            </div>
 
+                        </div>
+
+                        <div id="modalFormularioLancamentosParcelamento"
+                            class="grid hidden grid-cols-1 md:grid-cols-3 gap-2">
                             <!-- Parcelas -->
                             <div>
                                 <label for="parcelas" class="block text-sm font-medium mb-1">
@@ -68,31 +85,28 @@
                                 <input type="number" id="parcelas" name="parcelas" required min="1" value="1"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <!-- Valor Entrada -->
                             <div>
-                                <label for="valorEntrada" class="block text-sm font-medium mb-1">
+                                <label for="valorEntradaLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-dollar-sign"></i>
                                     Valor Entrada
                                 </label>
-                                <input type="text" id="valorEntrada" name="valorEntrada"
-                                    placeholder="0,00"
+                                <input type="text" id="valorEntradaLancamento" name="valorEntrada" placeholder="0,00"
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
 
                             <!-- Data Entrada -->
                             <div>
-                                <label for="dataEntrada" class="block text-sm font-medium mb-1">
+                                <label for="dataEntradaLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-calendar-day"></i>
                                     Data Entrada
                                 </label>
-                                <input type="date" id="dataEntrada" disabled name="dataEntrada"
-                                    class="w-full p-1.5 rounded-md disabled:bg-gray-300 dark:disabled:bg-gray-900 border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                                <input type="text" placeholder="dd/mm/aaaa" id="dataEntradaLancamento"
+                                    name="dataEntrada"
+                                    class="w-full p-2 rounded-md disabled:bg-gray-300 dark:disabled:bg-gray-900 border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <!-- Desconto -->
                             <div>
                                 <label for="descontoFormularioLancamento" class="block text-sm font-medium mb-1">
@@ -105,11 +119,11 @@
 
                             <!-- Forma de Pagamento -->
                             <div>
-                                <label for="formaPagamento" class="block text-sm font-medium mb-1">
+                                <label for="formaPagamentoLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-coins"></i>
                                     Forma de Pagamento *
                                 </label>
-                                <select id="formaPagamento" name="formaPagamento" required
+                                <select id="formaPagamentoLancamento" name="formaPagamento" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                                     <option value="">Selecione a forma</option>
                                     <option value="PIX">PIX</option>
@@ -120,28 +134,54 @@
                                     <option value="TRANSFERENCIA">Transferência</option>
                                 </select>
                             </div>
+
+                            <div class="block text-sm font-medium mb-1">
+                                <span class="block text-sm font-medium mb-0">
+                                    <i class="fa-solid fa-check"></i>
+                                    Efetivado
+                                </span>
+                                <div class="gap-2 mt-1 items-center">
+                                    <div>
+                                        <label for="lancamentoEfetivadoTotal"
+                                            class="border block cursor-pointer bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-2.5 rounded-md">
+                                            <div class="flex items-center">
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="lancamentoEfetivadoTotal"
+                                                        name="lancamentoEfetivado" class="sr-only peer" />
+                                                    <div
+                                                        class="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary-dark dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary-dark">
+                                                    </div>
+                                                    <span
+                                                        class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Efetivado</span>
+                                                </label>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <!-- Cliente -->
                             <div>
-                                <label for="clienteId" class="block text-sm font-medium mb-1">
+                                <label for="clienteIdLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-user"></i>
                                     Cliente
                                     <a onclick="openModalClientes()" class="text-blue-500 px-2 cursor-pointer">Novo</a>
                                 </label>
-                                <select id="clienteId" name="clienteId"
+                                <select id="clienteIdLancamento" name="clienteId"
                                     class="w-full p-2.5 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
                             </div>
 
                             <!-- Categoria -->
                             <div>
-                                <label for="categoriaId" class="block text-sm font-medium mb-1">
+                                <label for="categoriaIdLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-layer-group"></i>
                                     Categoria *
-                                    <a onclick="openModalCategoriaFinanceira()" class="text-blue-500 px-2 cursor-pointer">Nova</a>
+                                    <a onclick="openModalCategoriaFinanceira()"
+                                        class="text-blue-500 px-2 cursor-pointer">Nova</a>
                                 </label>
-                                <select id="categoriaId" name="categoriaId" required
+                                <select id="categoriaIdLancamento" name="categoriaId" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
                             </div>
                         </div>
@@ -149,11 +189,12 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <!-- Data Lançamento -->
                             <div>
-                                <label for="dataLancamento" class="block text-sm font-medium mb-1">
+                                <label for="dataFinanceiroLancamento" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-calendar-day"></i>
                                     Data Lançamento *
                                 </label>
-                                <input type="text" placeholder="dd/mm/aaaa" id="dataLancamento" name="dataLancamento" required
+                                <input type="text" placeholder="dd/mm/aaaa" id="dataFinanceiroLancamento"
+                                    name="dataLancamento" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
                             </div>
 
@@ -162,7 +203,8 @@
                                 <label for="contasFinanceiroId" class="block text-sm font-medium mb-1">
                                     <i class="fa-solid fa-wallet"></i>
                                     Conta Financeira *
-                                    <a onclick="openModalContasFinanceiras()" class="text-blue-500 px-2 cursor-pointer">Nova</a>
+                                    <a onclick="openModalContasFinanceiras()"
+                                        class="text-blue-500 px-2 cursor-pointer">Nova</a>
                                 </label>
                                 <select id="contasFinanceiroId" name="contasFinanceiroId" required
                                     class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark"></select>
@@ -175,14 +217,14 @@
         </div>
 
         <!-- Rodapé -->
-        <div class="px-6 py-4 bg-card dark:bg-card-dark">
+        <div class="px-6 py-4 bg-inherit border-t border-border dark:border-border-dark">
             <div class="flex gap-3">
                 <label for="botaoSalvarFormularioLancamento"
                     class="w-full px-4 py-2 cursor-pointer flex justify-center text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow transition">
                     Salvar
                 </label>
                 <button type="button" onclick="closeModalFinanceiro()"
-                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-900 border rounded-md transition">
+                    class="w-full px-4 py-2 text-sm font-medium text-gray-800 dark:text-white bg-gray-300 dark:bg-gray-800 rounded-md transition">
                     Cancelar
                 </button>
             </div>
@@ -193,16 +235,38 @@
 
 
 <script>
-    MaskMoneyNative('#valorEntrada');
+    MaskMoneyNative('#valorEntradaLancamento');
     MaskMoneyNative('#descontoFormularioLancamento');
     MaskMoneyNative('#valorTotalLancamento');
 
-    flatpickr("#dataLancamento", {
+    flatpickr("#dataFinanceiroLancamento", {
         altInput: true,
         altFormat: "j \\de F \\de Y",
         dateFormat: "Y-m-d",
         locale: "pt",
     });
+
+    flatpickr("#dataEntradaLancamento", {
+        altInput: true,
+        altFormat: "j \\de F \\de Y",
+        dateFormat: "Y-m-d",
+        locale: "pt",
+        maxDate: "today",
+        clickOpens: false
+    });
+
+    $("#valorEntradaLancamento").on('input', function () {
+        const valor = $(this).val();
+        const dataEntrada = document.querySelector("#dataEntradaLancamento");
+
+        const numero = parseFloat(String(valor).replace(",", "."));
+
+        if (!isNaN(numero) && numero > 0) {
+            setStatusDataEntradaLancamento(true);
+        } else {
+            setStatusDataEntradaLancamento(false);
+        }
+    })
 
 
     function openModalFinanceiro() {
@@ -235,18 +299,23 @@
     // Fechamento por ESC e clique fora
     document.addEventListener('keydown', e => e.key === 'Escape' && closeModalFinanceiro());
 
-    $("#formaPagamento").select2({
+    $("#formaPagamentoLancamento").select2({
         placeholder: 'Forma de Pagamento',
         width: '100%',
         language: "pt-BR",
     });
-    $("#tipoLancamento").select2({
+    $("#metodoLancamentoModoLancamento").select2({
+        placeholder: 'Método',
+        width: '100%',
+        language: "pt-BR",
+    });
+    $("#tipoLancamentoFinanceiro").select2({
         placeholder: 'Tipo de Lançamento',
         width: '100%',
         language: "pt-BR",
     });
 
-    $("#categoriaId").select2({
+    $("#categoriaIdLancamento").select2({
         placeholder: 'Selecione uma categoria',
         width: '100%',
         language: "pt-BR",
@@ -293,7 +362,7 @@
         }
     });
 
-    $("#clienteId").select2({
+    $("#clienteIdLancamento").select2({
         placeholder: 'Selecione um cliente',
         width: '100%',
         allowClear: true,
@@ -318,6 +387,55 @@
         }
     });
 
+    $("#metodoLancamentoModoLancamento").change(function () {
+        const formulario = document.getElementById('modalFormularioLancamentos');
+        const dataEntrada = document.querySelector("#dataEntradaLancamento");
+        if ($(this).val() === "PARCELADO") {
+            $("#modalFormularioLancamentosParcelamento").removeClass('hidden');
+            formulario.parcelas.required = true;
+        } else {
+            $("#modalFormularioLancamentosParcelamento").addClass('hidden');
+            formulario.parcelas.value = 1;
+            formulario.parcelas.required = false;
+            formulario.valorEntrada.value = null;
+            setStatusDataEntradaLancamento(false);
+        }
+    });
+
+    function setStatusDataEntradaLancamento(state) {
+        if (!state) {
+            const dataEntrada = document.querySelector("#dataEntradaLancamento");
+            dataEntrada._flatpickr.setDate(null);
+            dataEntrada._flatpickr.destroy();
+            flatpickr("#dataEntradaLancamento", {
+                altInput: true,
+                altFormat: "j \\de F \\de Y",
+                dateFormat: "Y-m-d",
+                locale: "pt",
+                maxDate: "today",
+                clickOpens: false
+            });
+        } else {
+            const dataEntrada = document.querySelector("#dataEntradaLancamento");
+            dataEntrada._flatpickr.destroy();
+            flatpickr("#dataEntradaLancamento", {
+                altInput: true,
+                altFormat: "j \\de F \\de Y",
+                dateFormat: "Y-m-d",
+                locale: "pt",
+                maxDate: "today",
+                defaultDate: new Date(),
+            });
+        }
+    }
+
+    function resetAllSelect2Itens() {
+        $("#tipoLancamentoFinanceiro").val(null).trigger('change');
+        $("#clienteIdLancamento").val(null).trigger('change');
+        $("#metodoLancamentoModoLancamento").val(null).trigger('change');
+        $("#formaPagamentoLancamento").val(null).trigger('change');
+    }
+
     document.querySelector("#modalFormularioLancamentos").addEventListener("submit", (e) => {
         e.preventDefault();
 
@@ -331,6 +449,9 @@
             success: function (data) {
                 closeModalFinanceiro();
                 showNotification(data.message, 'success');
+                const formulario = document.getElementById('modalFormularioLancamentos');
+                formulario.reset();
+                resetAllSelect2Itens();
                 if (typeof reloadTabelaLancamentos === "function") {
                     reloadTabelaLancamentos();
                 }
@@ -343,20 +464,5 @@
                 showNotification(xhr.responseJSON?.message || 'Erro inesperado na requisição', 'error');
             }
         })
-    })
-
-    document.querySelector("#valorEntrada").addEventListener("input", (e) => {
-        const hasValue = e.target.value;
-        const dataEntrada = document.querySelector("#dataEntrada");
-        if (hasValue) {
-            dataEntrada.required = true;
-            dataEntrada.value = new Date().toISOString().split('T')[0];
-            dataEntrada.disabled = false;
-        } else {
-            dataEntrada.required = false;
-            dataEntrada.value = null;
-            dataEntrada.disabled = true;
-        }
     });
-
 </script>
