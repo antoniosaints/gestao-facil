@@ -91,6 +91,7 @@ model Usuarios {
   email         String           @unique
   senha         String
   superAdmin    Boolean          @default(false)
+  gerencialMode Boolean          @default(false)
   permissao     PermissaoUsuario @default(usuario)
   pushReceiver  Boolean?         @default(true)
   emailReceiver Boolean?         @default(true)

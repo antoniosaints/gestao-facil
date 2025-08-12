@@ -17,8 +17,15 @@ export const select2Categorias = async (
         contains: search,
       },
     },
+    include: {
+      Parent: {
+        include: {
+          Parent: true
+        }
+      }
+    },
     take: 10,
-    orderBy: { nome: "asc" },
+    orderBy: { parentId: "asc" },
   });
 
   if (!categorias) {
@@ -27,7 +34,7 @@ export const select2Categorias = async (
 
   const results = categorias.map((row) => ({
     id: row.id,
-    text: row.nome,
+    text: row.Parent ? `${row.Parent?.id}.${row.id} - ${row.nome}` : `${row.id} - ${row.nome}`,
   }));
 
   res.json({ results });

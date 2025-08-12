@@ -119,9 +119,8 @@ webRouter.get(
   "/sidebar/menu",
   authenticateJWT,
   async (req, res): Promise<any> => {
-    
     const data = getCustomRequest(req).customData;
-    
+
     const usuario = await prisma.usuarios.findUniqueOrThrow({
       where: {
         id: data.userId,
@@ -132,7 +131,7 @@ webRouter.get(
       },
     });
 
-    if (usuario.superAdmin === true) {
+    if (usuario.superAdmin && usuario.gerencialMode) {
       return res.render("layouts/gerencia/sidebar", {
         usuario,
         levelPermission: 5,
@@ -172,6 +171,11 @@ webRouter.get(
         levelPermission = 0;
         break;
     }
+
+    if (usuario.superAdmin) {
+      levelPermission = 100;
+    }
+
     res.render("layouts/sidebar", {
       usuario,
       levelPermission,

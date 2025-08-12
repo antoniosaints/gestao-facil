@@ -79,7 +79,7 @@
             type: "GET",
             url: `/api/usuarios`,
             beforeSend: function (xhr) {
-                $("#tabela_usuarios_listagem_principal_container").fadeOut();
+                $("#tabela_usuarios_listagem_principal_container").hide();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -113,7 +113,7 @@
                 });
             },
             complete: function () {
-                $("#tabela_usuarios_listagem_principal_container").fadeIn(100);
+                $("#tabela_usuarios_listagem_principal_container").show();
             },
         },
         columns: [

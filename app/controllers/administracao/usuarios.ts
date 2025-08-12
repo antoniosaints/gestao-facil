@@ -94,6 +94,35 @@ export const tableUsuarios = async (
   return res.json(data);
 };
 
+export const toggleModeGerencial = async (req: Request, res: Response): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const usuario = await prisma.usuarios.findUniqueOrThrow({
+    where: {
+      id: customData.userId,
+      contaId: customData.contaId,
+    },
+  });
+
+  if (usuario.superAdmin) {
+    await prisma.usuarios.update({
+      where: {
+        id: customData.userId,
+        contaId: customData.contaId,
+      },
+      data: {
+        gerencialMode: !usuario.gerencialMode,
+      },
+    });
+    return res.json({ status: "success" });
+  } else {
+    return res
+      .status(403)
+      .json({
+        message: "Usuário não tem permissão para alterar o modo gerencial",
+      });
+  }
+};
+
 export const deleteUsuario = async (
   req: Request,
   res: Response
@@ -110,17 +139,22 @@ export const deleteUsuario = async (
     const userRoot = await prisma.usuarios.findFirst({
       where: {
         id: Number(req.params.id),
-        contaId: customData.contaId
+        contaId: customData.contaId,
       },
-    })
+    });
 
     if (userRoot?.permissao === "root") {
-      return ResponseHandler(res, "Usuário root nao pode ser deletado!", null, 400);
+      return ResponseHandler(
+        res,
+        "Usuário root nao pode ser deletado!",
+        null,
+        400
+      );
     }
     await prisma.usuarios.delete({
       where: {
         id: Number(req.params.id),
-        contaId: customData.contaId
+        contaId: customData.contaId,
       },
     });
     return ResponseHandler(res, "Usuário deletado com sucesso!");
@@ -147,7 +181,7 @@ export const listagemMobileUsuarios = async (
     if (search) {
       where.OR = [
         { nome: { contains: search } },
-        { email: { contains: search } }
+        { email: { contains: search } },
       ];
     }
 

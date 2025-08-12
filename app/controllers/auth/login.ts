@@ -82,7 +82,7 @@ export const checkAuth = async (req: Request, res: Response): Promise<any> => {
       });
     };
 
-    if (usuario.superAdmin) {
+    if (usuario.superAdmin && usuario.gerencialMode) {
       return res.status(200).json({
         authenticated: true,
         message: "Token valido",

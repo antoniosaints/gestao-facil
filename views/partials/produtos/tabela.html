@@ -32,7 +32,7 @@
             type: "GET",
             url: `/api/produtos`,
             beforeSend: function (xhr) {
-                $("#tabela_produtos_listagem_principal_container").fadeOut();
+                $("#tabela_produtos_listagem_principal_container").hide();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -63,7 +63,7 @@
                 if (status === 401) window.location.href = "/login";
             },
             complete: function () {
-                $("#tabela_produtos_listagem_principal_container").fadeIn(100);
+                $("#tabela_produtos_listagem_principal_container").show();
             },
         },
         columns: [
