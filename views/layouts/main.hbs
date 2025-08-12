@@ -45,6 +45,10 @@
       <i class="fa-solid fa-sun" id="icon-sun"></i>
       <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
     </button>
+    <button id="closeSidebarBtn"
+      class="md:hidden mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition bg-background dark:bg-background-dark dark:border-border-dark w-full justify-center">
+      <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
+    </button>
     <div class="flex flex-col gap-2 hidden">
       <button style="display: none;" id="sendNotificationBtn"
         class="px-4 py-2 bg-green-600 text-white rounded hidden hover:bg-green-700 transition">
@@ -52,10 +56,6 @@
         Enviar Notificação
       </button>
     </div>
-    <button id="closeSidebarBtn"
-      class="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 text-center text-white bg-primary w-3/4 max-w-xs py-2 rounded shadow-lg">
-      <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
-    </button>
   </aside>
 
   {{{body}}}

@@ -14,46 +14,11 @@ import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
 import { engine } from "express-handlebars";
 import { webhookMercadoPago } from "./controllers/mercadopago/webhook";
+import { configOptions } from "./config/handlebars";
 
 const app = express();
 
-app.engine(
-  "hbs",
-  engine({
-    extname: "hbs",
-    defaultLayout: false,
-    helpers: {
-      or: (a: any, b: any) => a || b,
-      formatMoney: (valor: number) => {
-        return new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-          minimumFractionDigits: 2,
-        }).format(valor);
-      },
-      ifEquals: (a: any, b: any, opt: any) => {
-        return a === b ? opt.fn(this) : opt.inverse(this);
-      },
-      hasPermission: (level: any, required: any, opt: any) => {
-        return level >= required
-          ? opt.fn(this)
-          : opt.inverse(this);
-      },
-      valueExists: (value: any, textTrue: string, textFalse: string) => {
-        if (
-          typeof value !== "undefined" &&
-          value !== null &&
-          value !== "" &&
-          value !== "null"
-        ) {
-          return textTrue;
-        } else {
-          return textFalse;
-        }
-      },
-    },
-  })
-);
+app.engine("hbs", engine(configOptions));
 app.set("view engine", "hbs");
 
 app.use(cors());
@@ -67,15 +32,15 @@ app.use(express.json());
 
 app.use(RouterMain);
 
-app.post("/login", login);
+app.post("/api/login", login);
+app.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
+
 app.get("/auth/check", authenticateJWT, checkAuth);
 app.get("/auth/verify", verify);
 
 // Rotas webhook
 app.post("/asaas/webhook", webhookAsaasCheck);
 app.post("/mercadopago/webhook", webhookMercadoPago);
-// Rotas Dashboard
-app.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
 // Rotas Push
 app.post("/subscribe", authenticateJWT, subscribe);
 app.post("/unsubscribe", authenticateJWT, unsubscribe);
