@@ -9,10 +9,10 @@
             <i class="fa-solid fa-circle-plus"></i> Novo usuário
         </button>
     </div>
-    <div class="overflow-x-auto hidden md:block shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700"
-        hx-get="/administracao/usuarios/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
-    <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/administracao/usuarios/mobile/lista" hx-trigger="load"
-        hx-swap="innerHTML"></div>
+    <div class="overflow-x-auto hidden md:block shadow rounded-lg border border-gray-200 px-2 dark:border-gray-700">
+        {{> administracao/tabela}}
+    </div>
+    <div class="overflow-x-auto block md:hidden rounded-lg">{{> administracao/mobile}}</div>
 </div>
 
 {{> administracao/modais/formulario}}

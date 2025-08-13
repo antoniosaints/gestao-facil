@@ -2,8 +2,6 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import {
   renderAuth,
-  renderFileAuth,
-  renderFileSimple,
   renderSimple,
 } from "../web";
 import { getCustomRequest } from "../../helpers/getCustomRequest";

@@ -413,6 +413,7 @@
                 },
                 success: (response) => {
                     localStorage.setItem("gestao_facil:token", response.data.token);
+                    localStorage.setItem("gestao_facil:refreshToken", response.data.refreshToken);
                     localStorage.setItem("gestao_facil:usuario", response.data.id);
                     localStorage.setItem("gestao_facil:username", response.data.nome);
                     localStorage.setItem("gestao_facil:permissao", response.data.permissao);

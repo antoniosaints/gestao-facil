@@ -1,16 +1,11 @@
 import { Router } from "express";
-import { renderFileSimple, renderSimple } from "../web";
+import { renderAuth } from "../web";
+import { authenticateJWT } from "../../middlewares/auth";
 
 const webRouterAdministracao = Router();
 
-webRouterAdministracao.get("/usuarios/resumo", (req, res) => {
-  renderSimple(req, res, "partials/administracao/index", {});
-});
-webRouterAdministracao.get("/usuarios/mobile/lista", (req, res) => {
-  renderFileSimple(req, res, "partials/administracao/mobile.html");
-});
-webRouterAdministracao.get("/usuarios/tabela", (req, res) => {
-  renderFileSimple(req, res, "partials/administracao/tabela.html");
+webRouterAdministracao.get("/usuarios/resumo", authenticateJWT, (req, res) => {
+  renderAuth(req, res, "partials/administracao/index");
 });
 
 export {

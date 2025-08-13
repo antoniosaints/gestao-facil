@@ -8,9 +8,6 @@
                 class="bg-red-600 hidden text-white text-nowrap px-3 py-1.5 rounded-md text-sm hover:bg-red-700 transition-colors">
                 <i class="fa-solid fa-filter-circle-xmark"></i>
             </button>
-            <input id="filtro_dashboard_gerencia_periodo" placeholder="Filtrar por período"
-                class="rounded-md border w-max bg-card dark:bg-card-dark border-border dark:border-border-dark px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-            </input>
         </div>
     </div>
 
@@ -102,16 +99,16 @@
         </div>
 
         <div
-            class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-green-50 dark:bg-green-950/50 px-6 pb-5 pt-6">
+            class="rounded-2xl cursor-pointer border border-border dark:border-border-dark bg-lime-50 dark:bg-lime-950/50 px-6 pb-5 pt-6">
             <div class="mb-6 flex items-center gap-3">
-                <i class="fa-solid fa-dollar-sign h-8 w-8 bg-green-500/10 p-2 rounded-md text-green-400"></i>
+                <i class="fa-solid fa-dollar-sign h-8 w-8 bg-lime-500/10 p-2 rounded-md text-lime-400"></i>
 
                 <div>
                     <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
-                        Lucro
+                        Faturas
                     </h3>
                     <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
-                        mensal
+                        pendentes
                     </span>
                 </div>
             </div>
@@ -124,7 +121,7 @@
                 </div>
 
                 <span id="porcentagem_vendas_dashboard_alerta"
-                    class="flex items-center gap-1 rounded-full bg-green-50 py-0.5 pl-2 pr-2.5 text-xs font-medium text-green-600 dark:bg-green-500/15 dark:text-green-500">
+                    class="flex items-center gap-1 rounded-full bg-lime-50 py-0.5 pl-2 pr-2.5 text-xs font-medium text-lime-600 dark:bg-lime-500/15 dark:text-lime-500">
                     <i class="fa-solid fa-dollar-sign"></i>
                     <span id="porcentagem_vendas_dashboard">0%</span>
                 </span>
@@ -139,8 +136,7 @@
             class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
             <div class="flex items-center justify-between mb-2">
                 <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i>
-                    Vendas
-                    Mensais
+                    Resumo mensal
                 </h2>
                 <button onclick="loadPage('/vendas/resumo')"
                     class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
@@ -150,13 +146,27 @@
             </div>
             <canvas class="max-h-64" id="chartVendasMensais"></canvas>
         </div>
+        <div
+            class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i>
+                    Clientes por mês
+                </h2>
+                <button onclick="loadPage('/vendas/resumo')"
+                    class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
+                    <i class="fa-solid fa-square-arrow-up-right"></i>
+                    Ver mais
+                </button>
+            </div>
+            <canvas class="max-h-64" id="clientes_por_mes_gerencia"></canvas>
+        </div>
 
         <!-- Gráfico de Linhas -->
         <div
             class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
             <div class="flex items-center justify-between mb-2">
                 <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i>
-                    Saldo mensal
+                    Faturamento por cliente
                 </h2>
                 <button onclick="loadPage('/lancamentos/resumo')"
                     class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
@@ -166,144 +176,27 @@
             </div>
             <canvas class="max-h-64" id="grafico_saldo_mensal"></canvas>
         </div>
+        <div
+            class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-chart-simple text-green-600"></i>
+                    Assinantes por status
+                </h2>
+                <button onclick="loadPage('/lancamentos/resumo')"
+                    class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-colors">
+                    <i class="fa-solid fa-square-arrow-up-right"></i>
+                    Ver mais
+                </button>
+            </div>
+            <canvas class="max-h-64" id="assinantes_por_status_gerencia"></canvas>
+        </div>
     </div>
 </div>
 
 <script>
     switchToFullScreen();
 
-    flatpickr("#filtro_dashboard_gerencia_periodo", {
-        mode: "range",
-        altInput: true,
-        altFormat: "d/m/Y",
-        dateFormat: "Y-m-d",
-        locale: "pt",
-        onReady: function (selectedDates, dateStr, instance) {
-            if (localStorage.getItem("filtro_dashboard_gerencia_periodo")) {
-                instance.setDate(localStorage.getItem("filtro_dashboard_gerencia_periodo"));
-            }
-            if (localStorage.getItem("filtro_dashboard_gerencia_periodo")) {
-                $("#limpar_filtro_dashboard_gerencia_periodo").removeClass("hidden");
-            } else {
-                $("#limpar_filtro_dashboard_gerencia_periodo").addClass("hidden");
-            }
-
-            $("#limpar_filtro_dashboard_gerencia_periodo").click(function () {
-                instance.clear();
-                localStorage.removeItem("filtro_dashboard_gerencia_periodo");
-                loadPage('/resumos');
-            })
-        },
-        onChange: function (selectedDates, dateStr, instance) {
-            if (selectedDates.length === 2) {
-                $("#limpar_filtro_dashboard_gerencia_periodo").removeClass("hidden");
-                localStorage.setItem("filtro_dashboard_gerencia_periodo", dateStr);
-                loadPage('/resumos');
-            } else {
-                $("#limpar_filtro_dashboard_gerencia_periodo").addClass("hidden");
-            }
-        }
-    });
-
-    function chartBySaldoMensal(data) {
-        new Chart(document.getElementById('grafico_saldo_mensal'), {
-            type: 'line',
-            data: {
-                labels: data.labels,
-                datasets: data.datasets,
-            },
-            options: {
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    title: {
-                        display: false
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        ticks: {
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000',
-                        }
-                    },
-                }
-            }
-        });
-    }
-
-    function generateChartVendas(data) {
-        // Gráfico de Barras
-        new Chart(document.getElementById('chartVendasMensais'), {
-            type: 'bar',
-            data,
-            options: {
-                responsive: true,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: {
-                        display: false,
-                    },
-                },
-                scales: {
-                    x: {
-                        ticks: {
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-                        },
-                    },
-                    y1: {
-                        ticks: {
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-                        },
-                        type: 'linear',
-                        position: 'left',
-                        title: {
-                            display: true,
-                            text: 'Valor Total (R$)',
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-                        },
-                        stacked: false,
-                    },
-                    y2: {
-                        ticks: {
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-                        },
-                        type: 'linear',
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'Quantidade de Vendas',
-                            color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000'
-                        },
-                        grid: {
-                            drawOnChartArea: false,
-                        },
-                        stacked: false,
-                    },
-                },
-                elements: {
-                    bar: {
-                        borderRadius: 6
-                    }
-                }
-            }
-        });
-    }
-
     function getDadosDashboard() {
-        const periodo = document.querySelector("#filtro_dashboard_gerencia_periodo")._flatpickr.selectedDates;
         $.ajax({
             url: '/api/system/monitor/metrics',
             method: 'GET',
@@ -322,32 +215,6 @@
                 console.log(error);
             }
         });
-
-        $.ajax({
-            url: '/api/vendas/resumo/mensal',
-            method: 'GET',
-            dataType: 'json',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
-            },
-            success: function (data) {
-                generateChartVendas(data.data);
-            },
-            error: function (error) {
-                console.log(error);
-            }
-        });
-
-        fetch(`/api/lancamentos/graficos/saldo-mensal`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem("gestao_facil:token")}`,
-            }
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                chartBySaldoMensal(data);
-            });
     }
 
     getDadosDashboard();

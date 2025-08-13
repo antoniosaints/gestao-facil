@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { checkAuth, login, verify } from "./controllers/auth/login";
+import { checkAuth, login, renewToken, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
 import {
   sendNotification,
@@ -35,8 +35,9 @@ app.use(RouterMain);
 app.post("/api/login", login);
 app.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
 
-app.get("/auth/check", authenticateJWT, checkAuth);
-app.get("/auth/verify", verify);
+app.get("/api/auth/check", authenticateJWT, checkAuth);
+app.get("/api/auth/verify", authenticateJWT, verify);
+app.get("/api/auth/renew", authenticateJWT, renewToken);
 
 // Rotas webhook
 app.post("/asaas/webhook", webhookAsaasCheck);

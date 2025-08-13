@@ -14,9 +14,9 @@ export const JwtUtil = {
   /**
    * Gera um token JWT com payload
    */
-  encode(payload: Payload): string {
+  encode(payload: Payload, expiresIn?: number | any): string {
     return jwt.sign(payload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
+      expiresIn: expiresIn || JWT_EXPIRES_IN,
     });
   },
 

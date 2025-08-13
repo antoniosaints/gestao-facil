@@ -40,12 +40,11 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       email: usuario.email,
     });
 
-    res.cookie("gestao_facilpermissao", usuario.permissao, {
-      httpOnly: false,
-      secure: true,
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 24,
-    });
+    const refreshToken = JwtUtil.encode({
+      id: usuario.id,
+      contaId: usuario.contaId,
+      email: usuario.email,
+    }, '7d');
 
     return res.status(200).json({
       status: 200,
@@ -56,6 +55,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         permissao: usuario.permissao,
         email: usuario.email,
         token: jwtToken,
+        refreshToken
       },
     });
   } catch (error) {
@@ -129,5 +129,72 @@ export const verify = async (req: Request, res: Response): Promise<any> => {
       authenticated: false,
       message: "Token inválido",
     });
+  }
+};
+export const renewToken = async (req: Request, res: Response): Promise<any> => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      authenticated: false,
+      message: "Token inválido ou não informado",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decodeToken = JwtUtil.verify(token);
+
+    if (!decodeToken) {
+      return res.status(401).json({
+        authenticated: false,
+        returnLogin: true,
+        message: "Token inválido ou expirado",
+      });
+    }
+    
+    const usuario = await prisma.usuarios.findFirstOrThrow({
+      where: {
+        id: decodeToken.id,
+      },
+    });
+
+    if (!usuario) {
+      return res.status(401).json({
+        authenticated: false,
+        returnLogin: true,
+        message: "Erro ao renovar o token, entre em contato com o administrador",
+      });
+    }
+
+    const jwtToken = JwtUtil.encode({
+      id: usuario.id,
+      contaId: usuario.contaId,
+      permissao: usuario.permissao,
+      nome: usuario.nome,
+      email: usuario.email,
+    });
+
+    const refreshToken = JwtUtil.encode({
+      id: usuario.id,
+      contaId: usuario.contaId,
+      email: usuario.email,
+    }, '7d');
+
+    return res.status(200).json({
+      status: 200,
+      message: "Login realizado com sucesso",
+      data: {
+        id: usuario.id,
+        nome: usuario.nome,
+        permissao: usuario.permissao,
+        email: usuario.email,
+        token: jwtToken,
+        refreshToken
+      },
+    });
+  } catch (error) {
+    handleError(res, error);
   }
 };
