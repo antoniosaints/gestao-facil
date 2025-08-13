@@ -15,30 +15,28 @@
     </div>
   </div>
   <div
-    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700"
-    hx-get="/produtos/tabela" hx-trigger="load" hx-swap="innerHTML"></div>
-  <div class="overflow-x-auto block md:hidden rounded-lg" hx-get="/produtos/mobile/lista" hx-trigger="load"
-    hx-swap="innerHTML"></div>
+    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700">
+    {{> produtos/tabela}}</div>
+  <div class="overflow-x-auto block md:hidden rounded-lg">{{> produtos/mobile}} </div>
 </div>
 
 
 <div id="modal-container-reporestoque-produtos"></div>
 <div id="modal-template-reporestoque-produtos" class="hidden">
-  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-    hx-get="/produtos/reposicao/estoque" hx-trigger="load" hx-swap="innerHTML"></div>
+  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">{{>
+    produtos/modais/gerar-relatorio }}</div>
 </div>
 
 <div id="modal-container-reporestoque-produtos-relatorio"></div>
 <div id="modal-template-reporestoque-produtos-relatorio" class="hidden">
-  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-    hx-get="/produtos/reposicao/relatorio" hx-trigger="load" hx-swap="innerHTML"></div>
+  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">{{>
+    produtos/modais/repor-estoque }}</div>
 </div>
 
 <div id="modal-container-gerar-relatorio-produtos"></div>
 <div id="modal-template-gerar-relatorio-produtos" class="hidden">
-  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-    hx-get="/produtos/relatorio/geral" hx-trigger="load" hx-swap="innerHTML">
-  </div>
+  <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">{{>
+    produtos/modais/gerar-relatorio-reposicao }}</div>
 </div>
 
 <script>

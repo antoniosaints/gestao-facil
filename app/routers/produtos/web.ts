@@ -1,31 +1,18 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { renderFileAuth, renderFileSimple, renderSimple } from "../web";
+import { renderFileSimple, renderSimple } from "../web";
 import { prisma } from "../../utils/prisma";
 import Decimal from "decimal.js";
 import { formatCurrency } from "../../utils/formatters";
-import { hasPermission } from "../../helpers/userPermission";
-import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { ResponseHandler } from "../../utils/response";
 
 const webRouterProdutos = Router();
 
-webRouterProdutos.get(
-  "/resumo",
-  authenticateJWT,
-  async (req, res): Promise<any> => {
-    const customData = getCustomRequest(req).customData;
-    if (!(await hasPermission(customData, 3))) {
-      return ResponseHandler(
-        res,
-        "Nível de permissão insuficiente!",
-        null,
-        403
-      );
-    }
-    return renderFileAuth(req, res, "partials/produtos/index.html");
-  }
-);
+webRouterProdutos.get("/resumo", async (req, res): Promise<any> => {
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/produtos/index", {
+    layout: isHTMX ? false : "main",
+  });
+});
 webRouterProdutos.get("/tabela", (req, res) => {
   renderFileSimple(req, res, "partials/produtos/tabela.html");
 });
@@ -46,7 +33,10 @@ webRouterProdutos.get("/relatorio/geral", (req, res) => {
   renderFileSimple(req, res, "partials/produtos/modais/gerar-relatorio.html");
 });
 webRouterProdutos.get("/editar/formulario", (req, res) => {
-  renderFileSimple(req, res, "partials/produtos/formulario.html");
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/produtos/formulario", {
+    layout: isHTMX ? false : "main",
+  });
 });
 webRouterProdutos.get("/detalhes/:id", authenticateJWT, async (req, res) => {
   const { id } = req.params;

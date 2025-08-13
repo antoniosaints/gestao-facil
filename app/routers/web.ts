@@ -77,9 +77,10 @@ webRouter.use("/lancamentos", webRouterLancamentos);
 webRouter.use("/administracao", webRouterAdministracao);
 
 webRouter.get("/", (req, res): any => {
-  res.render("layouts/home", {
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/dashboard", {
+    layout: isHTMX ? false : "main",
     title: "Dashboard",
-    layout: "main",
   });
 });
 
@@ -102,17 +103,6 @@ webRouter.get("/login", (req, res): any => {
   res.render("partials/site/login", {
     title: "Gestão Fácil - Login",
   });
-});
-
-webRouter.get("/resumos", authenticateJWT, async (req, res): Promise<any> => {
-  const data = getCustomRequest(req).customData;
-  const usuario = await prisma.usuarios.findUniqueOrThrow({
-    where: {
-      id: data.userId,
-      contaId: data.contaId,
-    },
-  });
-  renderAuth(req, res, "partials/dashboard", { usuario });
 });
 
 webRouter.get(

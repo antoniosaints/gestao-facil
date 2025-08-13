@@ -1,37 +1,38 @@
 $(".datatable thead th:last-child").addClass("text-end");
 
-document.addEventListener("DOMContentLoaded", () => {
-  fetch(`/api/auth/check`, {
+// document.addEventListener("DOMContentLoaded", () => {
+//   fetch(`/api/auth/check`, {
+//     headers: {
+//       Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+//     },
+//   })
+//     .then((res) => res.json())
+//     .then((html) => {
+//       if (html.authenticated) {
+//         loadPage(html.view);
+//       } else {
+//         localStorage.removeItem("gestao_facil:token");
+//         window.location.href = "/login";
+//       }
+//     })
+//     .catch(() => {
+//       localStorage.removeItem("gestao_facil:token");
+//       window.location.href = "/login";
+//     });
+
+// });
+
+htmx
+  .ajax("GET", "/sidebar/menu", {
+    target: "#content-sidebar-menu",
+    swap: "innerHTML",
     headers: {
       Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
     },
   })
-    .then((res) => res.json())
-    .then((html) => {
-      if (html.authenticated) {
-        loadPage(html.view);
-      } else {
-        localStorage.removeItem("gestao_facil:token");
-        window.location.href = "/login";
-      }
-    })
-    .catch(() => {
-      localStorage.removeItem("gestao_facil:token");
-      window.location.href = "/login";
-    });
-
-  htmx
-    .ajax("GET", "/sidebar/menu", {
-      target: "#content-sidebar-menu",
-      swap: "innerHTML",
-      headers: {
-        Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
-      },
-    })
-    .catch((error) => {
-      console.error("Request failed:", error);
-    });
-});
+  .catch((error) => {
+    console.error("Request failed:", error);
+  });
 
 function loadPage(pagePath) {
   htmx.ajax("GET", pagePath, {
@@ -43,16 +44,19 @@ function loadPage(pagePath) {
   });
 }
 
-// document.addEventListener("htmx:afterSwap", (event) => {
-//   const url = event.detail.requestConfig.path;
-//   if (event.detail.requestConfig.verb === "get") {
-//     history.pushState({}, "", url);
-//   }
-// });
+document.addEventListener("htmx:afterSwap", (event) => {
+  const url = event.detail.requestConfig.path;
+  if (url === "/sidebar/menu") {
+    return;
+  }
+  if (event.detail.requestConfig.verb === "get") {
+    history.pushState({}, "", url);
+  }
+});
 
-// window.addEventListener("popstate", () => {
-//   htmx.ajax("GET", location.pathname, { target: "#content" });
-// });
+window.addEventListener("popstate", () => {
+  htmx.ajax("GET", location.pathname, { target: "#content" });
+});
 
 htmx.on("htmx:responseError", (e) => {
   showNotification(
@@ -98,3 +102,13 @@ htmx.on("htmx:responseError", (e) => {
     });
   }
 });
+
+const containerMainHandleSize = document.getElementById("container-main-app-sistema");
+function switchToFullScreen() {
+  containerMainHandleSize.classList.add("h-screen");
+  containerMainHandleSize.classList.remove("h-[calc(100vh-5rem)]");
+}
+function switchToNormalScreen() {
+  containerMainHandleSize.classList.remove("h-screen");
+  containerMainHandleSize.classList.add("h-[calc(100vh-5rem)]");
+}

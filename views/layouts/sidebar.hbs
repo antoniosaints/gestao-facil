@@ -1,5 +1,5 @@
 {{#hasPermission levelPermission 1}}
-<a onclick="loadPage('/resumos')"
+<a onclick="loadPage('/')"
     class="bg-background hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-lg transition"><i
         class="fa-solid fa-chart-simple text-orange-600 px-2"></i>Dashboard</a>
 {{/hasPermission}}
@@ -187,7 +187,7 @@
     <div class="flex-grow border-t border-border"></div>
 </div>
 {{#hasPermission levelPermission 100}}
-<a id="gerencia_toggle_mode_sistema"
+<a onclick="toggleModeGerencial()"
     class="bg-background hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer border border-border dark:bg-background-dark dark:border-border-dark p-2 rounded-lg transition">
     <i class="fa-solid fa-square-arrow-up-right text-violet-600 px-2"></i>
     Modo Gerencia</a>
@@ -202,60 +202,56 @@
         class="fa-solid fa-right-from-bracket text-red-600 px-2"></i> Sair</a>
 
 <script>
-    (() => {
-        const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
-        dropdownToggles.forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetId = toggle.getAttribute('data-target');
-                const dropdown = document.getElementById(targetId);
-                const arrow = toggle.querySelector('.dropdown-arrow');
+    const dropdownTogglesDrodownMenu = document.querySelectorAll('.dropdown-toggle');
+    dropdownTogglesDrodownMenu.forEach(toggle => {
+        toggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = toggle.getAttribute('data-target');
+            const dropdown = document.getElementById(targetId);
+            const arrow = toggle.querySelector('.dropdown-arrow');
 
-                // Close other dropdowns
-                document.querySelectorAll('.dropdown-content').forEach(content => {
-                    if (content.id !== targetId && !content.classList.contains('hidden')) {
-                        content.classList.add('hidden');
-                        const otherArrow = document.querySelector(`[data-target="${content.id}"] .dropdown-arrow`);
-                        if (otherArrow) {
-                            otherArrow.classList.remove('rotate-90');
-                        }
+            // Close other dropdowns
+            document.querySelectorAll('.dropdown-content').forEach(content => {
+                if (content.id !== targetId && !content.classList.contains('hidden')) {
+                    content.classList.add('hidden');
+                    const otherArrow = document.querySelector(`[data-target="${content.id}"] .dropdown-arrow`);
+                    if (otherArrow) {
+                        otherArrow.classList.remove('rotate-90');
                     }
-                });
-
-                // Toggle current dropdown
-                dropdown.classList.toggle('hidden');
-                arrow.classList.toggle('rotate-90');
-            });
-        });
-
-        sidebar.querySelectorAll("a").forEach((item) => {
-            item.addEventListener("click", () => {
-                if (window.innerWidth < 768) {
-                    sidebar.classList.add("-translate-x-full");
                 }
             });
+
+            // Toggle current dropdown
+            dropdown.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-90');
         });
+    });
 
-        function toggleModeGerencial() {
-            $.ajax({
-                url: "/api/usuarios/toggleModeGerencial",
-                type: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
-                },
-                dataType: "json",
-                success: function (response) {
-                    location.reload();
-                },
-                error: function (xhr, status, error) {
-                    const mensagem =
-                        xhr.responseJSON?.message || "Erro inesperado na requisição";
-                    showNotification(mensagem, "error");
-                    if (status === 401) window.location.href = "/login";
-                }
-            });
-        };
+    sidebar.querySelectorAll("a").forEach((item) => {
+        item.addEventListener("click", () => {
+            if (window.innerWidth < 768) {
+                sidebar.classList.add("-translate-x-full");
+            }
+        });
+    });
 
-        document.getElementById("gerencia_toggle_mode_sistema").addEventListener("click", toggleModeGerencial);
-    })()
+    function toggleModeGerencial() {
+        $.ajax({
+            url: "/api/usuarios/toggleModeGerencial",
+            type: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+            },
+            dataType: "json",
+            success: function (response) {
+                location.reload();
+            },
+            error: function (xhr, status, error) {
+                const mensagem =
+                    xhr.responseJSON?.message || "Erro inesperado na requisição";
+                showNotification(mensagem, "error");
+                if (status === 401) window.location.href = "/login";
+            }
+        });
+    };
 </script>
