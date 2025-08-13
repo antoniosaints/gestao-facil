@@ -94,6 +94,7 @@
         placeholder: 'Categoria Pai',
         width: '100%',
         language: "pt-BR",
+        allowClear: true,
         ajax: {
             url: '/api/lancamentos/categorias/select2',
             dataType: 'json',
@@ -128,8 +129,7 @@
             success: function (data) {
                 closeModalCategoriasFinanceiras();
                 showNotification(data.message, 'success');
-                const formulario = document.getElementById('modalFormularioCategoriasFinanceiras');
-                formulario.reset();
+                $("#categoriaFinanceiraInput").val(null);
                 if (typeof reloadTabelaCategoriasFinanceiras === "function") {
                     reloadTabelaCategoriasFinanceiras();
                 }
