@@ -1,4 +1,4 @@
-<div id="tabela_usuarios_listagem_principal_container" class="hidden">
+<div id="tabela_usuarios_listagem_principal_container">
     <table id="tabela_usuarios_listagem_principal" class="display w-full">
         <thead>
             <tr>
@@ -79,7 +79,6 @@
             type: "GET",
             url: `/api/usuarios`,
             beforeSend: function (xhr) {
-                $("#tabela_usuarios_listagem_principal_container").hide();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -111,9 +110,6 @@
                     target: "#content",
                     swap: "innerHTML",
                 });
-            },
-            complete: function () {
-                $("#tabela_usuarios_listagem_principal_container").show();
             },
         },
         columns: [

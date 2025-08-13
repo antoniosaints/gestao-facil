@@ -1,4 +1,4 @@
-<div id="tabela_vendas_listagem_principal_container" class="hidden">
+<div id="tabela_vendas_listagem_principal_container">
     <table id="tabela_vendas_listagem_principal" class="display">
         <thead>
             <tr>
@@ -33,7 +33,6 @@
                 d.status = $("#status_vendas_tabela").val() || "";
             },
             beforeSend: function (xhr) {
-                $("#tabela_vendas_listagem_principal_container").hide();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -62,9 +61,6 @@
                     text: mensagem,
                 });
                 if (status === 401) window.location.href = "/login";
-            },
-            complete: function () {
-                $("#tabela_vendas_listagem_principal_container").show();
             },
         },
         columns: [

@@ -1,0 +1,81 @@
+<div>
+  <div class="flex flex-col md:flex-row gap-2 justify-between mb-4">
+    <h2 class="text-2xl font-bold text-black dark:text-white"><i class="fa-solid fa-users text-violet-600"></i>
+      Assinantes
+    </h2>
+    <div class="justify-between gap-2 items-center hidden md:flex">
+      <button onclick="openModalFiltroFinanceiro()"
+        class="border-2 border-blue-500 hover:border-blue-700 text-blue-900 dark:text-blue-200 bg-blue-500/20 px-3 py-1.5 text-sm rounded-lg">
+        <i class="fa-solid fa-filter"></i>
+        Filtrar
+      </button>
+      <button onclick="openModalDREFinanceiro()"
+        class="border-2 border-orange-500 hover:border-orange-700 text-orange-900 dark:text-orange-200 bg-orange-500/20 px-3 py-1.5 text-sm rounded-lg">
+        <i class="fa-solid fa-file-pdf"></i>
+      </button>
+      <button onclick="openModalFinanceiro()"
+        class="bg-secondary hover:bg-secondary-dark text-white px-3 py-1.5 text-sm rounded-md">
+        <i class="fa-solid fa-circle-plus"></i>
+        <div class="hidden md:inline">Nova conta</div>
+      </button>
+    </div>
+  </div>
+  <div
+    class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700">
+    {{> gerencia/contas/tabela}}</div>
+  <div class="overflow-x-auto block md:hidden rounded-lg">
+    {{> gerencia/contas/mobile}}</div>
+</div>
+
+<script>
+  function escluirLancamento(id) {
+    Swal.fire({
+      title: "Excluir Lançamento",
+      text: "Tem certeza que deseja excluir esse lançamento?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Sim, excluir!",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          dataType: "json",
+          type: "DELETE",
+          url: `/api/lancamentos/${id}`,
+          beforeSend: function (xhr) {
+            const tokenJWT = localStorage.getItem("gestao_facil:token");
+            if (tokenJWT) {
+              xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
+            }
+            Swal.fire({
+              title: "Carregando...",
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              showConfirmButton: false,
+              didOpen: () => {
+                Swal.showLoading();
+              },
+            });
+          },
+          success: function (response) {
+            Swal.close();
+            if (typeof reloadTabelaLancamentos === "function") {
+              reloadTabelaLancamentos();
+            }
+            if (typeof renderListaLancamentos === "function") {
+              renderListaLancamentos();
+            }
+            showNotification('Lançamento excluido com sucesso!', 'success');
+          },
+          error: function (error) {
+            console.log(error);
+            Swal.close();
+            showNotification(error.responseJSON?.message || 'Erro inesperado na requisição', 'error');
+          },
+        });
+      }
+    });
+  }
+</script>

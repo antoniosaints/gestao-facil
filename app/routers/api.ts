@@ -16,7 +16,7 @@ RouterMain.use("/api/contas", routerContas);
 RouterMain.use("/api/produtos", routerProdutos);
 RouterMain.use("/api/usuarios", routerUsuarios);
 RouterMain.use("/api/clientes", routerClientes);
-RouterMain.use("/api/gerencia/", routerGerencia);
+RouterMain.use("/api/gerencia", routerGerencia);
 RouterMain.use("/api/lancamentos", routerLancamentos);
 RouterMain.use("/api/vendas", routerVendas);
 RouterMain.use("/api/printer", routerPrinter);

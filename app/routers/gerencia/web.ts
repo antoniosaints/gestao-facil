@@ -13,5 +13,8 @@ webAdminRouter.get("/", (req: Request, res: Response): any => {
 webAdminRouter.get("/dashboard", authenticateJWT, (req: Request, res: Response): any => {
   renderAuth(req, res, "partials/gerencia/dashboard");
 });
+webAdminRouter.get("/contas", authenticateJWT, (req: Request, res: Response): any => {
+  renderAuth(req, res, "partials/gerencia/contas/index");
+});
 
 export { webAdminRouter };

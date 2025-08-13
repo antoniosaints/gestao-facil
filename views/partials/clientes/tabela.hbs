@@ -1,4 +1,4 @@
-<div id="tabela_clientes_listagem_principal_container" class="hidden">
+<div id="tabela_clientes_listagem_principal_container">
     <table id="tabela_clientes_listagem_principal" class="display">
         <thead>
             <tr>
@@ -29,7 +29,6 @@
             type: "GET",
             url: `/api/clientes/getDataTable`,
             beforeSend: function (xhr) {
-                $("#tabela_clientes_listagem_principal_container").hide();
                 const tokenJWT = localStorage.getItem("gestao_facil:token");
                 if (tokenJWT) {
                     xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
@@ -58,9 +57,6 @@
                     text: mensagem,
                 });
                 if (status === 401) window.location.href = "/login";
-            },
-            complete: function () {
-                $("#tabela_clientes_listagem_principal_container").show();
             },
         },
         columns: [

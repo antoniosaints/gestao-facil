@@ -1,0 +1,66 @@
+<div id="tabela_contas_assinantes_listagem_principal_container">
+    <table id="tabela_contas_assinantes_listagem_principal" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Vencimento</th>
+                <th>Status</th>
+                <th>Telefone</th>
+                <th>Documento</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
+<script>
+    function reloadTabelaContasSistema() {
+        const tabela = $("#tabela_contas_assinantes_listagem_principal").DataTable();
+        tabela.ajax.reload(null, false);
+    }
+    new DataTable("#tabela_contas_assinantes_listagem_principal", {
+        language: {
+            url: "/lang/pt-Br.json",
+        },
+        processing: true,
+        serverSide: true,
+        stateSave: true,
+        ajax: {
+            type: "GET",
+            url: `/api/gerencia/contaSistema/datatable`,
+            headers: {
+                "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token"),
+            },
+            data: function (d) {},
+            beforeSend: function (xhr) {
+            },
+            error: function (xhr, status, error) {
+                const mensagem =
+                    xhr.responseJSON?.message || "Erro inesperado na requisição";
+                Swal.fire({
+                    toast: true,
+                    position: "bottom-end",
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    icon: "error",
+                    title: "Erro!",
+                    text: mensagem,
+                });
+                if (status === 401) window.location.href = "/login";
+            },
+        },
+        columns: [
+            { data: "id" },
+            { data: "nome" },
+            { data: "categoria" },
+            { data: "vencimento" },
+            { data: "status" },
+            { data: "telefone", orderable: false, searchable: false },
+            { data: "documento" },
+            { data: "acoes" }
+        ],
+    });
+</script>
