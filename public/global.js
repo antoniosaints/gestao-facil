@@ -43,6 +43,17 @@ function loadPage(pagePath) {
   });
 }
 
+// document.addEventListener("htmx:afterSwap", (event) => {
+//   const url = event.detail.requestConfig.path;
+//   if (event.detail.requestConfig.verb === "get") {
+//     history.pushState({}, "", url);
+//   }
+// });
+
+// window.addEventListener("popstate", () => {
+//   htmx.ajax("GET", location.pathname, { target: "#content" });
+// });
+
 htmx.on("htmx:responseError", (e) => {
   showNotification(
     JSON.parse(e.detail.xhr.responseText)?.message ||
@@ -56,7 +67,8 @@ htmx.on("htmx:responseError", (e) => {
       url: `/api/auth/renew`,
       method: "GET",
       headers: {
-        Authorization: "Bearer " + localStorage.getItem("gestao_facil:refreshToken"),
+        Authorization:
+          "Bearer " + localStorage.getItem("gestao_facil:refreshToken"),
       },
       contentType: "application/json",
       dataType: "json",
@@ -71,10 +83,7 @@ htmx.on("htmx:responseError", (e) => {
         localStorage.setItem("gestao_facil:permissao", response.data.permissao);
         localStorage.setItem("gestao_facil:isauth", true);
 
-        showNotification(
-          "Token de sessão renovado!",
-          "success"
-        );
+        showNotification("Token de sessão renovado!", "success");
       },
       error: (xhr) => {
         console.log(xhr);
