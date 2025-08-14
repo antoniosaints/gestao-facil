@@ -1,6 +1,7 @@
 // Arquivo básico para PWA
 self.addEventListener("install", (event) => {
   console.log("[SW] Instalado");
+  alert("Instalado");
 });
 
 self.addEventListener("activate", (event) => {

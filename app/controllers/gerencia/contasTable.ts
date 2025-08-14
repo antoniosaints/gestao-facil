@@ -55,6 +55,10 @@ export const tableContasGerencia = async (
       const row = documento || "Sem Telefone";
       return formatLabel(row, "slate", "fa-solid fa-phone", false);
     })
+    .format("email", function (row) {
+      const data = row || "Sem E-mail";
+      return formatLabel(data, "slate", "fa-solid fa-envelope", false);
+    })
     .format("documento", function (documento) {
       const cpf = documento || "Sem Documento";
       return formatLabel(cpf, "slate", "fa-solid fa-id-card", false);
