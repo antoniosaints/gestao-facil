@@ -16,8 +16,11 @@ import {
 } from "../../controllers/produtos/produtos";
 import { select2Produtos } from "../../controllers/produtos/hooks";
 import { ListagemMobileProdutos } from "../../controllers/produtos/mobile";
+import { getCsvBase, postImportarProdutos } from "../../controllers/produtos/lote/uploadcsv";
+import multer from "multer";
 
 const routerProdutos = Router();
+const upload = multer({dest: 'uploads/'});
 
 routerProdutos.get("/relatorio", authenticateJWT, relatorioProdutos);
 routerProdutos.get(
@@ -34,6 +37,8 @@ routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("", authenticateJWT, saveProduto);
 routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
 routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
+routerProdutos.get("/download/csv", getCsvBase);
+routerProdutos.post("/importar/csv", authenticateJWT, upload.single('arquivo'), postImportarProdutos);
 
 //select2
 routerProdutos.get("/select2/lista", authenticateJWT, select2Produtos);
