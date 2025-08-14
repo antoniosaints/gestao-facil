@@ -248,6 +248,17 @@
   </div>
 </div>
 
+<nav
+  class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
+
+  <button type="button" onclick="openSideBarMobile()"
+    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+    <i class="fa-solid fa-bars text-lg"></i>
+    <span class="text-xs">Menu</span>
+  </button>
+</nav>
+
+
 <script>
   flatpickr("#filtro_dashboard_periodo", {
     mode: "range",
@@ -436,7 +447,7 @@
             </tr>
           `);
           });
-        }else {
+        } else {
           $("#ultimos_produtos_dashboard_table").addClass("hidden");
           $("#produtos_tabela_dashboard_sem_produtos").removeClass("hidden");
         }

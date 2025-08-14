@@ -1,9 +1,9 @@
 <div id="content-produtos">
-  <div class="flex flex-col md:flex-row gap-2 justify-between items-center mb-4">
+  <div class="flex flex-col md:flex-row gap-2 justify-between mb-4">
     <h2 class="text-2xl font-bold text-black dark:text-white"><i class="fa-solid fa-user-tag text-purple-600"></i>
         Clientes
     </h2>
-    <div class="flex justify-between gap-2 items-center">
+    <div class="justify-between gap-2 hidden md:flex items-center">
       <button
         class="bg-primary hover:bg-primary-dark text-white px-3 py-1.5 text-sm rounded-md">
         <i class="fa-solid fa-file-pdf"></i>
@@ -17,7 +17,7 @@
   <div
     class="overflow-x-auto hidden md:block shadow rounded-lg border bg-background dark:bg-background-dark border-gray-200 px-2 dark:border-gray-700">
     {{> clientes/tabela}}</div>
-  <div class="ooverflow-x-auto block md:hidden rounded-lg">{{> clientes/mobile}}</div>
+  <div class="overflow-x-auto block md:hidden rounded-lg">{{> clientes/mobile}}</div>
 </div>
 
 {{> clientes/modais/cadastro}}
