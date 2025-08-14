@@ -1,7 +1,4 @@
 import { Request, Response, Router } from "express";
-import { authenticateJWT } from "../../middlewares/auth";
-import { renderAuth } from "../web";
-
 const webAdminRouter = Router();
 
 webAdminRouter.get("/", (req: Request, res: Response): any => {

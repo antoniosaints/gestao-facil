@@ -174,13 +174,13 @@ webRouter.get(
   }
 );
 
-webRouter.get("/plano/assinatura", authenticateJWT, async (req, res) => {
+webRouter.get("/plano/assinatura", async (req, res) => {
   try {
-    if (await isAccountOverdue(req)) {
-      renderFileSimple(req, res, "partials/assinatura/renovacao.html");
-    } else {
-      renderFileSimple(req, res, "partials/assinatura/renovacao.html");
-    }
+    const isHTMX = req.headers["hx-request"];
+    res.render("partials/assinatura/renovacao", {
+      layout: isHTMX ? false : "main",
+      title: "Dashboard",
+    });
   } catch (error) {
     console.log(error);
   }
