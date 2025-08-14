@@ -78,6 +78,7 @@ function renewSessionUserByRefreshToken() {
 
       showNotification("Token de sessão renovado!", "success");
       loadSidebarOptionsMenu();
+      atualizarLogoSistema();
     },
     error: (xhr) => {
       console.log(xhr);

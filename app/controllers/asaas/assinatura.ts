@@ -5,6 +5,22 @@ import { prisma } from "../../utils/prisma";
 import { addDays } from "date-fns";
 import { env } from "../../utils/dotenv";
 import { handleError } from "../../utils/handleError";
+import { hasPermission } from "../../helpers/userPermission";
+
+export const checkarPermissao = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const level = req.body.level;
+    if (!level) {
+      return res.status(200).json({ aprovado: false });
+    }
+    const permissao = await hasPermission(customData, Number(level));
+
+    return res.status(200).json({ aprovado: permissao, });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
 
 export const createSubscription = async (
   req: Request,

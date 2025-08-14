@@ -1,7 +1,10 @@
 import { prisma } from "../utils/prisma";
 import { CustomData } from "./getCustomRequest";
 
-export const hasPermission = async (dataLogged: CustomData, permission: number) => {
+export const hasPermission = async (
+  dataLogged: CustomData,
+  permission: number
+) => {
   const usuario = await prisma.usuarios.findUniqueOrThrow({
     where: {
       id: dataLogged.userId,
@@ -29,6 +32,10 @@ export const hasPermission = async (dataLogged: CustomData, permission: number) 
     default:
       levelPermission = 0;
       break;
+  }
+
+  if (usuario.superAdmin) {
+    levelPermission = 100;
   }
 
   return levelPermission >= permission;

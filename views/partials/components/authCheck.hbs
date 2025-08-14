@@ -1,0 +1,26 @@
+<input type="text" id="levelPermissionSistemaId" name="levelPermissionSistema" value="{{permission}}"
+    style="display: none">
+<script>
+    $.ajax({
+        url: '/api/contas/verificarPermissao',
+        type: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+        },
+        data: {
+            level: Number($("#levelPermissionSistemaId").val())
+        },
+        success: function (response) {
+            if (!response.aprovado) {
+                showNotification("Sem permissão para acessar essa página!", "error");
+                loadPage("/");
+            }
+        }, 
+        error: function (error) {
+            console.log(error);
+            if (error.status === 401) {
+                renewSessionUserByRefreshToken();
+            }
+        }
+    })
+</script>

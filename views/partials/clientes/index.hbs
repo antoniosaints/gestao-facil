@@ -21,7 +21,7 @@
 </div>
 
 {{> clientes/modais/cadastro}}
-
+{{> components/authCheck permission="2"}}
 <script>
   function visualizarProduto(id) {
     htmx.ajax("GET", `produtos/detalhes/${id}`, {

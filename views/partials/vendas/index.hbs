@@ -26,6 +26,7 @@
 </div>
 {{> vendas/modais/filtro}}
 {{> vendas/modais/efetivar}}
+{{> components/authCheck permission="2"}}
 <script>
   async function gerarCupomPorVendaId(vendaId) {
     try {

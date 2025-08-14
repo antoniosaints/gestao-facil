@@ -3,7 +3,7 @@
     📦 Novo Produto
   </h2>
   <div
-    class="border bg-background dark:bg-background-dark border-border dark:border-border-dark p-6 rounded-md shadow-md w-full h-full">
+    class="bg-background dark:bg-background-dark rounded-md w-full h-full">
     <form id="formularioProdutos" class="grid grid-cols-1 md:grid-cols-12 gap-4">
       <!-- Nome -->
       <div class="md:col-span-12 lg:col-span-8">
@@ -59,18 +59,18 @@
 
       <!-- Preço -->
       <div class="md:col-span-4">
-        <label for="precoCompra" class="block text-sm font-medium mb-1">
+        <label for="precoProdutoCompra" class="block text-sm font-medium mb-1">
           Preço Compra
         </label>
-        <input type="text" id="precoCompra" name="precoCompra" placeholder="Ex: 79,90"
+        <input type="text" id="precoProdutoCompra" name="precoCompra" placeholder="Ex: 79,90"
           class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
       <div class="md:col-span-4">
-        <label for="preco" class="block text-sm font-medium mb-1">
+        <label for="precoProdutoVenda" class="block text-sm font-medium mb-1">
           Preço <span class="text-red-500">*</span>
         </label>
-        <input type="text" id="preco" name="preco" required placeholder="Ex: 99,90"
+        <input type="text" id="precoProdutoVenda" name="preco" required placeholder="Ex: 99,90"
           class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
       </div>
 
@@ -147,16 +147,16 @@
 
 
 <script>
-  MaskMoneyNative('#preco');
-  MaskMoneyNative('#precoCompra');
+  MaskMoneyNative('#precoProdutoVenda');
+  MaskMoneyNative('#precoProdutoCompra');
 
   $("#formularioProdutos").off('submit').on('submit', function (e) {
     e.preventDefault();
     const data = {
       codigo: $("#codigo").val(),
       nome: $("#nome").val(),
-      preco: $("#preco").val(),
-      precoCompra: $("#precoCompra").val(),
+      preco: $("#precoProdutoVenda").val(),
+      precoCompra: $("#precoProdutoCompra").val(),
       estoque: $("#estoque").val(),
       minimo: $("#minimo").val(),
       unidade: $("#unidade_select_produto").val(),
@@ -216,7 +216,7 @@
       language: "pt-BR",
     });
     if (localStorage.getItem('produtoId')) {
-      $("#produtoFormularioTitulo").text(`📝 Editar Produto #${localStorage.getItem('produtoId')}`);
+      $("#produtoFormularioTitulo").text(`📝 Editar Produto`);
       $("#estoque").prop("readonly", true);
       $.ajax({
         url: `/api/produtos/${localStorage.getItem('produtoId')}`,
@@ -241,8 +241,8 @@
           $("#id").val(data.id);
           $("#codigo").val(data.codigo);
           $("#nome").val(data.nome);
-          $("#preco").val(parseFloat(data.preco).toFixed(2).replace('.', ','));
-          $("#precoCompra").val(data.precoCompra ? parseFloat(data.precoCompra).toFixed(2).replace('.', ',') : 0);
+          $("#precoProdutoVenda").val(parseFloat(data.preco).toFixed(2).replace('.', ','));
+          $("#precoProdutoCompra").val(data.precoCompra ? parseFloat(data.precoCompra).toFixed(2).replace('.', ',') : 0);
           $("#estoque").val(data.estoque);
           $("#unidade_select_produto").val(data.unidade).trigger('change');
           $("#minimo").val(data.minimo);
