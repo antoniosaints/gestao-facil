@@ -1,8 +1,11 @@
 import fs from "fs";
 import csvParser from "csv-parser";
 import { parse as jsonToCsv } from "json2csv";
-import { ImportResult, ProdutoCreate, ProdutoCSV } from "../../types/produtos";
+import { ImportResult, ProdutoCSV } from "../../types/produtos";
 import { prisma } from "../../utils/prisma";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { Produto } from "../../../generated";
+import Decimal from "decimal.js";
 
 export function gerarCsvBase(): string {
   const campos = [
@@ -43,7 +46,7 @@ export async function importarProdutos(
   return new Promise((resolve, reject) => {
     const resultados: ProdutoCSV[] = [];
     const erros: ImportResult["erros"] = [];
-    const produtosValidos: ProdutoCreate[] = [];
+    const produtosValidos: Omit<Produto, "id">[] = [];
 
     fs.createReadStream(arquivoPath)
       .pipe(csvParser({ separator: ";" }))
@@ -68,11 +71,12 @@ export async function importarProdutos(
 
             produtosValidos.push({
               contaId,
+              Uid: gerarIdUnicoComMetaFinal("PRO"),
               nome: produto.nome.trim(),
               descricao: produto.descricao?.trim() || null,
-              preco: parseFloat(produto.preco),
+              preco: new Decimal(parseFloat(produto.preco)),
               precoCompra: produto.precoCompra
-                ? parseFloat(produto.precoCompra)
+                ? new Decimal(parseFloat(produto.precoCompra))
                 : null,
               entradas:
                 produto.entradas !== undefined
@@ -88,6 +92,7 @@ export async function importarProdutos(
               estoque: parseInt(produto.estoque),
               minimo: parseInt(produto.minimo),
               codigo: produto.codigo?.trim() || null,
+              status: "ATIVO",
             });
           });
 
