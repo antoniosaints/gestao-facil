@@ -17,7 +17,23 @@ export function gerarCsvBase(): string {
     "minimo",
     "codigo",
   ];
-  return jsonToCsv([], { fields: campos, delimiter: ";" });
+
+  const exemplo = [
+    {
+      nome: "Produto Exemplo",
+      descricao: "Descrição do produto",
+      preco: "100.00",
+      precoCompra: "80.00",
+      entradas: "Sim",
+      saidas: "Sim",
+      unidade: "UN",
+      estoque: "10",
+      minimo: "2",
+      codigo: "COD123",
+    },
+  ];
+
+  return jsonToCsv(exemplo, { fields: campos, delimiter: ";" });
 }
 
 export async function importarProdutos(
@@ -60,11 +76,13 @@ export async function importarProdutos(
                 : null,
               entradas:
                 produto.entradas !== undefined
-                  ? produto.entradas.toLowerCase() === "true"
+                  ? ["sim", "true", "1"].includes(
+                      produto.entradas.toLowerCase()
+                    )
                   : true,
               saidas:
                 produto.saidas !== undefined
-                  ? produto.saidas.toLowerCase() === "true"
+                  ? ["sim", "true", "1"].includes(produto.saidas.toLowerCase())
                   : true,
               unidade: produto.unidade?.trim() || null,
               estoque: parseInt(produto.estoque),

@@ -37,7 +37,7 @@ routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("", authenticateJWT, saveProduto);
 routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
 routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
-routerProdutos.get("/download/csv", getCsvBase);
+routerProdutos.get("/download/csv", authenticateJWT, getCsvBase);
 routerProdutos.post("/importar/csv", authenticateJWT, upload.single('arquivo'), postImportarProdutos);
 
 //select2
