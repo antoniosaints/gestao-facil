@@ -60,12 +60,18 @@ export const tableProdutos = async (
       return formatLabel(codigo, "blue", "fa-solid fa-barcode");
     })
     .edit("nome", function (row) {
-      return `<span>${row.nome}</span>`;
+      return `<div class="flex flex-row items-center gap-2 max-w-80">
+                <span class="flex-1 truncate whitespace-nowrap overflow-hidden">${row.nome}</span>
+            </div>`;
     })
     .format("preco", (value) => formatCurrency(value))
     .edit("estoque", function (row) {
       const estoque = row.estoque.toString().padStart(2, "0");
-      return formatLabel(estoque + " " + row.unidade, "gray", "fa-solid fa-box");
+      return formatLabel(
+        estoque + " " + row.unidade,
+        "gray",
+        "fa-solid fa-box"
+      );
     })
     .include(["id", "nome", "preco", "estoque", "codigo"])
     .addColumn("acoes", (row) => {
