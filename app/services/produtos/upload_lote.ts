@@ -1,10 +1,8 @@
 import fs from "fs";
 import csvParser from "csv-parser";
-import { PrismaClient } from "@prisma/client";
 import { parse as jsonToCsv } from "json2csv";
 import { ImportResult, ProdutoCreate, ProdutoCSV } from "../../types/produtos";
-
-const prisma = new PrismaClient();
+import { prisma } from "../../utils/prisma";
 
 export function gerarCsvBase(): string {
   const campos = [
