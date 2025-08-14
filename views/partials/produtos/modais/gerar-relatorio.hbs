@@ -1,25 +1,31 @@
-<div
-  class="border-border dark:border-border-dark bg-card dark:bg-card-dark border p-8 rounded-lg shadow-2xl w-[95%] md:max-w-lg transform transition-transform duration-300 scale-95 opacity-0 animate-fade-in">
-  <h2 class="text-2xl font-bold mb-6 text-primary">
-    Gerar Relatório de Produtos
-  </h2>
-  <p class="mb-6 text-gray-700 dark:text-gray-200">
-    Clique no botão abaixo para baixar o relatório de produtos em formato
-    PDF.
-  </p>
-  <button onclick="baixarRelatorioProduto()"
-    class="w-full bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg font-semibold text-lg mb-6 transition-colors duration-200">
-    <i class="fa-solid fa-download"></i> Baixar Relatório
-  </button>
-  <p class="text-sm text-gray-500 dark:text-gray-300 mb-6">
-    * O relatório será gerado em PDF e baixado automaticamente.
-  </p>
+<div id="modalOverlayGerarRelatorioProdutos"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden transition-opacity duration-300">
+  <div id="sheetContainerGerarRelatorioProdutos"
+    class="bg-gray-100 dark:bg-background-dark w-[95%] md:max-w-md mx-auto rounded-lg shadow-xl transform scale-95 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+    <div
+      class="border-border dark:border-border-dark bg-card dark:bg-card-dark border p-8 rounded-lg shadow-2xl transform transition-transform duration-300 scale-95 opacity-0 animate-fade-in">
+      <h2 class="text-2xl font-bold mb-6 text-primary">
+        Gerar Relatório de Produtos
+      </h2>
+      <p class="mb-6 text-gray-700 dark:text-gray-200">
+        Clique no botão abaixo para baixar o relatório de produtos em formato
+        PDF.
+      </p>
+      <button onclick="baixarRelatorioProduto()"
+        class="w-full bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg font-semibold text-lg mb-6 transition-colors duration-200">
+        <i class="fa-solid fa-download"></i> Baixar Relatório
+      </button>
+      <p class="text-sm text-gray-500 dark:text-gray-300 mb-6">
+        * O relatório será gerado em PDF e baixado automaticamente.
+      </p>
 
-  <button
-    class="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-lg transition-colors duration-200"
-    onclick="fecharModalRelatorioProdutos()">
-    <i class="fa-solid fa-times"></i> Fechar
-  </button>
+      <button
+        class="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-semibold text-lg transition-colors duration-200"
+        onclick="fecharModalRelatorioProdutos()">
+        <i class="fa-solid fa-times"></i> Fechar
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -44,19 +50,35 @@
       })
       .catch(() => alert("Erro ao gerar relatório."));
   }
+
   function abrirModalRelatorioProdutos() {
-    const template = document.getElementById(
-      "modal-template-gerar-relatorio-produtos"
-    ).innerHTML;
-    document.getElementById(
-      "modal-container-gerar-relatorio-produtos"
-    ).innerHTML = template;
+    const overlay = document.getElementById('modalOverlayGerarRelatorioProdutos');
+    const modal = document.getElementById('sheetContainerGerarRelatorioProdutos');
+
+    overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Força reflow
+    void modal.offsetWidth;
+
+    modal.classList.remove('opacity-0', 'scale-95');
+    modal.classList.add('opacity-100', 'scale-100');
   }
 
   function fecharModalRelatorioProdutos() {
-    document.getElementById(
-      "modal-container-gerar-relatorio-produtos"
-    ).innerHTML = "";
+    const overlay = document.getElementById('modalOverlayGerarRelatorioProdutos');
+    const modal = document.getElementById('sheetContainerGerarRelatorioProdutos');
+
+    modal.classList.remove('opacity-100', 'scale-100');
+    modal.classList.add('opacity-0', 'scale-95');
+
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      document.body.style.overflow = 'auto';
+    }, 300);
   }
+
+  // Fechamento por ESC e clique fora
+  document.addEventListener('keydown', e => e.key === 'Escape' && fecharModalRelatorioProdutos());
 
 </script>
