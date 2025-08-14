@@ -1,3 +1,17 @@
+function loadSidebarOptionsMenu() {
+  htmx
+    .ajax("GET", "/sidebar/menu", {
+      target: "#content-sidebar-menu",
+      swap: "innerHTML",
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+      },
+    })
+    .catch((error) => {
+      console.error("Request failed:", error);
+    });
+}
+
 htmx.on("htmx:responseError", (e) => {
   showNotification(
     JSON.parse(e.detail.xhr.responseText)?.message ||
@@ -63,6 +77,7 @@ function renewSessionUserByRefreshToken() {
       localStorage.setItem("gestao_facil:isauth", true);
 
       showNotification("Token de sessão renovado!", "success");
+      loadSidebarOptionsMenu();
     },
     error: (xhr) => {
       console.log(xhr);

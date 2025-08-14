@@ -217,8 +217,8 @@
 
         function definirValorProporcionalVenda() {
             const valor = document.getElementById('valorVendaPropostoClienteTotal');
-            const valorTratado = valor.value ? parseFloat(valor.value) : 0;
-            proporValorVendaCliente(valor.value);
+            const valorTratado = valor.value ? parseFloat(valor.value.replace(',', '.')) : 0;
+            proporValorVendaCliente(valorTratado);
             valor.value = null;
             closeModalDefinirValorVenda();
         }

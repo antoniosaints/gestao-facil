@@ -1,17 +1,5 @@
 $(".datatable thead th:last-child").addClass("text-end");
 
-htmx
-  .ajax("GET", "/sidebar/menu", {
-    target: "#content-sidebar-menu",
-    swap: "innerHTML",
-    headers: {
-      Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
-    },
-  })
-  .catch((error) => {
-    console.error("Request failed:", error);
-  });
-
 function loadPage(pagePath) {
   htmx.ajax("GET", pagePath, {
     target: "#content",
@@ -35,3 +23,5 @@ document.addEventListener("htmx:afterSwap", (event) => {
 window.addEventListener("popstate", () => {
   htmx.ajax("GET", location.pathname, { target: "#content" });
 });
+
+loadSidebarOptionsMenu();
