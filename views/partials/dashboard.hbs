@@ -279,14 +279,14 @@
       $("#limpar_filtro_dashboard_periodo").click(function () {
         instance.clear();
         localStorage.removeItem("filtro_dashboard_periodo");
-        loadPage('/resumos');
+        loadPage('/');
       })
     },
     onChange: function (selectedDates, dateStr, instance) {
       if (selectedDates.length === 2) {
         $("#limpar_filtro_dashboard_periodo").removeClass("hidden");
         localStorage.setItem("filtro_dashboard_periodo", dateStr);
-        loadPage('/resumos');
+        loadPage('/');
       } else {
         $("#limpar_filtro_dashboard_periodo").addClass("hidden");
       }
