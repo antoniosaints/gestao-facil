@@ -56,6 +56,9 @@ window.fetch = async (...args) => {
 })(XMLHttpRequest.prototype.open);
 
 function renewSessionUserByRefreshToken() {
+  if (!localStorage.getItem("gestao_facil:refreshToken")) {
+    window.location.href = "/login";
+  }
   $.ajax({
     url: `/api/auth/renew`,
     method: "GET",

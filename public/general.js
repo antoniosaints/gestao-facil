@@ -20,7 +20,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   }
 });
-
+function logOut() {
+  localStorage.removeItem("gestao_facil:token");
+  localStorage.removeItem("gestao_facil:refreshToken");
+  localStorage.removeItem("gestao_facil:usuario");
+  localStorage.removeItem("gestao_facil:username");
+  localStorage.removeItem("gestao_facil:permissao");
+  localStorage.setItem("gestao_facil:isauth", false);
+  window.location.href = "/login";
+}
 function showNotification(message, type = "info") {
   // Remove existing notifications
   const existingNotification = document.querySelector(".notification");
