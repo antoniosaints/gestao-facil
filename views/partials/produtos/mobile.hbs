@@ -70,25 +70,15 @@
     $.ajax({
       type: "GET",
       url: `/api/produtos/mobile/data`,
+      headers: {
+        "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token"),
+      },
       data: {
         search: $("#search-input-produtos-mobile").val(),
         limit: "10",
         page,
       },
       beforeSend: function (xhr) {
-        const tokenJWT = localStorage.getItem("gestao_facil:token");
-        if (tokenJWT) {
-          xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
-        } else {
-          Swal.fire({
-            icon: "error",
-            title: "Erro!",
-            text: "Você precisa estar logado para visualizar a página",
-            showConfirmButton: false,
-            timer: 3000,
-            position: "bottom-end",
-          });
-        };
         container.innerHTML = `
             <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
@@ -147,26 +137,14 @@
       },
       error: function (xhr, status, error) {
         container.innerHTML = "";
-        const mensagem =
-          xhr.responseJSON?.message || "Erro inesperado na requisição";
-        Swal.fire({
-          toast: true,
-          position: "bottom-end",
-          timer: 3000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-          icon: "error",
-          title: "Erro!",
-          text: mensagem,
-        });
-        if (status === 401) window.location.href = "/login";
+        console.log("mobile_produtos:" + error);
       },
     });
   }
   function renderPagination(pager) {
     const previous = document.querySelector("#navigate-previous-page-mobile");
     const next = document.querySelector("#navigate-next-page-mobile");
-    localStorage.setItem("produtos_mobile_TotalPages", pager.totalPages); 
+    localStorage.setItem("produtos_mobile_TotalPages", pager.totalPages);
     localStorage.setItem("produtos_mobile_page", pager.page);
     previous.disabled = pager.page <= 1;
     next.disabled = pager.page >= pager.totalPages;

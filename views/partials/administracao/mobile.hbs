@@ -1,5 +1,4 @@
-<div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)] md:max-h-full"
-  id="usuarios-lista-mobile">
+<div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)] md:max-h-full" id="usuarios-lista-mobile">
 </div>
 <div id="modal-container-buscar-usuarios-mobile"></div>
 
@@ -114,25 +113,16 @@
     $.ajax({
       type: "GET",
       url: `/api/usuarios/mobile/data`,
+      dataType: "json",
+      headers: {
+        "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token"),
+      },
       data: {
         search: $("#search-input-usuarios-mobile").val(),
         limit: "10",
         page,
       },
       beforeSend: function (xhr) {
-        const tokenJWT = localStorage.getItem("gestao_facil:token");
-        if (tokenJWT) {
-          xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
-        } else {
-          Swal.fire({
-            icon: "error",
-            title: "Erro!",
-            text: "Você precisa estar logado para visualizar a página",
-            showConfirmButton: false,
-            timer: 3000,
-            position: "bottom-end",
-          });
-        };
         container.innerHTML = `
             <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
@@ -183,19 +173,7 @@
       },
       error: function (xhr, status, error) {
         container.innerHTML = "";
-        const mensagem =
-          xhr.responseJSON?.message || "Erro inesperado na requisição";
-        Swal.fire({
-          toast: true,
-          position: "bottom-end",
-          timer: 3000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-          icon: "error",
-          title: "Erro!",
-          text: mensagem,
-        });
-        if (status === 401) window.location.href = "/login";
+        console.log("mobile_usuarios:" + error);
       },
     });
   }

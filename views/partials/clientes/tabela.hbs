@@ -28,35 +28,11 @@
         ajax: {
             type: "GET",
             url: `/api/clientes/getDataTable`,
-            beforeSend: function (xhr) {
-                const tokenJWT = localStorage.getItem("gestao_facil:token");
-                if (tokenJWT) {
-                    xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
-                } else {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Erro!",
-                        text: "Você precisa estar logado para visualizar a página",
-                        showConfirmButton: false,
-                        timer: 3000,
-                        position: "bottom-end",
-                    });
-                }
+            headers: {
+                "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token"),
             },
             error: function (xhr, status, error) {
-                const mensagem =
-                    xhr.responseJSON?.message || "Erro inesperado na requisição";
-                Swal.fire({
-                    toast: true,
-                    position: "bottom-end",
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
-                    icon: "error",
-                    title: "Erro!",
-                    text: mensagem,
-                });
-                if (status === 401) window.location.href = "/login";
+                console.log("tabela_clientes:" + error);
             },
         },
         columns: [

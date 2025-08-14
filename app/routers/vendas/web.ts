@@ -6,7 +6,6 @@ const webRouterVendas = Router();
 
 webRouterVendas.get("/resumo", (req, res) => {
   const isHTMX = req.headers["hx-request"];
-  // renderAuth(req, res, "partials/vendas/index");
   res.render("partials/vendas/index", {
     layout: isHTMX ? false : "main",
   });
@@ -25,8 +24,11 @@ webRouterVendas.get("/pdv", (req, res) => {
     layout: isHTMX ? false : "main",
   });
 });
-webRouterVendas.get("/detalhe", authenticateJWT, (req, res) => {
-  renderAuth(req, res, "partials/vendas/detalhes");
+webRouterVendas.get("/detalhe", (req, res) => {
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/vendas/detalhes", {
+    layout: isHTMX ? false : "main",
+  });
 });
 
 export { webRouterVendas };

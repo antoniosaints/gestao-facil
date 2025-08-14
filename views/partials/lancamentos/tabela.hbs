@@ -30,6 +30,9 @@
         ajax: {
             type: "GET",
             url: `/api/lancamentos/getDataTable`,
+            headers: {
+                "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token"),
+            },
             data: function (d) {
                 d.tipo = $("#tipoLancamentoFiltroLancamento").val() || null;
                 d.conta = $("#contasFinanceiroFiltroLancamento").val() || null;
@@ -40,35 +43,8 @@
                 d.valorMinimo = $("#valorMinimoFilterLancamento").val() || null;
                 d.valorMaximo = $("#valorMaximoFilterLancamento").val() || null;
             },
-            beforeSend: function (xhr) {
-                const tokenJWT = localStorage.getItem("gestao_facil:token");
-                if (tokenJWT) {
-                    xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
-                } else {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Erro!",
-                        text: "Você precisa estar logado para visualizar a página",
-                        showConfirmButton: false,
-                        timer: 3000,
-                        position: "bottom-end",
-                    });
-                }
-            },
             error: function (xhr, status, error) {
-                const mensagem =
-                    xhr.responseJSON?.message || "Erro inesperado na requisição";
-                Swal.fire({
-                    toast: true,
-                    position: "bottom-end",
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
-                    icon: "error",
-                    title: "Erro!",
-                    text: mensagem,
-                });
-                if (status === 401) window.location.href = "/login";
+                console.log("tabela_lancamentos:" + error);
             },
         },
         columns: [

@@ -34,22 +34,8 @@
                 "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token"),
             },
             data: function (d) {},
-            beforeSend: function (xhr) {
-            },
             error: function (xhr, status, error) {
-                const mensagem =
-                    xhr.responseJSON?.message || "Erro inesperado na requisição";
-                Swal.fire({
-                    toast: true,
-                    position: "bottom-end",
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
-                    icon: "error",
-                    title: "Erro!",
-                    text: mensagem,
-                });
-                if (status === 401) window.location.href = "/login";
+                console.log("tabela_contas_assinantes:" + error);
             },
         },
         columns: [

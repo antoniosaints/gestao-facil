@@ -5,16 +5,19 @@ import { renderAuth } from "../web";
 const webAdminRouter = Router();
 
 webAdminRouter.get("/", (req: Request, res: Response): any => {
-  res.render("layouts/home", {
-    title: "Gerencia",
-    layout: "gerencia/main",
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/gerencia/dashboard", {
+    layout: isHTMX ? false : "gerencia/main",
   });
 });
-webAdminRouter.get("/dashboard", authenticateJWT, (req: Request, res: Response): any => {
-  renderAuth(req, res, "partials/gerencia/dashboard");
-});
-webAdminRouter.get("/contas", authenticateJWT, (req: Request, res: Response): any => {
-  renderAuth(req, res, "partials/gerencia/contas/index");
-});
+webAdminRouter.get(
+  "/contas",
+  (req: Request, res: Response): any => {
+    const isHTMX = req.headers["hx-request"];
+    res.render("partials/gerencia/contas/index", {
+      layout: isHTMX ? false : "gerencia/main",
+    })
+  }
+);
 
 export { webAdminRouter };

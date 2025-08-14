@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-2 mt-2 overflow-auto max-h-[calc(100vh-12rem)] md:max-h-full"
   id="lancamentos-lista-mobile">
 </div>
-<div id="modal-container-buscar-lancamentos"></div>
+<div id="modal-container-buscar-contas-assinantes"></div>
 
 <nav
   class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
@@ -10,7 +10,7 @@
     <i class="fa-solid fa-arrow-left text-lg"></i>
     <span class="text-xs">Anterior</span>
   </button>
-  <button type="button" onclick="abrirModalBuscarlancamentos()"
+  <button type="button" onclick="abrirModalBuscarContasAssinantes()"
     class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
     <i class="fa-solid fa-search text-lg"></i>
     <span class="text-xs">Busca</span>
@@ -32,7 +32,7 @@
   </button>
 </nav>
 
-<div id="modal-template-buscar-lancamentos" class="hidden">
+<div id="modal-template-buscar-contas-assinantes" class="hidden">
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" hx-target="this"
     hx-swap="outerHTML">
     <div
@@ -44,7 +44,7 @@
         placeholder="Digite o nome do ítem" />
       <div class="w-full flex justify-between items-center mb-4">
         <button class="bg-secondary text-sm dark:bg-secondary-dark hover:opacity-90 text-white px-3 py-1.5 rounded-md"
-          onclick="fecharModalBuscarlancamentos()">
+          onclick="fecharModalBuscarContasAssinantes()">
           <i class="fa-regular fa-circle-xmark"></i>
           Fechar
         </button>
@@ -87,13 +87,12 @@
 </div>
 
 <script>
-  switchToNormalScreen();
-  function abrirModalBuscarlancamentos() {
-    const template = document.getElementById("modal-template-buscar-lancamentos").innerHTML;
-    document.getElementById("modal-container-buscar-lancamentos").innerHTML = template;
+  function abrirModalBuscarContasAssinantes() {
+    const template = document.getElementById("modal-template-buscar-contas-assinantes").innerHTML;
+    document.getElementById("modal-container-buscar-contas-assinantes").innerHTML = template;
   }
-  function fecharModalBuscarlancamentos() {
-    document.getElementById("modal-container-buscar-lancamentos").innerHTML = "";
+  function fecharModalBuscarContasAssinantes() {
+    document.getElementById("modal-container-buscar-contas-assinantes").innerHTML = "";
   }
 
   function toogleDrawerFinanceiro() {
@@ -125,21 +124,14 @@
         if (tokenJWT) {
           xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
         } else {
-          Swal.fire({
-            icon: "error",
-            title: "Erro!",
-            text: "Você precisa estar logado para visualizar a página",
-            showConfirmButton: false,
-            timer: 3000,
-            position: "bottom-end",
-          });
+          showNotification("Vocé precisa estar logado para visualizar a página", "error");
         };
         container.innerHTML = `
             <div class="flex items-center justify-center h-[calc(100vh-12rem)]">
                 <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary dark:border-primary-dark"></div>
             </div>
         `;
-        fecharModalBuscarlancamentos();
+        fecharModalBuscarContasAssinantes();
       },
       success: function (response) {
         renderPagination(response.pagination);
@@ -193,39 +185,27 @@
       },
       error: function (xhr, status, error) {
         container.innerHTML = "";
-        const mensagem =
-          xhr.responseJSON?.message || "Erro inesperado na requisição";
-        Swal.fire({
-          toast: true,
-          position: "bottom-end",
-          timer: 3000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-          icon: "error",
-          title: "Erro!",
-          text: mensagem,
-        });
-        if (status === 401) window.location.href = "/login";
+        console.log("mobile_contas_assinantes:" + error);
       },
     });
   }
   function renderPagination(pager) {
     const previous = document.querySelector("#navigate-previous-page-mobile");
     const next = document.querySelector("#navigate-next-page-mobile");
-    localStorage.setItem("lancamentos_mobile_TotalPages", pager.totalPages);
-    localStorage.setItem("lancamentos_mobile_page", pager.page);
+    localStorage.setItem("contas_assinantes_mobile_TotalPages", pager.totalPages);
+    localStorage.setItem("contas_assinantes_mobile_page", pager.page);
     previous.disabled = pager.page <= 1;
     next.disabled = pager.page >= pager.totalPages;
   };
 
   document.querySelector("#navigate-previous-page-mobile").addEventListener("click", () => {
-    const currentPage = localStorage.getItem("lancamentos_mobile_page") || 1;
+    const currentPage = localStorage.getItem("contas_assinantes_mobile_page") || 1;
     const page = Number(currentPage) <= 1 ? 1 : Number(currentPage) - 1;
     renderListaLancamentos(page);
   });
   document.querySelector("#navigate-next-page-mobile").addEventListener("click", () => {
-    const currentPage = localStorage.getItem("lancamentos_mobile_page") || 1;
-    const totalPages = localStorage.getItem("lancamentos_mobile_TotalPages") || 1;
+    const currentPage = localStorage.getItem("contas_assinantes_mobile_page") || 1;
+    const totalPages = localStorage.getItem("contas_assinantes_mobile_TotalPages") || 1;
     const page = Number(currentPage) >= Number(totalPages) ? Number(totalPages) : Number(currentPage) + 1;
     renderListaLancamentos(page);
   });

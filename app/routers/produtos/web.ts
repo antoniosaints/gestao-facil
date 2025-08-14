@@ -1,6 +1,4 @@
 import { Router } from "express";
-import { authenticateJWT } from "../../middlewares/auth";
-import { renderFileSimple, renderSimple } from "../web";
 import { prisma } from "../../utils/prisma";
 import Decimal from "decimal.js";
 import { formatCurrency } from "../../utils/formatters";
@@ -13,32 +11,13 @@ webRouterProdutos.get("/resumo", async (req, res): Promise<any> => {
     layout: isHTMX ? false : "main",
   });
 });
-webRouterProdutos.get("/tabela", (req, res) => {
-  renderFileSimple(req, res, "partials/produtos/tabela.html");
-});
-webRouterProdutos.get("/mobile/lista", (req, res) => {
-  renderFileSimple(req, res, "partials/produtos/mobile.html");
-});
-webRouterProdutos.get("/reposicao/estoque", (req, res) => {
-  renderFileSimple(req, res, "partials/produtos/modais/repor-estoque.html");
-});
-webRouterProdutos.get("/reposicao/relatorio", (req, res) => {
-  renderFileSimple(
-    req,
-    res,
-    "partials/produtos/modais/gerar-relatorio-reposicao.html"
-  );
-});
-webRouterProdutos.get("/relatorio/geral", (req, res) => {
-  renderFileSimple(req, res, "partials/produtos/modais/gerar-relatorio.html");
-});
 webRouterProdutos.get("/editar/formulario", (req, res) => {
   const isHTMX = req.headers["hx-request"];
   res.render("partials/produtos/formulario", {
     layout: isHTMX ? false : "main",
   });
 });
-webRouterProdutos.get("/detalhes/:id", authenticateJWT, async (req, res) => {
+webRouterProdutos.get("/detalhes/:id", async (req, res) => {
   const { id } = req.params;
   const produto = await prisma.produto.findUniqueOrThrow({
     where: { id: Number(id) },
@@ -68,7 +47,9 @@ webRouterProdutos.get("/detalhes/:id", authenticateJWT, async (req, res) => {
 
   lucroLiquido = totalVendido.minus(totalGasto || 0) || 0;
 
-  renderSimple(req, res, "partials/produtos/detalhes", {
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/produtos/detalhes", {
+    layout: isHTMX ? false : "main",
     produto,
     resumo: {
       totalGasto: formatCurrency(totalGasto),

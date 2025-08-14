@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { authenticateJWT } from "../../middlewares/auth";
-import { renderAuth } from "../web";
 
 const webClienteRouter = Router();
 
-webClienteRouter.get("/resumo", authenticateJWT, (req, res) => {
-  renderAuth(req, res, "partials/clientes/index");
+webClienteRouter.get("/resumo", (req, res) => {
+  const isHTMX = req.headers["hx-request"];
+  res.render("partials/clientes/index", {
+    layout: isHTMX ? false : "main",
+  })
 });
 export {
   webClienteRouter
