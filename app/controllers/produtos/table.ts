@@ -32,7 +32,12 @@ export const tableProdutos = async (
       codigo: "string",
     })
     .edit("Uid", function (row) {
-      return `<span onclick="visualizarProduto('${row.id}')" class="px-2 py-1 flex flex-nowrap cursor-pointer truncate w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">#${row.Uid}</span>`;
+      let color = "gray";
+      const isLowStock = row.estoque <= row.minimo;
+      if (isLowStock) color = "yellow";
+      return `<span 
+        onclick="visualizarProduto('${row.id}')" 
+        class="px-2 py-1 flex flex-nowrap cursor-pointer truncate w-max border border-${color}-700 text-${color}-900 bg-${color}-100 dark:border-${color}-500 dark:bg-${color}-950 dark:text-${color}-100 rounded-md">#${row.Uid}</span>`;
     })
     .format("entradas", function (row) {
       return `
