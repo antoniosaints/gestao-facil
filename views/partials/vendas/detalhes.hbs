@@ -7,7 +7,7 @@
         <!-- Informações da Venda -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
             <div>
-                <p><span class="font-medium">ID da Venda:</span> <span id="id_venda_detalhes">...</span></p>
+                <p><span class="font-medium">ID:</span> <span id="id_venda_detalhes">...</span></p>
                 <p><span class="font-medium">Data:</span> <span id="data_venda_detalhes">...</span></p>
                 <p><span class="font-medium">Cliente:</span> <span id="cliente_venda_detalhes">...</span></p>
             </div>
@@ -214,7 +214,7 @@
                 Swal.close();
                 const cliente = response.data.cliente ? response.data.cliente.nome : 'N/A'
                 $("#titulo_detalhes_venda").html(`<i class="fa-solid fa-tags text-green-600"></i> Detalhes da Venda`);
-                $("#id_venda_detalhes").text(`#${response.data.id}`);
+                $("#id_venda_detalhes").text(`#${response.data.Uid}`);
                 $("#imprimir_cupom_venda").click(() => gerarCupomPorVendaId(response.data.id));
                 $("#cliente_venda_detalhes").text(`${cliente}`);
                 $("#status_venda_detalhes").text(`${response.data.status}`);

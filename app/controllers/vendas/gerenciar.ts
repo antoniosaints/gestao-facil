@@ -83,9 +83,9 @@ export const efetivarVenda = async (
           categoriaId: categoria,
           contasFinanceiroId: contaId,
           formaPagamento: pagamento,
-          tipo: "RECEITA"
+          tipo: "RECEITA",
         },
-      })
+      });
 
       return venda;
     });
@@ -290,6 +290,37 @@ export const getResumoVendasMensalChart = async (
     handleError(res, err);
   }
 };
+const updateVendaInternal = async (
+  vendaId: number,
+  data: any,
+  customData: any
+) => {
+  const venda = await prisma.vendas.findUnique({
+    where: {
+      id: vendaId,
+      contaId: customData.contaId,
+    },
+    include: {
+      ItensVendas: true,
+    },
+  });
+
+  if (!venda) {
+    throw new Error("Venda nao encontrada");
+  }
+
+  const itensVendaOriginal = venda?.ItensVendas || [];
+
+  const itensVenda = data.itens.map((item: any) => ({
+    vendaId: venda.id,
+    produtoId: item.id,
+    quantidade: item.quantidade,
+    valor: new Decimal(item.preco),
+  }));
+
+  const itensVendaNovos = itensVenda.filter((item: any) => !item.id);
+  const itensVendaAlterados = itensVenda.filter((item: any) => item.id);
+};
 export const saveVenda = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
@@ -389,7 +420,9 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     await enqueuePushNotification(
       {
         title: "Opa! Nova venda.",
-        body: `Uma nova venda no valor de ${formatCurrency(valorTotal.minus(descontoTotal))} foi realizada`,
+        body: `Uma nova venda no valor de ${formatCurrency(
+          valorTotal.minus(descontoTotal)
+        )} foi realizada`,
       },
       customData.contaId
     );
