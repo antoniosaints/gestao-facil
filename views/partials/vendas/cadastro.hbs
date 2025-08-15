@@ -2,16 +2,19 @@
     <h2 class="text-xl md:text-2xl font-bold mb-6" id="titulo_cadastro_venda">
         <i class="fa-solid fa-tags text-green-600"></i> {{title}}
     </h2>
-    <div
-        class="bg-background dark:bg-background-dark rounded-md w-full h-full">
+    <div class="bg-background dark:bg-background-dark rounded-md w-full h-full">
         <form id="formulario_cadastro_venda" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-6">
                     <label class="block text-sm mb-1">Cliente</label>
-                    <select id="select_cliente_venda_formulario" name="cliente"
-                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
+                    <div class="flex items-center justify-center gap-2">
+                        <select id="select_cliente_venda_formulario" name="cliente"
+                            class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark">
 
-                    </select>
+                        </select>
+                        <button type="button" onclick="openModalClientes()"
+                            class="bg-blue-500 px-4 py-2 text-white dark:bg-blue-600 rounded-md border border-border dark:border-border-dark flex justify-center items-center">+</button>
+                    </div>
                 </div>
 
                 <div class="md:col-span-3">
@@ -162,14 +165,15 @@
     </div>
 </div>
 {{> vendas/modais/proporcional}}
+{{> clientes/modais/cadastro}}
 <nav
-  class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
+    class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
 
-  <button type="button" onclick="openSideBarMobile()"
-    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
-    <i class="fa-solid fa-bars text-lg"></i>
-    <span class="text-xs">Menu</span>
-  </button>
+    <button type="button" onclick="openSideBarMobile()"
+        class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+        <i class="fa-solid fa-bars text-lg"></i>
+        <span class="text-xs">Menu</span>
+    </button>
 </nav>
 
 

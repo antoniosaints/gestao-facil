@@ -99,7 +99,7 @@ export const relatorioProdutos = async (
   // Configuração da Tabela
   const tableTop = doc.y;
   const rowHeight = 20;
-  const colX = { id: 30, nome: 90, preco: 380, estoque: 460, total: 500 };
+  const colX = { id: 30, nome: 90, preco: 370, estoque: 440, total: 480 };
 
   // Títulos
   doc
@@ -153,8 +153,8 @@ export const relatorioProdutos = async (
 
     // Linha divisória
     doc
-      .moveTo(30, y + linhaAltura)
-      .lineTo(580, y + linhaAltura)
+      .moveTo(30, y + linhaAltura - 5)
+      .lineTo(580, y + linhaAltura - 5)
       .strokeColor("#ccc")
       .stroke();
 
