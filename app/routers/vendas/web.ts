@@ -11,11 +11,12 @@ webRouterVendas.get("/resumo", (req, res) => {
   });
 });
 webRouterVendas.get("/formulario", async (req, res): Promise<any> => {
+  const query = req.query;
   const isHTMX = req.headers["hx-request"];
   res.render("partials/vendas/cadastro", {
     layout: isHTMX ? false : "main",
-    title: "Nova venda",
-    venda: { id: null },
+    title: query.id ? "Editar venda" : "Nova venda",
+    venda: { id: query.id ? Number(query.id) : null },
   });
 });
 webRouterVendas.get("/pdv", (req, res) => {

@@ -123,8 +123,8 @@ export const vendaSchema = z.object(
             })
             .transform((val) => Number(val)),
         },
-        { required_error: "O campo itens é obrigatório" }
-      )
+        { required_error: "Preencha o item da venda", invalid_type_error: "O item deve ser um objeto" }
+      ), { required_error: "Preencha o array de itens da venda", invalid_type_error: "O array de itens deve ser um array" }
     ),
   },
   { required_error: "Informe os dados da venda" }

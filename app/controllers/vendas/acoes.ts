@@ -37,6 +37,13 @@ export const VendasAcoes = (row: Vendas) => {
                     </button>
                     <button
                         type="button"
+                        title="Editar venda"
+                        onclick="loadPage('vendas/formulario?id=${row.id}')"
+                        class="text-blue-500 px-1 py-[2px] rounded">
+                        <i class="fa-solid fa-user-pen"></i>
+                    </button>
+                    <button
+                        type="button"
                         title="Excluir venda"
                         onclick="excluirVenda('${row.id}')"
                         class="text-danger px-1 py-[2px] rounded">
@@ -46,10 +53,3 @@ export const VendasAcoes = (row: Vendas) => {
             }
             </div>`;
 };
-
-// <button
-//   onclick="loadPage('vendas/formulario?id=${row.id}')"
-//   class="text-success px-1 py-[2px] rounded"
-// >
-//   <i class="fa-solid fa-user-pen"></i>
-// </button>;

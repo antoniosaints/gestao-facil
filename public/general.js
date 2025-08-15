@@ -127,3 +127,4 @@ function MaskToInputPercentage(element) {
     lazy: false,
   });
 }
+

@@ -10,6 +10,7 @@ import { addHours, format } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
 import { formatCurrency } from "../../utils/formatters";
+import { z } from "zod";
 
 export const efetivarVenda = async (
   req: Request,
@@ -290,44 +291,139 @@ export const getResumoVendasMensalChart = async (
     handleError(res, err);
   }
 };
-const updateVendaInternal = async (
+export const updateVendaInternal = async (
   vendaId: number,
-  data: any,
+  data: z.infer<typeof vendaSchema>,
   customData: any
 ) => {
-  const venda = await prisma.vendas.findUnique({
-    where: {
-      id: vendaId,
-      contaId: customData.contaId,
-    },
-    include: {
-      ItensVendas: true,
-    },
+  return await prisma.$transaction(async (tx) => {
+    const venda = await tx.vendas.findUnique({
+      where: {
+        id: vendaId,
+        contaId: customData.contaId,
+      },
+      include: {
+        ItensVendas: true,
+      },
+    });
+
+    if (!venda) {
+      throw new Error("Venda nao encontrada");
+    }
+
+    const itensVendaOriginal = venda.ItensVendas || [];
+
+    // Remove itens e movimentações antigas
+    await tx.itensVendas.deleteMany({
+      where: { vendaId: venda.id },
+    });
+
+    await Promise.all(
+      itensVendaOriginal.map(async (item) => {
+        await tx.movimentacoesEstoque.deleteMany({
+          where: {
+            vendaId: venda.id,
+            produtoId: item.produtoId,
+          },
+        });
+        await tx.produto.update({
+          where: {
+            id: item.produtoId,
+            contaId: customData.contaId,
+          },
+          data: {
+            estoque: { increment: item.quantidade },
+          },
+        });
+      })
+    );
+
+    // Novo conjunto de itens
+    const itensVenda = data.itens.map((item: any) => ({
+      vendaId: venda.id,
+      produtoId: item.id,
+      quantidade: item.quantidade,
+      valor: new Decimal(item.preco),
+    }));
+
+    await tx.itensVendas.createMany({
+      data: itensVenda,
+    });
+
+    await Promise.all(
+      itensVenda.map(async (item) => {
+        await tx.produto.update({
+          where: { id: item.produtoId, contaId: customData.contaId },
+          data: {
+            estoque: { decrement: item.quantidade },
+          },
+        });
+        await tx.movimentacoesEstoque.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("MOV"),
+            vendaId: venda.id,
+            produtoId: item.produtoId,
+            quantidade: item.quantidade,
+            status: "CONCLUIDO",
+            tipo: "SAIDA",
+            clienteFornecedor: data.clienteId,
+            contaId: customData.contaId,
+            custo: new Decimal(item.valor), // aqui assumindo que o valor = preço de venda
+          },
+        });
+      })
+    );
+
+    // Calcula totais
+    const valorTotal = data.itens.reduce((total, item) => {
+      return total.add(
+        new Decimal(item.quantidade).mul(new Decimal(item.preco))
+      );
+    }, new Decimal(0));
+
+    const descontoTotal = data.desconto
+      ? new Decimal(data.desconto)
+      : new Decimal(0);
+
+    await tx.vendas.update({
+      where: {
+        id: venda.id,
+        contaId: customData.contaId,
+      },
+      data: {
+        valor: valorTotal.minus(descontoTotal),
+        clienteId: data.clienteId,
+        observacoes: data.observacoes,
+        vendedorId: data.vendedorId || customData.userId,
+        contaId: customData.contaId,
+        data: addHours(data.data, 3),
+        status: data.status,
+        garantia: data.garantia,
+        desconto: descontoTotal,
+      },
+    });
+
+    // Retorna venda atualizada
+    return await tx.vendas.findUnique({
+      where: { id: venda.id, contaId: customData.contaId },
+      include: { ItensVendas: true },
+    });
   });
-
-  if (!venda) {
-    throw new Error("Venda nao encontrada");
-  }
-
-  const itensVendaOriginal = venda?.ItensVendas || [];
-
-  const itensVenda = data.itens.map((item: any) => ({
-    vendaId: venda.id,
-    produtoId: item.id,
-    quantidade: item.quantidade,
-    valor: new Decimal(item.preco),
-  }));
-
-  const itensVendaNovos = itensVenda.filter((item: any) => !item.id);
-  const itensVendaAlterados = itensVenda.filter((item: any) => item.id);
 };
+
 export const saveVenda = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    const query = req.query;
     const { data, success, error } = vendaSchema.safeParse(req.body);
 
     if (!success) {
       return handleError(res, error);
+    }
+
+    if (query.id) {
+      const updated = await updateVendaInternal(Number(query.id), data, customData);
+      return ResponseHandler(res, "Venda atualizada com sucesso", updated, 200);
     }
 
     const valorTotal = data.itens.reduce((total, item) => {

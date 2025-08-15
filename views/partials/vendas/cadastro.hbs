@@ -237,8 +237,8 @@
                     id: item.id,
                     produto: item.produto.nome,
                     quantidade: item.quantidade,
-                    preco: item.valor,
-                    subtotal: item.valor * item.quantidade
+                    preco: parseFloat(item.valor.replace(',', '.')),
+                    subtotal: parseFloat(item.valor.replace(',', '.')) * item.quantidade
                 };
                 cartItems.push(newItem);
             })
@@ -246,6 +246,38 @@
             localStorage.setItem('gestao_facil:cartVendas', JSON.stringify(cartItems));
             atualizarTabelaCart();
         }
+
+        function loadVendaEditar() {
+            if ($("#input_id_venda_formulario").val()) {
+                $.ajax({
+                    url: "/api/vendas/" + $("#input_id_venda_formulario").val(),
+                    method: "GET",
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+                    },
+                    success: function ({ data }) {
+                        if (data.cliente) $("#select_cliente_venda_formulario").append(new Option(data.cliente.nome, data.clienteId)).trigger('change');
+                        if (data.vendedor) $("#select_vendedor_venda_formulario").append(new Option(data.vendedor.nome, data.vendedorId)).trigger('change');
+                        $("#select_status_venda_formulario").val(data.status);
+                        $("#input_garantia_venda_formulario").val(data.garantia);
+                        $("#select_tipo_desconto_formulario").val("VALOR");
+                        $("#input_observacoes_venda_formulario").val(data.observacoes);
+                        $("#input_desconto_venda_formulario").val(data.desconto.replace('.', ','));
+                        const fp = document.getElementById("input_data_venda_formulario")._flatpickr;
+                        fp.setDate(data.data.split('T')[0]);
+                        setCartFromVendaRealizada(data);
+                        atualizarTabelaCart();
+                    },
+                    error: function (error) {
+                        console.log(error);
+                        showNotification('Venda nao encontrada!', 'error');
+                        loadPage('/vendas/resumo');
+                    }
+                })
+            }
+        }
+
+        loadVendaEditar();
 
         $("#formulario_cadastro_venda").submit((e) => {
             e.preventDefault();
@@ -280,9 +312,9 @@
                     }
                 ))
             };
-
+            const hasId = $("#input_id_venda_formulario").val();
             $.ajax({
-                url: '/api/vendas/criar',
+                url: `/api/vendas/criar${hasId ? `?id=${hasId}` : ''}`,
                 method: 'POST',
                 data: data,
                 dataType: 'json',
@@ -290,32 +322,14 @@
                     'Authorization': `Bearer ${localStorage.getItem('gestao_facil:token')}`
                 },
                 success: function (data) {
-                    Swal.fire({
-                        toast: true,
-                        position: "bottom-end",
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                        icon: "success",
-                        title: "Sucesso!",
-                        text: "Venda criada com sucesso",
-                    });
+                    showNotification('Venda salva com sucesso!', 'success');
                     loadPage('/vendas/resumo');
                 },
                 error: function (xhr, status, error) {
                     console.log(xhr);
                     const mensagem =
                         xhr.responseJSON?.message || "Erro inesperado na requisição";
-                    Swal.fire({
-                        toast: true,
-                        position: "bottom-end",
-                        timer: 3000,
-                        timerProgressBar: true,
-                        showConfirmButton: false,
-                        icon: "error",
-                        title: "Erro!",
-                        text: mensagem,
-                    });
+                    showNotification(mensagem, 'error');
                 }
             });
         });
