@@ -60,9 +60,7 @@ export const tableProdutos = async (
       return formatLabel(codigo, "blue", "fa-solid fa-barcode");
     })
     .edit("nome", function (row) {
-      return `<div class="flex flex-row items-center gap-2 max-w-80">
-                <span class="flex-1 truncate whitespace-nowrap overflow-hidden">${row.nome}</span>
-            </div>`;
+      return `<span class="text-sm">${row.nome}</span>`;
     })
     .format("preco", (value) => formatCurrency(value))
     .edit("estoque", function (row) {

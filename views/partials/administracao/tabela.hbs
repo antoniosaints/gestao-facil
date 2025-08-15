@@ -1,5 +1,5 @@
 <div id="tabela_usuarios_listagem_principal_container">
-    <table id="tabela_usuarios_listagem_principal" class="display w-full">
+    <table id="tabela_usuarios_listagem_principal" class="display nowrap">
         <thead>
             <tr>
                 <th>Nome</th>
@@ -9,7 +9,7 @@
                 <th>Email</th>
                 <th>Permissão</th>
                 <th>Criado</th>
-                <th>Ações</th>
+                <th class="flex justify-end">Ações</th>
             </tr>
         </thead>
     </table>
@@ -31,12 +31,11 @@
                 $.ajax({
                     dataType: "json",
                     type: "DELETE",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem("gestao_facil:token")
+                    },
                     url: `/api/usuarios/delete/${id}`,
                     beforeSend: function (xhr) {
-                        const tokenJWT = localStorage.getItem("gestao_facil:token");
-                        if (tokenJWT) {
-                            xhr.setRequestHeader("Authorization", `Bearer ${tokenJWT}`);
-                        }
                         Swal.fire({
                             title: "Carregando...",
                             allowOutsideClick: false,
@@ -73,6 +72,12 @@
         language: {
             url: "/lang/pt-Br.json",
         },
+        fixedColumns: {
+            start: 0,
+            end: 1
+        },
+        scrollCollapse: true,
+        scrollX: true,
         processing: true,
         serverSide: true,
         ajax: {
@@ -86,7 +91,7 @@
             },
         },
         columns: [
-            { data: "nome" },
+            { data: "nome"},
             { data: "email", className: "hidden md:table-cell" },
             { data: "status", className: "hidden md:table-cell" },
             { data: "pushReceiver", className: "hidden md:table-cell" },
@@ -97,7 +102,12 @@
                 render: function (data) { return moment(data).format("DD/MM/YYYY"); },
                 className: "hidden md:table-cell"
             },
-            { data: "acoes", orderable: false, searchable: false, className: "flex justify-end" },
+            {
+                data: "acoes",
+                orderable: false,
+                searchable: false,
+                className: "flex justify-end bg-gray-50 dark:bg-gray-900",
+            },
         ],
     });
 </script>

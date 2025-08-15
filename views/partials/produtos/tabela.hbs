@@ -1,5 +1,5 @@
 <div id="tabela_produtos_listagem_principal_container">
-    <table id="tabela_produtos_listagem_principal" class="display">
+    <table id="tabela_produtos_listagem_principal" class="display nowrap">
         <thead>
             <tr>
                 <th>ID</th>
@@ -9,12 +9,11 @@
                 <th>Saída</th>
                 <th>Preço</th>
                 <th>Qtd</th>
-                <th class="flex justify-end">Ações</th>
+                <th class="flex justify-end w-36">Ações</th>
             </tr>
         </thead>
     </table>
 </div>
-
 <script>
     function reloadTabelaProdutos() {
         const tabela = $("#tabela_produtos_listagem_principal").DataTable();
@@ -25,6 +24,12 @@
         language: {
             url: "/lang/pt-Br.json",
         },
+        fixedColumns: {
+            start: 0,
+            end: 1
+        },
+        scrollCollapse: true,
+        scrollX: true,
         processing: true,
         serverSide: true,
         stateSave: true,
@@ -39,7 +44,7 @@
             },
         },
         columns: [
-            { data: "Uid" },
+            { data: "Uid", className: "bg-gray-50 dark:bg-gray-900" },
             { data: "nome" },
             { data: "codigo" },
             { data: "entradas" },
@@ -48,9 +53,9 @@
             { data: "estoque" },
             {
                 data: "acoes",
-                className: "flex justify-end",
-                searchable: false,
                 orderable: false,
+                searchable: false,
+                className: "flex justify-end w-36 bg-gray-50 dark:bg-gray-900",
             },
         ],
     });
