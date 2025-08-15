@@ -1,3 +1,12 @@
+function loadPage(pagePath) {
+  htmx.ajax("GET", pagePath, {
+    target: "#content",
+    swap: "innerHTML",
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+    },
+  });
+}
 function loadSidebarOptionsMenu() {
   htmx
     .ajax("GET", "/sidebar/menu", {

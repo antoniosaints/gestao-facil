@@ -99,7 +99,7 @@ export const relatorioProdutos = async (
   // Configuração da Tabela
   const tableTop = doc.y;
   const rowHeight = 20;
-  const colX = { id: 30, nome: 60, preco: 300, estoque: 400, total: 470 };
+  const colX = { id: 30, nome: 90, preco: 380, estoque: 460, total: 500 };
 
   // Títulos
   doc
@@ -114,38 +114,51 @@ export const relatorioProdutos = async (
   let y = tableTop + rowHeight;
   doc.font("Roboto").fontSize(query.fontSize ? Number(query.fontSize) : 10);
 
-  produtos.forEach((p) => {
+  produtos.forEach((p, index) => {
     const valorUnitario = new Decimal(p.preco);
     const total = valorUnitario.times(p.estoque);
 
-    // Salva posição antes de desenhar nome
-    const nomeY = y;
-    doc.text(p.nome, colX.nome, nomeY, {
-      width: colX.preco - colX.nome - 10,
-      lineBreak: true,
-    });
-
-    // Calcula altura usada
+    // Altura estimada da linha
     const nomeAltura = doc.heightOfString(p.nome, {
       width: colX.preco - colX.nome - 10,
     });
+    const linhaAltura = Math.max(rowHeight, nomeAltura + 5);
 
-    // Escreve os demais campos alinhados no topo da linha
-    doc
-      .text(`# ${p.id.toString()}`, colX.id, nomeY)
-      .text(`${formatarValorMonetario(valorUnitario)}`, colX.preco, nomeY)
-      .text(p.estoque.toString(), colX.estoque, nomeY)
-      .text(`${formatarValorMonetario(total)}`, colX.total, nomeY);
+    // Se não couber na página, cria nova e redesenha cabeçalho
+    if (y + linhaAltura > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      y = marginTop;
+
+      // Cabeçalho da tabela na nova página
+      doc
+        .font("Roboto-Bold")
+        .text("Id", colX.id, y)
+        .text("Produto", colX.nome, y)
+        .text("Preço (R$)", colX.preco, y)
+        .text("Qtd.", colX.estoque, y)
+        .text("Total (R$)", colX.total, y);
+
+      y += rowHeight;
+      doc.font("Roboto").fontSize(query.fontSize ? Number(query.fontSize) : 10);
+    }
+
+    // Conteúdo da linha
+    doc.text(`# ${p.codigo}`, colX.id, y);
+    doc.text(p.nome, colX.nome, y, {
+      width: colX.preco - colX.nome - 10,
+    });
+    doc.text(formatarValorMonetario(valorUnitario), colX.preco, y);
+    doc.text(p.estoque.toString(), colX.estoque, y);
+    doc.text(formatarValorMonetario(total), colX.total, y);
 
     // Linha divisória
-    const linhaInferior = nomeY + nomeAltura + 5;
     doc
-      .moveTo(30, linhaInferior)
-      .lineTo(580, linhaInferior)
+      .moveTo(30, y + linhaAltura)
+      .lineTo(580, y + linhaAltura)
       .strokeColor("#ccc")
       .stroke();
 
-    y = linhaInferior + 5;
+    y += linhaAltura;
   });
 
   doc.end();
@@ -156,20 +169,16 @@ export const relatorioProdutoMovimentacoes = async (
 ): Promise<any> => {
   const orderBy = (req.query.orderBy as any) || "asc";
   const customData = getCustomRequest(req).customData;
+
   const movimentos = await prisma.movimentacoesEstoque.findMany({
     where: {
       produtoId: parseInt(req.params.id),
       contaId: customData.contaId,
     },
-    orderBy: {
-      data: orderBy,
-    },
+    orderBy: { data: orderBy },
     include: {
       Produto: {
-        select: {
-          nome: true,
-          preco: true,
-        },
+        select: { nome: true, preco: true },
       },
     },
   });
@@ -183,9 +192,7 @@ export const relatorioProdutoMovimentacoes = async (
   }
 
   const conta = await prisma.contas.findUnique({
-    where: {
-      id: customData.contaId,
-    },
+    where: { id: customData.contaId },
   });
 
   if (!conta) {
@@ -211,6 +218,7 @@ export const relatorioProdutoMovimentacoes = async (
     },
     pdfVersion: "1.4",
   });
+
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
@@ -226,9 +234,9 @@ export const relatorioProdutoMovimentacoes = async (
   const marginLeft = 40;
   const imageWidth = 80;
   const imageHeight = 80;
-  const textLeft = marginLeft + imageWidth + 20; // Espaço entre imagem e texto
+  const textLeft = marginLeft + imageWidth + 20;
 
-  // Cabeçalho
+  // Cabeçalho principal
   doc.image(`./public/${conta.profile}`, marginLeft, marginTop, {
     fit: [imageWidth, imageHeight],
   });
@@ -236,11 +244,7 @@ export const relatorioProdutoMovimentacoes = async (
   doc
     .font("Roboto-Bold")
     .fontSize(18)
-    .text(
-      `Relatório - ${movimentos[0].Produto.nome}`,
-      textLeft,
-      marginTop
-    );
+    .text(`Relatório - ${movimentos[0].Produto.nome}`, textLeft, marginTop);
 
   doc
     .font("Roboto")
@@ -255,13 +259,10 @@ export const relatorioProdutoMovimentacoes = async (
     .text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, textLeft);
 
   doc.moveDown(2);
-
   const headerHeight = Math.max(imageHeight, doc.y - marginTop);
-
   doc.y = marginTop + headerHeight + 20;
 
-  // Configuração da Tabela
-  const tableTop = doc.y;
+  // Configuração da tabela
   const rowHeight = 20;
   const colX = {
     id: 30,
@@ -274,81 +275,81 @@ export const relatorioProdutoMovimentacoes = async (
     total: 510,
   };
 
-  // Títulos
-  doc
-    .font("Roboto-Bold")
-    .text("Id", colX.id, tableTop, {})
-    .text("Nota Fiscal", colX.notaFiscal, tableTop)
-    .text("Status", colX.status, tableTop)
-    .text("Tipo", colX.tipo, tableTop)
-    .text("Data", colX.data, tableTop)
-    .text("Preço (R$)", colX.preco, tableTop)
-    .text("Qtd.", colX.estoque, tableTop)
-    .text("Total (R$)", colX.total, tableTop);
+  function desenharCabecalhoTabela(y: number) {
+    doc
+      .font("Roboto-Bold")
+      .text("Id", colX.id, y)
+      .text("Nota Fiscal", colX.notaFiscal, y)
+      .text("Status", colX.status, y)
+      .text("Tipo", colX.tipo, y)
+      .text("Data", colX.data, y)
+      .text("Preço (R$)", colX.preco, y)
+      .text("Qtd.", colX.estoque, y)
+      .text("Total (R$)", colX.total, y);
+  }
 
-  // Linhas
-  let y = tableTop + rowHeight;
+  let y = doc.y;
   const pageHeight = doc.page.height - doc.page.margins.bottom;
 
+  // Cabeçalho inicial
+  desenharCabecalhoTabela(y);
+  y += rowHeight;
   doc.font("Roboto").fontSize(8);
 
   movimentos.forEach((p) => {
     const valorUnitario = new Decimal(p.custo);
     const total = valorUnitario.times(p.quantidade);
 
-    // Altura estimada da linha
-    const nomeAltura = doc.heightOfString(p.Produto.nome, {
+    const notaFiscalTexto = p.notaFiscal || "SEM NOTA FISCAL";
+    const notaFiscalAltura = doc.heightOfString(notaFiscalTexto, {
       width: colX.preco - colX.notaFiscal - 10,
     });
-    const linhaAlturaTotal = nomeAltura + 10; // margem extra
+    const linhaAltura = Math.max(rowHeight, notaFiscalAltura + 5);
 
-    // Verifica se há espaço suficiente na página atual
-    if (y + linhaAlturaTotal > pageHeight) {
+    // Quebra de página
+    if (y + linhaAltura > pageHeight) {
       doc.addPage();
-      y = doc.y;
-
-      // Redesenha os títulos da tabela na nova página
-      doc
-        .font("Roboto-Bold")
-        .text("Id", colX.id, y, {})
-        .text("Nota Fiscal", colX.notaFiscal, y)
-        .text("Status", colX.status, y)
-        .text("Tipo", colX.tipo, y)
-        .text("Data", colX.data, y)
-        .text("Preço (R$)", colX.preco, y)
-        .text("Qtd.", colX.estoque, y)
-        .text("Total (R$)", colX.total, y);
-
+      y = marginTop;
+      desenharCabecalhoTabela(y);
       y += rowHeight;
       doc.font("Roboto").fontSize(8);
     }
 
     const nomeY = y;
-    doc.text(p.notaFiscal || "SEM NOTA FISCAL", colX.notaFiscal, nomeY, {
+    doc.text(`# ${p.id}`, colX.id, nomeY);
+    doc.text(notaFiscalTexto, colX.notaFiscal, nomeY, {
       width: colX.preco - colX.notaFiscal - 10,
-      lineBreak: true,
     });
+    doc.text(p.status, colX.status, nomeY);
+    doc.text(p.tipo, colX.tipo, nomeY);
+    doc.text(dayjs(p.data).format("DD/MM/YYYY"), colX.data, nomeY);
+    doc.text(formatarValorMonetario(valorUnitario), colX.preco, nomeY);
+    doc.text(p.quantidade.toString(), colX.estoque, nomeY);
+    doc.text(formatarValorMonetario(total), colX.total, nomeY);
 
     doc
-      .text(`# ${p.id.toString()}`, colX.id, nomeY)
-      .text(p.status, colX.status, nomeY)
-      .text(p.tipo, colX.tipo, nomeY)
-      .text(dayjs(p.data).format("DD/MM/YYYY"), colX.data, nomeY)
-      .text(`${formatarValorMonetario(valorUnitario)}`, colX.preco, nomeY)
-      .text(p.quantidade.toString(), colX.estoque, nomeY)
-      .text(`${formatarValorMonetario(total)}`, colX.total, nomeY);
-
-    const linhaInferior = nomeY + nomeAltura + 5;
-    doc
-      .moveTo(30, linhaInferior)
-      .lineTo(580, linhaInferior)
+      .moveTo(30, nomeY + linhaAltura - 5)
+      .lineTo(580, nomeY + linhaAltura - 5)
       .strokeColor("#ccc")
       .stroke();
 
-    y = linhaInferior + 5;
+    y += linhaAltura;
   });
 
-  // Total Entradas
+  // Função para imprimir totais com quebra de página
+  function imprimirLinhaTotal(titulo: string, col1: string, col2: string) {
+    if (y + rowHeight > pageHeight) {
+      doc.addPage();
+      y = marginTop;
+    }
+    doc
+      .font("Roboto-Bold")
+      .text(titulo, colX.preco, y)
+      .text(col1, colX.estoque, y)
+      .text(col2, colX.total, y);
+    y += rowHeight;
+  }
+
   const totalEntradas = movimentos
     .filter((p) => p.tipo === "ENTRADA")
     .reduce(
@@ -359,42 +360,16 @@ export const relatorioProdutoMovimentacoes = async (
     .filter((p) => p.tipo === "ENTRADA")
     .reduce((acc, p) => acc.plus(p.quantidade), new Decimal(0));
 
-  doc
-    .font("Roboto-Bold")
-    .text("Total Entradas", colX.preco, y + 5)
-    .text(`${totalQuantidadeEntradas}`, colX.estoque, y + 5)
-    .text(`${formatarValorMonetario(totalEntradas)}`, colX.total, y + 5);
-
-  doc
-    .moveTo(colX.preco, y + 17)
-    .lineTo(580, y + 17)
-    .strokeColor("#ccc")
-    .stroke();
-
-  // Total Saídas
   const totalSaidas = movimentos
     .filter((p) => p.tipo === "SAIDA")
     .reduce(
       (acc, p) => acc.plus(new Decimal(p.custo).times(p.quantidade)),
       new Decimal(0)
     );
-
   const totalQuantidadeSaidas = movimentos
     .filter((p) => p.tipo === "SAIDA")
     .reduce((acc, p) => acc.plus(p.quantidade), new Decimal(0));
-  doc
-    .font("Roboto-Bold")
-    .text("Total Saídas", colX.preco, y + 25)
-    .text(`${totalQuantidadeSaidas}`, colX.estoque, y + 25)
-    .text(`${formatarValorMonetario(totalSaidas)}`, colX.total, y + 25);
 
-  doc
-    .moveTo(colX.preco, y + 37)
-    .lineTo(580, y + 37)
-    .strokeColor("#ccc")
-    .stroke();
-
-  // Total Geral
   const totalGeral = movimentos.reduce(
     (acc, p) => acc.plus(new Decimal(p.custo).times(p.quantidade)),
     new Decimal(0)
@@ -403,30 +378,25 @@ export const relatorioProdutoMovimentacoes = async (
     (acc, p) => acc.plus(p.quantidade),
     new Decimal(0)
   );
-  doc
-    .font("Roboto-Bold")
-    .text("Total Geral", colX.preco, y + 45)
-    .text(`${totalQuantidadeGeral}`, colX.estoque, y + 45)
-    .text(`${formatarValorMonetario(totalGeral)}`, colX.total, y + 45);
 
-  doc
-    .moveTo(colX.preco, y + 57)
-    .lineTo(580, y + 57)
-    .strokeColor("#ccc")
-    .stroke();
-
-  // Lucro Líquido
   const lucroLiquido = totalSaidas.minus(totalEntradas);
-  doc
-    .font("Roboto-Bold")
-    .text("Lucro Líquido", colX.estoque, y + 65)
-    .text(`${formatarValorMonetario(lucroLiquido)}`, colX.total, y + 65);
 
-  doc
-    .moveTo(colX.estoque, y + 77)
-    .lineTo(580, y + 77)
-    .strokeColor("#ccc")
-    .stroke();
+  imprimirLinhaTotal(
+    "Total Entradas",
+    totalQuantidadeEntradas.toString(),
+    formatarValorMonetario(totalEntradas)
+  );
+  imprimirLinhaTotal(
+    "Total Saídas",
+    totalQuantidadeSaidas.toString(),
+    formatarValorMonetario(totalSaidas)
+  );
+  imprimirLinhaTotal(
+    "Total Geral",
+    totalQuantidadeGeral.toString(),
+    formatarValorMonetario(totalGeral)
+  );
+  imprimirLinhaTotal("Lucro Líquido", "", formatarValorMonetario(lucroLiquido));
 
   doc.end();
 };

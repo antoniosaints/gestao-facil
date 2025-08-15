@@ -1,0 +1,18 @@
+<script>
+    $.ajax({
+        url: '/api/contas/verificarAssinatura',
+        type: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem("gestao_facil:token")
+        },
+        success: function (response) {
+            if (!response.aprovado) {
+                showNotification("Sua assinatura expirou, realize o pagamento para continuar acessando!", "error");
+                loadPage("/plano/assinatura");
+            }
+        }, 
+        error: function (error) {
+            console.log(error);
+        }
+    })
+</script>

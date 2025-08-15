@@ -1,15 +1,5 @@
 $(".datatable thead th:last-child").addClass("text-end");
 
-function loadPage(pagePath) {
-  htmx.ajax("GET", pagePath, {
-    target: "#content",
-    swap: "innerHTML",
-    headers: {
-      Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
-    },
-  });
-}
-
 document.addEventListener("htmx:afterSwap", (event) => {
   const url = event.detail.requestConfig.path;
   if (url === "/sidebar/menu") {

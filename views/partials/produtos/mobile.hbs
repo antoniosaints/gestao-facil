@@ -105,15 +105,17 @@
         response.data.forEach((produto) => {
           const produtoHTML = `
               <div class="rounded-2xl cursor-pointer border dark:border-border-dark bg-card dark:bg-card-dark p-4">
-                  <div class="flex justify-between">
-                    <div class="text-md font-semibold dark:text-white truncate">${produto.nome}</div>
-                    <div class="text-sm text-blue-500 dark:text-blue-400"># ${produto.codigo || 'S/N'}</div>
+                  <div class="flex justify-between gap-2">
+                    <div class="text-sm font-semibold dark:text-white text-wrap">${produto.nome}</div>
+                    <div class="text-sm text-blue-500 dark:text-blue-400 flex-nowrap whitespace-nowrap"># ${produto.codigo || 'S/N'}</div>
                   </div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Estoque: ${produto.estoque}</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">Preço: R$ ${produto.preco}</div>
+                  <div class="flex justify-between gap-2">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Estoque: ${produto.estoque}</div>
+                    <div class="text-sm text-green-500 dark:text-green-400">R$ ${produto.preco}</div>
+                  </div>
                   <div class="mt-2 flex justify-between gap-2">
                       <div>
-                        <button onclick="visualizarProduto(${produto.id})" class="bg-secondary text-white px-3 py-1 rounded-md text-sm">
+                        <button onclick="visualizarProduto(${produto.id})" class="bg-secondary px-3 py-1 rounded-md text-sm">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                         <button onclick="editarProduto(${produto.id})" class="bg-success text-white px-3 py-1 rounded-md text-sm">

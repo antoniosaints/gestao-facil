@@ -6,6 +6,7 @@ import { addDays } from "date-fns";
 import { env } from "../../utils/dotenv";
 import { handleError } from "../../utils/handleError";
 import { hasPermission } from "../../helpers/userPermission";
+import { isAccountOverdue } from "../../routers/web";
 
 export const checkarPermissao = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -17,6 +18,14 @@ export const checkarPermissao = async (req: Request, res: Response): Promise<any
     const permissao = await hasPermission(customData, Number(level));
 
     return res.status(200).json({ aprovado: permissao, });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+export const verificarAssinatura = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const isDue = await isAccountOverdue(req);
+    return res.status(200).json({ aprovado: !isDue });
   } catch (error) {
     return handleError(res, error);
   }
