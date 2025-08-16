@@ -180,7 +180,7 @@
     <div
       class="border-border dark:border-border-dark bg-card dark:bg-card-dark shadow-md rounded-lg p-4 col-span-1 sm:col-span-2 lg:col-span-2 border">
       <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-boxes-packing text-blue-600"></i> Produtos
+        <h2 class="text-lg font-semibold px-0 py-1"><i class="fa-solid fa-boxes-packing text-blue-600"></i> Últimos Produtos
         </h2>
         <button onclick="loadPage('produtos/resumo')" type="button"
           class="border-2 border-gray-300 text-gray-900 dark:border-gray-400 dark:text-gray-200 text-nowrap px-3 py-1 rounded-md text-sm transition-color">
@@ -194,21 +194,9 @@
           <i class="fa-solid fa-boxes-stacked text-5xl"></i>
           Nenhum produto cadastrado
         </div>
-        <table id="ultimos_produtos_dashboard_table"
-          class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-950 text-gray-600 dark:text-gray-200">
-            <tr>
-              <th class="p-2">#ID</th>
-              <th class="p-2">Produto</th>
-              <th class="p-2">Mínimo</th>
-              <th class="p-2">Estoque</th>
-              <th class="p-2">Valor</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900"
-            id="ultimos_produtos_dashboard_tabela">
-          </tbody>
-        </table>
+         <div id="lista_produtos_dashboard_cards" class="py-2 px-1 flex flex-col gap-2">
+          
+        </div>
       </div>
     </div>
     <div
@@ -228,21 +216,9 @@
           <i class="fa-solid fa-box-open text-5xl"></i>
           Nenhum produto em baixa
         </div>
-        <table id="produtos_em_baixa_dashboard_table"
-          class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="bg-gray-200 dark:bg-gray-950 text-gray-600 dark:text-gray-200">
-            <tr>
-              <th class="p-2">#ID</th>
-              <th class="p-2">Produto</th>
-              <th class="p-2">Mínimo</th>
-              <th class="p-2">Estoque</th>
-              <th class="p-2">Valor</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900"
-            id="produtos_em_baixa_dashboard_tabela">
-          </tbody>
-        </table>
+        <div id="lista_produtos_em_baixa_cards" class="py-2 px-1 flex flex-col gap-2">
+          
+        </div>
       </div>
     </div>
   </div>
@@ -433,42 +409,40 @@
 
         if (data.produtos.length > 0) {
           $("#produtos_tabela_dashboard_sem_produtos").addClass("hidden");
-          $("#ultimos_produtos_dashboard_table").removeClass("hidden");
-          $("#ultimos_produtos_dashboard_tabela").empty();
-          data.produtos.forEach(produto => {
-            $("#ultimos_produtos_dashboard_tabela").append(`
-            <tr class="border-t">
-              <td class="p-2">${produto.id}</td>
-              <td class="p-2 truncate">${produto.nome}</td>
-              <td class="p-2">${produto.minimo}</td>
-              <td class="p-2">${produto.estoque}</td>
-              <td class="p-2">R$ ${produto.preco}</td>
-            </tr>
+          $("#lista_produtos_dashboard_cards").removeClass("hidden");
+          $("#lista_produtos_dashboard_cards").empty();
+          data.produtos.slice(0, 10).forEach(produto => {
+            $("#lista_produtos_dashboard_cards").append(`
+            <div class="flex items-center border border-gray-300 dark:border-gray-600 justify-between py-2 px-3 bg-gray-100 dark:bg-gray-900 rounded-md">
+            <div class="flex flex-col">
+              <h2 class="text-sm font-semibold px-0 py-1">${produto.nome}</h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Qtd: ${produto.estoque} / R$ ${parseFloat(produto.preco).toFixed(2).replace(".", ",")} / Min: ${produto.minimo}</p>
+            </div>
+          </div>
           `);
           });
         } else {
-          $("#ultimos_produtos_dashboard_table").addClass("hidden");
+          $("#lista_produtos_dashboard_cards").addClass("hidden");
           $("#produtos_tabela_dashboard_sem_produtos").removeClass("hidden");
         }
 
         if (data.estoquesBaixos.length > 0) {
           $("#produtos_em_baixa_dashboard_sem_produtos").addClass("hidden");
-          $("#produtos_em_baixa_dashboard_table").removeClass("hidden");
+          $("#lista_produtos_em_baixa_cards").removeClass("hidden");
 
-          $("#produtos_em_baixa_dashboard_tabela").empty();
+          $("#lista_produtos_em_baixa_cards").empty();
           data.estoquesBaixos.forEach(produto => {
-            $("#produtos_em_baixa_dashboard_tabela").append(`
-            <tr class="border-t">
-              <td class="p-2">${produto.id}</td>
-              <td class="p-2 truncate">${produto.nome}</td>
-              <td class="p-2">${produto.minimo}</td>
-              <td class="p-2">${produto.estoque}</td>
-              <td class="p-2">R$ ${produto.preco}</td>
-            </tr>
+            $("#lista_produtos_em_baixa_cards").append(`
+            <div class="flex items-center border border-gray-300 dark:border-gray-600 justify-between py-2 px-3 bg-gray-100 dark:bg-gray-900 rounded-md">
+            <div class="flex flex-col">
+              <h2 class="text-sm font-semibold px-0 py-1">${produto.nome}</h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400">${produto.estoque} ${produto.unidade} / ${produto.minimo} ${produto.unidade}</p>
+            </div>
+          </div>
           `);
           });
         } else {
-          $("#produtos_em_baixa_dashboard_table").addClass("hidden");
+          $("#lista_produtos_em_baixa_cards").addClass("hidden");
           $("#produtos_em_baixa_dashboard_sem_produtos").removeClass("hidden");
         }
       },

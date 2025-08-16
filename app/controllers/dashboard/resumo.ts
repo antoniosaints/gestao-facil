@@ -110,10 +110,12 @@ export const resumoDashboard = async (
           minimo: true,
           nome: true,
           preco: true,
+          unidade: true,
         },
         where: {
           OR: [{ contaId: customData.contaId }],
         },
+        orderBy: { id: "desc" },
       });
 
       const estoquesBaixos =
