@@ -16,16 +16,14 @@ export const resumoDashboard = async (
   const permission = await hasPermission(customData, 3);
   const { inicio, fim } = req.query as { inicio: string; fim: string };
 
-  let dateFilter = {
+  const dateFilter = {
     gte: getThisMonth().start,
     lte: getThisMonth().end,
   };
 
   if (inicio && fim) {
-    dateFilter = {
-      gte: new Date(inicio),
-      lte: new Date(fim),
-    };
+    dateFilter.gte = new Date(inicio);
+    dateFilter.lte = new Date(fim);
   }
 
   try {
@@ -74,7 +72,7 @@ export const resumoDashboard = async (
               status: {
                 in: ["FATURADO", "FINALIZADO"],
               },
-              data: dateFilter
+              data: dateFilter,
             },
           ],
         },
