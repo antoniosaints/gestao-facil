@@ -46,13 +46,13 @@
   {{> layout/header}}
 
   <!-- Botão de abrir menu (mobile) -->
-  <button type="button" id="openSidebarBtn"
+  <button type="button" id="openSidebarButton"
     class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary/70 text-white px-2 py-3 rounded-r-xl shadow-lg">
     ☰
   </button>
 
   <!-- Sidebar -->
-  <aside id="sidebar"
+  <aside id="sidebar-content-sistema"
     class="fixed shadow-md overflow-auto top-0 left-0 h-full w-full md:w-64 border border-border dark:border-border-dark bg-card dark:bg-card-dark p-4 space-y-4 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-40">
     {{> layout/topsidebar}}
 
@@ -70,7 +70,7 @@
         Enviar Notificação
       </button>
     </div>
-    <button id="closeSidebarBtn"
+    <button id="closeSidebarButton"
       class="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 text-center text-white bg-primary w-3/4 max-w-xs py-2 rounded shadow-lg">
       <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
     </button>
@@ -81,41 +81,6 @@
   </main>
 
   {{> layout/upload}}
-
-  <script>
-    const sidebar = document.getElementById("sidebar");
-    const openBtn = document.getElementById("openSidebarBtn");
-    const closeBtn = document.getElementById("closeSidebarBtn");
-    const containerMain = document.getElementById("container-main");
-
-    function logOut() {
-      localStorage.removeItem("gestao_facil:token");
-      localStorage.setItem("gestao_facil:isauth", false);
-      window.location.href = "/login";
-    }
-
-    function switchToFullScreen() {
-      containerMain.classList.add("h-screen");
-      containerMain.classList.remove("h-[calc(100vh-5rem)]");
-    }
-    function switchToNormalScreen() {
-      containerMain.classList.remove("h-screen");
-      containerMain.classList.add("h-[calc(100vh-5rem)]");
-    }
-
-    openBtn.addEventListener("click", () => {
-      sidebar.classList.remove("-translate-x-full");
-    });
-
-    closeBtn.addEventListener("click", () => {
-      sidebar.classList.add("-translate-x-full");
-    });
-
-    function openSideBarMobile() {
-      sidebar.classList.remove("-translate-x-full");
-    }
-
-  </script>
   <script src="/js/pluguins/fontawesome.js"></script>
   <script src="/js/pluguins/qztray.js"></script>
   <script src="/js/pluguins/intro.js"></script>
@@ -123,5 +88,4 @@
   <script src="/global.js"></script>
   <script src="/notification/client.js" defer></script>
 </body>
-
 </html>

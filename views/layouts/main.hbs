@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="apple-touch-icon" href="/imgs/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="/css/datatables.main.css"/>
+  <link rel="stylesheet" href="/css/datatables.main.css" />
   <link rel="stylesheet" href="/css/datatables.css" />
   <link rel="stylesheet" href="/css/columnControl.css" />
   <link rel="stylesheet" href="/css/swalert.css" />
@@ -46,7 +46,7 @@
   {{> layout/header}}
 
   <!-- Botão de abrir menu (mobile) -->
-  <button type="button" id="openSidebarBtn"
+  <button type="button" id="openSidebarButton"
     class="md:hidden fixed left-0 top-1/2 transform -translate-y-1/2 z-30 bg-primary/70 text-white px-2 py-3 rounded-r-xl shadow-lg">
     ☰
   </button>
@@ -63,7 +63,7 @@
       <i class="fa-solid fa-sun" id="icon-sun"></i>
       <i class="fa-solid fa-moon hidden" id="icon-moon"></i>
     </button>
-    <button id="closeSidebarBtn"
+    <button id="closeSidebarButton"
       class="md:hidden mt-4 flex items-center border border-border gap-2 px-4 py-3 rounded transition text-white bg-orange-500 dark:bg-orange-800 dark:border-border-dark w-full justify-center">
       <i class="fa-solid fa-circle-xmark mr-1"></i> Fechar
     </button>
@@ -79,26 +79,7 @@
     class="overflow-y-auto h-[calc(100vh-5rem)] md:h-[calc(100vh-4.3rem)] p-6 md:ml-64 mt-0">
     <div class="max-w-7xl mx-auto" id="content">{{{body}}}</div>
   </main>
-    {{> components/checkAssinatura}}
-  <script>
-    const sidebar = document.getElementById("sidebar-content-sistema");
-    const openBtn = document.getElementById("openSidebarBtn");
-    const closeBtn = document.getElementById("closeSidebarBtn");
-
-    openBtn.addEventListener("click", () => {
-      sidebar.classList.remove("-translate-x-full");
-    });
-
-    closeBtn.addEventListener("click", () => {
-      sidebar.classList.add("-translate-x-full");
-    });
-
-    function openSideBarMobile() {
-      sidebar.classList.remove("-translate-x-full");
-    }
-
-  </script>
-
+  {{> components/checkAssinatura}}
   {{> layout/upload}}
 
   <script src="/js/pluguins/fontawesome.js"></script>

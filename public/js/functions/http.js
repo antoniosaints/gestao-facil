@@ -1,108 +1,74 @@
-function loadPage(pagePath) {
-  htmx.ajax("GET", pagePath, {
-    target: "#content",
+function htmxRequest(url, target) {
+  return htmx.ajax("GET", url, {
+    target,
     swap: "innerHTML",
     headers: {
       Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
     },
   });
 }
-function loadSidebarOptionsMenu() {
-  htmx
-    .ajax("GET", "/sidebar/menu", {
-      target: "#content-sidebar-menu",
-      swap: "innerHTML",
-      headers: {
-        Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
-      },
-    })
-    .catch((error) => {
-      console.error("Request failed:", error);
-    });
+
+function loadPage(pagePath) {
+  return htmxRequest(pagePath, "#content");
 }
 
+function loadSidebarOptionsMenu() {
+  return htmxRequest("/sidebar/menu", "#content-sidebar-menu");
+}
+
+// Intercepta globalmente erros do htmx
 htmx.on("htmx:responseError", (e) => {
-  showNotification(
+  const msg =
     JSON.parse(e.detail.xhr.responseText)?.message ||
-      "Erro inesperado na requisição",
-    "error"
-  );
-  if (e.detail.xhr.status === 401) {
-    showNotification("Sua sessão expirou", "error");
-    renewSessionUserByRefreshToken();
-  }
+    "Erro inesperado na requisição";
+
+  showNotification(msg, "error");
+
+  if (e.detail.xhr.status === 401) handleUnauthorized();
 });
 
-htmx.on("htmx:afterRequest", (e) => {
-  if (e.detail.xhr.status === 401) {
-    showNotification("Sua sessão expirou", "error");
-    renewSessionUserByRefreshToken();
-  }
-});
-
+// Intercepta globalmente erros do fetch
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   const response = await originalFetch(...args);
-
-  if (response.status === 401) {
-    showNotification("Sua sessão expirou", "error");
-    renewSessionUserByRefreshToken();
-  }
-
+  if (response.status === 401) handleUnauthorized();
   return response;
 };
 
-(function (open) {
-  XMLHttpRequest.prototype.open = function (method, url, async, user, pass) {
-    this.addEventListener("load", function () {
-      if (this.status === 401) {
-        showNotification("Sua sessão expirou", "error");
-        renewSessionUserByRefreshToken();
-      }
-    });
-    open.call(this, method, url, async, user, pass);
-  };
-})(XMLHttpRequest.prototype.open);
+function handleUnauthorized() {
+  showNotification("Sua sessão expirou", "error");
+  renewSessionUserByRefreshToken();
+}
 
-function renewSessionUserByRefreshToken() {
-  if (!localStorage.getItem("gestao_facil:refreshToken")) {
+async function renewSessionUserByRefreshToken() {
+  const refreshToken = localStorage.getItem("gestao_facil:refreshToken");
+  if (!refreshToken) return (window.location.href = "/login");
+
+  try {
+    const response = await fetch(`/api/auth/renew`, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + refreshToken },
+    });
+
+    if (!response.ok) throw new Error("Falha ao renovar sessão");
+
+    const data = await response.json();
+
+    localStorage.setItem("gestao_facil:token", data.data.token);
+    localStorage.setItem("gestao_facil:refreshToken", data.data.refreshToken);
+    localStorage.setItem("gestao_facil:usuario", data.data.id);
+    localStorage.setItem("gestao_facil:username", data.data.nome);
+    localStorage.setItem("gestao_facil:permissao", data.data.permissao);
+    localStorage.setItem("gestao_facil:isauth", true);
+
+    showNotification("Token de sessão renovado!", "success");
+    loadSidebarOptionsMenu();
+    atualizarLogoSistema();
+    htmx.ajax("GET", location.pathname, { target: "#content" });
+  } catch (err) {
+    console.error(err);
+    localStorage.clear();
+    localStorage.setItem("gestao_facil:isauth", false);
     window.location.href = "/login";
   }
-  $.ajax({
-    url: `/api/auth/renew`,
-    method: "GET",
-    headers: {
-      Authorization:
-        "Bearer " + localStorage.getItem("gestao_facil:refreshToken"),
-    },
-    contentType: "application/json",
-    dataType: "json",
-    success: (response) => {
-      localStorage.setItem("gestao_facil:token", response.data.token);
-      localStorage.setItem(
-        "gestao_facil:refreshToken",
-        response.data.refreshToken
-      );
-      localStorage.setItem("gestao_facil:usuario", response.data.id);
-      localStorage.setItem("gestao_facil:username", response.data.nome);
-      localStorage.setItem("gestao_facil:permissao", response.data.permissao);
-      localStorage.setItem("gestao_facil:isauth", true);
-
-      showNotification("Token de sessão renovado!", "success");
-      loadSidebarOptionsMenu();
-      atualizarLogoSistema();
-    },
-    error: (xhr) => {
-      console.log(xhr);
-      localStorage.removeItem("gestao_facil:token");
-      localStorage.removeItem("gestao_facil:refreshToken");
-      localStorage.removeItem("gestao_facil:usuario");
-      localStorage.removeItem("gestao_facil:username");
-      localStorage.removeItem("gestao_facil:permissao");
-      localStorage.setItem("gestao_facil:isauth", false);
-      window.location.href = "/login";
-    },
-  }).then(() => {
-    htmx.ajax("GET", location.pathname, { target: "#content" });
-  });
 }

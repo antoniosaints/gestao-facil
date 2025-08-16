@@ -29,6 +29,7 @@ function logOut() {
   localStorage.setItem("gestao_facil:isauth", false);
   window.location.href = "/login";
 }
+
 function showNotification(message, type = "info") {
   // Remove existing notifications
   const existingNotification = document.querySelector(".notification");
@@ -128,3 +129,22 @@ function MaskToInputPercentage(element) {
   });
 }
 
+function toggleModeGerencial() {
+  $.ajax({
+    url: "/api/usuarios/toggleModeGerencial",
+    type: "GET",
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("gestao_facil:token"),
+    },
+    dataType: "json",
+    success: function (response) {
+      window.location.href = "/gerencia";
+    },
+    error: function (xhr, status, error) {
+      const mensagem =
+        xhr.responseJSON?.message || "Erro inesperado na requisição";
+      showNotification(mensagem, "error");
+      if (status === 401) window.location.href = "/login";
+    },
+  });
+}
