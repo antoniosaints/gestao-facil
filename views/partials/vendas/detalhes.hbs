@@ -57,14 +57,14 @@
                         <i class="fa-solid fa-file-pdf"></i>
                         <div class="hidden md:block">Cupom N/F</div>
                     </button>
-                    <button type="button"
-                        id="editar_venda_detalhes_location"
+                    <button type="button" id="editar_venda_detalhes_location"
                         class="text-sm hover:opacity-90 border flex justify-center items-center gap-2 border-green-700 text-green-900 bg-green-100 dark:border-green-500 dark:bg-green-950 dark:text-green-100 px-3 py-1.5 rounded-lg">
                         <i class="fa-solid fa-pen-to-square"></i>
                         <div class="hidden md:block">Editar</div>
                     </button>
                 </div>
-                <button onclick="excluirVenda(localStorage.getItem('vendaId'), true)"
+                <button type="button" onclick="excluirVenda(localStorage.getItem('vendaId'), true)"
+                    id="excluir_venda_detalhes"
                     class="text-sm hover:opacity-90 border flex justify-center items-center gap-2 border-red-700 text-red-900 bg-red-100 dark:border-red-500 dark:bg-red-950 dark:text-red-100 px-3 py-1.5 rounded-lg">
                     <i class="fa-solid fa-trash-can"></i>
                     <div class="hidden md:block">Excluir</div>
@@ -74,74 +74,17 @@
     </div>
 </div>
 <nav
-  class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
+    class="fixed bottom-0 left-0 w-full bg-card dark:bg-card-dark border-t border-border dark:border-border-dark md:hidden flex justify-around pt-4 h-20 shadow-lg z-20">
 
-  <button type="button" onclick="openSideBarMobile()"
-    class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
-    <i class="fa-solid fa-bars text-lg"></i>
-    <span class="text-xs">Menu</span>
-  </button>
+    <button type="button" onclick="openSideBarMobile()"
+        class="flex flex-col items-center disabled:text-gray-300 disabled:dark:text-gray-600 text-gray-700 dark:text-gray-300 cursor-pointer hover:text-primary transition">
+        <i class="fa-solid fa-bars text-lg"></i>
+        <span class="text-xs">Menu</span>
+    </button>
 </nav>
 
 
 <script>
-    // Configura QZ Tray para ignorar certificados (apenas para DEV)
-    // qz.security.setCertificatePromise(() => Promise.resolve(null));
-    // qz.security.setSignaturePromise(() => Promise.resolve(null));
-
-    // Função principal de impressão
-    async function imprimirCupom(texto) {
-        if (!texto || typeof texto !== "string") {
-            alert("Cupom vazio ou inválido.");
-            return;
-        }
-
-        // Conecta ao QZ Tray, se necessário
-        if (!qz.websocket.isActive()) {
-            try {
-                await qz.websocket.connect();
-            } catch (err) {
-                alert("Erro ao conectar ao QZ Tray");
-                console.error(err);
-                return;
-            }
-        }
-
-        // Lista as impressoras disponíveis
-        let impressoras;
-        try {
-            impressoras = await qz.printers.find();
-            if (!impressoras.includes("Microsoft Print to PDF")) {
-                alert("Impressora 'Microsoft Print to PDF' não encontrada.");
-                console.warn("Impressoras disponíveis:", impressoras);
-                return;
-            }
-        } catch (err) {
-            console.error("Erro ao buscar impressoras:", err);
-            return;
-        }
-
-        const config = qz.configs.create("Microsoft Print to PDF", {
-            encoding: "UTF-8",
-            margins: 0,
-        });
-
-        const data = [{ type: "raw", format: "plain", data: texto + "\n\n\n" }];
-
-        return qz
-            .print(config, data)
-            .then(() => {
-                alert("Cupom enviado para fila de impressão.");
-            })
-            .catch((err) => {
-                console.error("Erro na impressão", err);
-                alert("Erro ao imprimir cupom.");
-            })
-            .finally(() => {
-                qz.websocket.disconnect();
-            });
-    }
-
     // Busca e imprime o cupom
     async function imprimirCupomPorVendaId(vendaId) {
         try {
@@ -245,9 +188,14 @@
                 }
 
                 $("#total_itens_venda_valor").text(`R$ ${parseFloat(response.data.valor).toFixed(2).replace('.', ',')}`);
-                 $("#editar_venda_detalhes_location").click(() => {
-                    loadPage(`vendas/formulario?id=${response.data.id}`)
-                })
+                if (response.data.status !== 'FATURADO') {
+                    $("#editar_venda_detalhes_location").click(() => {
+                        loadPage(`vendas/formulario?id=${response.data.id}`)
+                    })
+                } else {
+                    $("#editar_venda_detalhes_location").remove();
+                    $("#excluir_venda_detalhes").remove();
+                }
             },
             error: function (xhr, status, error) {
                 console.log(error);
