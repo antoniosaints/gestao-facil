@@ -13,5 +13,22 @@ document.addEventListener("htmx:afterSwap", (event) => {
 window.addEventListener("popstate", () => {
   htmx.ajax("GET", location.pathname, { target: "#content" });
 });
-
 loadSidebarOptionsMenu();
+
+const TEMPO_MINUTOS = 1; // tempo de inatividade para forçar reload
+let ultimaOcultacao = null;
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    // salva momento em que aba foi ocultada
+    ultimaOcultacao = Date.now();
+  } else {
+    if (ultimaOcultacao) {
+      const diffMin = (Date.now() - ultimaOcultacao) / 60000;
+      if (diffMin >= TEMPO_MINUTOS) {
+        window.location.reload();
+      }
+    }
+  }
+});
+
