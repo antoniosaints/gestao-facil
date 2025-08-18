@@ -1,5 +1,5 @@
-function htmxRequest(url, target) {
-  return htmx.ajax("GET", url, {
+async function htmxRequest(url, target) {
+  return await htmx.ajax("GET", url, {
     target,
     swap: "innerHTML",
     headers: {
@@ -8,36 +8,36 @@ function htmxRequest(url, target) {
   });
 }
 
-function loadPage(pagePath) {
-  return htmxRequest(pagePath, "#content");
+async function loadPage(pagePath) {
+  return await htmxRequest(pagePath, "#content");
 }
 
-function loadSidebarOptionsMenu() {
-  return htmxRequest("/sidebar/menu", "#content-sidebar-menu");
+async function loadSidebarOptionsMenu() {
+  return await htmxRequest("/sidebar/menu", "#content-sidebar-menu");
 }
 
 // Intercepta globalmente erros do htmx
-htmx.on("htmx:responseError", (e) => {
+htmx.on("body", "htmx:responseError", async (e) => {
   const msg =
     JSON.parse(e.detail.xhr.responseText)?.message ||
     "Erro inesperado na requisição";
 
   showNotification(msg, "error");
 
-  if (e.detail.xhr.status === 401) handleUnauthorized();
+  if (e.detail.xhr.status === 401) await handleUnauthorized();
 });
 
 // Intercepta globalmente erros do fetch
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   const response = await originalFetch(...args);
-  if (response.status === 401) handleUnauthorized();
+  if (response.status === 401) await handleUnauthorized();
   return response;
 };
 
-function handleUnauthorized() {
+async function handleUnauthorized() {
   showNotification("Sua sessão expirou", "error");
-  renewSessionUserByRefreshToken();
+  await renewSessionUserByRefreshToken();
 }
 
 async function renewSessionUserByRefreshToken() {
@@ -62,7 +62,7 @@ async function renewSessionUserByRefreshToken() {
     localStorage.setItem("gestao_facil:isauth", true);
 
     showNotification("Token de sessão renovado!", "success");
-    loadSidebarOptionsMenu();
+    await loadSidebarOptionsMenu();
     atualizarLogoSistema();
     htmx.ajax("GET", location.pathname, { target: "#content" });
   } catch (err) {

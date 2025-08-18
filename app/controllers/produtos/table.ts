@@ -37,7 +37,7 @@ export const tableProdutos = async (
       if (isLowStock) color = "yellow";
       return `<span 
         onclick="visualizarProduto('${row.id}')" 
-        class="px-2 py-1 flex flex-nowrap cursor-pointer truncate w-max border border-${color}-700 text-${color}-900 bg-${color}-100 dark:border-${color}-500 dark:bg-${color}-950 dark:text-${color}-100 rounded-md">#${row.Uid}</span>`;
+        class="px-2 py-1 flex flex-nowrap cursor-pointer justify-center items-center gap-2 truncate w-max border border-${color}-700 text-${color}-900 bg-${color}-100 dark:border-${color}-500 dark:bg-${color}-950 dark:text-${color}-100 rounded-md"><i class="fa-solid fa-box text-blue-600"></i> ${row.Uid}</span>`;
     })
     .format("entradas", function (row) {
       return `
