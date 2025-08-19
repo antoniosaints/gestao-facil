@@ -15,7 +15,7 @@ window.addEventListener("popstate", () => {
 });
 loadSidebarOptionsMenu();
 
-const TEMPO_MINUTOS = 1; // tempo de inatividade para forçar reload
+const TEMPO_MINUTOS = 40; // tempo de inatividade para forçar reload
 let ultimaOcultacao = null;
 
 document.addEventListener("visibilitychange", () => {
