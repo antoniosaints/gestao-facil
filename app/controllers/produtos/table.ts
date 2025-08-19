@@ -8,7 +8,38 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { isAccountOverdue } from "../../routers/web";
 import { formatLabel } from "../../helpers/formatters";
-export const tableProdutos = async (
+
+export const tableProdutos = async (req: Request, res: Response) => {
+ const {
+    page = 1,
+    pageSize = 10,
+    sortField = "id",
+    sortOrder = "asc",
+    search = "",
+  } = req.body;
+
+  const where: any = search
+    ? {
+        OR: [
+          { nome: { contains: search } },
+        ],
+      }
+    : {};
+
+  const [total, rows] = await Promise.all([
+    prisma.produto.count({ where }),
+    prisma.produto.findMany({
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { [sortField]: sortOrder },
+      where,
+    }),
+  ]);
+
+  res.json({ rows, total });
+};
+
+export const tableProdutos2 = async (
   req: Request,
   res: Response
 ): Promise<any> => {
