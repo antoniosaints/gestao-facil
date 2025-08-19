@@ -129,7 +129,7 @@ function MaskToInputPercentage(element) {
   });
 }
 
-function toggleModeGerencial() {
+function toggleModeGerencial(location = "gerencia") {
   $.ajax({
     url: "/api/usuarios/toggleModeGerencial",
     type: "GET",
@@ -138,7 +138,7 @@ function toggleModeGerencial() {
     },
     dataType: "json",
     success: function (response) {
-      window.location.href = "/gerencia";
+      window.location.href = "/" + location;
     },
     error: function (xhr, status, error) {
       const mensagem =
