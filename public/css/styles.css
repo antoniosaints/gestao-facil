@@ -20,11 +20,15 @@
   font-family: "Montserrat";
   src: url("../fonts/Montserrat/Montserrat-Regular.ttf") format("truetype");
 }
+@font-face {
+  font-family: "Satoshi";
+  src: url("../fonts/Satoshi/Satoshi-Regular.otf") format("truetype");
+}
 
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-  font-family: "Roboto", "Poppins", "Montserrat", sans-serif;
+  font-family: "Roboto", "Poppins", "Satoshi", "Montserrat", sans-serif;
 }
 
 ::-webkit-scrollbar {
