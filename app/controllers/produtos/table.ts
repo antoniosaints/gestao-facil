@@ -10,35 +10,34 @@ import { isAccountOverdue } from "../../routers/web";
 import { formatLabel } from "../../helpers/formatters";
 
 export const tableProdutos = async (req: Request, res: Response) => {
- const {
-    page = 1,
-    pageSize = 10,
-    sortField = "id",
-    sortOrder = "asc",
-    search = "",
-  } = req.body;
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const search = req.query.search || "";
+  const sortBy = req.query.sortBy as string || "id";
+  const order = req.query.order || "asc";
 
   const where: any = search
     ? {
-        OR: [
-          { nome: { contains: search } },
-        ],
+        OR: [{ nome: { contains: search } }],
       }
     : {};
 
-  const [total, rows] = await Promise.all([
-    prisma.produto.count({ where }),
-    prisma.produto.findMany({
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      orderBy: { [sortField]: sortOrder },
-      where,
-    }),
-  ]);
+  const total = await prisma.produto.count({ where });
+  const data = await prisma.produto.findMany({
+    where,
+    orderBy: { [sortBy]: order },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
 
-  res.json({ rows, total });
+  res.json({
+    data,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  });
 };
-
 export const tableProdutos2 = async (
   req: Request,
   res: Response

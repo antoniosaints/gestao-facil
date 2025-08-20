@@ -28,7 +28,7 @@ routerProdutos.get(
   authenticateJWT,
   relatorioProdutoMovimentacoes
 );
-routerProdutos.post("/tabela", authenticateJWT, tableProdutos);
+routerProdutos.get("/", authenticateJWT, tableProdutos);
 routerProdutos.get("/mobile/data", authenticateJWT, ListagemMobileProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
 routerProdutos.get("/:id", authenticateJWT, getProduto);
