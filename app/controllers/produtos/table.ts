@@ -3,24 +3,31 @@ import { prisma } from "../../utils/prisma";
 import { formatCurrency } from "../../utils/formatters";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { produtosAcoes } from "./acoes";
-import { Produto } from "../../../generated";
+import { Prisma, Produto } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { isAccountOverdue } from "../../routers/web";
 import { formatLabel } from "../../helpers/formatters";
 
 export const tableProdutos = async (req: Request, res: Response) => {
+  const customData = getCustomRequest(req).customData;
   const page = parseInt(req.query.page as string) || 1;
   const pageSize = parseInt(req.query.pageSize as string) || 10;
-  const search = req.query.search || "";
-  const sortBy = req.query.sortBy as string || "id";
+  const search = (req.query.search as string) || "";
+  const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
 
-  const where: any = search
-    ? {
-        OR: [{ nome: { contains: search } }],
-      }
-    : {};
+  const where: Prisma.ProdutoWhereInput = {
+    contaId: customData.contaId,
+  };
+  if (search) {
+    where.OR = [
+      { nome: { contains: search } },
+      { codigo: { contains: search } },
+      { descricao: { contains: search } },
+      { Uid: { contains: search } },
+    ];
+  }
 
   const total = await prisma.produto.count({ where });
   const data = await prisma.produto.findMany({
