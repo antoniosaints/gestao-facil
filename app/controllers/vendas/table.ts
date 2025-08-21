@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { VendasAcoes } from "./acoes";
-import { Prisma, Vendas } from "../../../generated";
+import { Prisma, StatusVenda, Vendas } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { formatCurrency } from "../../utils/formatters";
 import { formatDate } from "date-fns";
@@ -19,6 +19,8 @@ export const tableVendas = async (req: Request, res: Response) => {
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
 
+  const { ...filters } = req.query;
+
   const where: Prisma.VendasWhereInput = {
     contaId: customData.contaId,
   };
@@ -29,6 +31,10 @@ export const tableVendas = async (req: Request, res: Response) => {
       { cliente: { nome: { contains: search } } },
       { vendedor: { nome: { contains: search } } },
     ];
+  }
+
+  if (filters.status) {
+    where.status = filters.status as StatusVenda;
   }
 
   const total = await prisma.vendas.count({ where });
