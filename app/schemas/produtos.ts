@@ -21,8 +21,9 @@ const moneyFormatter = (message: string) =>
 
 export const ProdutoSchema = z.object({
   id: z
-    .string()
-    .transform((val) => parseInt(val, 10))
+    .number({
+      invalid_type_error: "id deve ser um número",
+    })
     .optional(),
   contaId: z
     .string({
@@ -55,35 +56,15 @@ export const ProdutoSchema = z.object({
     })
     .transform((val) => parseFloat(val.replace(",", "."))),
   estoque: z
-    .string({
+    .number({
       required_error: "estoque é obrigatório",
-      invalid_type_error: "estoque deve ser uma string",
-    })
-    .refine(
-      (val) => {
-        const regex = /^[0-9]+(,[0-9]{1,2})?$/;
-        return regex.test(val);
-      },
-      {
-        message: "estoque deve ser uma string de um número válido",
-      }
-    )
-    .transform((val) => parseInt(val, 10)),
+      invalid_type_error: "estoque deve ser uma número",
+    }),
   minimo: z
-    .string({
+    .number({
       required_error: "minimo é obrigatório",
-      invalid_type_error: "minimo deve ser uma string",
-    })
-    .refine(
-      (val) => {
-        const regex = /^[0-9]+(,[0-9]{1,2})?$/;
-        return regex.test(val);
-      },
-      {
-        message: "minimo deve ser uma string de um número válido",
-      }
-    )
-    .transform((val) => parseInt(val, 10)),
+      invalid_type_error: "minimo deve ser uma número",
+    }),
   precoCompra: z
     .string({
       invalid_type_error: "precoCompra deve ser uma string",
