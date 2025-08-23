@@ -31,8 +31,8 @@ export const tableProdutos = async (req: Request, res: Response) => {
   }
 
   if (filters.status) {
-      where.status = filters.status as Status;
-    }
+    where.status = filters.status as Status;
+  }
 
   const total = await prisma.produto.count({ where });
   const data = await prisma.produto.findMany({
