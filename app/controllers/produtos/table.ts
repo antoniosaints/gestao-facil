@@ -3,7 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { formatCurrency } from "../../utils/formatters";
 import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import { produtosAcoes } from "./acoes";
-import { Prisma, Produto } from "../../../generated";
+import { Prisma, Produto, Status } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { isAccountOverdue } from "../../routers/web";
@@ -16,6 +16,7 @@ export const tableProdutos = async (req: Request, res: Response) => {
   const search = (req.query.search as string) || "";
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
+  const { ...filters } = req.query;
 
   const where: Prisma.ProdutoWhereInput = {
     contaId: customData.contaId,
@@ -28,6 +29,10 @@ export const tableProdutos = async (req: Request, res: Response) => {
       { Uid: { contains: search } },
     ];
   }
+
+  if (filters.status) {
+      where.status = filters.status as Status;
+    }
 
   const total = await prisma.produto.count({ where });
   const data = await prisma.produto.findMany({
