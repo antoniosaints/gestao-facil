@@ -107,6 +107,7 @@ export async function importarProdutos(
 
           resolve({ inseridos: produtosValidos.length, erros });
         } catch (error) {
+          fs.unlinkSync(arquivoPath);
           reject(error);
         }
       })

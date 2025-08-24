@@ -17,13 +17,10 @@ export async function postImportarProdutos(req: Request, res: Response): Promise
   }
 
   const customData = getCustomRequest(req).customData;
-  if (customData.contaId !== 1) {
-    res.status(403).json({ erro: "Acesso negado." });
-    return;
-  }
+
   const permission = await hasPermission(customData, 4);
   if (!permission) {
-    res.status(403).json({ erro: "Sem permissão para realizar essa operação." });
+    res.status(403).json({ message: "Sem permissão para realizar essa operação." });
     return;
   }
 
@@ -32,6 +29,6 @@ export async function postImportarProdutos(req: Request, res: Response): Promise
     res.json({ sucesso: true, ...resultado });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ erro: "Erro ao processar CSV." });
+    res.status(500).json({ message: "Erro ao processar CSV." });
   }
 }
