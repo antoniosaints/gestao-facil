@@ -7,6 +7,7 @@ import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { generateBarcodesStream } from "../../services/barcodeService";
 import { ResponseHandler } from "../../utils/response";
+import fs from "node:fs";
 
 export const relatorioProdutos = async (
   req: Request,
@@ -69,7 +70,8 @@ export const relatorioProdutos = async (
   const textLeft = marginLeft + imageWidth + 20; // Espaço entre imagem e texto
 
   // Cabeçalho com imagem à esquerda e texto ao lado
-  doc.image(`./public/${conta.profile}`, marginLeft, marginTop, {
+  const fileExists = fs.existsSync(`./public/${conta.profile}`);
+  doc.image(fileExists ? `./public/${conta.profile}` : "./public/imgs/logo.png", marginLeft, marginTop, {
     fit: [imageWidth, imageHeight],
   });
 
@@ -237,7 +239,8 @@ export const relatorioProdutoMovimentacoes = async (
   const textLeft = marginLeft + imageWidth + 20;
 
   // Cabeçalho principal
-  doc.image(`./public/${conta.profile}`, marginLeft, marginTop, {
+  const fileExists = fs.existsSync(`./public/${conta.profile}`);
+  doc.image(fileExists ? `./public/${conta.profile}` : `./public/imgs/logo.png`, marginLeft, marginTop, {
     fit: [imageWidth, imageHeight],
   });
 
