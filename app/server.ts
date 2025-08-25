@@ -43,8 +43,8 @@ app.get("/api/auth/renew", authenticateJWT, renewToken);
 app.post("/asaas/webhook", webhookAsaasCheck);
 app.post("/mercadopago/webhook", webhookMercadoPago);
 // Rotas Push
-app.post("/subscribe", authenticateJWT, subscribe);
-app.post("/unsubscribe", authenticateJWT, unsubscribe);
+app.post("/api/subscribe", authenticateJWT, subscribe);
+app.post("/api/unsubscribe", authenticateJWT, unsubscribe);
 app.post("/send-notification", authenticateJWT, sendNotification);
 
 app.listen(3000, () => console.log("Rodando na porta 3000"));
