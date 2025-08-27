@@ -3,17 +3,26 @@ import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { Prisma } from "../../../generated";
 
-export const select2Produtos = async (req: Request, res: Response): Promise<any> => {
+export const select2Produtos = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const search = (req.query.search as string) || null;
     const id = (req.query.id as string) || null;
     const customData = getCustomRequest(req).customData;
 
     if (id) {
-      const produto = await prisma.produto.findUniqueOrThrow({
-        where: { id: Number(id) },
+      const responseUnique = await prisma.produto.findUniqueOrThrow({
+        where: { id: Number(id), contaId: customData.contaId },
       });
-      return res.json({ results: { id: produto.id, label: produto.nome } });
+      if (!responseUnique) {
+        return res.json({ results: [] });
+      }
+
+      return res.json({
+        results: [{ id: responseUnique.id, label: responseUnique.nome }],
+      });
     }
 
     const where: Prisma.ProdutoWhereInput = {
