@@ -39,7 +39,11 @@ export const efetivarVendaSchema = z.object(
 
 export const vendaSchema = z.object(
   {
-    id: z.string().optional(),
+    id: z.number({
+      invalid_type_error: "O campo id deve ser uma string",
+    })
+    .nullable()
+    .optional(),
     data: z
       .string({
         required_error: "O campo data é obrigatório",
@@ -48,13 +52,14 @@ export const vendaSchema = z.object(
       .refine((val) => !isNaN(Date.parse(val)), { message: "Data inválida" })
       .transform((val) => new Date(val)),
     clienteId: z
-      .string()
-      .optional()
-      .refine((val) => val === undefined || !isNaN(Number(val)), {
+      .number({
+        invalid_type_error: "O campo clienteId deve ser um numero",
+      })
+      .nullable()
+      .refine((val) => val === null || !isNaN(Number(val)), {
         message: "clienteId inválido",
       })
-      .transform((val) => (val ? Number(val) : undefined)),
-
+      .optional(),
     status: z
       .enum(["ORCAMENTO", "ANDAMENTO", "FINALIZADO", "PENDENTE", "CANCELADO"], {
         required_error: "O campo status é obrigatório",
@@ -67,28 +72,26 @@ export const vendaSchema = z.object(
       })
       .optional(),
     vendedorId: z
-      .string({
-        invalid_type_error: "O campo vendedorId deve ser uma string",
+      .number({
+        invalid_type_error: "O campo vendedorId deve ser um numero",
+        required_error: "O campo vendedor é obrigatório",
       })
-      .optional()
       .refine((val) => val === undefined || !isNaN(Number(val)), {
         message: "vendedorId inválido",
       })
       .transform((val) => (val ? Number(val) : undefined)),
     desconto: z
-      .string({
-        invalid_type_error: "O campo desconto deve ser uma string",
+      .number({
+        invalid_type_error: "O campo desconto deve ser um numero",
       })
-      .transform((val) => {
-        if (val) {
-          return parseFloat(val.replace(",", "."));
-        }
-        return null;
+      .nullable()
+      .refine((val) => val === null || !isNaN(Number(val)), {
+        message: "desconto inválido",
       })
       .optional(),
     garantia: z
-      .string({
-        invalid_type_error: "O campo garantia deve ser uma string",
+      .number({
+        invalid_type_error: "O campo garantia deve ser um numero",
       })
       .optional()
       .refine((val) => val === undefined || !isNaN(Number(val)), {
@@ -99,29 +102,27 @@ export const vendaSchema = z.object(
       z.object(
         {
           id: z
-            .string({
+            .number({
               required_error: "O campo id é obrigatório",
-              invalid_type_error: "O campo id deve ser uma string",
+              invalid_type_error: "O campo id deve ser um numero",
             })
             .refine((val) => !isNaN(Number(val)), {
               message: "produtoId inválido",
             })
             .transform((val) => Number(val)),
           preco: z
-            .string({
+            .number({
               required_error: "O campo preco é obrigatório",
-              invalid_type_error: "O campo preco deve ser uma string",
-            })
-            .transform((val) => parseFloat(val.replace(",", "."))),
+              invalid_type_error: "O campo preco deve ser um numero",
+            }),
           quantidade: z
-            .string({
+            .number({
               required_error: "O campo quantidade é obrigatório",
-              invalid_type_error: "O campo quantidade deve ser uma string",
+              invalid_type_error: "O campo quantidade deve ser um numero",
             })
             .refine((val) => !isNaN(Number(val)), {
               message: "quantidade inválida",
-            })
-            .transform((val) => Number(val)),
+            }),
         },
         { required_error: "Preencha o item da venda", invalid_type_error: "O item deve ser um objeto" }
       ), { required_error: "Preencha o array de itens da venda", invalid_type_error: "O array de itens deve ser um array" }
