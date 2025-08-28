@@ -99,13 +99,41 @@ export async function importarProdutos(
           fs.unlinkSync(arquivoPath);
 
           if (produtosValidos.length > 0) {
-            await prisma.produto.createMany({
-              data: produtosValidos,
-              skipDuplicates: true,
+            // 🔎 elimina duplicados por "codigo"
+            const codigosUnicos = new Set<string>();
+            const semDuplicados = produtosValidos.filter((p) => {
+              if (!p.codigo) return true; // se não tem código, deixa passar
+              if (codigosUnicos.has(p.codigo)) return false;
+              codigosUnicos.add(p.codigo);
+              return true;
             });
-          }
 
-          resolve({ inseridos: produtosValidos.length, erros });
+            // 🔎 checa quais já existem no banco
+            const codigos = semDuplicados
+              .map((p) => p.codigo)
+              .filter((c): c is string => !!c);
+
+            const existentes = await prisma.produto.findMany({
+              where: { codigo: { in: codigos }, contaId },
+              select: { codigo: true },
+            });
+
+            const codigosExistentes = new Set(existentes.map((e) => e.codigo));
+            const novos = semDuplicados.filter(
+              (p) => !p.codigo || !codigosExistentes.has(p.codigo)
+            );
+
+            if (novos.length > 0) {
+              await prisma.produto.createMany({
+                data: novos,
+                skipDuplicates: false, // ✅ agora não precisa
+              });
+            }
+
+            resolve({ inseridos: novos.length, erros });
+          } else {
+            resolve({ inseridos: 0, erros });
+          }
         } catch (error) {
           fs.unlinkSync(arquivoPath);
           reject(error);
