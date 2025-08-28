@@ -184,15 +184,17 @@ export const getResumoProduto = async (
 ): Promise<any> => {
   const { produtoId } = req.params;
   const customData = getCustomRequest(req).customData;
+
   if (!produtoId) {
     return ResponseHandler(res, "produtoId não informado", null, 404);
   }
 
   try {
     const id = Number(produtoId);
+
     const produto = await prisma.produto.findUnique({
       where: { id, contaId: customData.contaId },
-      select: { preco: true },
+      select: { preco: true, estoque: true },
     });
 
     if (!produto) {
@@ -207,21 +209,29 @@ export const getResumoProduto = async (
     let lucroLiquido = new Decimal(0);
     let totalEntradas = 0;
     let totalSaidas = 0;
+    const valorProduto = new Decimal(produto.preco);
 
     for (const mov of movimentacoes) {
       const quantidade = new Decimal(mov.quantidade);
       const custo = new Decimal(mov.custo);
-      const precoVenda = new Decimal(produto.preco);
 
       if (mov.tipo === "ENTRADA") {
         totalGasto = totalGasto.plus(quantidade.times(custo));
         totalEntradas += mov.quantidade;
       } else if (mov.tipo === "SAIDA") {
-        const lucro = precoVenda.minus(custo).times(quantidade);
-        lucroLiquido = lucroLiquido.plus(lucro);
+        lucroLiquido = lucroLiquido.plus(mov.custo);
         totalSaidas += mov.quantidade;
       }
     }
+
+    // cálculos extras
+    const estoqueAtual = totalEntradas - totalSaidas;
+    const custoMedio =
+      totalEntradas > 0 ? totalGasto.div(totalEntradas) : new Decimal(0);
+    const valorEstoque = valorProduto.times(produto.estoque);
+    const margemLucro = custoMedio.gt(0)
+      ? produto.preco.minus(custoMedio).div(custoMedio).times(100)
+      : new Decimal(0);
 
     return res.json({
       produtoId: id,
@@ -229,6 +239,10 @@ export const getResumoProduto = async (
       lucroLiquido: lucroLiquido.toFixed(2),
       totalEntradas,
       totalSaidas,
+      estoqueAtual,
+      custoMedio: custoMedio.toFixed(2),
+      valorEstoque: valorEstoque.toFixed(2),
+      margemLucro: margemLucro.toFixed(2) + "%",
     });
   } catch (error) {
     handleError(res, error);
