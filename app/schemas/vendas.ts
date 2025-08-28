@@ -40,7 +40,7 @@ export const efetivarVendaSchema = z.object(
 export const vendaSchema = z.object(
   {
     id: z.number({
-      invalid_type_error: "O campo id deve ser uma string",
+      invalid_type_error: "O campo id deve ser um numero",
     })
     .nullable()
     .optional(),
