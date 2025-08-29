@@ -25,25 +25,31 @@ export const efetivarVendaSchema = z.object(
       required_error: "O campo dataPagamento é obrigatório",
       invalid_type_error: "O campo dataPagamento deve ser uma string",
     }),
-    conta: z.string({
-      required_error: "O campo conta é obrigatório",
-      invalid_type_error: "O campo conta deve ser um número",
-    }).transform((val) => Number(val)).optional(),
-    categoria: z.string({
-      required_error: "O campo categoria é obrigatório",
-      invalid_type_error: "O campo categoria deve ser um número",
-    }).transform((val) => Number(val)),
+    conta: z
+      .string({
+        required_error: "O campo conta é obrigatório",
+        invalid_type_error: "O campo conta deve ser um número",
+      })
+      .transform((val) => Number(val))
+      .optional(),
+    categoria: z
+      .string({
+        required_error: "O campo categoria é obrigatório",
+        invalid_type_error: "O campo categoria deve ser um número",
+      })
+      .transform((val) => Number(val)),
   },
   { required_error: "Informe os dados de pagamento" }
 );
 
 export const vendaSchema = z.object(
   {
-    id: z.number({
-      invalid_type_error: "O campo id deve ser um numero",
-    })
-    .nullable()
-    .optional(),
+    id: z
+      .number({
+        invalid_type_error: "O campo id deve ser um numero",
+      })
+      .nullable()
+      .optional(),
     data: z
       .string({
         required_error: "O campo data é obrigatório",
@@ -79,7 +85,9 @@ export const vendaSchema = z.object(
       .refine((val) => val === undefined || !isNaN(Number(val)), {
         message: "vendedorId inválido",
       })
-      .transform((val) => (val ? Number(val) : undefined)),
+      .transform((val) => (val ? Number(val) : undefined))
+      .optional()
+      .nullable(),
     desconto: z
       .number({
         invalid_type_error: "O campo desconto deve ser um numero",
@@ -110,11 +118,10 @@ export const vendaSchema = z.object(
               message: "produtoId inválido",
             })
             .transform((val) => Number(val)),
-          preco: z
-            .number({
-              required_error: "O campo preco é obrigatório",
-              invalid_type_error: "O campo preco deve ser um numero",
-            }),
+          preco: z.number({
+            required_error: "O campo preco é obrigatório",
+            invalid_type_error: "O campo preco deve ser um numero",
+          }),
           quantidade: z
             .number({
               required_error: "O campo quantidade é obrigatório",
@@ -124,8 +131,15 @@ export const vendaSchema = z.object(
               message: "quantidade inválida",
             }),
         },
-        { required_error: "Preencha o item da venda", invalid_type_error: "O item deve ser um objeto" }
-      ), { required_error: "Preencha o array de itens da venda", invalid_type_error: "O array de itens deve ser um array" }
+        {
+          required_error: "Preencha o item da venda",
+          invalid_type_error: "O item deve ser um objeto",
+        }
+      ),
+      {
+        required_error: "Preencha o array de itens da venda",
+        invalid_type_error: "O array de itens deve ser um array",
+      }
     ),
   },
   { required_error: "Informe os dados da venda" }
