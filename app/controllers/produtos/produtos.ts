@@ -206,7 +206,7 @@ export const getResumoProduto = async (
     });
 
     let totalGasto = new Decimal(0);
-    let lucroLiquido = new Decimal(0);
+    let totalGanho = new Decimal(0);
     let totalEntradas = 0;
     let totalSaidas = 0;
     const valorProduto = new Decimal(produto.preco);
@@ -214,12 +214,13 @@ export const getResumoProduto = async (
     for (const mov of movimentacoes) {
       const quantidade = new Decimal(mov.quantidade);
       const custo = new Decimal(mov.custo);
+      const desconto = new Decimal(mov.desconto || 0);
 
       if (mov.tipo === "ENTRADA") {
-        totalGasto = totalGasto.plus(quantidade.times(custo));
+        totalGasto = totalGasto.plus(quantidade.times(custo).minus(desconto));
         totalEntradas += mov.quantidade;
       } else if (mov.tipo === "SAIDA") {
-        lucroLiquido = lucroLiquido.plus(mov.custo);
+        totalGanho = totalGanho.plus(custo.times(quantidade).minus(desconto));
         totalSaidas += mov.quantidade;
       }
     }
@@ -230,13 +231,13 @@ export const getResumoProduto = async (
       totalEntradas > 0 ? totalGasto.div(totalEntradas) : new Decimal(0);
     const valorEstoque = valorProduto.times(produto.estoque);
     const margemLucro = custoMedio.gt(0)
-      ? produto.preco.minus(custoMedio).div(custoMedio).times(100)
+      ? valorProduto.minus(custoMedio).div(custoMedio).times(100)
       : new Decimal(0);
 
     return res.json({
       produtoId: id,
       totalGasto: totalGasto.toFixed(2),
-      lucroLiquido: lucroLiquido.toFixed(2),
+      lucroLiquido: totalGanho.minus(totalGasto).toFixed(2),
       totalEntradas,
       totalSaidas,
       estoqueAtual,

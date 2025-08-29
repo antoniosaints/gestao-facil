@@ -350,6 +350,10 @@ export const updateVendaInternal = async (
       data: itensVenda,
     });
 
+    const descontoTotal = data.desconto
+      ? new Decimal(data.desconto)
+      : new Decimal(0);
+
     await Promise.all(
       itensVenda.map(async (item) => {
         await tx.produto.update({
@@ -380,10 +384,6 @@ export const updateVendaInternal = async (
         new Decimal(item.quantidade).mul(new Decimal(item.preco))
       );
     }, new Decimal(0));
-
-    const descontoTotal = data.desconto
-      ? new Decimal(data.desconto)
-      : new Decimal(0);
 
     await tx.vendas.update({
       where: {
@@ -422,7 +422,11 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     }
 
     if (query.id) {
-      const updated = await updateVendaInternal(Number(query.id), data, customData);
+      const updated = await updateVendaInternal(
+        Number(query.id),
+        data,
+        customData
+      );
       return ResponseHandler(res, "Venda atualizada com sucesso", updated, 200);
     }
 
@@ -446,7 +450,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           data: addHours(data.data, 3),
           status: data.status,
           garantia: data.garantia,
-          desconto: data.desconto ? new Decimal(data.desconto) : new Decimal(0),
+          desconto: descontoTotal,
           PagamentoVendas: {
             create: {
               valor: 0,
