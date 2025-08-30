@@ -6,7 +6,8 @@ import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoD
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
 import { deleteCategoria, saveCategoria, select2Categorias } from "../../controllers/financeiro/categorias";
-import { deleteContaFinanceiro, saveContaFinanceiro, select2ContasFinanceiras } from "../../controllers/financeiro/contas";
+import { deleteContaFinanceiro, saveContaFinanceiro } from "../../controllers/financeiro/contas";
+import { select2ContasFinanceiras } from "../../controllers/financeiro/hooks";
 
 const routerLancamentos = Router();
 

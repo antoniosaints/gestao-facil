@@ -3,92 +3,89 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
-import { CategoriaFinanceiro } from "../../../generated";
-
-function buildTree(
-  items: CategoriaFinanceiro[],
-  parentId: number | null = null
-): CategoriaFinanceiro[] {
-  return items
-    .filter((item) => item.parentId === parentId)
-    .map((item) => ({
-      ...item,
-      filhos: buildTree(items, item.id),
-    }));
-}
-
-function buildList(
-  items: CategoriaFinanceiro[],
-  parentId: number | null = null,
-  result: { id: number; text: string }[] = []
-): { id: number; text: string }[] {
-  const filhos = items
-    .filter((item) => item.parentId === parentId)
-    .sort((a, b) => a.id - b.id);
-
-  for (const filho of filhos) {
-    result.push({
-      id: filho.id,
-      text: `${filho.parentId ?? ""}.${filho.id} - ${filho.nome}`.replace(
-        /^\./,
-        ""
-      ),
-    });
-    buildList(items, filho.id, result);
-  }
-
-  return result;
-}
+import { Prisma } from "../../../generated";
 
 export const select2Categorias = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const search = (req.query.search as string) || "";
-  const { contaId } = getCustomRequest(req).customData;
-  const categorias = await prisma.categoriaFinanceiro.findMany({
-    where: {
-      contaId,
-      nome: {
-        contains: search,
-      },
-    },
-    take: 30,
-    orderBy: [{ parentId: "asc" }, { id: "asc" }],
-  });
+  try {
+    const search = (req.query.search as string) || null;
+    const id = (req.query.id as string) || null;
+    const customData = getCustomRequest(req).customData;
 
-  if (!categorias) {
-    return res.json({ results: [] });
-  }
-
-  const result: { id: number; text: string }[] = [];
-
-  categorias.forEach((categoria) => {
-    if (categoria.parentId === null) {
-      result.push({
-        id: categoria.id,
-        text: `${categoria.id} - ${categoria.nome}`,
+    // Caso o select2 mande apenas um ID (edição, por exemplo)
+    if (id) {
+      const responseUnique = await prisma.categoriaFinanceiro.findUnique({
+        where: { id: Number(id), contaId: customData.contaId },
       });
-      // filhos diretos do pai
-      categorias
-        .filter((item) => item.parentId === categoria.id)
-        .forEach((item) => {
-          result.push({
-            id: item.id,
-            text: `${item.parentId}.${item.id} - ${item.nome}`,
-          });
-        });
-    }else {
-      if (!result.find((item) => item.id === categoria.id)) {
+
+      if (!responseUnique) {
+        return res.json({ results: [] });
+      }
+
+      return res.json({
+        results: [
+          {
+            id: responseUnique.id,
+            label: `${responseUnique.id} - ${responseUnique.nome}`,
+          },
+        ],
+      });
+    }
+
+    const where: Prisma.CategoriaFinanceiroWhereInput = {
+      contaId: customData.contaId,
+    };
+
+    if (search) {
+      where.nome = { contains: search };
+    }
+
+    const categorias = await prisma.categoriaFinanceiro.findMany({
+      where,
+      take: 30,
+      orderBy: [{ parentId: "asc" }, { id: "asc" }],
+    });
+
+    if (!categorias || categorias.length === 0) {
+      return res.json({ results: [] });
+    }
+
+    const result: { id: number; label: string }[] = [];
+
+    categorias.forEach((categoria) => {
+      if (categoria.parentId === null) {
+        // Categoria pai
         result.push({
           id: categoria.id,
-          text: `${categoria.parentId}.${categoria.id} - ${categoria.nome}`,
+          label: `${categoria.id} - ${categoria.nome}`,
         });
-      }
-    }
-  });
 
-  res.json({ results: result });
+        // Filhos do pai
+        categorias
+          .filter((item) => item.parentId === categoria.id)
+          .forEach((item) => {
+            result.push({
+              id: item.id,
+              label: `${item.parentId}.${item.id} - ${item.nome}`,
+            });
+          });
+      } else {
+        // Evita duplicados
+        if (!result.find((item) => item.id === categoria.id)) {
+          result.push({
+            id: categoria.id,
+            label: `${categoria.parentId}.${categoria.id} - ${categoria.nome}`,
+          });
+        }
+      }
+    });
+
+    return res.json({ results: result });
+  } catch (error) {
+    return res.json({ results: [] });
+  }
 };
 
 export const saveCategoria = async (

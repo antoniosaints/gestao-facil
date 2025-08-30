@@ -4,36 +4,6 @@ import { handleError } from "../../utils/handleError";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 
-
-export const select2ContasFinanceiras = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  const search = (req.query.search as string) || "";
-  const { contaId } = getCustomRequest(req).customData;
-  const contas = await prisma.contasFinanceiro.findMany({
-    where: {
-      contaId,
-      nome: {
-        contains: search,
-      },
-    },
-    take: 10,
-    orderBy: { nome: "asc" },
-  });
-
-  if (!contas) {
-    return res.json({ results: [] });
-  }
-
-  const results = contas.map((row) => ({
-    id: row.id,
-    text: row.nome,
-  }));
-
-  res.json({ results });
-};
-
 export const saveContaFinanceiro = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id, nome } = req.body;
