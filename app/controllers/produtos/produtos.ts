@@ -226,18 +226,20 @@ export const getResumoProduto = async (
     }
 
     // cálculos extras
+    const ticketMedio = totalSaidas > 0 ? totalGanho.div(totalSaidas) : new Decimal(0);
     const estoqueAtual = totalEntradas - totalSaidas;
     const custoMedio =
       totalEntradas > 0 ? totalGasto.div(totalEntradas) : new Decimal(0);
     const valorEstoque = valorProduto.times(produto.estoque);
     const margemLucro = custoMedio.gt(0)
-      ? valorProduto.minus(custoMedio).div(custoMedio).times(100)
+      ? ticketMedio.minus(custoMedio).div(ticketMedio).times(100)
       : new Decimal(0);
 
     return res.json({
       produtoId: id,
       totalGasto: totalGasto.toFixed(2),
       lucroLiquido: totalGanho.minus(totalGasto).toFixed(2),
+      ticketMedio: ticketMedio.toFixed(2),
       totalEntradas,
       totalSaidas,
       estoqueAtual,
