@@ -37,6 +37,7 @@ routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 routerProdutos.get("/:id", authenticateJWT, getProduto);
 
 routerProdutos.post("/", authenticateJWT, saveProduto);
+routerProdutos.get("/", authenticateJWT, tableProdutos);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("/importar/csv", authenticateJWT, upload.single('arquivo'), postImportarProdutos);
 
