@@ -8,8 +8,8 @@ const routerUsuarios = Router();
 routerUsuarios.get("/", authenticateJWT, tableUsuarios);
 routerUsuarios.get("/toggleModeGerencial", authenticateJWT, toggleModeGerencial);
 routerUsuarios.post("/salvar", authenticateJWT, saveUsuario);
-routerUsuarios.get("/get/:id", authenticateJWT, getUsuario);
 routerUsuarios.get("/select2", authenticateJWT, select2Usuarios);
+routerUsuarios.get("/get/:id", authenticateJWT, getUsuario);
 routerUsuarios.delete("/delete/:id", authenticateJWT, deleteUsuario);
 routerUsuarios.get("/mobile/data", authenticateJWT, listagemMobileUsuarios);
 
