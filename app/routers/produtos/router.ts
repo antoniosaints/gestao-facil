@@ -29,16 +29,16 @@ routerProdutos.get(
   relatorioProdutoMovimentacoes
 );
 routerProdutos.get("/", authenticateJWT, tableProdutos);
+routerProdutos.get("/:id", authenticateJWT, getProduto);
+routerProdutos.post("/", authenticateJWT, saveProduto);
 routerProdutos.get("/select2", authenticateJWT, select2Produtos);
 routerProdutos.get("/mobile/data", authenticateJWT, ListagemMobileProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
-routerProdutos.get("/:id", authenticateJWT, getProduto);
 routerProdutos.get("/:produtoId/resumo", authenticateJWT, getResumoProduto);
-routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
-routerProdutos.post("", authenticateJWT, saveProduto);
-routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
 routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 routerProdutos.get("/download/csv", authenticateJWT, getCsvBase);
+routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("/importar/csv", authenticateJWT, upload.single('arquivo'), postImportarProdutos);
+routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
 
 export { routerProdutos };
