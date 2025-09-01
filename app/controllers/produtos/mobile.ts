@@ -20,6 +20,7 @@ export const ListagemMobileProdutos = async (req: Request, res: Response): Promi
         { nome: { contains: search } },
         { descricao: { contains: search } },
         { codigo: { contains: search } },
+        { Uid: { contains: search } },
       ];
     }
 
