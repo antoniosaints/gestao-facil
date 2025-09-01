@@ -30,6 +30,25 @@ export const tableVendas = async (req: Request, res: Response) => {
       { Uid: { contains: search } },
       { cliente: { nome: { contains: search } } },
       { vendedor: { nome: { contains: search } } },
+      {
+        ItensVendas: {
+          some: {
+            produto: {
+              OR: [
+                {
+                  nome: { contains: search },
+                },
+                {
+                  codigo: { contains: search },
+                },
+                {
+                  Uid: { contains: search },
+                },
+              ],
+            },
+          },
+        },
+      },
     ];
   }
 
@@ -46,7 +65,7 @@ export const tableVendas = async (req: Request, res: Response) => {
     include: {
       cliente: true,
       vendedor: true,
-    }
+    },
   });
 
   res.json({
