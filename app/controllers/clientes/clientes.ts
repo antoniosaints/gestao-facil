@@ -61,8 +61,8 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     documento: data.documento,
                     endereco: data.endereco,
                     telefone: data.telefone,
-                    status: data.status ? "ATIVO" : "INATIVO",
-                    tipo: data.tipo ? "FORNECEDOR" : "CLIENTE",
+                    status: data.status,
+                    tipo: data.tipo,
                     observacaos: data.observacaos,
                 }
             });
@@ -79,8 +79,8 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     documento: data.documento,
                     endereco: data.endereco,
                     telefone: data.telefone,
-                    status: data.status ? "ATIVO" : "INATIVO",
-                    tipo: data.tipo ? "FORNECEDOR" : "CLIENTE",
+                    status: data.status,
+                    tipo: data.tipo,
                     observacaos: data.observacaos,
                     Uid: gerarIdUnicoComMetaFinal("CLI"),
                 }
