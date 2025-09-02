@@ -21,6 +21,10 @@ export const efetivarVendaSchema = z.object(
           "O campo pagamento deve ser {PIX, DINHEIRO, CARTAO, TRANSFERENCIA, CHEQUE, CREDITO, DEBITO, BOLETO, OUTRO ou GATEWAY}",
       }
     ),
+    lancamentoManual: z.boolean({
+      required_error: "Informe o tipo de lançamento",
+      invalid_type_error: "O lançamento manual deve ser selecionado ou não"
+    }),
     dataPagamento: z.string({
       required_error: "O campo dataPagamento é obrigatório",
       invalid_type_error: "O campo dataPagamento deve ser uma string",

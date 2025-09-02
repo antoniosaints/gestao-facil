@@ -70,23 +70,25 @@ export const efetivarVenda = async (
         },
       });
 
-      await tx.lancamentoFinanceiro.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("FIN"),
-          contaId: venda.contaId,
-          vendaId: venda.id,
-          valorBruto: venda.valor,
-          valorTotal: venda.valor,
-          desconto: venda.desconto,
-          dataLancamento: new Date(dataPagamento),
-          descricao: `Venda ${venda.Uid}`,
-          status: "PAGO",
-          categoriaId: categoria,
-          contasFinanceiroId: contaId,
-          formaPagamento: pagamento,
-          tipo: "RECEITA",
-        },
-      });
+      if (!resultado.lancamentoManual) {
+        await tx.lancamentoFinanceiro.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("FIN"),
+            contaId: venda.contaId,
+            vendaId: venda.id,
+            valorBruto: venda.valor,
+            valorTotal: venda.valor,
+            desconto: venda.desconto,
+            dataLancamento: new Date(dataPagamento),
+            descricao: `Venda ${venda.Uid}`,
+            status: "PAGO",
+            categoriaId: categoria,
+            contasFinanceiroId: contaId,
+            formaPagamento: pagamento,
+            tipo: "RECEITA",
+          },
+        });
+      }
 
       return venda;
     });
