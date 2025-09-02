@@ -228,17 +228,17 @@ export const pagarMultiplasParcelas = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { ids } = req.body; // Ex: [1, 2, 3]
+  const { parcelas } = req.body; // Ex: [1, 2, 3]
   const customData = getCustomRequest(req).customData;
-  if (!Array.isArray(ids) || ids.length === 0) {
+  if (!Array.isArray(parcelas) || parcelas.length === 0) {
     return res
       .status(400)
-      .json({ message: "Informe um array de IDs de parcelas." });
+      .json({ message: "Informe um array de parcelas de parcelas." });
   }
 
   try {
     await prisma.parcelaFinanceiro.updateMany({
-      where: { id: { in: ids }, pago: false },
+      where: { id: { in: parcelas }, pago: false },
       data: {
         pago: true,
         formaPagamento: "PIX",
