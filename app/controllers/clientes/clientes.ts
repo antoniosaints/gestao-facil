@@ -4,6 +4,7 @@ import { handleError } from "../../utils/handleError";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { ClientesFornecedores } from "../../../generated";
 
 export const getCliente = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -42,7 +43,7 @@ export const deleteCliente = async (req: Request, res: Response): Promise<any> =
 
 export const saveCliente = async (req: Request, res: Response): Promise<any> => {
     try {
-        const data = req.body;
+        const data = req.body as ClientesFornecedores;
         const customData = getCustomRequest(req).customData;
         if (!data || !data?.nome) {
             return ResponseHandler(res, "Dados nao informados", null, 400);
@@ -57,6 +58,7 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     cep: data.cep,
                     cidade: data.cidade,
                     estado: data.estado,
+                    whastapp: data.whastapp,
                     email: data.email,
                     documento: data.documento,
                     endereco: data.endereco,
@@ -76,6 +78,7 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     contaId: customData.contaId,
                     estado: data.estado,
                     email: data.email,
+                    whastapp: data.whastapp,
                     documento: data.documento,
                     endereco: data.endereco,
                     telefone: data.telefone,
