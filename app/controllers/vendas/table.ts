@@ -18,9 +18,7 @@ export const tableVendas = async (req: Request, res: Response) => {
   const search = (req.query.search as string) || "";
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
-
-  const { ...filters } = req.query;
-
+  
   const where: Prisma.VendasWhereInput = {
     contaId: customData.contaId,
   };
@@ -52,8 +50,14 @@ export const tableVendas = async (req: Request, res: Response) => {
     ];
   }
 
-  if (filters.status) {
-    where.status = filters.status as StatusVenda;
+  if (req.query.status) {
+    where.status = req.query.status as StatusVenda;
+  }
+  if (req.query['periodo[inicio]'] && req.query['periodo[fim]']) {
+    where.data = {
+      gte: new Date(req.query['periodo[inicio]'] as string),
+      lte: new Date(req.query['periodo[fim]'] as string),
+    }
   }
 
   const total = await prisma.vendas.count({ where });
