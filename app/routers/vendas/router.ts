@@ -14,11 +14,13 @@ import { gerarCupomPdf } from "../../controllers/vendas/cupomNaoFiscalPdf";
 import { getLucroPorVendas } from "../../controllers/vendas/relatorios";
 import { tableVendas } from "../../controllers/vendas/table";
 import { ListagemMobileVendas } from "../../controllers/vendas/mobile";
+import { ResumoVendasController } from "../../controllers/vendas/resumo";
 
 const routerVendas = Router();
 
 routerVendas.get("/", authenticateJWT, tableVendas);
 routerVendas.get("/mobile/data", authenticateJWT, ListagemMobileVendas);
+routerVendas.get("/resumo/dashboard", authenticateJWT, ResumoVendasController.getResumo);
 routerVendas.post("/criar", authenticateJWT, saveVenda);
 routerVendas.get("/lista/geral", authenticateJWT, getVendas);
 routerVendas.get("/resumo/mensal", authenticateJWT, getResumoVendasMensalChart);
