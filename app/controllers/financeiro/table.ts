@@ -4,6 +4,7 @@ import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
 import {
   LancamentoFinanceiro,
   MetodoPagamento,
+  Prisma,
   StatusPagamentoFinanceiro,
   TipoLancamentoFinanceiro,
 } from "../../../generated";
@@ -96,9 +97,9 @@ const formatLabelId = (row: LancamentoFinanceiro) => {
   if (row.status === "PAGO") color = "text-green-500";
   let icon = `<i class="fa-solid ${color} fa-dollar-sign"></i>`;
   if (row.vendaId) {
-    icon = `<i class="fa-solid ${color} fa-tag"></i>`
+    icon = `<i class="fa-solid ${color} fa-tag"></i>`;
     label = "Vinculado a uma venda";
-  };
+  }
   return `<span title="${label}" class="px-2 py-1 flex flex-nowrap justify-center items-center gap-2 w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md">
     ${icon}${row.Uid}
   </span>`;
@@ -169,11 +170,58 @@ export const tableLancamentos = async (
         return formatLabel("à vista", "green", "fa-solid fa-money-bill");
       }
 
-      return formatLabel(`${parcelas.length} ${parcelas.length === 1 ? "vez" : "vezes"}`, "blue", "fa-solid fa-receipt");
+      return formatLabel(
+        `${parcelas.length} ${parcelas.length === 1 ? "vez" : "vezes"}`,
+        "blue",
+        "fa-solid fa-receipt"
+      );
     })
     .addColumn("acoes", (row) => {
       return acoes(row);
     });
   const data = await builder.toJson(req.query);
   return res.json(data);
+};
+
+export const tableFinanceiro = async (req: Request, res: Response): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  if (await isAccountOverdue(req)) {
+    return res.status(404).json({
+      message: "Conta inativa ou bloqueada, verifique seu plano",
+    });
+  }
+
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const search = (req.query.search as string) || "";
+  const sortBy = (req.query.sortBy as string) || "id";
+  const order = req.query.order || "asc";
+
+  const where: Prisma.LancamentoFinanceiroWhereInput = {
+    contaId: customData.contaId,
+  };
+
+  if (search) {
+    where.OR = [
+      { descricao: { contains: search } },
+      { Uid: { contains: search } },
+      { venda: { Uid: { contains: search } } },
+    ];
+  }
+
+  const total = await prisma.lancamentoFinanceiro.count({ where });
+  const data = await prisma.lancamentoFinanceiro.findMany({
+    where,
+    orderBy: { [sortBy]: order },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+
+  res.json({
+    data,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  });
 };

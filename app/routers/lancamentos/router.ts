@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
-import { tableLancamentos } from "../../controllers/financeiro/table";
+import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
@@ -12,7 +12,7 @@ import { select2ContasFinanceiras } from "../../controllers/financeiro/hooks";
 const routerLancamentos = Router();
 
 routerLancamentos.post("/", authenticateJWT, criarLancamento);
-routerLancamentos.get("/getDataTable", authenticateJWT, tableLancamentos);
+routerLancamentos.get("/getDataTable", authenticateJWT, tableFinanceiro);
 routerLancamentos.get("/mobile/data", authenticateJWT, ListagemMobileLancamentos);
 routerLancamentos.post("/parcelas/:id/pagar", authenticateJWT, pagarParcela);
 routerLancamentos.post("/parcelas/pagar-multiplas", authenticateJWT, pagarMultiplasParcelas);
