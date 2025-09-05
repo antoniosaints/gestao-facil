@@ -37,21 +37,21 @@ export class ResumoVendasController {
 
       const totalVendas = vendas.length;
       const totalValorVendas = vendas.reduce((total, venda) => {
-        return total.add(venda.valor.minus(venda.desconto || new Decimal(0)));
-      }, new Decimal(0));
-
-      const totalFaturado = vendas.filter((venda) => venda.status === "FATURADO").length;
-      const totalValorFaturado = vendas.filter((venda) => venda.status === "FATURADO").reduce((total, venda) => {
         return total.add(venda.valor);
       }, new Decimal(0));
 
-      const totalAberto = vendas.filter((venda) => ["PENDENTE", "FINALIZADO", "ORCAMENTO", "ANDAMENTO"].includes(venda.status)).length;
-      const totalValorAberto = vendas.filter((venda) => ["PENDENTE", "FINALIZADO", "ORCAMENTO", "ANDAMENTO"].includes(venda.status)).reduce((total, venda) => {
+      const totalFaturado = vendas.filter((venda) => venda.faturado === true).length;
+      const totalValorFaturado = vendas.filter((venda) => venda.faturado === true).reduce((total, venda) => {
         return total.add(venda.valor);
       }, new Decimal(0));
 
-      const totalCancelado = vendas.filter((venda) => ["CANCELADO"].includes(venda.status)).length;
-      const totalValorCancelado = vendas.filter((venda) => ["CANCELADO"].includes(venda.status)).reduce((total, venda) => {
+      const totalAberto = vendas.filter((venda) => ["PENDENTE", "FINALIZADO", "ANDAMENTO"].includes(venda.status)).length;
+      const totalValorAberto = vendas.filter((venda) => ["PENDENTE", "FINALIZADO", "ANDAMENTO"].includes(venda.status)).reduce((total, venda) => {
+        return total.add(venda.valor);
+      }, new Decimal(0));
+
+      const totalOrcamento = vendas.filter((venda) => ["ORCAMENTO"].includes(venda.status)).length;
+      const totalValorOrcamento = vendas.filter((venda) => ["ORCAMENTO"].includes(venda.status)).reduce((total, venda) => {
         return total.add(venda.valor);
       }, new Decimal(0));
 
@@ -69,8 +69,8 @@ export class ResumoVendasController {
         totalValorFaturado: totalValorFaturado.toFixed(2),
         totalAberto,
         totalValorAberto: totalValorAberto.toFixed(2),
-        totalCancelado,
-        totalValorCancelado: totalValorCancelado.toFixed(2),
+        totalOrcamento,
+        totalValorOrcamento: totalValorOrcamento.toFixed(2),
         totalVendasComDesconto,
         totalValorDescontos: totalValorDescontos.toFixed(2),
         ticketMedio: ticketMedio.toFixed(2),
