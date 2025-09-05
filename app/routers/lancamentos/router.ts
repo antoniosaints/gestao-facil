@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
+import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, getLacamento, listarParcelas, pagarMultiplasParcelas, pagarParcela } from "../../controllers/financeiro/gerenciar";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
@@ -19,6 +19,7 @@ routerLancamentos.post("/parcelas/pagar-multiplas", authenticateJWT, pagarMultip
 routerLancamentos.post("/parcelas/:id/estornar", authenticateJWT, estornarParcela);
 routerLancamentos.post("/parcelas/cliente", authenticateJWT, listarParcelas);
 routerLancamentos.post("/parcelas/:id/recibo", authenticateJWT, gerarReciboPdf);
+routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos
 routerLancamentos.get("/graficos/categorias", authenticateJWT, graficoByCategoria);

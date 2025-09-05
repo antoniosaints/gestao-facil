@@ -10,7 +10,27 @@ import { enqueuePushNotification } from "../../services/pushNotificationQueueSer
 import { addHours } from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
+import { ResponseHandler } from "../../utils/response";
 
+export const getLacamento = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const { id } = req.params;
+    const lancamento = await prisma.lancamentoFinanceiro.findUnique({
+      where: {
+        id: Number(id),
+        contaId: customData.contaId,
+      },
+      include: {
+        parcelas: true,
+      },
+    });
+
+    return ResponseHandler(res, "Lancamento encontrado", lancamento);
+  } catch (error) {
+    handleError(res, error);
+  }
+}
 export const criarLancamento = async (
   req: Request,
   res: Response
@@ -42,12 +62,10 @@ export const criarLancamento = async (
     }
 
     if (!parcelas) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Informe o número de parcelas, para lançamentos à vista, informe 1",
-        });
+      return res.status(400).json({
+        message:
+          "Informe o número de parcelas, para lançamentos à vista, informe 1",
+      });
     } else {
       if (parcelas < 0) {
         return res
@@ -70,8 +88,10 @@ export const criarLancamento = async (
     }
 
     const valorTotalFormated = new Decimal(valorTotal.replace(",", "."));
-    const valorEntradaFormated = new Decimal(valorEntrada.replace(",", ".") || 0);
-    const descontoFormated = new Decimal(desconto.replace(",", ".") || 0);  
+    const valorEntradaFormated = new Decimal(
+      valorEntrada.replace(",", ".") || 0
+    );
+    const descontoFormated = new Decimal(desconto.replace(",", ".") || 0);
 
     if (valorEntradaFormated) {
       if (valorEntradaFormated.toNumber() > valorTotalFormated.toNumber()) {
@@ -171,7 +191,9 @@ export const criarLancamento = async (
     await enqueuePushNotification(
       {
         title: "Lançamento criado.",
-        body: `${lancamentoTx.tipo}: ${descricao}, no valor de ${formatCurrency(valorTotalDecimal)}`,
+        body: `${lancamentoTx.tipo}: ${descricao}, no valor de ${formatCurrency(
+          valorTotalDecimal
+        )}`,
       },
       customData.contaId
     );
