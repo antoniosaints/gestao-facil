@@ -76,9 +76,10 @@ export const efetivarVenda = async (
             Uid: gerarIdUnicoComMetaFinal("FIN"),
             contaId: venda.contaId,
             vendaId: venda.id,
-            valorBruto: venda.valor,
+            valorBruto: venda.valor.plus(venda.desconto || new Decimal(0)),
             valorTotal: venda.valor,
             desconto: venda.desconto,
+            recorrente: false,
             dataLancamento: new Date(dataPagamento),
             descricao: `Venda ${venda.Uid}`,
             status: "PAGO",
@@ -86,6 +87,18 @@ export const efetivarVenda = async (
             contasFinanceiroId: contaId,
             formaPagamento: pagamento,
             tipo: "RECEITA",
+            parcelas: {
+              create: {
+                dataPagamento: new Date(dataPagamento),
+                numero: 1,
+                vencimento: new Date(dataPagamento),
+                formaPagamento: pagamento,
+                pago: true,
+                Uid: gerarIdUnicoComMetaFinal("PAR"),
+                valorPago: venda.valor,
+                valor: venda.valor,
+              },
+            }
           },
         });
       }
