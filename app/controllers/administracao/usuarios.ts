@@ -1,98 +1,50 @@
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
-import { PrismaDataTableBuilder } from "../../services/prismaDatatables";
-import { usuariosAcoes } from "./acoes";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { PermissaoUsuario, Prisma, Usuarios } from "../../../generated";
-import { formatLabel } from "../../helpers/formatters";
+import { Prisma } from "../../../generated";
 import { isAccountOverdue } from "../../routers/web";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { hasPermission } from "../../helpers/userPermission";
-export const tableUsuarios = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+
+export const tableUsuarios = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
-  const builder = new PrismaDataTableBuilder<Usuarios>(prisma.usuarios)
-    .where({
-      OR: [
-        {
-          contaId: customData.contaId,
-        },
-      ],
-    })
-    .search({
-      nome: "string",
-      email: "string",
-    })
-    .format("nome", function (row) {
-      return `<span class="px-2 py-1 flex items-center gap-2 flex-nowrap cursor-pointer w-max border border-gray-700 text-gray-900 bg-gray-100 dark:border-gray-500 dark:bg-gray-950 dark:text-gray-100 rounded-md"><i class="fa-solid fa-user"></i> ${row}</span>`;
-    })
-    .format("email", function (row) {
-      const email = row || "-";
-      return `<span class="px-2 py-1.5">${email}</span>`;
-    })
-    .format("permissao", function (row: PermissaoUsuario) {
-      let color = "";
 
-      switch (row) {
-        case "root":
-          color = "purple";
-          break;
-        case "admin":
-          color = "orange";
-          break;
-        case "gerente":
-          color = "green";
-          break;
-        case "tecnico":
-        case "vendedor":
-          color = "red";
-          break;
-        case "usuario":
-          color = "blue";
-          break;
-      }
-
-      return formatLabel(row, color, "fa-solid fa-user-lock");
-    })
-    .format("emailReceiver", function (row) {
-      return `
-              <label class="flex items-center cursor-pointer">
-                <input type="checkbox" value="" class="sr-only peer" ${
-                  row ? "checked" : ""
-                }>
-                <div class="relative w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer dark:bg-red-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-red-600 peer-checked:bg-emerald-600 dark:peer-checked:bg-emerald-600"></div>
-              </label>
-              `;
-    })
-    .format("pushReceiver", function (row) {
-      return `
-              <label class="flex items-center cursor-pointer">
-                <input type="checkbox" value="" class="sr-only peer" ${
-                  row ? "checked" : ""
-                }>
-                <div class="relative w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer dark:bg-red-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-red-600 peer-checked:bg-emerald-600 dark:peer-checked:bg-emerald-600"></div>
-              </label>
-              `;
-    })
-    .format("status", function (value) {
-      return `
-              <label class="flex items-center cursor-pointer">
-                <input type="checkbox" value="" class="sr-only peer" ${
-                  value === "ATIVO" ? "checked" : ""
-                }>
-                <div class="relative w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer dark:bg-red-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-red-600 peer-checked:bg-emerald-600 dark:peer-checked:bg-emerald-600"></div>
-              </label>
-              `;
-    })
-    .addColumn("acoes", (row) => {
-      return usuariosAcoes(row);
+  if (await isAccountOverdue(req))
+    return res.status(404).json({
+      message: "Conta inativa ou bloqueada, verifique seu plano",
     });
-  const data = await builder.toJson(req.query);
-  return res.json(data);
+
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const search = (req.query.search as string) || "";
+  const sortBy = (req.query.sortBy as string) || "id";
+  const order = req.query.order || "asc";
+
+  const where: Prisma.UsuariosWhereInput = {
+    contaId: customData.contaId,
+  };
+  if (search) {
+    where.OR = [{ nome: { contains: search } }];
+  }
+
+  const total = await prisma.usuarios.count({ where });
+  const data = await prisma.usuarios.findMany({
+    where,
+    orderBy: { [sortBy]: order },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+
+  res.json({
+    data,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  });
 };
+
 
 export const toggleModeGerencial = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
