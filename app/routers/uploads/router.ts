@@ -98,7 +98,7 @@ routerUploads.post(
       return res.json({
         message:
           "Imagem de perfil enviada com sucesso, recarregue a pagina para aplicar.",
-        path: `/public/uploads/profiles/${pathName}/profile/${req.file.filename}`,
+        path: `/public/${path}`,
       });
     });
   }
