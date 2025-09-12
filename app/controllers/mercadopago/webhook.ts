@@ -54,7 +54,7 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
       link_pagamento = payment.point_of_interaction?.transaction_data?.ticket_url as string;
     }
 
-    if (!faturaExistente && payment.point_of_interaction?.transaction_data?.ticket_url != "") {
+    if (!faturaExistente) {
       await prisma.faturasContas.create({
         data: {
           asaasPaymentId: String(payment.id),
