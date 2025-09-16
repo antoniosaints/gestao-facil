@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mercadoPagoPreference } from "../../utils/mercadoPago";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";

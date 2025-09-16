@@ -39,9 +39,6 @@ const envSchema = z.object({
   ASAAS_WEBHOOK_SECRET: z.string({
     required_error: "ASAAS_WEBHOOK_SECRET é obrigatório",
   }),
-  ASAAS_BASE_URL: z.string({
-    required_error: "ASAAS_BASE_URL é obrigatório",
-  }),
   MP_ACCESS_TOKEN: z.string({
     required_error: "MP_ACCESS_TOKEN é obrigatório",
   }),
@@ -51,6 +48,10 @@ const envSchema = z.object({
   EMAIL_SENDER: z.string({
     required_error: "EMAIL_SENDER é obrigatório",
   }),
+  BASE_URL_FRONTEND: z
+    .string({
+      required_error: "BASE_URL_FRONTEND é obrigatório",
+    })
 });
 
 const parsed = envSchema.safeParse(process.env);

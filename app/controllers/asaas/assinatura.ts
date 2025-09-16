@@ -50,7 +50,7 @@ export const createSubscription = async (
         billingType: "UNDEFINED",
         callback: {
           autoRedirect: true,
-          successUrl: `${env.ASAAS_BASE_URL}`,
+          successUrl: `${env.BASE_URL_FRONTEND}`,
         },
         customer: conta.asaasCustomerId,
         fine: { type: "FIXED", value: 0 },

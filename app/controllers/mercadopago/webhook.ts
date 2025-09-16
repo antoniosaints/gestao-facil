@@ -3,6 +3,7 @@ import { mercadoPagoPayment } from "../../utils/mercadoPago";
 import { prisma } from "../../utils/prisma";
 import { StatusFatura } from "../../../generated";
 import { addDays, addHours, isBefore } from "date-fns";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -57,6 +58,7 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
     if (!faturaExistente) {
       await prisma.faturasContas.create({
         data: {
+          Uid: gerarIdUnicoComMetaFinal("INV"),
           asaasPaymentId: String(payment.id),
           urlPagamento: link_pagamento,
           valor: transaction_amount || 0,
