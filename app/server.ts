@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import cors from "cors";
 import { checkAuth, login, renewToken, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
@@ -7,8 +8,6 @@ import {
   subscribe,
   unsubscribe,
 } from "./controllers/notifications/push";
-import webRouter from "./routers/web";
-import path from "node:path";
 import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
@@ -21,11 +20,12 @@ const app = express();
 app.engine("hbs", engine(configOptions));
 app.set("view engine", "hbs");
 
-app.use(cors());
+app.use(cors({
+  origin: "*",
+}));
 
 // Servir arquivos estáticos (HTMX, JS, CSS, etc.)
 app.use(express.static(path.join(__dirname, "../public")));
-app.use(webRouter);
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
