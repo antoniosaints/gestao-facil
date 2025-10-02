@@ -98,7 +98,7 @@ export const efetivarVenda = async (
                 valorPago: venda.valor,
                 valor: venda.valor,
               },
-            },
+            }
           },
         });
       }
@@ -544,10 +544,6 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
 
     return ResponseHandler(res, "Venda criada com sucesso", resultado);
   } catch (error: any) {
-    return res.status(500).json({
-      success: false,
-      title: "Erro ao criar venda",
-      error: error,
-    });
+    return handleError(res, error);
   }
 };

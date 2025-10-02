@@ -106,23 +106,23 @@ export const deleteProduto = async (
     handleError(res, error);
   }
 };
-export const saveProduto = async (req: Request, res: Response): Promise<any> => {
+export const saveProduto = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { data, error, success } = ProdutoSchema.safeParse(req.body);
     const customData = getCustomRequest(req).customData;
-
     if (!success) {
-      return res.status(400).json({
-        success: false,
-        title: "Dados inválidos",
-        errors: mapperErrorSchema(error),
-      });
+      return ResponseHandler(
+        res,
+        "Dados inválidos",
+        mapperErrorSchema(error),
+        400
+      );
     }
-
-    let produto;
-
     if (data.id) {
-      produto = await prisma.produto.update({
+      const produto = await prisma.produto.update({
         where: {
           id: data.id,
           contaId: customData.contaId,
@@ -140,62 +140,43 @@ export const saveProduto = async (req: Request, res: Response): Promise<any> => 
         },
       });
 
-      // notificação tratada assíncrona para não afetar a resposta
-      enqueuePushNotification(
+      await enqueuePushNotification(
         {
           title: "Atualização de produto",
           body: `O produto ${produto.nome} foi atualizado, Qtd: ${produto.estoque}.`,
         },
         customData.contaId
-      ).catch((e) => console.error("push error:", e));
-
-      return res.status(200).json({
-        success: true,
-        title: "Produto atualizado com sucesso",
-        data: produto,
+      );
+    } else {
+      await prisma.produto.create({
+        data: {
+          Uid: gerarIdUnicoComMetaFinal("PRO"),
+          contaId: customData.contaId,
+          estoque: data.estoque,
+          nome: data.nome,
+          preco: data.preco,
+          descricao: data.descricao,
+          precoCompra: data.precoCompra,
+          unidade: data.unidade,
+          codigo: data.codigo,
+          minimo: data.minimo,
+          entradas: data.entradas,
+          saidas: data.saidas,
+        },
       });
+      await enqueuePushNotification(
+        {
+          title: "Cadastro de produto",
+          body: `O produto ${data.nome} foi cadastrado no sistema, Qtd: ${data.estoque}.`,
+        },
+        customData.contaId
+      );
     }
-
-    produto = await prisma.produto.create({
-      data: {
-        Uid: gerarIdUnicoComMetaFinal("PRO"),
-        contaId: customData.contaId,
-        estoque: data.estoque,
-        nome: data.nome,
-        preco: data.preco,
-        descricao: data.descricao,
-        precoCompra: data.precoCompra,
-        unidade: data.unidade,
-        codigo: data.codigo,
-        minimo: data.minimo,
-        entradas: data.entradas,
-        saidas: data.saidas,
-      },
-    });
-
-    enqueuePushNotification(
-      {
-        title: "Cadastro de produto",
-        body: `O produto ${produto.nome} foi cadastrado no sistema, Qtd: ${produto.estoque}.`,
-      },
-      customData.contaId
-    ).catch((e) => console.error("push error:", e));
-
-    return res.status(201).json({
-      success: true,
-      title: "Produto criado com sucesso",
-      data: produto,
-    });
-  } catch (err: any) {
-    console.error("saveProduto error:", err);
-    return res.status(500).json({
-      success: false,
-      title: "Erro ao salvar produto",
-      error: err.message ?? err,
-    });
+    return ResponseHandler(res, "Produto salvo com sucesso", data, 201);
+  } catch (error) {
+    handleError(res, error);
   }
 };
-
 
 export const getResumoProduto = async (
   req: Request,
@@ -245,16 +226,14 @@ export const getResumoProduto = async (
     }
 
     // cálculos extras
-    const ticketMedio =
-      totalSaidas > 0 ? totalGanho.div(totalSaidas) : new Decimal(0);
+    const ticketMedio = totalSaidas > 0 ? totalGanho.div(totalSaidas) : new Decimal(0);
     const estoqueAtual = totalEntradas - totalSaidas;
     const custoMedio =
       totalEntradas > 0 ? totalGasto.div(totalEntradas) : new Decimal(0);
     const valorEstoque = valorProduto.times(produto.estoque);
-    const margemLucro =
-      custoMedio.gt(0) && ticketMedio.gt(0)
-        ? ticketMedio.minus(custoMedio).div(ticketMedio).times(100)
-        : new Decimal(0);
+    const margemLucro = custoMedio.gt(0) && ticketMedio.gt(0)
+      ? ticketMedio.minus(custoMedio).div(ticketMedio).times(100)
+      : new Decimal(0);
 
     return res.json({
       produtoId: id,
