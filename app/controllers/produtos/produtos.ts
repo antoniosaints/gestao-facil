@@ -106,23 +106,23 @@ export const deleteProduto = async (
     handleError(res, error);
   }
 };
-export const saveProduto = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+export const saveProduto = async (req: Request, res: Response): Promise<any> => {
   try {
     const { data, error, success } = ProdutoSchema.safeParse(req.body);
     const customData = getCustomRequest(req).customData;
+
     if (!success) {
-      return ResponseHandler(
-        res,
-        "Dados inválidos",
-        mapperErrorSchema(error),
-        400
-      );
+      return res.status(400).json({
+        success: false,
+        title: "Dados inválidos",
+        errors: mapperErrorSchema(error),
+      });
     }
+
+    let produto;
+
     if (data.id) {
-      const produto = await prisma.produto.update({
+      produto = await prisma.produto.update({
         where: {
           id: data.id,
           contaId: customData.contaId,
@@ -140,46 +140,62 @@ export const saveProduto = async (
         },
       });
 
-      await enqueuePushNotification(
+      // notificação tratada assíncrona para não afetar a resposta
+      enqueuePushNotification(
         {
           title: "Atualização de produto",
           body: `O produto ${produto.nome} foi atualizado, Qtd: ${produto.estoque}.`,
         },
         customData.contaId
-      );
-    } else {
-      await prisma.produto.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("PRO"),
-          contaId: customData.contaId,
-          estoque: data.estoque,
-          nome: data.nome,
-          preco: data.preco,
-          descricao: data.descricao,
-          precoCompra: data.precoCompra,
-          unidade: data.unidade,
-          codigo: data.codigo,
-          minimo: data.minimo,
-          entradas: data.entradas,
-          saidas: data.saidas,
-        },
+      ).catch((e) => console.error("push error:", e));
+
+      return res.status(200).json({
+        success: true,
+        title: "Produto atualizado com sucesso",
+        data: produto,
       });
-      await enqueuePushNotification(
-        {
-          title: "Cadastro de produto",
-          body: `O produto ${data.nome} foi cadastrado no sistema, Qtd: ${data.estoque}.`,
-        },
-        customData.contaId
-      );
     }
-    return ResponseHandler(res, "Produto salvo com sucesso", data, 201);
-  } catch (error) {
+
+    produto = await prisma.produto.create({
+      data: {
+        Uid: gerarIdUnicoComMetaFinal("PRO"),
+        contaId: customData.contaId,
+        estoque: data.estoque,
+        nome: data.nome,
+        preco: data.preco,
+        descricao: data.descricao,
+        precoCompra: data.precoCompra,
+        unidade: data.unidade,
+        codigo: data.codigo,
+        minimo: data.minimo,
+        entradas: data.entradas,
+        saidas: data.saidas,
+      },
+    });
+
+    enqueuePushNotification(
+      {
+        title: "Cadastro de produto",
+        body: `O produto ${produto.nome} foi cadastrado no sistema, Qtd: ${produto.estoque}.`,
+      },
+      customData.contaId
+    ).catch((e) => console.error("push error:", e));
+
+    return res.status(201).json({
+      success: true,
+      title: "Produto criado com sucesso",
+      data: produto,
+    });
+  } catch (err: any) {
+    console.error("saveProduto error:", err);
     return res.status(500).json({
-      message: "Erro ao salvar produto",
-      data: error,
+      success: false,
+      title: "Erro ao salvar produto",
+      error: err.message ?? err,
     });
   }
 };
+
 
 export const getResumoProduto = async (
   req: Request,
