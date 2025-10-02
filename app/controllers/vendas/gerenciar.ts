@@ -544,7 +544,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
 
     return ResponseHandler(res, "Venda criada com sucesso", resultado);
   } catch (error: any) {
-    return res.sendStatus(500).json({
+    return res.status(500).json({
       success: false,
       title: "Erro ao criar venda",
       error: error,

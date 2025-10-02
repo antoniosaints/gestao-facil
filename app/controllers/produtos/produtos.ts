@@ -174,7 +174,7 @@ export const saveProduto = async (
     }
     return ResponseHandler(res, "Produto salvo com sucesso", data, 201);
   } catch (error) {
-    return res.sendStatus(500).json({
+    return res.status(500).json({
       message: "Erro ao salvar produto",
       data: error,
     });
