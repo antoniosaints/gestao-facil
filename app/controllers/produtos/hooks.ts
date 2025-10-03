@@ -9,6 +9,7 @@ export const select2Produtos = async (
 ): Promise<any> => {
   try {
     const search = (req.query.search as string) || null;
+    const withStock = (req.query.withStock as string) || null;
     const id = (req.query.id as string) || null;
     const customData = getCustomRequest(req).customData;
 
@@ -44,7 +45,12 @@ export const select2Produtos = async (
       orderBy: { nome: "asc" },
     });
     return res.json({
-      results: data.map((produto) => ({ id: produto.id, label: produto.nome })),
+      results: data.map((produto) => {
+        return {
+          id: produto.id,
+          label: `${produto.nome} ${withStock ? `(${produto.estoque} ${produto.unidade})` : ""}`,
+        }
+      }),
     });
   } catch (error) {
     return res.json({ results: [] });
