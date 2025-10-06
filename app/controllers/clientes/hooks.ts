@@ -9,6 +9,7 @@ export const select2Clientes = async (
 ): Promise<any> => {
   try {
     const search = (req.query.search as string) || null;
+    const fornecedor = (req.query.fornecedor as string) || null;
     const id = (req.query.id as string) || null;
     const customData = getCustomRequest(req).customData;
 
@@ -38,6 +39,10 @@ export const select2Clientes = async (
         { documento: { contains: search } },
         { Uid: { contains: search } },
       ];
+    }
+
+    if (fornecedor) {
+      where.tipo = 'FORNECEDOR';
     }
 
     const data = await prisma.clientesFornecedores.findMany({
