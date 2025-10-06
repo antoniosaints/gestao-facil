@@ -55,16 +55,14 @@ export const ProdutoSchema = z.object({
       invalid_type_error: "preco deve ser uma string",
     })
     .transform((val) => parseFloat(val.replace(",", "."))),
-  estoque: z
-    .number({
-      required_error: "estoque é obrigatório",
-      invalid_type_error: "estoque deve ser uma número",
-    }),
-  minimo: z
-    .number({
-      required_error: "minimo é obrigatório",
-      invalid_type_error: "minimo deve ser uma número",
-    }),
+  estoque: z.number({
+    required_error: "estoque é obrigatório",
+    invalid_type_error: "estoque deve ser uma número",
+  }),
+  minimo: z.number({
+    required_error: "minimo é obrigatório",
+    invalid_type_error: "minimo deve ser uma número",
+  }),
   precoCompra: z
     .string({
       invalid_type_error: "precoCompra deve ser uma string",
@@ -83,35 +81,30 @@ export const ProdutoSchema = z.object({
   }),
 });
 export const ReposicaoEstoqueSchema = z.object({
-  produtoId: z
-    .string({
-      required_error: "produtoId é obrigatório",
-      invalid_type_error: "produtoId deve ser uma string",
+  produtoId: z.number({
+    required_error: "produtoId é obrigatório",
+    invalid_type_error: "produtoId deve ser um número",
+  }),
+  quantidade: z.number({
+    required_error: "quantidade é obrigatório",
+    invalid_type_error: "quantidade deve ser um número",
+  }),
+  custo: z.number({
+    invalid_type_error: "custo deve ser um número",
+    required_error: "custo é obrigatório",
+  }),
+  desconto: z
+    .number({
+      invalid_type_error: "desconto deve ser um número",
     })
-    .transform((val) => parseInt(val, 10)),
-  quantidade: z
-    .string({
-      required_error: "quantidade é obrigatório",
-      invalid_type_error: "quantidade deve ser uma string",
+    .nullable()
+    .optional(),
+  frete: z
+    .number({
+      invalid_type_error: "frete deve ser um número",
     })
-    .refine(
-      (val) => {
-        const regex = /^[0-9]+(,[0-9]{1,2})?$/;
-        return regex.test(val);
-      },
-      {
-        message: "quantidade deve ser uma string de um número válido",
-      }
-    )
-    .transform((val) => parseInt(val, 10)),
-  custo: z
-    .string({
-      invalid_type_error: "custo deve ser uma string",
-      required_error: "custo é obrigatório",
-    })
-    .transform((val) => parseFloat(val.replace(",", "."))),
-  desconto: moneyFormatter("desconto deve ser uma string").optional(),
-  frete: moneyFormatter("frete deve ser uma string").optional(),
+    .nullable()
+    .optional(),
   notaFiscal: z
     .string({
       invalid_type_error: "notaFiscal deve ser uma string",
@@ -119,5 +112,10 @@ export const ReposicaoEstoqueSchema = z.object({
     .nullable()
     .transform((val) => (val ? val : null))
     .optional(),
-  fornecedor: intNumberFormatter("fornecedor deve ser uma string").optional(),
+  fornecedor: z
+    .number({
+      invalid_type_error: "fornecedor deve ser um número",
+    })
+    .nullable()
+    .optional(),
 });
