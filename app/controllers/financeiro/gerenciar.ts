@@ -57,7 +57,7 @@ export const criarLancamento = async (
 
     let hasEfetivadoTotal = false;
 
-    if (lancamentoEfetivado && lancamentoEfetivado === "on") {
+    if (lancamentoEfetivado && lancamentoEfetivado == true) {
       hasEfetivadoTotal = true;
     }
 
@@ -87,11 +87,11 @@ export const criarLancamento = async (
         .json({ message: "Campos obrigatórios não preenchidos." });
     }
 
-    const valorTotalFormated = new Decimal(valorTotal.replace(",", "."));
+    const valorTotalFormated = new Decimal(valorTotal);
     const valorEntradaFormated = new Decimal(
-      valorEntrada.replace(",", ".") || 0
+      valorEntrada || 0
     );
-    const descontoFormated = new Decimal(desconto.replace(",", ".") || 0);
+    const descontoFormated = new Decimal(desconto || 0);
 
     if (valorEntradaFormated) {
       if (valorEntradaFormated.toNumber() > valorTotalFormated.toNumber()) {
