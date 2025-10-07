@@ -65,6 +65,10 @@ model Contas {
   gateway              GatewayConta           @default(mercadopago)
   email                String
   telefone             String?
+  endereco             String?
+  nomeFantasia         String?
+  cep                  String?
+  emailAvisos          String?
   asaasCustomerId      String
   asaasSubscriptionId  String?
   dicasNovidades       Boolean?               @default(false)
@@ -81,6 +85,23 @@ model Contas {
   LancamentoFinanceiro LancamentoFinanceiro[]
   Servicos             Servicos[]
   OrdensServico        OrdensServico[]
+  ParametrosConta      ParametrosConta[]
+}
+
+model ParametrosConta {
+  id                   Int      @id @default(autoincrement())
+  contaId              Int      @unique
+  Contas               Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  MercadoPagoApiKey    String?
+  AsaasApiKey          String?
+  AsaasApiSecret       String?
+  MercadoPagoEnv       String?
+  AsaasEnv             String?
+  eventoVendaConcluida Boolean? @default(true)
+  eventoSangria        Boolean? @default(false)
+  eventoEstoqueBaixo   Boolean? @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Usuarios {
