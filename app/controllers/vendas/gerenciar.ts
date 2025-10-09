@@ -209,6 +209,17 @@ export const deleteVenda = async (
       );
     }
     const resultado = await prisma.$transaction(async (tx) => {
+      const isEfetivada = await tx.vendas.findUniqueOrThrow({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+        },
+      });
+
+      if (isEfetivada.status === "FATURADO") {
+        throw new Error("Venda efetivada, não pode ser deletada!");
+      }
+
       const items = await tx.itensVendas.findMany({
         where: {
           vendaId: Number(req.params.id),
