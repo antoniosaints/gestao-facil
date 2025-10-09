@@ -101,12 +101,12 @@ export const relatorioProdutos = async (
   // Configuração da Tabela
   const tableTop = doc.y;
   const rowHeight = 20;
-  const colX = { id: 30, nome: 90, preco: 370, estoque: 440, total: 480 };
+  const colX = { id: 30, nome: 110, preco: 375, estoque: 445, total: 485 };
 
   // Títulos
   doc
     .font("Roboto-Bold")
-    .text("Id", colX.id, tableTop, {})
+    .text("Codigo", colX.id, tableTop, {})
     .text("Produto", colX.nome, tableTop)
     .text("Preço (R$)", colX.preco, tableTop)
     .text("Qtd.", colX.estoque, tableTop)
@@ -147,7 +147,7 @@ export const relatorioProdutos = async (
     // Conteúdo da linha
     doc.text(`# ${p.codigo}`, colX.id, y);
     doc.text(p.nome, colX.nome, y, {
-      width: colX.preco - colX.nome - 10,
+      width: colX.preco - colX.nome - 5,
     });
     doc.text(formatarValorMonetario(valorUnitario), colX.preco, y);
     doc.text(p.estoque.toString(), colX.estoque, y);
