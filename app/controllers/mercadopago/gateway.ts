@@ -33,7 +33,7 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
           failure: `${env.BASE_URL_FRONTEND}?success=false`,
           pending: `${env.BASE_URL_FRONTEND}?success=pending`,
         },
-        notification_url: `${env.BASE_URL_FRONTEND}/mercadopago/webhook`,
+        notification_url: `${env.BASE_URL}/mercadopago/webhook`,
         external_reference: String(customData.contaId),
         auto_return: "approved",
       },
@@ -42,6 +42,6 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
     return res.json({ link: payment.init_point });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ erro: "Erro ao gerar link de assinatura." });
+    return res.status(500).json({ message: "Erro ao gerar link de assinatura.", error: err });
   }
 }
