@@ -45,9 +45,9 @@ export const generateCobranca = async (
 
     return res
       .status(200)
-      .json({ message: "Cobranca gerada com sucesso.", data: "" });
+      .json({ message: "Cobranca gerada com sucesso." });
   } catch (error: any) {
-    return res.status(500).json({ message: error });
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -55,9 +55,10 @@ const generateCobrancaMercadoPago = async (
   body: BodyCobranca,
   parametros: ParametrosConta
 ) => {
-  try {
     if (!parametros.MercadoPagoApiKey)
-      return "Erro ao criar cobrança, informe a chave de acesso do mercado pago.";
+      throw new Error(
+        "API Key nao encontrada, adicione a chave do Mercado Pago."
+      );
 
     const tipo = body.type;
     const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
@@ -151,9 +152,6 @@ const generateCobrancaMercadoPago = async (
       return link.transaction_details?.external_resource_url;
     }
     else {
-      return "Erro ao criar cobrança, informe o tipo de cobrança.";
+      throw new Error("Tipo de cobranca nao encontrado.");
     }
-  } catch (error) {
-    return error;
-  }
 };
