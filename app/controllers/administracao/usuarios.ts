@@ -7,6 +7,20 @@ import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { hasPermission } from "../../helpers/userPermission";
 
+export const getMinhaConexao = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const usuario = await prisma.usuarios.findUniqueOrThrow({
+      where: {
+        id: customData.userId,
+        contaId: customData.contaId,
+      },
+    });
+    return res.json({ status: "success", data: usuario });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
 export const tableUsuarios = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
 
