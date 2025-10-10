@@ -29,6 +29,7 @@ export const saveParametros = async (req: Request, res: Response): Promise<any> 
                 AsaasEnv: body.data.AsaasEnv,
                 eventoEstoqueBaixo: body.data.eventoEstoqueBaixo,
                 eventoSangria: body.data.eventoSangria,
+                emailAvisos: body.data.emailAvisos,
                 eventoVendaConcluida: body.data.eventoVendaConcluida,
                 MercadoPagoApiKey: body.data.MercadoPagoApiKey,
                 MercadoPagoEnv: body.data.MercadoPagoEnv,
@@ -37,6 +38,7 @@ export const saveParametros = async (req: Request, res: Response): Promise<any> 
                 AsaasApiKey: body.data.AsaasApiKey,
                 AsaasApiSecret: body.data.AsaasApiSecret,
                 AsaasEnv: body.data.AsaasEnv,
+                emailAvisos: body.data.emailAvisos,
                 eventoEstoqueBaixo: body.data.eventoEstoqueBaixo,
                 eventoSangria: body.data.eventoSangria,
                 eventoVendaConcluida: body.data.eventoVendaConcluida,
@@ -46,6 +48,21 @@ export const saveParametros = async (req: Request, res: Response): Promise<any> 
         })
 
         return ResponseHandler(res, "Parametros salvos com sucesso!", parametros);
+    }catch (err: any) {
+        console.log(err);
+        handleError(res, err);
+    }
+};
+
+export const getParametros = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const customData = getCustomRequest(req).customData;
+        const parametros = await prisma.parametrosConta.findFirst({
+            where: {
+                contaId: customData.contaId
+            }
+        })
+        return ResponseHandler(res, "Parametros encontrados!", parametros);
     }catch (err: any) {
         console.log(err);
         handleError(res, err);

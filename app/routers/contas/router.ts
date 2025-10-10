@@ -5,7 +5,7 @@ import { checkarPermissao, createSubscription, verificarAssinatura } from "../..
 import { criarLinkAssinatura } from "../../controllers/mercadopago/gateway";
 import { getPaymentMercadoPago } from "../../controllers/mercadopago/webhook";
 import { atualizarDadosConta, criarConta, dadosConta, infosConta } from "../../controllers/contas/cadastro";
-import { saveParametros } from "../../controllers/contas/parametros";
+import { getParametros, saveParametros } from "../../controllers/contas/parametros";
 
 const routerContas = Router();
 
@@ -20,6 +20,7 @@ routerContas.post("/atualizar", authenticateJWT, atualizarDadosConta);
 routerContas.get("/infos", authenticateJWT, dadosConta);
 routerContas.get("/detalhes", authenticateJWT, infosConta);
 routerContas.post("/parametros", authenticateJWT, saveParametros);
+routerContas.get("/parametros", authenticateJWT, getParametros);
 
 export {
     routerContas

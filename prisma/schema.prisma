@@ -97,6 +97,7 @@ model ParametrosConta {
   AsaasApiSecret       String?
   MercadoPagoEnv       String?
   AsaasEnv             String?
+  emailAvisos          String?
   eventoVendaConcluida Boolean? @default(true)
   eventoSangria        Boolean? @default(false)
   eventoEstoqueBaixo   Boolean? @default(true)

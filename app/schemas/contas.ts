@@ -19,6 +19,12 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    emailAvisos: z
+      .string({
+        invalid_type_error: "O campo AsaasEnv deve ser uma string",
+      })
+      .optional()
+      .nullable(),
     eventoEstoqueBaixo: z
       .boolean({
         invalid_type_error: "O campo eventoEstoqueBaixo deve ser um booleano",
