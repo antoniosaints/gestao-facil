@@ -95,3 +95,6 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
     return res.sendStatus(500);
   }
 }
+export async function webhookMercadoPagoCobrancas(req: Request, res: Response): Promise<any> {
+  return res.sendStatus(200);
+}

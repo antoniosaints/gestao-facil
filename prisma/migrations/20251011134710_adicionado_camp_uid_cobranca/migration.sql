@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `CobrancasFinanceiras` ADD COLUMN `Uid` VARCHAR(191) NOT NULL DEFAULT 'COB_000';

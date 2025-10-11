@@ -120,3 +120,63 @@ export function formatParsePtBRToDate(datePtBR: string): Date | null {
 
   return isValid(parsedDate) ? parsedDate : null;
 }
+
+export function validarCpfCnpj(valor: string) {
+  const num = valor.replace(/\D/g, '')
+
+  // Verifica se é CPF (11 dígitos)
+  if (num.length === 11) return validarCPF(num)
+
+  // Verifica se é CNPJ (14 dígitos)
+  if (num.length === 14) return validarCNPJ(num)
+
+  return false
+}
+
+function validarCPF(cpf: string) {
+  if (/^(\d)\1+$/.test(cpf)) return false
+
+  let soma = 0
+  for (let i = 0; i < 9; i++) soma += parseInt(cpf[i]) * (10 - i)
+  let resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(cpf[9])) return false
+
+  soma = 0
+  for (let i = 0; i < 10; i++) soma += parseInt(cpf[i]) * (11 - i)
+  resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  return resto === parseInt(cpf[10])
+}
+
+function validarCNPJ(cnpj: string) {
+  if (/^(\d)\1+$/.test(cnpj)) return false
+
+  let tamanho = cnpj.length - 2
+  let numeros = cnpj.substring(0, tamanho)
+  let digitos = cnpj.substring(tamanho)
+  let soma = 0
+  let pos = tamanho - 7
+  for (let i = tamanho; i >= 1; i--) {
+    soma += parseInt(numeros[tamanho - i]) * pos--
+    if (pos < 2) pos = 9
+  }
+  let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11)
+  if (resultado !== parseInt(digitos[0])) return false
+
+  tamanho += 1
+  numeros = cnpj.substring(0, tamanho)
+  soma = 0
+  pos = tamanho - 7
+  for (let i = tamanho; i >= 1; i--) {
+    soma += parseInt(numeros[tamanho - i]) * pos--
+    if (pos < 2) pos = 9
+  }
+  resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11)
+  return resultado === parseInt(digitos[1])
+}
+
+// Exemplo de uso:
+console.log(validarCpfCnpj('123.456.789-09')) // false
+console.log(validarCpfCnpj('11144477735'))     // true (exemplo de CPF válido)
+console.log(validarCpfCnpj('45.723.174/0001-10')) // true ou false (CNPJ válido ou não)

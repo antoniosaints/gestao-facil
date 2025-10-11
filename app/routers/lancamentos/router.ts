@@ -8,7 +8,7 @@ import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
 import { deleteCategoria, saveCategoria, select2Categorias } from "../../controllers/financeiro/categorias";
 import { deleteContaFinanceiro, saveContaFinanceiro } from "../../controllers/financeiro/contas";
 import { select2ContasFinanceiras } from "../../controllers/financeiro/hooks";
-import { generateCobranca } from "../../controllers/financeiro/cobrancas";
+import { cancelarCobranca, cancelarMercadoPagoPagamento, generateCobranca, getCobrancas } from "../../controllers/financeiro/cobrancas";
 
 const routerLancamentos = Router();
 
@@ -50,7 +50,10 @@ routerLancamentos.get("/contas/select2", authenticateJWT, select2ContasFinanceir
 routerLancamentos.delete("/contas/:id", authenticateJWT, deleteContaFinanceiro);
 routerLancamentos.post("/contas", authenticateJWT, saveContaFinanceiro);
 // Cobrancas
+routerLancamentos.get("/cobrancas/lista", authenticateJWT, getCobrancas);
 routerLancamentos.post("/cobrancas/cobrar", authenticateJWT, generateCobranca);
+routerLancamentos.post("/cobrancas/cancelar", authenticateJWT, cancelarCobranca);
+routerLancamentos.post("/cobrancas/cancelarMercadoPago", authenticateJWT, cancelarMercadoPagoPagamento);
 
 
 export {

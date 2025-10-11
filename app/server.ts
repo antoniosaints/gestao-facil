@@ -12,7 +12,7 @@ import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
 import { engine } from "express-handlebars";
-import { webhookMercadoPago } from "./controllers/mercadopago/webhook";
+import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "./controllers/mercadopago/webhook";
 import { configOptions } from "./config/handlebars";
 
 const app = express();
@@ -42,6 +42,7 @@ app.get("/api/auth/renew", authenticateJWT, renewToken);
 // Rotas webhook
 app.post("/asaas/webhook", webhookAsaasCheck);
 app.post("/mercadopago/webhook", webhookMercadoPago);
+app.post("/mercadopago/webhook/cobrancas", webhookMercadoPagoCobrancas);
 // Rotas Push
 app.post("/api/subscribe", authenticateJWT, subscribe);
 app.post("/api/unsubscribe", authenticateJWT, unsubscribe);

@@ -426,6 +426,9 @@ model CobrancasFinanceiras {
   id                Int                @id @default(autoincrement())
   contaId           Int
   Contas            Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade)
+  idCobranca        String             @default("COB_000")
+  Uid               String             @default("COB_000")
+  externalLink      String?            @db.Text
   valor             Decimal
   gateway           String
   dataVencimento    DateTime
