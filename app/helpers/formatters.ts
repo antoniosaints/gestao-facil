@@ -175,8 +175,3 @@ function validarCNPJ(cnpj: string) {
   resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11)
   return resultado === parseInt(digitos[1])
 }
-
-// Exemplo de uso:
-console.log(validarCpfCnpj('123.456.789-09')) // false
-console.log(validarCpfCnpj('11144477735'))     // true (exemplo de CPF válido)
-console.log(validarCpfCnpj('45.723.174/0001-10')) // true ou false (CNPJ válido ou não)
