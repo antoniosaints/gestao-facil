@@ -86,6 +86,7 @@ model Contas {
   Servicos             Servicos[]
   OrdensServico        OrdensServico[]
   ParametrosConta      ParametrosConta[]
+  CobrancasFinanceiras CobrancasFinanceiras[]
 }
 
 model ParametrosConta {
@@ -243,19 +244,20 @@ enum StatusOrdemServico {
 }
 
 model OrdensServico {
-  id                 Int                  @id @default(autoincrement())
-  contaId            Int
-  Contas             Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                String               @default("OS_000")
-  descricao          String?
-  descricaoCliente   String?
-  status             StatusOrdemServico   @default(ABERTA)
-  garantia           String
-  desconto           Decimal              @default(0) @db.Decimal(10, 2)
-  data               DateTime             @default(now())
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  ItensOrdensServico ItensOrdensServico[]
+  id                   Int                    @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                  String                 @default("OS_000")
+  descricao            String?
+  descricaoCliente     String?
+  status               StatusOrdemServico     @default(ABERTA)
+  garantia             String
+  desconto             Decimal                @default(0) @db.Decimal(10, 2)
+  data                 DateTime               @default(now())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  ItensOrdensServico   ItensOrdensServico[]
+  CobrancasFinanceiras CobrancasFinanceiras[]
 }
 
 enum TipoItemOrdemServico {
@@ -351,6 +353,7 @@ model Vendas {
   PagamentoVendas      PagamentoVendas?
   MovimentacoesEstoque MovimentacoesEstoque[]
   LancamentoFinanceiro LancamentoFinanceiro[]
+  CobrancasFinanceiras CobrancasFinanceiras[]
 }
 
 model ItensVendas {
@@ -419,6 +422,24 @@ model CategoriaFinanceiro {
   CategoriaFinanceiro CategoriaFinanceiro[]  @relation("Subcategorias")
 }
 
+model CobrancasFinanceiras {
+  id                Int                @id @default(autoincrement())
+  contaId           Int
+  Contas            Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade)
+  valor             Decimal
+  gateway           String
+  dataVencimento    DateTime
+  dataCadastro      DateTime           @default(now())
+  status            StatusPagamento    @default(PENDENTE)
+  observacao        String?
+  lancamentoId      Int?
+  LancamentoParcela ParcelaFinanceiro? @relation(fields: [lancamentoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  vendaId           Int?
+  Venda             Vendas?            @relation(fields: [vendaId], references: [id], onDelete: Restrict)
+  ordemServicoId    Int?
+  Ordemservico      OrdensServico?     @relation(fields: [ordemServicoId], references: [id])
+}
+
 model LancamentoFinanceiro {
   id                 Int                       @id @default(autoincrement())
   contaId            Int
@@ -448,17 +469,18 @@ model LancamentoFinanceiro {
 }
 
 model ParcelaFinanceiro {
-  id             Int                  @id @default(autoincrement())
-  numero         Int
-  Uid            String               @default("PAR_000")
-  valor          Decimal
-  vencimento     DateTime
-  pago           Boolean              @default(false)
-  valorPago      Decimal?
-  formaPagamento MetodoPagamento?
-  dataPagamento  DateTime?
-  lancamentoId   Int
-  lancamento     LancamentoFinanceiro @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+  id                   Int                    @id @default(autoincrement())
+  numero               Int
+  Uid                  String                 @default("PAR_000")
+  valor                Decimal
+  vencimento           DateTime
+  pago                 Boolean                @default(false)
+  valorPago            Decimal?
+  formaPagamento       MetodoPagamento?
+  dataPagamento        DateTime?
+  lancamentoId         Int
+  lancamento           LancamentoFinanceiro   @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+  CobrancasFinanceiras CobrancasFinanceiras[]
 
   @@index([lancamentoId, id])
 }
