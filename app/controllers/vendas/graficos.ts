@@ -116,6 +116,10 @@ export async function getPorMetodoPagamento(req: Request, res: Response) {
     _sum: { valor: true },
   });
 
+  if (result.length === 0) {
+    return res.json({ labels: [], datasets: [] });
+  }
+
   const labels = result.map((r) => r.metodo);
   const data = result.map((r) => Number(r._sum.valor ?? 0));
 
