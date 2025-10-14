@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import http from "http";
 import cors from "cors";
 import { checkAuth, login, renewToken, verify } from "./controllers/auth/login";
 import { authenticateJWT } from "./middlewares/auth";
@@ -14,8 +15,10 @@ import { RouterMain } from "./routers/api";
 import { engine } from "express-handlebars";
 import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "./controllers/mercadopago/webhook";
 import { configOptions } from "./config/handlebars";
+import { initSocket } from "./utils/socket";
 
 const app = express();
+const server = http.createServer(app);
 
 app.engine("hbs", engine(configOptions));
 app.set("view engine", "hbs");
@@ -48,4 +51,6 @@ app.post("/api/subscribe", authenticateJWT, subscribe);
 app.post("/api/unsubscribe", authenticateJWT, unsubscribe);
 app.post("/send-notification", authenticateJWT, sendNotification);
 
-app.listen(3000, () => console.log("Rodando na porta 3000"));
+initSocket(server);
+
+server.listen(3000, () => console.log("Rodando na porta 3000"));

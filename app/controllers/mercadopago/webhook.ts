@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import { mercadoPagoPayment } from "../../utils/mercadoPago";
 import { prisma } from "../../utils/prisma";
-import { StatusFatura } from "../../../generated";
+import { StatusFatura, StatusPagamento } from "../../../generated";
 import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
+import { getIO } from "../../utils/socket";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -96,5 +98,60 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
   }
 }
 export async function webhookMercadoPagoCobrancas(req: Request, res: Response): Promise<any> {
-  return res.sendStatus(200);
+  try {
+    const { type, data } = req.body || {};
+    const paymentId = Number(data?.id);
+
+    if (type !== "payment" || !paymentId) {
+      return res.sendStatus(204);
+    }
+
+    const cobranca = await prisma.cobrancasFinanceiras.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!cobranca) {
+      console.warn(`Cobrança ${paymentId} não encontrada`);
+      return res.sendStatus(204);
+    }
+
+    const parametros = await prisma.parametrosConta.findUnique({
+      where: { contaId: cobranca.contaId },
+    });
+
+    if (!parametros?.MercadoPagoApiKey) {
+      console.warn(`Conta ${cobranca.contaId} sem chave Mercado Pago`);
+      return res.sendStatus(204);
+    }
+
+    const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+    const payment = await mp.payment.get({ id: paymentId });
+
+    const statusMap: Record<string, StatusPagamento> = {
+      approved: "EFETIVADO",
+      authorized: "EFETIVADO",
+      cancelled: "CANCELADO",
+      refunded: "ESTORNADO",
+    };
+
+    const statusNovo = statusMap[payment.status as string] ?? "PENDENTE";
+
+    await prisma.cobrancasFinanceiras.update({
+      where: { id: cobranca.id },
+      data: { status: statusNovo },
+    });
+
+    // Emite para a sala da conta
+    const io = getIO();
+    io.to(`conta:${cobranca.contaId}`).emit("cobranca:atualizada", {
+      id: cobranca.id,
+      status: statusNovo,
+      cobranca: cobranca,
+    });
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Erro no webhook Mercado Pago:", err);
+    res.sendStatus(500);
+  }
 }
