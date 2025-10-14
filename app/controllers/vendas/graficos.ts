@@ -106,24 +106,38 @@ export async function getFaturamentoMensal(req: Request, res: Response) {
 export async function getPorMetodoPagamento(req: Request, res: Response) {
   const { start, end } = getPeriodo(req);
   const customData = getCustomRequest(req).customData;
-  const result = await prisma.pagamentoVendas.groupBy({
-    by: ["metodo"],
+
+  // Busca todos os pagamentos efetivados no período
+  const pagamentos = await prisma.pagamentoVendas.findMany({
     where: {
       data: { gte: start, lte: end },
       status: "EFETIVADO",
-      venda: { contaId: customData.contaId },
+      venda: {
+        contaId: customData.contaId,
+      },
     },
-    _sum: { valor: true },
+    select: {
+      metodo: true,
+      valor: true,
+    },
   });
 
-  if (result.length === 0) {
+  if (pagamentos.length === 0) {
     return res.json({ labels: [], datasets: [] });
   }
 
-  const labels = result.map((r) => r.metodo);
-  const data = result.map((r) => Number(r._sum.valor ?? 0));
+  // Agrupamento manual por método de pagamento
+  const agrupado = pagamentos.reduce<Record<string, number>>((acc, p) => {
+    const metodo = p.metodo;
+    const valor = Number(p.valor);
+    acc[metodo] = (acc[metodo] || 0) + valor;
+    return acc;
+  }, {});
 
-  res.json({
+  const labels = Object.keys(agrupado);
+  const data = Object.values(agrupado);
+
+  return res.json({
     labels,
     datasets: [
       {
@@ -143,7 +157,6 @@ export async function getPorMetodoPagamento(req: Request, res: Response) {
     ],
   });
 }
-
 // 🟨 3. Quantidade de vendas por status
 export async function getPorStatusVenda(req: Request, res: Response) {
   const { start, end } = getPeriodo(req);
