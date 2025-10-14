@@ -175,7 +175,10 @@ export async function getLucroMedioProdutos(req: Request, res: Response) {
 
 // 5. Ticket médio de vendas
 export async function getTicketMedio(req: Request, res: Response) {
-  const { start, end } = getPeriodo(req);
+  const { ano } = req.query;
+  const anoSelecionado = ano ? Number(ano) : dayjs().year();
+  const start = dayjs(`${anoSelecionado}-01-01`).startOf("day").toDate();
+  const end = dayjs(`${anoSelecionado}-12-31`).endOf("day").toDate();
   const customData = getCustomRequest(req).customData;
   const vendas = await prisma.vendas.findMany({
     where: { data: { gte: start, lte: end }, contaId: customData.contaId },
@@ -333,15 +336,6 @@ export async function getResumoGeralProdutos(req: Request, res: Response): Promi
       const totalVenda = new Decimal(item.valor).times(item.quantidade);
       return acc.plus(totalVenda.minus(custo));
     }, new Decimal(0));
-
-    // 🚨 Produtos com estoque abaixo do mínimo
-    const estoque = await prisma.produto.findMany({
-      where: {
-        contaId: Number(contaId),
-      },
-    });
-
-    const estoquebaixo = estoque.filter(p => p.estoque < p.minimo).length;
 
     // ⚠️ ajuste correto para comparação de mínimo
     const produtos = await prisma.produto.findMany({

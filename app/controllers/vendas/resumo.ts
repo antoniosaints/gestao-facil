@@ -60,7 +60,7 @@ export class ResumoVendasController {
         return total.add(venda.desconto || new Decimal(0));
       }, new Decimal(0));
 
-      const ticketMedio = totalValorVendas.div(totalVendas || new Decimal(1));
+      const ticketMedio = totalValorFaturado.div(totalFaturado || new Decimal(1));
 
       return res.status(200).json({
         totalVendas,
