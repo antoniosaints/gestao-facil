@@ -11,6 +11,7 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
 import { formatCurrency } from "../../utils/formatters";
 import { z } from "zod";
+import { sendUpdateTable } from "../../hooks/vendas/socket";
 
 export const efetivarVenda = async (
   req: Request,
@@ -98,7 +99,7 @@ export const efetivarVenda = async (
                 valorPago: venda.valor,
                 valor: venda.valor,
               },
-            }
+            },
           },
         });
       }
@@ -106,6 +107,7 @@ export const efetivarVenda = async (
       return venda;
     });
 
+    sendUpdateTable(transaction.contaId, { efetivada: true });
     ResponseHandler(res, "Venda efetivada", transaction);
   } catch (err: any) {
     handleError(res, err);
@@ -136,6 +138,7 @@ export const estornarVenda = async (
         },
       },
     });
+    sendUpdateTable(customData.contaId, { efetivada: false });
     ResponseHandler(res, "Venda estornada", venda);
   } catch (err: any) {
     handleError(res, err);
