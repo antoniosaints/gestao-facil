@@ -118,6 +118,10 @@ model Usuarios {
   permissao     PermissaoUsuario @default(usuario)
   pushReceiver  Boolean?         @default(true)
   emailReceiver Boolean?         @default(true)
+  telefone      String?
+  profile       String?
+  biografia     String? @db.Text
+  endereco      String?
   status        Status           @default(ATIVO)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt

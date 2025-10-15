@@ -200,10 +200,6 @@ export const saveUsuario = async (
   try {
     const hasId = req.body.id && Number(req.body.id) > 0 ? true : false;
     let data = null;
-    const push =
-      req.body.pushReceiver && req.body.pushReceiver === "on" ? true : false;
-    const email =
-      req.body.emailReceiver && req.body.emailReceiver === "on" ? true : false;
 
     if (hasId) {
       const user = await prisma.usuarios.findUnique({
@@ -221,27 +217,37 @@ export const saveUsuario = async (
           id: Number(req.body.id),
         },
         data: {
-          emailReceiver: email,
-          pushReceiver: push,
+          emailReceiver: req.body.emailReceiver,
+          pushReceiver: req.body.pushReceiver,
           contaId: customData.contaId,
           nome: req.body.nome,
           email: req.body.email,
           senha: req.body.senha,
           permissao: req.body.permissao,
           status: req.body.status,
+          biografia: req.body.biografia,
+          telefone: req.body.telefone,
+          endereco: req.body.endereco,
+          gerencialMode: req.body.gerencialMode,
+          superAdmin: req.body.superAdmin,
         },
       });
     } else {
       data = await prisma.usuarios.create({
         data: {
-          emailReceiver: email,
-          pushReceiver: push,
+          emailReceiver: req.body.emailReceiver,
+          pushReceiver: req.body.pushReceiver,
           contaId: customData.contaId,
           nome: req.body.nome,
           email: req.body.email,
           senha: req.body.senha,
           permissao: req.body.permissao,
           status: req.body.status,
+          biografia: req.body.biografia,
+          telefone: req.body.telefone,
+          endereco: req.body.endereco,
+          gerencialMode: req.body.gerencialMode,
+          superAdmin: req.body.superAdmin,
         },
       });
     }
@@ -258,6 +264,29 @@ export const saveUsuario = async (
     handleError(res, error);
   }
 };
+
+export const updatePerfil = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { contaId, userId } = getCustomRequest(req).customData;
+    const { nome, biografia, telefone, endereco, profile } = req.body;
+    const data = await prisma.usuarios.update({
+      where: {
+        id: Number(userId),
+        contaId,
+      },
+      data: {
+        nome,
+        biografia,
+        telefone,
+        endereco,
+        profile,
+      },
+    });
+    return ResponseHandler(res, "Perfil atualizado com sucesso", data, 200);
+  } catch (error) {
+    handleError(res, error);
+  }
+}
 
 export const getUsuario = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
