@@ -1164,8 +1164,9 @@ export const getLancamentosTotaisGerais = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-  const customData = getCustomRequest(req).customData;
-  const where =
+  const { contaId } = getCustomRequest(req).customData;
+
+  const where: any =
     inicio && fim
       ? {
           dataLancamento: {
@@ -1175,23 +1176,25 @@ export const getLancamentosTotaisGerais = async (
         }
       : {};
 
-  const receitas = await prisma.lancamentoFinanceiro.aggregate({
-    _sum: { valorTotal: true },
-    where: { tipo: "RECEITA", contaId: customData.contaId, ...where },
+  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
+    where: { contaId, ...where },
+    include: { parcelas: true },
   });
 
-  const despesas = await prisma.lancamentoFinanceiro.aggregate({
-    _sum: { valorTotal: true },
-    where: { tipo: "DESPESA", contaId: customData.contaId, ...where },
-  });
+  const receitas = lancamentos.filter((l) => l.tipo === "RECEITA");
+  const despesas = lancamentos.filter((l) => l.tipo === "DESPESA");
+
+  const totalReceitas = receitas
+    .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal))
+    .reduce((total, valor) => total.plus(valor), new Decimal(0));
+
+  const totalDespesas = despesas
+    .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal))
+    .reduce((total, valor) => total.plus(valor), new Decimal(0));
 
   res.json({
-    receitas: formatCurrency(receitas._sum.valorTotal || new Decimal(0)),
-    despesas: formatCurrency(despesas._sum.valorTotal || new Decimal(0)),
-    saldo: formatCurrency(
-      new Decimal(receitas._sum.valorTotal || 0).minus(
-        despesas._sum.valorTotal || 0
-      )
-    ),
+    receitas: formatCurrency(totalReceitas),
+    despesas: formatCurrency(totalDespesas),
+    saldo: formatCurrency(totalReceitas.minus(totalDespesas)),
   });
 };
