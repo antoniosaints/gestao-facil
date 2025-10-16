@@ -65,7 +65,7 @@ export const getLancamentosMensal = async (
 
       const lanc = parcela.lancamento;
       const valor = parcela.valor;
-      const status = lanc.status;
+      const status = parcela.pago ? "PAGO" : "PENDENTE";
 
       acc[dia].lancamentos.push({
         id: lanc.id,
