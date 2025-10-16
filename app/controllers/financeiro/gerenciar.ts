@@ -12,7 +12,98 @@ import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 
-export const getLacamento = async (req: Request, res: Response): Promise<any> => {
+export const getLancamentosMensal = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { mes } = req.query;
+    const customData = getCustomRequest(req).customData;
+    if (!mes)
+      return res
+        .status(400)
+        .json({ error: "Informe o mês no formato YYYY-MM" });
+
+    const inicio = new Date(`${mes}-01T00:00:00`);
+    const fim = new Date(inicio);
+    fim.setMonth(fim.getMonth() + 1);
+
+    // Busca parcelas do mês com dados do lançamento
+    const parcelas = await prisma.parcelaFinanceiro.findMany({
+      where: {
+        vencimento: {
+          gte: inicio,
+          lt: fim,
+        },
+        lancamento: {
+          contaId: customData.contaId,
+        },
+      },
+      include: {
+        lancamento: {
+          include: {
+            categoria: true,
+          }
+        },
+      },
+      orderBy: {
+        vencimento: "desc",
+      },
+    });
+
+    // Agrupamento por dia
+    const agrupado = parcelas.reduce((acc: any, parcela) => {
+      const dia = parcela.vencimento.toISOString().split("T")[0];
+
+      if (!acc[dia]) {
+        acc[dia] = {
+          dia,
+          lancamentos: [],
+          saldo: new Decimal(0),
+        };
+      }
+
+      const lanc = parcela.lancamento;
+      const valor = parcela.valor;
+      const status = lanc.status;
+
+      acc[dia].lancamentos.push({
+        id: lanc.id,
+        categoria: lanc.categoria.nome,
+        parcelaId: parcela.id,
+        descricao: lanc.descricao,
+        valor: Number(valor),
+        status,
+        tipo: lanc.tipo,
+      });
+
+      // Soma ou subtrai no saldo diário
+      if (lanc.tipo === "RECEITA") {
+        acc[dia].saldo = acc[dia].saldo.add(valor);
+      } else if (lanc.tipo === "DESPESA") {
+        acc[dia].saldo = acc[dia].saldo.sub(valor);
+      }
+
+      return acc;
+    }, {});
+
+    const data = Object.values(agrupado).map((d: any) => ({
+      dia: d.dia,
+      lancamentos: d.lancamentos,
+      saldo: Number(d.saldo),
+    }));
+
+    return res.json({ data });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao listar lançamentos" });
+  }
+};
+
+export const getLacamento = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
     const { id } = req.params;
@@ -30,7 +121,7 @@ export const getLacamento = async (req: Request, res: Response): Promise<any> =>
   } catch (error) {
     handleError(res, error);
   }
-}
+};
 export const criarLancamento = async (
   req: Request,
   res: Response
@@ -88,9 +179,7 @@ export const criarLancamento = async (
     }
 
     const valorTotalFormated = new Decimal(valorTotal);
-    const valorEntradaFormated = new Decimal(
-      valorEntrada || 0
-    );
+    const valorEntradaFormated = new Decimal(valorEntrada || 0);
     const descontoFormated = new Decimal(desconto || 0);
 
     if (valorEntradaFormated) {
