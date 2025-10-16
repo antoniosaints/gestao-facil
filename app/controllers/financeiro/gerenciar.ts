@@ -303,9 +303,11 @@ export const pagarParcela = async (
 ): Promise<any> => {
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
+  if (!req.body) return res.status(400).json({ message: "Dados obrigatorio!" });
+  if (!req.body.metodoPagamento || !req.body.dataPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento)!" });
   try {
     const parcela = await prisma.parcelaFinanceiro.findUnique({
-      where: { id: parcelaId },
+      where: { id: parcelaId, lancamento: { contaId: customData.contaId } },
     });
 
     if (!parcela) {
@@ -321,8 +323,8 @@ export const pagarParcela = async (
       data: {
         pago: true,
         valorPago: parcela.valor,
-        formaPagamento: "PIX",
-        dataPagamento: new Date(),
+        formaPagamento: req.body.metodoPagamento,
+        dataPagamento: new Date(req.body.dataPagamento),
       },
     });
 
@@ -387,6 +389,7 @@ export const estornarParcela = async (
       where: { id: parcelaId },
       data: {
         pago: false,
+        formaPagamento: null,
         dataPagamento: null,
       },
     });
