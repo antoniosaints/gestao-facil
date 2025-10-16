@@ -6,28 +6,31 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 
 export const saveContaFinanceiro = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { id, nome } = req.body;
         const { contaId } = getCustomRequest(req).customData;
 
-        if (!nome) {
+        if (!req.body) {
+            return ResponseHandler(res, "Dados obrigatorio!", null, 400);
+        }
+        
+        if (!req.body.nome) {
             return ResponseHandler(res, "Nome da conta obrigatorio!", null, 400);
         }
 
-        if (id) {
+        if (req.body.id) {
             await prisma.contasFinanceiro.update({
                 where: {
-                    id: Number(id),
+                    id: Number(req.body.id),
                     contaId
                 },
                 data: {
-                    nome,
+                    nome: req.body.nome,
                 },
             });
         } else {
             await prisma.contasFinanceiro.create({
                 data: {
                     contaId,
-                    nome,
+                    nome: req.body.nome,
                 },
             });
         }
