@@ -9,11 +9,13 @@ import { routerPrinter } from "./impressao/router";
 import routerUploads from "./uploads/router";
 import { routerUsuarios } from "./administracao/usuarios/router";
 import { routerGerencia } from "./gerencia/router";
+import { routerServicos } from "./servicos/router";
 
 const RouterMain = Router();
 
 RouterMain.use("/api/contas", routerContas);
 RouterMain.use("/api/produtos", routerProdutos);
+RouterMain.use("/api/servicos", routerServicos);
 RouterMain.use("/api/usuarios", routerUsuarios);
 RouterMain.use("/api/clientes", routerClientes);
 RouterMain.use("/api/gerencia", routerGerencia);

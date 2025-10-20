@@ -103,7 +103,7 @@ export async function getFaturamentoMensal(req: Request, res: Response) {
 }
 
 // 🟩 2. Faturamento por método de pagamento
-export async function getPorMetodoPagamento(req: Request, res: Response) {
+export async function getPorMetodoPagamento(req: Request, res: Response): Promise<any> {
   const { start, end } = getPeriodo(req);
   const customData = getCustomRequest(req).customData;
 
