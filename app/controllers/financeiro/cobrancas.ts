@@ -102,7 +102,22 @@ export const cancelarCobranca = async (req: Request, res: Response): Promise<any
     return res.status(500).json({ message: error.message });
   }
 };
-
+export const deletarCobranca = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "Informe o ID da cobrança." });
+    const customData = getCustomRequest(req).customData;
+    const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
+      where: { id: Number(id), contaId: customData.contaId },
+    });
+    if (!cobranca) return res.status(400).json({ message: "Cobranca nao encontrada." });
+    if (cobranca.status !== "CANCELADO") return res.status(400).json({ message: "A Cobrança só pode ser deletada no status (CANCELADO)." });
+    await prisma.cobrancasFinanceiras.delete({ where: { id: cobranca.id, contaId: customData.contaId } });
+    return res.status(200).json({ message: "Cobranca deletada com sucesso." });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
 export const cancelarMercadoPagoPagamento = async (req: Request, res: Response): Promise<any> => {
   try {
     const { cobrancaId } = req.body;
@@ -125,6 +140,13 @@ export const cancelarMercadoPagoPagamento = async (req: Request, res: Response):
     const cancelamento = await mp.payment.cancel({
       id: cobrancaId,
     });
+
+    if (cancelamento.status === "cancelled") {
+      await prisma.cobrancasFinanceiras.update({
+        where: { id: cobrancaId },
+        data: { status: "CANCELADO" },
+      });
+    }
     
     return res.status(200).json({ message: cancelamento.status });
   }catch (error: any) {

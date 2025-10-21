@@ -55,7 +55,7 @@ export const gerarCobrancaMercadoPagoBoleto = async (
     throw new Error(
       "O CPF/CNPJ do cliente nao foi informado, atualize o cadastro do cliente."
     );
-  if (validarCpfCnpj(cliente.documento))
+  if (!validarCpfCnpj(cliente.documento))
     throw new Error(
       `O ${
         cliente.tipo === "CLIENTE" ? "CPF" : "CNPJ"
@@ -95,22 +95,27 @@ export const gerarCobrancaMercadoPagoBoleto = async (
       notification_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
     },
   });
-  await prisma.cobrancasFinanceiras.create({
-    data: {
-      dataVencimento: link.date_of_expiration
-        ? new Date(link.date_of_expiration)
-        : new Date(),
-      gateway: "mercadopago",
-      valor: body.value,
-      dataCadastro: new Date(),
-      Uid: gerarIdUnicoComMetaFinal("COB"),
-      idCobranca: link.id?.toString(),
-      externalLink: link.transaction_details?.external_resource_url,
-      status: "PENDENTE",
-      observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
-      contaId: parametros.contaId,
-    },
-  });
+  if (link.status === 'rejected') {
+    throw new Error("A cobrança foi rejeitada pelo banco, verifique os dados do cliente.");
+  }
+  if (link) {
+    await prisma.cobrancasFinanceiras.create({
+      data: {
+        dataVencimento: link.date_of_expiration
+          ? new Date(link.date_of_expiration)
+          : new Date(),
+        gateway: "mercadopago",
+        valor: body.value,
+        dataCadastro: new Date(),
+        Uid: gerarIdUnicoComMetaFinal("COB"),
+        idCobranca: link.id?.toString(),
+        externalLink: link.transaction_details?.external_resource_url,
+        status: "PENDENTE",
+        observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
+        contaId: parametros.contaId,
+      },
+    });
+  }
   return link.transaction_details?.external_resource_url;
 };
 

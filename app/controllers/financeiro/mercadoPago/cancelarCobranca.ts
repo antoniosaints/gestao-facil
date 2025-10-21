@@ -1,5 +1,6 @@
 import { CobrancasFinanceiras, ParametrosConta } from "../../../../generated";
 import { MercadoPagoService } from "../../../services/financeiro/mercadoPagoService";
+import { prisma } from "../../../utils/prisma";
 
 export const cancelarCobrancaInterno = async (
   parametros: ParametrosConta,
@@ -14,6 +15,13 @@ export const cancelarCobrancaInterno = async (
   const cancelamento = await mp.payment.cancel({
     id: cobranca.idCobranca,
   });
+
+  if (cancelamento.status === "cancelled") {
+    await prisma.cobrancasFinanceiras.update({
+      where: { id: cobranca.id },
+      data: { status: "CANCELADO" },
+    });
+  }
 
   return cancelamento.status;
 };
