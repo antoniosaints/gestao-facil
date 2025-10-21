@@ -9,6 +9,10 @@ export interface BodyCobranca {
   value: number;
   gateway: "mercadopago" | "pagseguro" | "asaas";
   clienteId: number | undefined;
+  vinculo?: {
+    id: number;
+    tipo: "parcela" | "venda" | "os";
+  }
 }
 export const generateCobranca = async (
   req: Request,

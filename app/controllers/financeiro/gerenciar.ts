@@ -376,7 +376,7 @@ export const estornarParcela = async (
   const customData = getCustomRequest(req).customData;
   try {
     const parcela = await prisma.parcelaFinanceiro.findUnique({
-      where: { id: parcelaId },
+      where: { id: parcelaId, pago: true },
     });
 
     if (!parcela || !parcela.pago) {
@@ -390,6 +390,7 @@ export const estornarParcela = async (
       data: {
         pago: false,
         formaPagamento: null,
+        valorPago: null,
         dataPagamento: null,
       },
     });

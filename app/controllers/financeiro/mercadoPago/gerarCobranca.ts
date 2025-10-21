@@ -95,8 +95,10 @@ export const gerarCobrancaMercadoPagoBoleto = async (
       notification_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
     },
   });
-  if (link.status === 'rejected') {
-    throw new Error("A cobrança foi rejeitada pelo banco, verifique os dados do cliente.");
+  if (link.status === "rejected") {
+    throw new Error(
+      "A cobrança foi rejeitada pelo banco, verifique os dados do cliente."
+    );
   }
   if (link) {
     await prisma.cobrancasFinanceiras.create({
@@ -109,6 +111,16 @@ export const gerarCobrancaMercadoPagoBoleto = async (
         dataCadastro: new Date(),
         Uid: gerarIdUnicoComMetaFinal("COB"),
         idCobranca: link.id?.toString(),
+        vendaId:
+          body.vinculo && body.vinculo.tipo === "venda"
+            ? body.vinculo.id
+            : null,
+        lancamentoId:
+          body.vinculo && body.vinculo.tipo === "parcela"
+            ? body.vinculo.id
+            : null,
+        ordemServicoId:
+          body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
         externalLink: link.transaction_details?.external_resource_url,
         status: "PENDENTE",
         observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
@@ -153,6 +165,14 @@ export const gerarCobrancaMercadoPagoPix = async (
       Uid: gerarIdUnicoComMetaFinal("COB"),
       dataCadastro: new Date(),
       idCobranca: link.id?.toString(),
+      vendaId:
+        body.vinculo && body.vinculo.tipo === "venda" ? body.vinculo.id : null,
+      lancamentoId:
+        body.vinculo && body.vinculo.tipo === "parcela"
+          ? body.vinculo.id
+          : null,
+      ordemServicoId:
+        body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
       externalLink: link.point_of_interaction?.transaction_data?.ticket_url,
       status: "PENDENTE",
       observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
