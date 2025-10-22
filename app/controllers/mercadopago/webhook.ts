@@ -156,7 +156,6 @@ export async function webhookMercadoPagoCobrancas(
     const statusNovo = statusMap[payment.status as string] ?? "PENDENTE";
     const metodoPago =
     paymentMethodMap[payment.payment_type_id as string] ?? "OUTRO";
-    console.log(statusNovo, metodoPago, cobranca);
 
     await prisma.cobrancasFinanceiras.update({
       where: { id: cobranca.id, contaId: cobranca.contaId },
