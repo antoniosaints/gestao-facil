@@ -163,7 +163,7 @@ export async function webhookMercadoPagoCobrancas(
       data: { status: statusNovo },
     });
 
-    if (cobranca.lancamentoId && payment.status === "approved") {
+    if (cobranca.lancamentoId && statusNovo === 'EFETIVADO') {
       await prisma.parcelaFinanceiro.update({
         where: { id: cobranca.lancamentoId },
         data: {
@@ -173,7 +173,7 @@ export async function webhookMercadoPagoCobrancas(
         },
       });
     }
-    if (cobranca.vendaId && payment.status === "approved") {
+    if (cobranca.vendaId && statusNovo === 'EFETIVADO') {
       await prisma.vendas.update({
         where: { id: cobranca.vendaId },
         data: {
