@@ -3,7 +3,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
 import { generateCobrancaMercadoPago} from "./mercadoPago/gerarCobranca";
-import { cancelarCobrancaInterno } from "./mercadoPago/cancelarCobranca";
+import { cancelarCobrancaMercadoPago, estornarCobrancaMercadoPago } from "./cobrancas/managerCobranca";
 export interface BodyCobranca {
   type: "PIX" | "BOLETO" | "LINK";
   value: number;
@@ -93,7 +93,7 @@ export const cancelarCobranca = async (req: Request, res: Response): Promise<any
       return res.status(400).json({ message: "Cobranca ja cancelada." });
 
     if (cobranca.gateway === "mercadopago") {
-      const resp = await cancelarCobrancaInterno(parametros, cobranca);
+      const resp = await cancelarCobrancaMercadoPago(parametros, cobranca);
       return res.status(200).json({ message: resp });
     }
 
@@ -101,6 +101,44 @@ export const cancelarCobranca = async (req: Request, res: Response): Promise<any
       .status(200)
       .json({
         message: "Nada para cancelar, a cobrança permanece no status atual.",
+      });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+export const estornarCobranca = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { cobrancaId } = req.body;
+    if (!cobrancaId) return res.status(400).json({ message: "Informe o cobrancaId no body da requisição." });
+    const customData = getCustomRequest(req).customData;
+    const parametros = await prisma.parametrosConta.findUniqueOrThrow({
+      where: { contaId: customData.contaId },
+    });
+    if (!parametros)
+      return res.status(400).json({
+        message:
+          "Parametros nao encontrados, informe os parametros da conta para continuar.",
+      });
+
+    const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
+      where: { id: Number(cobrancaId) },
+    });
+
+    if (!cobranca)
+      return res.status(400).json({ message: "Cobranca nao encontrada." });
+
+    if (cobranca.status === "ESTORNADO")
+      return res.status(400).json({ message: "Cobranca ja estornada." });
+
+    if (cobranca.gateway === "mercadopago") {
+      const resp = await estornarCobrancaMercadoPago(parametros, cobranca);
+      return res.status(200).json({ message: resp });
+    }
+
+    return res
+      .status(200)
+      .json({
+        message: "Nada para estornar, a cobrança permanece no status atual.",
       });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
