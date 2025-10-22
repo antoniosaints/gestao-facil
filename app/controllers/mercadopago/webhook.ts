@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { mercadoPagoPayment } from "../../utils/mercadoPago";
 import { prisma } from "../../utils/prisma";
-import { StatusFatura, StatusPagamento } from "../../../generated";
+import {
+  MetodoPagamento,
+  StatusFatura,
+  StatusPagamento,
+} from "../../../generated";
 import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
@@ -12,12 +16,15 @@ export async function getPaymentMercadoPago(req: Request, res: Response) {
     const { id } = req.query;
     const payment = await mercadoPagoPayment.get({ id: Number(id) });
     res.status(200).json(payment);
-  }catch (err: any) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 }
 
-export async function webhookMercadoPago(req: Request, res: Response): Promise<any> {
+export async function webhookMercadoPago(
+  req: Request,
+  res: Response
+): Promise<any> {
   try {
     const { type, id, data } = req.body || {};
     if (type !== "payment" || !id) return res.sendStatus(204);
@@ -40,8 +47,10 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
       : addDays(vencimentoConta, 30);
 
     let statusFatura: StatusFatura = "PENDENTE";
-    if (["approved", "authorized"].includes(status as string)) statusFatura = "PAGO";
-    if (["cancelled", "refunded"].includes(status as string)) statusFatura = "CANCELADO";
+    if (["approved", "authorized"].includes(status as string))
+      statusFatura = "PAGO";
+    if (["cancelled", "refunded"].includes(status as string))
+      statusFatura = "CANCELADO";
 
     const faturaExistente = await prisma.faturasContas.findFirst({
       where: {
@@ -52,9 +61,11 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
 
     let link_pagamento: string = "";
     if (payment.payment_type_id === "ticket") {
-      link_pagamento = payment.transaction_details?.external_resource_url as string;
-    }else {
-      link_pagamento = payment.point_of_interaction?.transaction_data?.ticket_url as string;
+      link_pagamento = payment.transaction_details
+        ?.external_resource_url as string;
+    } else {
+      link_pagamento = payment.point_of_interaction?.transaction_data
+        ?.ticket_url as string;
     }
 
     if (!faturaExistente) {
@@ -97,12 +108,14 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
     return res.sendStatus(500);
   }
 }
-export async function webhookMercadoPagoCobrancas(req: Request, res: Response): Promise<any> {
+export async function webhookMercadoPagoCobrancas(
+  req: Request,
+  res: Response
+): Promise<any> {
   try {
     console.log(req.body);
     const { type, data } = req.body || {};
     const paymentId = Number(data?.id);
-    const payloadExternal = "conta:${parametros.contaId}|cobranca:${Uid}|link";
 
     if (type !== "payment" || !paymentId) {
       return res.sendStatus(204);
@@ -135,13 +148,46 @@ export async function webhookMercadoPagoCobrancas(req: Request, res: Response): 
       cancelled: "CANCELADO",
       refunded: "ESTORNADO",
     };
+    const paymentMethodMap: Record<string, MetodoPagamento> = {
+      ticket: "BOLETO",
+      bank_transfer: "PIX",
+      atm: "OUTRO",
+    };
 
     const statusNovo = statusMap[payment.status as string] ?? "PENDENTE";
+    const metodoPago =
+      paymentMethodMap[payment.payment_type_id as string] ?? "OUTRO";
 
     await prisma.cobrancasFinanceiras.update({
       where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
     });
+
+    if (cobranca.lancamentoId && payment.status === "approved") {
+      await prisma.parcelaFinanceiro.update({
+        where: { id: cobranca.lancamentoId },
+        data: {
+          pago: true,
+          dataPagamento: new Date(),
+          formaPagamento: metodoPago,
+        },
+      });
+    }
+    if (cobranca.vendaId && payment.status === "approved") {
+      await prisma.vendas.update({
+        where: { id: cobranca.vendaId },
+        data: {
+          faturado: true,
+          status: "FATURADO",
+          PagamentoVendas: {
+            update: {
+              metodo: metodoPago,
+              data: new Date(),
+            },
+          },
+        },
+      });
+    }
 
     res.sendStatus(200);
   } catch (err) {
