@@ -113,7 +113,6 @@ export async function webhookMercadoPagoCobrancas(
   res: Response
 ): Promise<any> {
   try {
-    console.log(req.body);
     const { type, data } = req.body || {};
     const paymentId = Number(data?.id);
 
@@ -153,10 +152,11 @@ export async function webhookMercadoPagoCobrancas(
       bank_transfer: "PIX",
       atm: "OUTRO",
     };
-
+    
     const statusNovo = statusMap[payment.status as string] ?? "PENDENTE";
     const metodoPago =
-      paymentMethodMap[payment.payment_type_id as string] ?? "OUTRO";
+    paymentMethodMap[payment.payment_type_id as string] ?? "OUTRO";
+    console.log(statusNovo, metodoPago, cobranca);
 
     await prisma.cobrancasFinanceiras.update({
       where: { id: cobranca.id, contaId: cobranca.contaId },
