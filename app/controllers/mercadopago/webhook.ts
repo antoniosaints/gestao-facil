@@ -183,6 +183,7 @@ export async function webhookMercadoPagoCobrancas(
           status: "FATURADO",
           PagamentoVendas: {
             upsert: {
+              where: { vendaId: cobranca.vendaId },
               create: {
                 valor: venda.valor,
                 data: new Date(),
