@@ -108,8 +108,8 @@ export async function webhookMercadoPagoCobrancas(req: Request, res: Response): 
       return res.sendStatus(204);
     }
 
-    const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
-      where: { id: Number(paymentId) },
+    const cobranca = await prisma.cobrancasFinanceiras.findFirst({
+      where: { idCobranca: String(paymentId) },
     });
 
     if (!cobranca) {
