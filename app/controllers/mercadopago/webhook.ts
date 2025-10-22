@@ -173,15 +173,27 @@ export async function webhookMercadoPagoCobrancas(
       });
     }
     if (cobranca.vendaId && statusNovo === 'EFETIVADO') {
+      const venda = await prisma.vendas.findUniqueOrThrow({
+        where: { id: cobranca.vendaId, contaId: cobranca.contaId },
+      })
       await prisma.vendas.update({
         where: { id: cobranca.vendaId },
         data: {
           faturado: true,
           status: "FATURADO",
           PagamentoVendas: {
-            update: {
-              metodo: metodoPago,
-              data: new Date(),
+            upsert: {
+              create: {
+                valor: venda.valor,
+                data: new Date(),
+                metodo: metodoPago,
+                status: "EFETIVADO",
+              },
+              update: {
+                metodo: metodoPago,
+                data: new Date(),
+                status: "EFETIVADO",
+              }
             },
           },
         },
