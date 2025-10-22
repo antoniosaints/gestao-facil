@@ -38,6 +38,11 @@ export const tableCobrancas = async (
         const total = await prisma.cobrancasFinanceiras.count({ where });
         const data = await prisma.cobrancasFinanceiras.findMany({
           where,
+          include: {
+            Venda: true,
+            LancamentoParcela: true,
+            Ordemservico: true,
+          },
           orderBy: { [sortBy]: order },
           skip: (page - 1) * pageSize,
           take: pageSize,

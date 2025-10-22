@@ -164,6 +164,7 @@ export const getVenda = async (req: Request, res: Response) => {
           },
         },
         PagamentoVendas: true,
+        CobrancasFinanceiras: true,
         ItensVendas: {
           include: {
             produto: {
