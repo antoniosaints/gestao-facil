@@ -5,6 +5,7 @@ import { gerarIdUnicoComMetaFinal } from "../../../helpers/generateUUID";
 import { MercadoPagoService } from "../../../services/financeiro/mercadoPagoService";
 import { BodyCobranca } from "../cobrancas";
 import { ParametrosConta } from "../../../../generated";
+import { env } from "../../../utils/dotenv";
 
 export const gerarCobrancaMercadoPagoBoleto = async (
   mp: MercadoPagoService,
@@ -61,8 +62,8 @@ export const gerarCobrancaMercadoPagoBoleto = async (
         cliente.tipo === "CLIENTE" ? "CPF" : "CNPJ"
       } do cliente é inválido, verifique antes de continuar.`
     );
-
-  const link = await mp.payment.create({
+  const Uid = gerarIdUnicoComMetaFinal("COB");
+  const boletoGenerated = await mp.payment.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
     },
@@ -88,29 +89,30 @@ export const gerarCobrancaMercadoPagoBoleto = async (
           number: cliente.documento,
         },
       },
-      external_reference: `conta:${parametros.contaId}|cobranca|boleto`,
+      external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|boleto`,
       payment_method_id: "bolbradesco",
       installments: 1,
-      callback_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
-      notification_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      callback_url: `${env.BASE_URL_FRONTEND}`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
     },
   });
-  if (link.status === "rejected") {
+  if (boletoGenerated.status === "rejected") {
     throw new Error(
       "A cobrança foi rejeitada pelo banco, verifique os dados do cliente."
     );
   }
-  if (link) {
+
+  if (boletoGenerated) {
     await prisma.cobrancasFinanceiras.create({
       data: {
-        dataVencimento: link.date_of_expiration
-          ? new Date(link.date_of_expiration)
+        dataVencimento: boletoGenerated.date_of_expiration
+          ? new Date(boletoGenerated.date_of_expiration)
           : new Date(),
         gateway: "mercadopago",
         valor: body.value,
         dataCadastro: new Date(),
-        Uid: gerarIdUnicoComMetaFinal("COB"),
-        idCobranca: link.id?.toString(),
+        Uid: Uid,
+        idCobranca: boletoGenerated.id?.toString(),
         vendaId:
           body.vinculo && body.vinculo.tipo === "venda"
             ? body.vinculo.id
@@ -121,14 +123,15 @@ export const gerarCobrancaMercadoPagoBoleto = async (
             : null,
         ordemServicoId:
           body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
-        externalLink: link.transaction_details?.external_resource_url,
+        externalLink:
+          boletoGenerated.transaction_details?.external_resource_url,
         status: "PENDENTE",
         observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
         contaId: parametros.contaId,
       },
     });
   }
-  return link.transaction_details?.external_resource_url;
+  return boletoGenerated.transaction_details?.external_resource_url;
 };
 
 export const gerarCobrancaMercadoPagoPix = async (
@@ -136,7 +139,8 @@ export const gerarCobrancaMercadoPagoPix = async (
   body: BodyCobranca,
   parametros: ParametrosConta
 ) => {
-  const link = await mp.payment.create({
+  const Uid = gerarIdUnicoComMetaFinal("COB");
+  const pixGenerated = await mp.payment.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
     },
@@ -145,26 +149,26 @@ export const gerarCobrancaMercadoPagoPix = async (
         email: parametros.emailAvisos || "admin@userp.com.br",
         entity_type: "individual",
       },
-      external_reference: `conta:${parametros.contaId}|cobranca|pix`,
+      external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|pix`,
       transaction_amount: body.value,
       description: `Cobrança gerada pelo sistema - Gestão Fácil - ERP`,
       payment_method_id: "pix",
       installments: 1,
-      callback_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
-      notification_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      callback_url: `${env.BASE_URL_FRONTEND}`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
     },
   });
 
   await prisma.cobrancasFinanceiras.create({
     data: {
-      dataVencimento: link.date_of_expiration
-        ? new Date(link.date_of_expiration)
+      dataVencimento: pixGenerated.date_of_expiration
+        ? new Date(pixGenerated.date_of_expiration)
         : new Date(),
       gateway: "mercadopago",
       valor: body.value,
-      Uid: gerarIdUnicoComMetaFinal("COB"),
+      Uid: Uid,
       dataCadastro: new Date(),
-      idCobranca: link.id?.toString(),
+      idCobranca: pixGenerated.id?.toString(),
       vendaId:
         body.vinculo && body.vinculo.tipo === "venda" ? body.vinculo.id : null,
       lancamentoId:
@@ -173,14 +177,15 @@ export const gerarCobrancaMercadoPagoPix = async (
           : null,
       ordemServicoId:
         body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
-      externalLink: link.point_of_interaction?.transaction_data?.ticket_url,
+      externalLink:
+        pixGenerated.point_of_interaction?.transaction_data?.ticket_url,
       status: "PENDENTE",
       observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
       contaId: parametros.contaId,
     },
   });
 
-  return link.point_of_interaction?.transaction_data?.ticket_url;
+  return pixGenerated.point_of_interaction?.transaction_data?.ticket_url;
 };
 
 export const gerarCobrancaMercadoPagoLink = async (
@@ -188,6 +193,7 @@ export const gerarCobrancaMercadoPagoLink = async (
   body: BodyCobranca,
   parametros: ParametrosConta
 ) => {
+  const Uid = gerarIdUnicoComMetaFinal("COB");
   const link = await mp.preference.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
@@ -205,12 +211,12 @@ export const gerarCobrancaMercadoPagoLink = async (
         email: parametros.emailAvisos || "admin@userp.com.br",
       },
       back_urls: {
-        success: `${process.env.BASE_URL_FRONTEND}/success?success=true`,
-        failure: `${process.env.BASE_URL_FRONTEND}/success?success=false`,
-        pending: `${process.env.BASE_URL_FRONTEND}/success?success=pending`,
+        success: `${env.BASE_URL_FRONTEND}/success?success=true`,
+        failure: `${env.BASE_URL_FRONTEND}/success?success=false`,
+        pending: `${env.BASE_URL_FRONTEND}/success?success=pending`,
       },
-      notification_url: `${process.env.BASE_URL}/mercadopago/webhook/cobrancas`,
-      external_reference: `conta:${parametros.contaId}|cobranca|link`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|link`,
       auto_return: "approved",
     },
   });

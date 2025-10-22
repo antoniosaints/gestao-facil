@@ -99,14 +99,16 @@ export async function webhookMercadoPago(req: Request, res: Response): Promise<a
 }
 export async function webhookMercadoPagoCobrancas(req: Request, res: Response): Promise<any> {
   try {
+    console.log(req.body);
     const { type, data } = req.body || {};
     const paymentId = Number(data?.id);
+    const payloadExternal = "conta:${parametros.contaId}|cobranca:${Uid}|link";
 
     if (type !== "payment" || !paymentId) {
       return res.sendStatus(204);
     }
 
-    const cobranca = await prisma.cobrancasFinanceiras.findUnique({
+    const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
       where: { id: paymentId },
     });
 
@@ -115,7 +117,7 @@ export async function webhookMercadoPagoCobrancas(req: Request, res: Response): 
       return res.sendStatus(204);
     }
 
-    const parametros = await prisma.parametrosConta.findUnique({
+    const parametros = await prisma.parametrosConta.findUniqueOrThrow({
       where: { contaId: cobranca.contaId },
     });
 
@@ -137,16 +139,8 @@ export async function webhookMercadoPagoCobrancas(req: Request, res: Response): 
     const statusNovo = statusMap[payment.status as string] ?? "PENDENTE";
 
     await prisma.cobrancasFinanceiras.update({
-      where: { id: cobranca.id },
+      where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
-    });
-
-    // Emite para a sala da conta
-    const io = getIO();
-    io.to(`conta:${cobranca.contaId}`).emit("cobranca:atualizada", {
-      id: cobranca.id,
-      status: statusNovo,
-      cobranca: cobranca,
     });
 
     res.sendStatus(200);
