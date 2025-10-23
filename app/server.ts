@@ -13,9 +13,13 @@ import { resumoDashboard } from "./controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "./controllers/asaas/webhook";
 import { RouterMain } from "./routers/api";
 import { engine } from "express-handlebars";
-import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "./controllers/mercadopago/webhook";
+import {
+  webhookMercadoPago,
+  webhookMercadoPagoCobrancas,
+} from "./controllers/mercadopago/webhook";
 import { configOptions } from "./config/handlebars";
 import { initSocket } from "./utils/socket";
+import { env } from "./utils/dotenv";
 
 const app = express();
 const server = http.createServer(app);
@@ -23,9 +27,11 @@ const server = http.createServer(app);
 app.engine("hbs", engine(configOptions));
 app.set("view engine", "hbs");
 
-app.use(cors({
-  origin: "*",
-}));
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 
 // Servir arquivos estáticos (HTMX, JS, CSS, etc.)
 app.use(express.static(path.join(__dirname, "../public")));
@@ -33,6 +39,15 @@ app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.json({
+    message: "API Gestão Fácil - V1",
+    frontend: env.BASE_URL_FRONTEND,
+    version: "1.0.0",
+    status: 200,
+    date: new Date(),
+  });
+});
 app.use(RouterMain);
 
 app.post("/api/login", login);
