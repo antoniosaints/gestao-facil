@@ -10,6 +10,7 @@ import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
 import { getIO } from "../../utils/socket";
+import { atualizarStatusLancamentos } from "../financeiro/hooks";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -171,6 +172,7 @@ export async function webhookMercadoPagoCobrancas(
           formaPagamento: metodoPago,
         },
       });
+      await atualizarStatusLancamentos(cobranca.contaId);
     }
     if (cobranca.vendaId && statusNovo === 'EFETIVADO') {
       const venda = await prisma.vendas.findUniqueOrThrow({
