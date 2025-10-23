@@ -51,42 +51,49 @@ enum GatewayConta {
 }
 
 model Contas {
-  id                   Int                    @id @default(autoincrement())
-  nome                 String
-  valor                Decimal                @db.Decimal(10, 2)
-  data                 DateTime
-  profile              String?                @default("imgs/logo.png")
-  status               Status                 @default(ATIVO)
-  vencimento           DateTime               @default(now())
-  tipo                 String?
-  documento            String?
-  funcionarios         Int                    @default(0)
-  categoria            String?
-  gateway              GatewayConta           @default(mercadopago)
-  email                String
-  telefone             String?
-  endereco             String?
-  nomeFantasia         String?
-  cep                  String?
-  emailAvisos          String?
-  asaasCustomerId      String
-  asaasSubscriptionId  String?
-  dicasNovidades       Boolean?               @default(false)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  Produto              Produto[]
-  Clientes             ClientesFornecedores[]
-  Vendas               Vendas[]
-  MovimentacoesEstoque MovimentacoesEstoque[]
-  Usuarios             Usuarios[]
-  FaturasContas        FaturasContas[]
-  ContasFinanceiro     ContasFinanceiro[]
-  CategoriaFinanceiro  CategoriaFinanceiro[]
-  LancamentoFinanceiro LancamentoFinanceiro[]
-  Servicos             Servicos[]
-  OrdensServico        OrdensServico[]
-  ParametrosConta      ParametrosConta[]
-  CobrancasFinanceiras CobrancasFinanceiras[]
+  id                       Int                    @id @default(autoincrement())
+  nome                     String
+  valor                    Decimal                @db.Decimal(10, 2)
+  data                     DateTime
+  profile                  String?                @default("imgs/logo.png")
+  status                   Status                 @default(ATIVO)
+  vencimento               DateTime               @default(now())
+  tipo                     String?
+  documento                String?
+  ie                       String?
+  im                       String?
+  regimeTributario         Int                    @default(0)
+  regimeTributarioEspecial Int                    @default(0)
+  ambiente                 String                 @default("homologacao")
+  certificadoPath          String?
+  chaveAcesso              String?
+  funcionarios             Int                    @default(0)
+  categoria                String?
+  gateway                  GatewayConta           @default(mercadopago)
+  email                    String
+  telefone                 String?
+  endereco                 String?
+  nomeFantasia             String?
+  cep                      String?
+  emailAvisos              String?
+  asaasCustomerId          String
+  asaasSubscriptionId      String?
+  dicasNovidades           Boolean?               @default(false)
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  Produto                  Produto[]
+  Clientes                 ClientesFornecedores[]
+  Vendas                   Vendas[]
+  MovimentacoesEstoque     MovimentacoesEstoque[]
+  Usuarios                 Usuarios[]
+  FaturasContas            FaturasContas[]
+  ContasFinanceiro         ContasFinanceiro[]
+  CategoriaFinanceiro      CategoriaFinanceiro[]
+  LancamentoFinanceiro     LancamentoFinanceiro[]
+  Servicos                 Servicos[]
+  OrdensServico            OrdensServico[]
+  ParametrosConta          ParametrosConta[]
+  CobrancasFinanceiras     CobrancasFinanceiras[]
 }
 
 model ParametrosConta {
@@ -152,6 +159,11 @@ model ClientesFornecedores {
   status               Status                 @default(ATIVO)
   documento            String?
   endereco             String?
+  ie                   String?
+  im                   String?
+  municipio            String?
+  bairro               String?
+  numero               String?
   cep                  String?
   cidade               String?
   estado               String?
@@ -167,6 +179,7 @@ model ClientesFornecedores {
   MovimentacoesEstoque MovimentacoesEstoque[]
   LancamentoFinanceiro LancamentoFinanceiro[]
   Assinatura           Assinatura[]
+  NotaFiscal           NotaFiscal[]
 }
 
 enum TipoMovimentacao {
@@ -219,6 +232,16 @@ model Produto {
   estoque              Int
   minimo               Int
   codigo               String?
+  ncm                  String?
+  cest                 String?
+  cfop                 String?
+  origem               Int?
+  aliquotaIcms         Decimal?               @db.Decimal(5, 2)
+  aliquotaIpi          Decimal?               @db.Decimal(5, 2)
+  aliquotaPis          Decimal?               @db.Decimal(5, 2)
+  aliquotaCofins       Decimal?               @db.Decimal(5, 2)
+  codigoProduto        String?
+  issAliquota          Decimal?               @db.Decimal(5, 2)
   ItensVendas          ItensVendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   ItensOrdensServico   ItensOrdensServico[]
@@ -233,10 +256,33 @@ model Servicos {
   preco              Decimal              @db.Decimal(10, 2)
   status             Boolean              @default(true)
   descricao          String?
+  ncm                String?
+  cest               String?
+  cfop               String?
+  origem             Int?
+  aliquotaIcms       Decimal?             @db.Decimal(5, 2)
+  aliquotaIpi        Decimal?             @db.Decimal(5, 2)
+  aliquotaPis        Decimal?             @db.Decimal(5, 2)
+  aliquotaCofins     Decimal?             @db.Decimal(5, 2)
+  codigoProduto      String?
+  issAliquota        Decimal?             @db.Decimal(5, 2)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   Assinatura         Assinatura[]
   ItensOrdensServico ItensOrdensServico[]
+}
+
+model NotaFiscal {
+  id          Int                  @id @default(autoincrement())
+  tipo        String // "NFE", "NFSE", "NFCE"
+  clienteId   Int
+  Cliente     ClientesFornecedores @relation(fields: [clienteId], references: [id])
+  valorTotal  Decimal              @db.Decimal(10, 2)
+  chaveAcesso String? // retornado pela TecnoSpeed
+  protocolo   String? // retornado pela TecnoSpeed
+  status      String // "PENDENTE", "AUTORIZADA", "REJEITADA"
+  xmlPath     String?
+  criadoEm    DateTime             @default(now())
 }
 
 enum StatusOrdemServico {
