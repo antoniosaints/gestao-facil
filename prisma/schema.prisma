@@ -135,6 +135,7 @@ model Usuarios {
   Subscription                    Subscription[]
   Vendas                          Vendas[]
   MensagensInteracoesOrdemServico MensagensInteracoesOrdemServico[]
+  OrdensServico                   OrdensServico[]
 }
 
 enum PermissaoUsuario {
@@ -180,6 +181,7 @@ model ClientesFornecedores {
   LancamentoFinanceiro LancamentoFinanceiro[]
   Assinatura           Assinatura[]
   NotaFiscal           NotaFiscal[]
+  OrdensServico        OrdensServico[]
 }
 
 enum TipoMovimentacao {
@@ -222,6 +224,7 @@ model Produto {
   Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   Uid                  String                 @default("PRO_000")
   status               Status                 @default(ATIVO)
+  categoria            String?
   nome                 String
   descricao            String?
   preco                Decimal                @db.Decimal(10, 2)
@@ -303,6 +306,10 @@ model OrdensServico {
   descricaoCliente                String?
   status                          StatusOrdemServico                @default(ABERTA)
   garantia                        String
+  clienteId                       Int
+  Cliente                         ClientesFornecedores              @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  operadorId                      Int
+  Operador                        Usuarios                          @relation(fields: [operadorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   desconto                        Decimal                           @default(0) @db.Decimal(10, 2)
   data                            DateTime                          @default(now())
   createdAt                       DateTime                          @default(now())
