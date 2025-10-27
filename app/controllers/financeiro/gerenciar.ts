@@ -12,6 +12,28 @@ import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 
+export const updateParcela = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    if (!id || isNaN(Number(id))) return res.status(400).json({ message: "Informe o id da parcela!" });
+    if (!req.body) return res.status(400).json({ message: "Informe os dados a serem atualizados (vencimento, valor)!" });
+    const dataValida = dayjs(req.body.vencimento).isValid();
+    if (!dataValida) return res.status(400).json({ message: "Data inválida, informe uma data válida!" });
+    const parcela = await prisma.parcelaFinanceiro.update({
+      where: {
+        id: Number(id),
+      },
+      data: {
+        valor: new Decimal(req.body.valor),
+        vencimento: new Date(req.body.vencimento),
+      },
+    });
+    return ResponseHandler(res, "Parcela atualizada", parcela);
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
 export const getLancamentosMensal = async (
   req: Request,
   res: Response
