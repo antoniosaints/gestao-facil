@@ -30,13 +30,14 @@ export const tableFinanceiro = async (
       { descricao: { contains: search } },
       { Uid: { contains: search } },
       { venda: { Uid: { contains: search } } },
+      { categoria: { nome: { contains: search } } },
     ];
   }
 
   const total = await prisma.lancamentoFinanceiro.count({ where });
   const data = await prisma.lancamentoFinanceiro.findMany({
     where,
-    include: { parcelas: true },
+    include: { parcelas: true, categoria: true },
     orderBy: { [sortBy]: order },
     skip: (page - 1) * pageSize,
     take: pageSize,

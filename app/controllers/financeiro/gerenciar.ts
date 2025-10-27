@@ -113,6 +113,8 @@ export const getLacamento = async (
         contaId: customData.contaId,
       },
       include: {
+        categoria: true,
+        cliente: true,
         parcelas: {
           include: {
             CobrancasFinanceiras: true
