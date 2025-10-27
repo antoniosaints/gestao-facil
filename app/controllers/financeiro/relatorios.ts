@@ -1066,22 +1066,41 @@ export const getLancamentosPorStatus = async (
         }
       : {};
 
-  const status = await prisma.lancamentoFinanceiro.groupBy({
-    by: ["status"],
+  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
     where: { contaId: customData.contaId, ...dataFilter },
-    _count: { _all: true },
-    _sum: { valorTotal: true },
+    include: { parcelas: true },
   });
 
-  status.map(
-    (s) => (s._sum.valorTotal = formatCurrency(s._sum.valorTotal) as any)
-  );
+  const receitas = lancamentos.filter((l) => l.tipo === "RECEITA");
+  const despesas = lancamentos.filter((l) => l.tipo === "DESPESA");
 
-  const pendente =
-    status.find((s) => s.status === "PENDENTE")?._sum.valorTotal || 0;
-  const pago = status.find((s) => s.status === "PAGO")?._sum.valorTotal || 0;
+  const totalPendenteReceitas = receitas
+    .flatMap((l) =>
+      l.parcelas.filter((p) => !p.pago).map((p) => p.valor as Decimal)
+    )
+    .reduce((total, valor) => total.plus(valor), new Decimal(0));
 
-  res.json({ pendente, pago });
+  const totalPendenteDespesas = despesas
+    .flatMap((l) =>
+      l.parcelas.filter((p) => !p.pago).map((p) => p.valor as Decimal)
+    )
+    .reduce((total, valor) => total.plus(valor), new Decimal(0));
+  const totalPagoReceitas = receitas
+    .flatMap((l) =>
+      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
+    )
+    .reduce((total, valor) => total.plus(valor), new Decimal(0));
+
+  const totalPagoDespesas = despesas
+    .flatMap((l) =>
+      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
+    )
+    .reduce((total, valor) => total.plus(valor), new Decimal(0));
+
+  const pendente = totalPendenteDespesas.plus(totalPendenteReceitas);
+  const pago = totalPagoDespesas.plus(totalPagoReceitas);
+
+  res.json({ pendente: pendente, pago: pago });
 };
 export const getLancamentosPorPagamento = async (
   req: Request,
@@ -1185,11 +1204,15 @@ export const getLancamentosTotaisGerais = async (
   const despesas = lancamentos.filter((l) => l.tipo === "DESPESA");
 
   const totalReceitas = receitas
-    .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal))
+    .flatMap((l) =>
+      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
+    )
     .reduce((total, valor) => total.plus(valor), new Decimal(0));
 
   const totalDespesas = despesas
-    .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal))
+    .flatMap((l) =>
+      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
+    )
     .reduce((total, valor) => total.plus(valor), new Decimal(0));
 
   res.json({
