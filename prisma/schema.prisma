@@ -477,14 +477,15 @@ model PagamentoVendas {
 }
 
 model ContasFinanceiro {
-  id           Int                    @id @default(autoincrement())
-  contaId      Int
-  Contas       Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid          String                 @default("CON_000")
-  nome         String
-  saldoInicial Decimal                @default(0)
-  lancamentos  LancamentoFinanceiro[]
-  createdAt    DateTime               @default(now())
+  id                Int                    @id @default(autoincrement())
+  contaId           Int
+  Contas            Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid               String                 @default("CON_000")
+  nome              String
+  saldoInicial      Decimal                @default(0)
+  lancamentos       LancamentoFinanceiro[]
+  createdAt         DateTime               @default(now())
+  ParcelaFinanceiro ParcelaFinanceiro[]
 }
 
 model CategoriaFinanceiro {
@@ -551,6 +552,9 @@ model LancamentoFinanceiro {
 
 model ParcelaFinanceiro {
   id                   Int                    @id @default(autoincrement())
+  descricao            String?
+  contaFinanceira      Int?
+  ContaFinanceira      ContasFinanceiro?      @relation(fields: [contaFinanceira], references: [id], onDelete: Restrict, onUpdate: Cascade)
   numero               Int
   Uid                  String                 @default("PAR_000")
   valor                Decimal

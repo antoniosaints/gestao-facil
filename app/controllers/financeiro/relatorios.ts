@@ -1022,7 +1022,11 @@ export const getLancamentosPorConta = async (
   const contas = await prisma.contasFinanceiro.findMany({
     where: { contaId: customData.contaId },
     include: {
-      lancamentos: true,
+      lancamentos: {
+        include: {
+          parcelas: true,
+        },
+      },
     },
   });
 
@@ -1030,21 +1034,45 @@ export const getLancamentosPorConta = async (
     const receitas = conta.lancamentos.filter((l) => l.tipo === "RECEITA");
     const despesas = conta.lancamentos.filter((l) => l.tipo === "DESPESA");
 
-    const totalReceitas = receitas.reduce(
-      (s, l) => s.plus(l.valorTotal),
-      new Decimal(0)
-    );
-    const totalDespesas = despesas.reduce(
-      (s, l) => s.plus(l.valorTotal),
-      new Decimal(0)
-    );
+    const totalReceitas = receitas
+      .flatMap((l) => l.parcelas.map((p) => p.valorPago))
+      .reduce(
+        (total, valor) =>
+          (total || new Decimal(0)).plus(valor || new Decimal(0)),
+        new Decimal(0)
+      );
+    const totalReceitasPago = receitas
+      .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago))
+      .reduce(
+        (total, valor) =>
+          (total || new Decimal(0)).plus(valor || new Decimal(0)),
+        new Decimal(0)
+      );
+    const totalDespesas = despesas
+      .flatMap((l) => l.parcelas.map((p) => p.valorPago))
+      .reduce(
+        (total, valor) =>
+          (total || new Decimal(0)).plus(valor || new Decimal(0)),
+        new Decimal(0)
+      );
+    const totalDespesasPago = despesas
+      .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago))
+      .reduce(
+        (total, valor) =>
+          (total || new Decimal(0)).plus(valor || new Decimal(0)),
+        new Decimal(0)
+      );
 
     return {
       conta: conta.nome,
       saldoInicial: conta.saldoInicial,
+      receitasPago: totalReceitasPago,
+      despesasPago: totalDespesasPago,
       receitas: totalReceitas,
       despesas: totalDespesas,
-      saldoAtual: conta.saldoInicial.plus(totalReceitas).minus(totalDespesas),
+      saldoAtual: conta.saldoInicial
+        .plus(totalReceitasPago || new Decimal(0))
+        .minus(totalDespesasPago || new Decimal(0)),
     };
   });
 
