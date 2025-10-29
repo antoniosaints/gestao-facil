@@ -16,9 +16,9 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
         items: [
           {
             id: randomUUID(),
-            title: `Mensalidade Gestao Fácil - ERP`,
+            title: `${conta.nome} - Mensalidade Gestão Fácil - ERP`,
             quantity: 1,
-            unit_price: 70,
+            unit_price: conta.valor.toNumber() || 89.9,
           },
         ],
         payer: {

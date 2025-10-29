@@ -65,6 +65,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
           permissao: "root",
           status: "ATIVO",
           contaId: created.id,
+          telefone,
         },
       });
 

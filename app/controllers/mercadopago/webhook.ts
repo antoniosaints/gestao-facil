@@ -9,7 +9,6 @@ import {
 import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
-import { getIO } from "../../utils/socket";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
@@ -21,7 +20,6 @@ export async function getPaymentMercadoPago(req: Request, res: Response) {
     res.status(500).json({ error: err.message });
   }
 }
-
 export async function webhookMercadoPago(
   req: Request,
   res: Response
