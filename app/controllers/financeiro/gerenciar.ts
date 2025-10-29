@@ -200,7 +200,7 @@ export const criarLancamento = async (
       lancamentoRecorrente = true;
     }
 
-    if (!descricao || !valorTotal || !tipo || !formaPagamento || !categoriaId) {
+    if (!descricao || !valorTotal || !tipo || !formaPagamento || !categoriaId || !contasFinanceiroId) {
       return res
         .status(400)
         .json({ message: "Campos obrigatórios não preenchidos." });
@@ -275,6 +275,7 @@ export const criarLancamento = async (
             dataPagamento: addHours(new Date(dataEntrada), 3),
             formaPagamento,
             lancamentoId: novoLancamento.id,
+            contaFinanceira: Number(contasFinanceiroId) || null
           },
         });
       }
@@ -295,6 +296,7 @@ export const criarLancamento = async (
           dataPagamento: hasEfetivadoTotal ? addHours(vencimento, 3) : null,
           vencimento: addHours(vencimento, 3),
           lancamentoId: novoLancamento.id,
+          contaFinanceira: Number(contasFinanceiroId) || null
         });
       }
 
@@ -332,7 +334,7 @@ export const pagarParcela = async (
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   if (!req.body) return res.status(400).json({ message: "Dados obrigatorio!" });
-  if (!req.body.metodoPagamento || !req.body.dataPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento)!" });
+  if (!req.body.metodoPagamento || !req.body.dataPagamento || !req.body.contaPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento, contaPagamento)!" });
   try {
     const parcela = await prisma.parcelaFinanceiro.findUnique({
       where: { id: parcelaId, lancamento: { contaId: customData.contaId } },
@@ -353,6 +355,7 @@ export const pagarParcela = async (
         valorPago: parcela.valor,
         formaPagamento: req.body.metodoPagamento,
         dataPagamento: new Date(req.body.dataPagamento),
+        contaFinanceira: req.body.contaPagamento,
       },
     });
 
@@ -420,6 +423,7 @@ export const estornarParcela = async (
         formaPagamento: null,
         valorPago: null,
         dataPagamento: null,
+        contaFinanceira: null,
       },
     });
 
