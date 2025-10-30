@@ -4,6 +4,7 @@ import { deleteServico, getServico, getServicos, mobileServico, saveServico, tab
 import { select2Servicos } from "../../controllers/servicos/hooks";
 import { buscarOrdem, buscarOrdens, deleteOrdemServico, saveOrdemServico } from "../../controllers/servicos/ordens";
 import { ListagemMobileOrdens, tableOrdensServico } from "../../controllers/servicos/table_ordens";
+import { gerarPdfOS } from "../../controllers/servicos/ordens_relatorios";
 
 const routerServicos = Router();
 
@@ -17,6 +18,7 @@ routerServicos.get("/ordens", authenticateJWT, buscarOrdens);
 routerServicos.post("/ordens", authenticateJWT, saveOrdemServico);
 routerServicos.delete("/ordens/:id", authenticateJWT, deleteOrdemServico);
 routerServicos.get("/ordens/:id", authenticateJWT, buscarOrdem);
+routerServicos.get("/ordens/relatorio/:id", authenticateJWT, gerarPdfOS);
 //Tabela e Mobile
 routerServicos.get("/lista/tabela", authenticateJWT, tableServico);
 routerServicos.get("/lista/mobile", authenticateJWT, mobileServico);
