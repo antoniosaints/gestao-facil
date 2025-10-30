@@ -153,7 +153,7 @@ export const deletarCobranca = async (req: Request, res: Response): Promise<any>
       where: { id: Number(id), contaId: customData.contaId },
     });
     if (!cobranca) return res.status(400).json({ message: "Cobranca nao encontrada." });
-    if (cobranca.status !== "CANCELADO") return res.status(400).json({ message: "A Cobrança só pode ser deletada no status (CANCELADO)." });
+    if (!["CANCELADO", "ESTORNADO"].includes(cobranca.status)) return res.status(400).json({ message: "A Cobrança só pode ser deletada no status (CANCELADO, ESTORNADO)." });
     await prisma.cobrancasFinanceiras.delete({ where: { id: cobranca.id, contaId: customData.contaId } });
     return res.status(200).json({ message: "Cobranca deletada com sucesso." });
   } catch (error: any) {
