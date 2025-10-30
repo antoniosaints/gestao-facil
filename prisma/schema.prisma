@@ -205,6 +205,8 @@ model MovimentacoesEstoque {
   tipo              TipoMovimentacao      @default(ENTRADA)
   vendaId           Int?
   Vendas            Vendas?               @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  ordemId           Int?
+  OrdensServico     OrdensServico?        @relation(fields: [ordemId], references: [id], onDelete: Cascade)
   data              DateTime              @default(now())
   notaFiscal        String?
   frete             Decimal?              @db.Decimal(10, 2)
@@ -317,6 +319,7 @@ model OrdensServico {
   ItensOrdensServico              ItensOrdensServico[]
   CobrancasFinanceiras            CobrancasFinanceiras[]
   MensagensInteracoesOrdemServico MensagensInteracoesOrdemServico[]
+  MovimentacoesEstoque            MovimentacoesEstoque[]
 }
 
 enum TipoMensagemOrdemServico {
