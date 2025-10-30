@@ -58,11 +58,13 @@ export const saveServico = async (
 };
 export const getServico = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { id } = req.params;
+    if (!req.params.id || isNaN(Number(req.params.id))) {
+      return ResponseHandler(res, "Id nao encontrado", null, 404);
+    }
     const customData = getCustomRequest(req).customData;
     const servico = await prisma.servicos.findFirst({
       where: {
-        id: Number(id),
+        id: Number(req.params.id),
         contaId: customData.contaId,
       },
     });

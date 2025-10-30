@@ -185,7 +185,6 @@ export const saveOrdemServico = async (
           tipo: "ABERTURA",
         },
       });
-      console.log(data.itens);
       for (const item of data.itens) {
         if (item.tipo === "PRODUTO") {
           const produto = await tx.produto.findUniqueOrThrow({
@@ -332,7 +331,46 @@ export const deleteOrdemServico = async (
     });
     return ResponseHandler(res, "OS excluida com sucesso", resultado);
   } catch (err: any) {
-    console.log(err);
+    handleError(res, err);
+  }
+};
+export const buscarOrdens = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const resultado = await prisma.ordensServico.findMany({
+      where: {
+        contaId: customData.contaId,
+      },
+    })
+    return ResponseHandler(res, "Ordens encontradas", resultado);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+export const buscarOrdem = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    if (!req.params.id || isNaN(Number(req.params.id))) {
+        throw new Error("Id nao encontrado");
+    }
+    const id = Number(req.params.id);
+    const resultado = await prisma.ordensServico.findFirstOrThrow({
+      where: {
+        contaId: customData.contaId,
+        id
+      },
+      include: {
+        ItensOrdensServico: true
+      }
+    })
+    return ResponseHandler(res, "Ordem encontrada", resultado);
+  } catch (err: any) {
     handleError(res, err);
   }
 };
