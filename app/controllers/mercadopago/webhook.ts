@@ -10,6 +10,7 @@ import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
+import { sendUpdateTable } from "../../hooks/vendas/socket";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -199,6 +200,10 @@ export async function webhookMercadoPagoCobrancas(
           },
         },
       });
+
+      await sendUpdateTable(cobranca.contaId, {
+        message: `A venda ${venda.Uid} foi efetivada`
+      })
     }
 
     res.sendStatus(200);
