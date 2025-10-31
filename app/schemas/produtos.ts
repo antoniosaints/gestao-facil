@@ -79,6 +79,24 @@ export const ProdutoSchema = z.object({
     required_error: "saidas é obrigatório",
     invalid_type_error: "saidas deve ser um booleano",
   }),
+  producaoLocal: z
+    .boolean({
+      invalid_type_error: "produção local deve ser um booleano",
+    })
+    .default(false)
+    .optional(),
+  custoMedioProducao: z
+    .number({
+      invalid_type_error: "custoMedioProducao deve ser um número",
+    })
+    .default(0)
+    .optional(),
+  controlaEstoque: z
+    .boolean({
+      invalid_type_error: "controlaEstoque deve ser um booleano",
+    })
+    .default(true)
+    .optional(),
 });
 export const ReposicaoEstoqueSchema = z.object({
   produtoId: z.number({

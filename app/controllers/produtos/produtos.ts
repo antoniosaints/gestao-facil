@@ -137,6 +137,9 @@ export const saveProduto = async (
           preco: data.preco,
           entradas: data.entradas,
           saidas: data.saidas,
+          controlaEstoque: data.controlaEstoque,
+          producaoLocal: data.producaoLocal,
+          custoMedioProducao: data.custoMedioProducao,
         },
       });
 
@@ -162,6 +165,9 @@ export const saveProduto = async (
           minimo: data.minimo,
           entradas: data.entradas,
           saidas: data.saidas,
+          controlaEstoque: data.controlaEstoque,
+          producaoLocal: data.producaoLocal,
+          custoMedioProducao: data.custoMedioProducao,
         },
       });
       await enqueuePushNotification(

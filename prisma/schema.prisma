@@ -247,6 +247,9 @@ model Produto {
   aliquotaCofins       Decimal?               @db.Decimal(5, 2)
   codigoProduto        String?
   issAliquota          Decimal?               @db.Decimal(5, 2)
+  controlaEstoque      Boolean?               @default(false)
+  producaoLocal        Boolean?               @default(false)
+  custoMedioProducao   Decimal?               @db.Decimal(10, 2)
   ItensVendas          ItensVendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   ItensOrdensServico   ItensOrdensServico[]
