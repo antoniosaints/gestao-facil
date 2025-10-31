@@ -68,4 +68,4 @@ app.post("/send-notification", authenticateJWT, sendNotification);
 
 initSocket(server);
 
-server.listen(3000, () => console.log("Rodando na porta 3000"));
+server.listen(env.PORT, () => console.log(`Servidor rodando na porta ${env.PORT}`));

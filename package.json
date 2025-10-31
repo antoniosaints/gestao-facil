@@ -9,7 +9,9 @@
     "notification:dev": "tsx app/workers/pushNotificationWorker.ts",
     "start": "node dist/server.js",
     "email": "node dist/workers/sendEmailWorker.js",
-    "notification": "node dist/workers/pushNotificationWorker.js"
+    "notification": "node dist/workers/pushNotificationWorker.js",
+    "initialize": "npx prisma migrate dev",
+    "seed": "npx prisma db seed"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
