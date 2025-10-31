@@ -18,6 +18,7 @@ export async function gerarPdfOS(req: Request, res: Response): Promise<any> {
     include: {
       Cliente: true,
       Contas: true,
+      Operador: true,
       ItensOrdensServico: true,
     },
   });
@@ -31,20 +32,9 @@ export async function gerarPdfOS(req: Request, res: Response): Promise<any> {
 
   await gerarPdfOrdemServico(
     {
-      Cliente: {
-        nome: "Antonio",
-      },
-      Contas: {
-        nomeFantasia: conta.nome,
-      },
-      data: new Date(),
-      desconto: ordem.desconto,
-      descricao: ordem.descricao,
-      descricaoCliente: ordem.descricaoCliente,
-      id: ordem.id,
-      ItensOrdensServico: ordem.ItensOrdensServico,
-      Uid: ordem.Uid,
-      logoPath: conta?.profile as string, // opcional
+      Cliente: ordem.Cliente,
+      Empresa: conta,
+      Ordem: ordem
     },
     res
   );

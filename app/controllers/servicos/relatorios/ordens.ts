@@ -1,27 +1,12 @@
 import PDFDocument from "pdfkit";
 import { Response } from "express";
-import Decimal from "decimal.js";
 import fs from "fs";
-
-interface Item {
-  itemName: string;
-  tipo: "SERVICO" | "PRODUTO";
-  quantidade: number;
-  valor: Decimal;
-}
+import { ClientesFornecedores, Contas, ItensOrdensServico, OrdensServico, Usuarios } from "../../../../generated";
 
 interface OrdemServicoData {
-  id: number;
-  Uid: string;
-  data: Date;
-  descricao: string | null;
-  descricaoCliente: string | null;
-  Cliente: { nome: string };
-  Contas: { nomeFantasia: string };
-  ItensOrdensServico: Item[];
-  desconto: Decimal;
-  total?: Decimal;
-  logoPath?: string; // Caminho da logo local
+  Cliente: ClientesFornecedores;
+  Empresa: Contas;
+  Ordem: OrdensServico & { ItensOrdensServico: ItensOrdensServico[], Operador: Usuarios };
 }
 
 export async function gerarPdfOrdemServico(
@@ -34,7 +19,7 @@ export async function gerarPdfOrdemServico(
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `inline; filename=${ordem.Uid || "ordem-servico"}.pdf`
+    `inline; filename=${ordem.Ordem.Uid || "ordem-servico"}.pdf`
   );
   doc.pipe(res);
 
@@ -42,10 +27,10 @@ export async function gerarPdfOrdemServico(
   doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
   // Cabeçalho com logo e título
-  if (ordem.logoPath) {
-    const fileExists = fs.existsSync(`./public/${ordem.logoPath}`);
+  if (ordem.Empresa.profile) {
+    const fileExists = fs.existsSync(`./public/${ordem.Empresa.profile}`);
     doc.image(
-      fileExists ? `./public/${ordem.logoPath}` : "./public/imgs/logo.png",
+      fileExists ? `./public/${ordem.Empresa.profile}` : "./public/imgs/logo.png",
       50,
       40,
       { width: 80 }
@@ -55,26 +40,26 @@ export async function gerarPdfOrdemServico(
   doc
     .fontSize(12)
     .font("Roboto")
-    .text(`Número: ${ordem.Uid}`, 150, 75)
-    .text(`Data: ${new Date(ordem.data).toLocaleDateString("pt-BR")}`, 150, 90);
+    .text(`ID da OS: ${ordem.Ordem.Uid}`, 150, 75)
+    .text(`Data: ${new Date(ordem.Ordem.data).toLocaleDateString("pt-BR")}`, 150, 90);
 
   // Linha divisória
   doc.moveTo(50, 120).lineTo(550, 120).strokeColor("#888").stroke();
 
   // Informações principais
   doc.moveDown().fontSize(12);
-  doc.text(`Empresa: ${ordem.Contas.nomeFantasia}`, 50, 140);
-  doc.text(`Cliente: ${ordem.Cliente.nome}`, 50, 160);
-  if (ordem.descricaoCliente)
-    doc.text(`Descrição (cliente): ${ordem.descricaoCliente}`, 50, 180, {
+  doc.text(`Empresa: ${ordem.Empresa.nome} - ${ordem.Empresa.documento || 'Sem documento'}`, 50, 140);
+  doc.text(`Cliente: ${ordem.Cliente.nome} - ${ordem.Cliente.documento || 'Sem documento'}`, 50, 160);
+  if (ordem.Ordem.descricaoCliente)
+    doc.text(`Descrição (cliente): ${ordem.Ordem.descricaoCliente}`, 50, 180, {
       width: 500,
     });
 
   // Seção descrição técnica
-  if (ordem.descricao) {
+  if (ordem.Ordem.descricao) {
     doc.moveDown();
     doc.font("Roboto-Bold").text("Descrição Técnica:", 50, 220);
-    doc.font("Roboto").text(ordem.descricao, { width: 500 });
+    doc.font("Roboto").text(ordem.Ordem.descricao, { width: 500 });
   }
 
   const eixosX = [50, 260, 320, 390, 490];
@@ -97,7 +82,7 @@ export async function gerarPdfOrdemServico(
   let totalGeral = 0;
   doc.font("Roboto").fontSize(11);
 
-  ordem.ItensOrdensServico.forEach((item, i) => {
+  ordem.Ordem.ItensOrdensServico.forEach((item, i) => {
     const y = tableTop + 10 + i * 20;
     const total = Number(item.quantidade) * Number(item.valor);
     totalGeral += total;
@@ -119,34 +104,60 @@ export async function gerarPdfOrdemServico(
       });
   });
 
-  const yFinal = tableTop + 10 + ordem.ItensOrdensServico.length * 20 + 20;
+  const yFinal = tableTop + 10 + ordem.Ordem.ItensOrdensServico.length * 20 + 20;
   doc.moveTo(50, yFinal).lineTo(550, yFinal).strokeColor("#000").stroke();
 
   // Resumo financeiro
-  const desconto = Number(ordem.desconto);
+  const desconto = Number(ordem.Ordem.desconto);
   const valorFinal = totalGeral - desconto;
 
   doc.font("Roboto-Bold").text("Resumo Financeiro", 50, yFinal + 20);
   doc
     .font("Roboto")
-    .text(`Subtotal: R$ ${totalGeral.toFixed(2)}`, 400, yFinal + 40, {
+    .text(`Subtotal: R$ ${totalGeral.toFixed(2)}`, 400, yFinal + 20, {
       align: "right",
     });
-  doc.text(`Desconto: R$ ${desconto.toFixed(2)}`, 400, yFinal + 60, {
+  doc.text(`Desconto: R$ ${desconto.toFixed(2)}`, 400, yFinal + 40, {
     align: "right",
   });
   doc
     .font("Roboto-Bold")
     .fontSize(13)
-    .text(`Total: R$ ${valorFinal.toFixed(2)}`, 400, yFinal + 85, {
+    .text(`Total: R$ ${valorFinal.toFixed(2)}`, 400, yFinal + 65, {
       align: "right",
     });
 
+  // === Linhas de assinatura ===
+  const assinaturaY = yFinal + 180;
+
+  doc.moveTo(80, assinaturaY).lineTo(250, assinaturaY).strokeColor("#000").stroke();
+  doc
+    .fontSize(10)
+    .text("Assinatura do Cliente", 80, assinaturaY + 5, { width: 170, align: "center" });
+
+  doc.moveTo(330, assinaturaY).lineTo(500, assinaturaY).strokeColor("#000").stroke();
+  doc
+    .fontSize(10)
+    .text("Assinatura do Técnico", 330, assinaturaY + 5, { width: 170, align: "center" });
+
+  // Nomes abaixo das linhas
+  doc
+    .fontSize(9)
+    .fillColor("#555")
+    .text(`${ordem.Cliente.nome}`, 80, assinaturaY + 25, { width: 170, align: "center" });
+
+  doc
+    .fontSize(9)
+    .fillColor("#555")
+    .text(`${ordem.Ordem.Operador?.nome || "Técnico Responsável"}`, 330, assinaturaY + 25, {
+      width: 170,
+      align: "center",
+    });
   // Rodapé
   doc
     .fontSize(9)
     .fillColor("#666")
-    .text("Documento gerado automaticamente. não tem valor fiscal.", 50, 780, {
+    .text("Documento gerado automaticamente via sistema Gestão Fácil - gestaofacil.userp.com.br.", 50, 780, {
       align: "center",
       width: 500,
     });
