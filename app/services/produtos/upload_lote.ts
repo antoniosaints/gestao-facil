@@ -46,16 +46,19 @@ export async function importarProdutos(
   return new Promise((resolve, reject) => {
     const resultados: ProdutoCSV[] = [];
     const erros: ImportResult["erros"] = [];
-    const produtosValidos: Omit<Produto, "id">[] = [];
 
     fs.createReadStream(arquivoPath)
       .pipe(csvParser({ separator: ";" }))
       .on("data", (row: ProdutoCSV) => resultados.push(row))
       .on("end", async () => {
         try {
+          // 🔍 Validação completa antes de qualquer tentativa de insert
+          const produtosValidos: Omit<Produto, "id">[] = [];
+
           resultados.forEach((produto, index) => {
             const linha = index + 2;
 
+            // Validação básica
             if (
               !produto.nome ||
               !produto.preco ||
@@ -64,8 +67,28 @@ export async function importarProdutos(
             ) {
               erros.push({
                 linha,
-                erro: "Campos obrigatórios ausentes: nome, preco, estoque, minimo",
+                erro:
+                  "Campos obrigatórios ausentes: nome, preco, estoque, minimo",
               });
+              return;
+            }
+
+            const preco = parseFloat(produto.preco);
+            const estoque = parseInt(produto.estoque);
+            const minimo = parseInt(produto.minimo);
+
+            if (isNaN(preco) || preco < 0) {
+              erros.push({ linha, erro: "Preço inválido" });
+              return;
+            }
+
+            if (isNaN(estoque) || estoque < 0) {
+              erros.push({ linha, erro: "Estoque inválido" });
+              return;
+            }
+
+            if (isNaN(minimo) || minimo < 0) {
+              erros.push({ linha, erro: "Mínimo inválido" });
               return;
             }
 
@@ -74,7 +97,7 @@ export async function importarProdutos(
               Uid: gerarIdUnicoComMetaFinal("PRO"),
               nome: produto.nome.trim(),
               descricao: produto.descricao?.trim() || null,
-              preco: new Decimal(parseFloat(produto.preco)),
+              preco: new Decimal(preco),
               precoCompra: produto.precoCompra
                 ? new Decimal(parseFloat(produto.precoCompra))
                 : null,
@@ -89,53 +112,70 @@ export async function importarProdutos(
                   ? ["sim", "true", "1"].includes(produto.saidas.toLowerCase())
                   : true,
               unidade: produto.unidade?.trim() || null,
-              estoque: parseInt(produto.estoque),
-              minimo: parseInt(produto.minimo),
+              estoque,
+              minimo,
               codigo: produto.codigo?.trim() || null,
               status: "ATIVO",
+              aliquotaCofins: null,
+              aliquotaIcms: null,
+              aliquotaIpi: null,
+              aliquotaPis: null,
+              categoria: null,
+              cest: null,
+              cfop: null,
+              codigoProduto: null,
+              ncm: null,
+              origem: null,
+              issAliquota: null,
+              producaoLocal: false,
+              controlaEstoque: false,
+              custoMedioProducao: null,
             });
           });
 
           fs.unlinkSync(arquivoPath);
 
-          if (produtosValidos.length > 0) {
-            // 🔎 elimina duplicados por "codigo"
-            const codigosUnicos = new Set<string>();
-            const semDuplicados = produtosValidos.filter((p) => {
-              if (!p.codigo) return true; // se não tem código, deixa passar
-              if (codigosUnicos.has(p.codigo)) return false;
-              codigosUnicos.add(p.codigo);
-              return true;
-            });
-
-            // 🔎 checa quais já existem no banco
-            const codigos = semDuplicados
-              .map((p) => p.codigo)
-              .filter((c): c is string => !!c);
-
-            const existentes = await prisma.produto.findMany({
-              where: { codigo: { in: codigos }, contaId },
-              select: { codigo: true },
-            });
-
-            const codigosExistentes = new Set(existentes.map((e) => e.codigo));
-            const novos = semDuplicados.filter(
-              (p) => !p.codigo || !codigosExistentes.has(p.codigo)
-            );
-
-            if (novos.length > 0) {
-              await prisma.produto.createMany({
-                data: novos,
-                skipDuplicates: false, // ✅ agora não precisa
-              });
-            }
-
-            resolve({ inseridos: novos.length, erros });
-          } else {
+          // ❌ Se houver qualquer erro, encerra sem tentar inserir
+          if (erros.length > 0 || produtosValidos.length === 0) {
             resolve({ inseridos: 0, erros });
+            return;
           }
+
+          // 🔎 Elimina duplicados dentro do CSV (por código)
+          const codigosUnicos = new Set<string>();
+          const semDuplicados = produtosValidos.filter((p) => {
+            if (!p.codigo) return true;
+            if (codigosUnicos.has(p.codigo)) return false;
+            codigosUnicos.add(p.codigo);
+            return true;
+          });
+
+          // 🔎 Busca duplicados no banco
+          const codigos = semDuplicados
+            .map((p) => p.codigo)
+            .filter((c): c is string => !!c);
+
+          const existentes = await prisma.produto.findMany({
+            where: { codigo: { in: codigos }, contaId },
+            select: { codigo: true },
+          });
+
+          const codigosExistentes = new Set(existentes.map((e) => e.codigo));
+          const novos = semDuplicados.filter(
+            (p) => !p.codigo || !codigosExistentes.has(p.codigo)
+          );
+
+          // ✅ Só agora insere os que passaram em todas as verificações
+          if (novos.length > 0) {
+            await prisma.produto.createMany({
+              data: novos,
+              skipDuplicates: false,
+            });
+          }
+
+          resolve({ inseridos: novos.length, erros });
         } catch (error) {
-          fs.unlinkSync(arquivoPath);
+          if (fs.existsSync(arquivoPath)) fs.unlinkSync(arquivoPath);
           reject(error);
         }
       })
