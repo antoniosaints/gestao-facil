@@ -20,6 +20,7 @@ import {
 import { configOptions } from "./config/handlebars";
 import { initSocket } from "./utils/socket";
 import { env } from "./utils/dotenv";
+import { routerPrinter } from "./routers/impressao/router";
 
 const app = express();
 const server = http.createServer(app);
@@ -32,7 +33,7 @@ app.use(
     origin: "*",
   })
 );
-
+app.use("/api/printer", routerPrinter);
 // Servir arquivos estáticos (HTMX, JS, CSS, etc.)
 app.use(express.static(path.join(__dirname, "../public")));
 
