@@ -1,6 +1,7 @@
 node_modules
 .env
 dist
+app/cert/*
 package-lock.json
 generated
 public/uploads/**
