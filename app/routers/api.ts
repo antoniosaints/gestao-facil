@@ -9,9 +9,11 @@ import routerUploads from "./uploads/router";
 import { routerUsuarios } from "./administracao/usuarios/router";
 import { routerGerencia } from "./gerencia/router";
 import { routerServicos } from "./servicos/router";
+import { routerDefault } from "./default";
 
 const RouterMain = Router();
 
+RouterMain.use(routerDefault);
 RouterMain.use("/api/contas", routerContas);
 RouterMain.use("/api/produtos", routerProdutos);
 RouterMain.use("/api/servicos", routerServicos);
