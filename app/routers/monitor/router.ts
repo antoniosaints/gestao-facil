@@ -2,7 +2,6 @@ import { Router } from "express";
 import os from "os";
 import { exec } from "child_process";
 import util from "util";
-import { get } from "http";
 
 const execAsync = util.promisify(exec);
 const monitorRouter = Router();
@@ -65,7 +64,7 @@ async function getDiskUsage() {
   try {
     if (process.platform === "win32") {
       const { stdout } = await execAsync(
-        "wmic logicaldisk get size,freespace,caption"
+        "wmic logicaldisk get size,freespace,caption",
       );
       const lines = stdout.trim().split("\n").slice(1);
       const firstDisk = lines.find(Boolean);
