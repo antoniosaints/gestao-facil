@@ -15,6 +15,7 @@ import {
   infosConta,
 } from "../../controllers/contas/cadastro";
 import {
+  gerenciarLinkPublicoCliente,
     getDetalhePublico,
   getParametros,
   saveParametros,
@@ -43,6 +44,7 @@ routerContas.get("/infos", authenticateJWT, dadosConta);
 routerContas.get("/detalhes", authenticateJWT, infosConta);
 routerContas.post("/parametros", authenticateJWT, saveParametros);
 routerContas.get("/parametros", authenticateJWT, getParametros);
+routerContas.post("/parametros/linkpublico", authenticateJWT, gerenciarLinkPublicoCliente);
 
 routerContas.get("/publico/detalhes", getDetalhePublico);
 routerContas.post("/publico/salvarCliente", savePublicoCliente);
