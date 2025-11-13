@@ -5,10 +5,11 @@ import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import { updateParametrosContaSchema } from "../../schemas/contas";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 
 export const saveParametros = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
@@ -60,7 +61,7 @@ export const saveParametros = async (
 
 export const getParametros = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
@@ -77,7 +78,7 @@ export const getParametros = async (
 };
 export const getDetalhePublico = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<any> => {
   try {
     const id = req.query.id;
@@ -114,7 +115,7 @@ export const getDetalhePublico = async (
   }
 };
 
-export const savePublicoCliente = async (req: Request, res: Response): Promise<any> => {
+export const savePublicoCliente = async (req: Request, res: Response) => {
   try {
     const body = req.body;
     if (!body || !body.contaId) {
@@ -161,6 +162,15 @@ export const savePublicoCliente = async (req: Request, res: Response): Promise<a
         observacaos: body.observacao,
       },
     });
+
+    await enqueuePushNotification(
+      {
+        body: `O cliente ${cliente.nome} se cadastrou via link público`,
+        title: "Novo Cadastro via link",
+      },
+      Number(body.contaId),
+      true,
+    );
 
     return ResponseHandler(res, "Seu cadastro foi realizado com sucesso!", {
       id: cliente.Uid,
