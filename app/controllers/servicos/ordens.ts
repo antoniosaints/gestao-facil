@@ -374,3 +374,38 @@ export const buscarOrdem = async (
     handleError(res, err);
   }
 };
+export const buscarOrdemDetalhe = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    if (!req.params.id || isNaN(Number(req.params.id))) {
+        throw new Error("Id nao encontrado");
+    }
+    const id = Number(req.params.id);
+    const resultado = await prisma.ordensServico.findFirstOrThrow({
+      where: {
+        contaId: customData.contaId,
+        id
+      },
+      include: {
+        ItensOrdensServico: true,
+        Cliente: true,
+        MensagensInteracoesOrdemServico: {
+          include: {
+            Autor: {
+              select: {
+                nome: true
+              }
+            }
+          }
+        },
+        Operador: true,
+      }
+    })
+    return ResponseHandler(res, "Ordem encontrada", resultado);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
