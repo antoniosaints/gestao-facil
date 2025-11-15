@@ -30,6 +30,7 @@ export const graficoByCategoria = async (
         select: {
           tipo: true,
           valorTotal: true,
+          parcelas: true,
         },
       },
     },
@@ -42,11 +43,19 @@ export const graficoByCategoria = async (
   for (const cat of categorias) {
     const receita = cat.lancamentos
       .filter((l) => l.tipo === "RECEITA")
-      .reduce((s, l) => s + Number(l.valorTotal), 0);
+      .reduce(
+        (s, l) =>
+          s + Number(l.parcelas.reduce((ps, p) => ps + Number(p.valor), 0)),
+        0
+      );
 
     const despesa = cat.lancamentos
       .filter((l) => l.tipo === "DESPESA")
-      .reduce((s, l) => s + Number(l.valorTotal), 0);
+      .reduce(
+        (s, l) =>
+          s + Number(l.parcelas.reduce((ps, p) => ps + Number(p.valor), 0)),
+        0
+      );
 
     if (receita > 0 || despesa > 0) {
       labels.push(cat.nome);
@@ -116,8 +125,12 @@ export const graficoByContaFinanceira = async (
     );
 
   for (const row of contasFinanceiras) {
-    const receita = sumParcelas(row.lancamentos.filter((l) => l.tipo === "RECEITA"));
-    const despesa = sumParcelas(row.lancamentos.filter((l) => l.tipo === "DESPESA"));
+    const receita = sumParcelas(
+      row.lancamentos.filter((l) => l.tipo === "RECEITA")
+    );
+    const despesa = sumParcelas(
+      row.lancamentos.filter((l) => l.tipo === "DESPESA")
+    );
 
     if (receita > 0 || despesa > 0) {
       labels.push(row.nome);
@@ -176,8 +189,7 @@ export const graficoByStatus = async (
   const sumParcelas = (l: typeof lancamentos) =>
     l.reduce(
       (soma, item) =>
-        soma +
-        item.parcelas.reduce((ps, p) => ps + Number(p.valor), 0),
+        soma + item.parcelas.reduce((ps, p) => ps + Number(p.valor), 0),
       0
     );
 
@@ -230,7 +242,6 @@ export const graficoByStatus = async (
     ],
   });
 };
-
 
 export const graficoDespesasPorCategoria = async (
   req: Request,
@@ -286,10 +297,13 @@ export const graficoDespesasPorCategoria = async (
     ],
   });
 };
-export const graficoSaldoMensal = async (req: Request, res: Response): Promise<any> => {
+export const graficoSaldoMensal = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   const customData = getCustomRequest(req).customData;
 
-  if (!await hasPermission(customData, 3)) {
+  if (!(await hasPermission(customData, 3))) {
     return res.json({
       labels: [],
       datasets: [
