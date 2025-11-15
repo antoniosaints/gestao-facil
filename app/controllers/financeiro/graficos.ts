@@ -76,15 +76,14 @@ export const graficoByContaFinanceira = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-  const customData = getCustomRequest(req).customData;
+  const { contaId } = getCustomRequest(req).customData;
+
   if (!inicio || !fim) {
     return res.status(400).json({ erro: "Informe o período" });
   }
 
   const contasFinanceiras = await prisma.contasFinanceiro.findMany({
-    where: {
-      contaId: customData.contaId,
-    },
+    where: { contaId },
     include: {
       lancamentos: {
         where: {
@@ -93,9 +92,12 @@ export const graficoByContaFinanceira = async (
             lte: new Date(fim as string),
           },
         },
+        include: {
+          parcelas: true,
+        },
         select: {
           tipo: true,
-          valorTotal: true,
+          parcelas: true,
         },
       },
     },
@@ -105,14 +107,17 @@ export const graficoByContaFinanceira = async (
   const receitas: number[] = [];
   const despesas: number[] = [];
 
-  for (const row of contasFinanceiras) {
-    const receita = row.lancamentos
-      .filter((l) => l.tipo === "RECEITA")
-      .reduce((s, l) => s + Number(l.valorTotal), 0);
+  const sumParcelas = (lanc: any[]) =>
+    lanc.reduce(
+      (soma, l) =>
+        soma +
+        l.parcelas.reduce((ps: number, p: any) => ps + Number(p.valor), 0),
+      0
+    );
 
-    const despesa = row.lancamentos
-      .filter((l) => l.tipo === "DESPESA")
-      .reduce((s, l) => s + Number(l.valorTotal), 0);
+  for (const row of contasFinanceiras) {
+    const receita = sumParcelas(row.lancamentos.filter((l) => l.tipo === "RECEITA"));
+    const despesa = sumParcelas(row.lancamentos.filter((l) => l.tipo === "DESPESA"));
 
     if (receita > 0 || despesa > 0) {
       labels.push(row.nome);
@@ -143,53 +148,55 @@ export const graficoByContaFinanceira = async (
     ],
   });
 };
+
 export const graficoByStatus = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-  const customData = getCustomRequest(req).customData;
+  const { contaId } = getCustomRequest(req).customData;
+
   if (!inicio || !fim) {
     return res.status(400).json({ erro: "Informe o período" });
   }
 
   const lancamentos = await prisma.lancamentoFinanceiro.findMany({
     where: {
-      contaId: customData.contaId,
+      contaId,
       dataLancamento: {
-        gte: new Date(inicio as string) || undefined,
-        lte: new Date(fim as string) || undefined,
+        gte: new Date(inicio as string),
+        lte: new Date(fim as string),
       },
+    },
+    include: {
+      parcelas: true,
     },
   });
 
-  const pagosReceitas = lancamentos
-    .filter((l) => l.status === "PAGO" && l.tipo === "RECEITA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
-  const pagosDespesas = lancamentos
-    .filter((l) => l.status === "PAGO" && l.tipo === "DESPESA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
+  const sumParcelas = (l: typeof lancamentos) =>
+    l.reduce(
+      (soma, item) =>
+        soma +
+        item.parcelas.reduce((ps, p) => ps + Number(p.valor), 0),
+      0
+    );
 
-  const pendentesReceitas = lancamentos
-    .filter((l) => l.status === "PENDENTE" && l.tipo === "RECEITA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
-  const pendentesDespesas = lancamentos
-    .filter((l) => l.status === "PENDENTE" && l.tipo === "DESPESA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
+  const porStatusTipo = (status: string, tipo: string) =>
+    sumParcelas(
+      lancamentos.filter((l) => l.status === status && l.tipo === tipo)
+    );
 
-  const parcialReceitas = lancamentos
-    .filter((l) => l.status === "PARCIAL" && l.tipo === "RECEITA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
-  const parcialDespesas = lancamentos
-    .filter((l) => l.status === "PARCIAL" && l.tipo === "DESPESA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
+  const pagosReceitas = porStatusTipo("PAGO", "RECEITA");
+  const pagosDespesas = porStatusTipo("PAGO", "DESPESA");
 
-  const atrasadoReceitas = lancamentos
-    .filter((l) => l.status === "ATRASADO" && l.tipo === "RECEITA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
-  const atrasadoDespesas = lancamentos
-    .filter((l) => l.status === "ATRASADO" && l.tipo === "DESPESA")
-    .reduce((s, l) => s + Number(l.valorTotal), 0);
+  const pendentesReceitas = porStatusTipo("PENDENTE", "RECEITA");
+  const pendentesDespesas = porStatusTipo("PENDENTE", "DESPESA");
+
+  const parcialReceitas = porStatusTipo("PARCIAL", "RECEITA");
+  const parcialDespesas = porStatusTipo("PARCIAL", "DESPESA");
+
+  const atrasadoReceitas = porStatusTipo("ATRASADO", "RECEITA");
+  const atrasadoDespesas = porStatusTipo("ATRASADO", "DESPESA");
 
   return res.json({
     labels: ["Pagos", "Pendentes", "Parcial", "Atrasado"],
@@ -223,6 +230,7 @@ export const graficoByStatus = async (
     ],
   });
 };
+
 
 export const graficoDespesasPorCategoria = async (
   req: Request,
@@ -280,6 +288,7 @@ export const graficoDespesasPorCategoria = async (
 };
 export const graficoSaldoMensal = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
+
   if (!await hasPermission(customData, 3)) {
     return res.json({
       labels: [],
@@ -295,6 +304,7 @@ export const graficoSaldoMensal = async (req: Request, res: Response): Promise<a
       ],
     });
   }
+
   const meses = Array.from({ length: 6 }).map((_, i) => {
     const ref = subMonths(new Date(), 5 - i);
     return {
@@ -313,27 +323,37 @@ export const graficoSaldoMensal = async (req: Request, res: Response): Promise<a
   for (const mes of meses) {
     labels.push(mes.label);
 
-    const receita = await prisma.lancamentoFinanceiro.aggregate({
-      _sum: { valorTotal: true },
+    const lancamentos = await prisma.lancamentoFinanceiro.findMany({
       where: {
-        tipo: "RECEITA",
         contaId: customData.contaId,
         dataLancamento: { gte: mes.inicio, lte: mes.fim },
       },
-    });
-
-    const despesa = await prisma.lancamentoFinanceiro.aggregate({
-      _sum: { valorTotal: true },
-      where: {
-        tipo: "DESPESA",
-        contaId: customData.contaId,
-        dataLancamento: { gte: mes.inicio, lte: mes.fim },
+      include: {
+        parcelas: true,
       },
     });
 
-    const saldo = new Decimal(receita._sum.valorTotal || 0).minus(
-      despesa._sum.valorTotal || 0
-    );
+    const totalReceita = lancamentos
+      .filter((l) => l.tipo === "RECEITA")
+      .reduce((acc, l) => {
+        const somaParcelas = l.parcelas.reduce(
+          (pAcc, p) => pAcc + Number(p.valor),
+          0
+        );
+        return acc + somaParcelas;
+      }, 0);
+
+    const totalDespesa = lancamentos
+      .filter((l) => l.tipo === "DESPESA")
+      .reduce((acc, l) => {
+        const somaParcelas = l.parcelas.reduce(
+          (pAcc, p) => pAcc + Number(p.valor),
+          0
+        );
+        return acc + somaParcelas;
+      }, 0);
+
+    const saldo = new Decimal(totalReceita).minus(totalDespesa);
     saldos.push(Number(saldo));
   }
 
@@ -351,11 +371,13 @@ export const graficoSaldoMensal = async (req: Request, res: Response): Promise<a
     ],
   });
 };
+
 export const graficoReceitaDespesaMensal = async (
   req: Request,
   res: Response
 ) => {
   const customData = getCustomRequest(req).customData;
+
   const meses = Array.from({ length: 6 }).map((_, i) => {
     const ref = subMonths(new Date(), 5 - i);
     return {
@@ -375,26 +397,38 @@ export const graficoReceitaDespesaMensal = async (
   for (const mes of meses) {
     labels.push(mes.label);
 
-    const receita = await prisma.lancamentoFinanceiro.aggregate({
-      _sum: { valorTotal: true },
+    const lancamentos = await prisma.lancamentoFinanceiro.findMany({
       where: {
         contaId: customData.contaId,
-        tipo: "RECEITA",
         dataLancamento: { gte: mes.inicio, lte: mes.fim },
+      },
+      include: {
+        parcelas: true,
       },
     });
 
-    const despesa = await prisma.lancamentoFinanceiro.aggregate({
-      _sum: { valorTotal: true },
-      where: {
-        contaId: customData.contaId,
-        tipo: "DESPESA",
-        dataLancamento: { gte: mes.inicio, lte: mes.fim },
-      },
-    });
+    const totalReceita = lancamentos
+      .filter((l) => l.tipo === "RECEITA")
+      .reduce((acc, l) => {
+        const somaParcelas = l.parcelas.reduce(
+          (pAcc, p) => pAcc + Number(p.valor),
+          0
+        );
+        return acc + somaParcelas;
+      }, 0);
 
-    receitas.push(Number(receita._sum.valorTotal || 0));
-    despesas.push(Number(despesa._sum.valorTotal || 0));
+    const totalDespesa = lancamentos
+      .filter((l) => l.tipo === "DESPESA")
+      .reduce((acc, l) => {
+        const somaParcelas = l.parcelas.reduce(
+          (pAcc, p) => pAcc + Number(p.valor),
+          0
+        );
+        return acc + somaParcelas;
+      }, 0);
+
+    receitas.push(totalReceita);
+    despesas.push(totalDespesa);
   }
 
   res.json({

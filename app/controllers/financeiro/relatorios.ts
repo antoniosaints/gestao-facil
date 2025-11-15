@@ -1018,66 +1018,54 @@ export const getLancamentosPorConta = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const customData = getCustomRequest(req).customData;
+  const { contaId } = getCustomRequest(req).customData;
+
   const contas = await prisma.contasFinanceiro.findMany({
-    where: { contaId: customData.contaId },
+    where: { contaId },
     include: {
-      lancamentos: {
-        include: {
-          parcelas: true,
-        },
+      ParcelaFinanceiro: {
+        include: { lancamento: true },
       },
     },
   });
 
   const resultado = contas.map((conta) => {
-    const receitas = conta.lancamentos.filter((l) => l.tipo === "RECEITA");
-    const despesas = conta.lancamentos.filter((l) => l.tipo === "DESPESA");
+    const parcelas = conta.ParcelaFinanceiro;
 
-    const totalReceitas = receitas
-      .flatMap((l) => l.parcelas.map((p) => p.valorPago))
-      .reduce(
-        (total, valor) =>
-          (total || new Decimal(0)).plus(valor || new Decimal(0)),
-        new Decimal(0)
-      );
-    const totalReceitasPago = receitas
-      .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago))
-      .reduce(
-        (total, valor) =>
-          (total || new Decimal(0)).plus(valor || new Decimal(0)),
-        new Decimal(0)
-      );
-    const totalDespesas = despesas
-      .flatMap((l) => l.parcelas.map((p) => p.valorPago))
-      .reduce(
-        (total, valor) =>
-          (total || new Decimal(0)).plus(valor || new Decimal(0)),
-        new Decimal(0)
-      );
-    const totalDespesasPago = despesas
-      .flatMap((l) => l.parcelas.filter((p) => p.pago).map((p) => p.valorPago))
-      .reduce(
-        (total, valor) =>
-          (total || new Decimal(0)).plus(valor || new Decimal(0)),
-        new Decimal(0)
-      );
+    const receitas = parcelas.filter((p) => p.lancamento.tipo === "RECEITA");
+    const despesas = parcelas.filter((p) => p.lancamento.tipo === "DESPESA");
+
+    const sum = (items: typeof parcelas) =>
+      items.reduce((s, p) => s.plus(p.valor), new Decimal(0));
+
+    const sumPago = (items: typeof parcelas) =>
+      items
+        .filter((p) => p.pago)
+        .reduce((s, p) => s.plus(p.valor), new Decimal(0));
+
+    const totalReceitas = sum(receitas);
+    const totalReceitasPago = sumPago(receitas);
+    const totalDespesas = sum(despesas);
+    const totalDespesasPago = sumPago(despesas);
+
+    const saldoAtual = conta.saldoInicial
+      .plus(totalReceitasPago)
+      .minus(totalDespesasPago);
 
     return {
       conta: conta.nome,
       saldoInicial: conta.saldoInicial,
-      receitasPago: totalReceitasPago,
-      despesasPago: totalDespesasPago,
       receitas: totalReceitas,
+      receitasPago: totalReceitasPago,
       despesas: totalDespesas,
-      saldoAtual: conta.saldoInicial
-        .plus(totalReceitasPago || new Decimal(0))
-        .minus(totalDespesasPago || new Decimal(0)),
+      despesasPago: totalDespesasPago,
+      saldoAtual,
     };
   });
 
-  res.json(resultado);
+  return res.json(resultado);
 };
+
 export const getLancamentosPorStatus = async (
   req: Request,
   res: Response
@@ -1159,7 +1147,8 @@ export const getLancamentosPorCategoria = async (
   res: Response
 ): Promise<any> => {
   const { inicio, fim } = req.query;
-  const customData = getCustomRequest(req).customData;
+  const { contaId } = getCustomRequest(req).customData;
+
   const dataFilter =
     inicio && fim
       ? {
@@ -1171,13 +1160,16 @@ export const getLancamentosPorCategoria = async (
       : {};
 
   const categorias = await prisma.categoriaFinanceiro.findMany({
-    where: { contaId: customData.contaId },
+    where: { contaId },
     include: {
       lancamentos: {
         where: dataFilter,
+        include: {
+          parcelas: true, // usamos estas parcelas para o cálculo real
+        },
         select: {
-          valorTotal: true,
           tipo: true,
+          parcelas: true,
         },
       },
     },
@@ -1187,14 +1179,17 @@ export const getLancamentosPorCategoria = async (
     const receitas = cat.lancamentos.filter((l) => l.tipo === "RECEITA");
     const despesas = cat.lancamentos.filter((l) => l.tipo === "DESPESA");
 
-    const totalReceita = receitas.reduce(
-      (s, l) => s.plus(l.valorTotal),
-      new Decimal(0)
-    );
-    const totalDespesa = despesas.reduce(
-      (s, l) => s.plus(l.valorTotal),
-      new Decimal(0)
-    );
+    const sumParcelas = (lancs: typeof cat.lancamentos) =>
+      lancs.reduce(
+        (soma, l) =>
+          soma.plus(
+            l.parcelas.reduce((ps, p) => ps.plus(p.valor), new Decimal(0))
+          ),
+        new Decimal(0)
+      );
+
+    const totalReceita = sumParcelas(receitas);
+    const totalDespesa = sumParcelas(despesas);
 
     return {
       categoria: cat.nome,
@@ -1204,8 +1199,9 @@ export const getLancamentosPorCategoria = async (
     };
   });
 
-  res.json(resultado);
+  return res.json(resultado);
 };
+
 export const getLancamentosTotaisGerais = async (
   req: Request,
   res: Response
