@@ -24,7 +24,6 @@ export function renovarVencimento(
   } else {
     novaData = dataPagamento;
   }
-
   // Retorna no formato ISO completo com milissegundos (datetime(3))
   return novaData.toISOString();
 }
