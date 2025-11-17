@@ -31,4 +31,4 @@ app.use(RouterMain);
 
 initSocket(server);
 
-server.listen(env.PORT, () => console.log(`Servidor rodando na porta ${env.PORT}`));
+server.listen(env.PORT, () => console.log(`Servidor rodando na porta ${env.PORT} 🎯🚀`));
