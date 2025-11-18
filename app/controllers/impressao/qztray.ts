@@ -44,6 +44,27 @@ export const downloadCertificate = async (req: Request, res: Response): Promise<
     res.status(500).send("DOWNLOAD_ERROR");
   }
 };
+export const downloadQztray = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const conf = new GetObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: "impressao/qz-tray-2.2.5-x86_64.exe"
+    })
+    const certo = await r2Storage.send(conf);
+    if (!certo.Body) return res.status(500).send("CERT_ERROR");
+    const buffer = await certo.Body?.transformToByteArray();
+    const file = Buffer.from(buffer);
+
+    res.setHeader("Content-Disposition", 'attachment; filename="qztray.exe"');
+    res.setHeader("Content-Type", "application/x-msdownload");
+
+    res.send(file);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("DOWNLOAD_ERROR");
+  }
+};
 
 export const signKey = async (req: Request, res: Response): Promise<any> => {
   try {
