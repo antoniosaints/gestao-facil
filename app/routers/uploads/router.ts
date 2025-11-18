@@ -7,6 +7,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { authenticateJWT } from "../../middlewares/auth";
 import { prisma } from "../../utils/prisma";
 import { mainPath } from "../../config/path";
+import routerUploadArquivos from "../../controllers/uploads/uploads";
 
 const routerUploads = Router();
 
@@ -103,5 +104,5 @@ routerUploads.post(
     });
   }
 );
-
+routerUploads.use('/cloud', authenticateJWT, routerUploadArquivos);
 export default routerUploads;

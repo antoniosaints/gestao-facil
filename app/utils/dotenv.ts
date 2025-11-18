@@ -48,10 +48,21 @@ const envSchema = z.object({
   EMAIL_SENDER: z.string({
     required_error: "EMAIL_SENDER é obrigatório",
   }),
-  BASE_URL_FRONTEND: z
-    .string({
-      required_error: "BASE_URL_FRONTEND é obrigatório",
-    })
+  BASE_URL_FRONTEND: z.string({
+    required_error: "BASE_URL_FRONTEND é obrigatório",
+  }),
+  R2_SECRET_ACCESS_KEY: z.string({
+    required_error: "R2_SECRET_ACCESS_KEY é obrigatório",
+  }),
+  R2_ACCESS_KEY_ID: z.string({
+    required_error: "R2_ACCESS_KEY_ID é obrigatório",
+  }),
+  R2_ENDPOINT: z.string({
+    required_error: "R2_ENDPOINT é obrigatório",
+  }),
+  R2_BUCKET: z.string({
+    required_error: "R2_BUCKET é obrigatório",
+  }),
 });
 
 const parsed = envSchema.safeParse(process.env);
