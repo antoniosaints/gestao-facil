@@ -23,6 +23,28 @@ export const getCertificate = async (req: Request, res: Response): Promise<any> 
   }
 };
 
+export const downloadCertificate = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const conf = new GetObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: "certificados/public.crt"
+    })
+    const certo = await r2Storage.send(conf);
+    if (!certo.Body) return res.status(500).send("CERT_ERROR");
+    const buffer = await certo.Body?.transformToByteArray();
+    const file = Buffer.from(buffer);
+
+    res.setHeader("Content-Disposition", 'attachment; filename="public.crt"');
+    res.setHeader("Content-Type", "application/x-x509-ca-cert");
+
+    res.send(file);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("DOWNLOAD_ERROR");
+  }
+};
+
 export const signKey = async (req: Request, res: Response): Promise<any> => {
   try {
      const conf = new GetObjectCommand({
