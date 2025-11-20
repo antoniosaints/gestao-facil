@@ -7,9 +7,11 @@
     "dev": "tsx watch app/server.ts",
     "email:dev": "tsx watch app/workers/sendEmailWorker.ts",
     "notification:dev": "tsx app/workers/pushNotificationWorker.ts",
+    "cron:dev": "tsx app/workers/cronJobsWorker.ts",
     "start": "node dist/server.js",
     "email": "node dist/workers/sendEmailWorker.js",
     "notification": "node dist/workers/pushNotificationWorker.js",
+    "cron": "node dist/workers/cronJobsWorker.js",
     "initialize": "npx prisma migrate dev",
     "seed": "npx prisma db seed"
   },
