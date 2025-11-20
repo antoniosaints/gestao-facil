@@ -8,12 +8,8 @@ export const sendEmailWorker = () => {
   const worker = new Worker(
     "email",
     async (job: Job) => {
-      try {
-        const { to, subject, text } = job.data;
-        await sendEmailQueue(to, subject, text);
-      } catch (error) {
-        throw error;
-      }
+      const { to, subject, text } = job.data;
+      await sendEmailQueue(to, subject, text);
     },
     {
       connection: redisConnecion,
@@ -29,8 +25,8 @@ export const sendEmailWorker = () => {
 };
 
 const worker = sendEmailWorker();
-process.on('SIGINT', async () => {
-  console.log('Encerrando o worker...');
+process.on("SIGINT", async () => {
+  console.log("Encerrando o worker...");
   await worker.close();
   process.exit(0);
 });
