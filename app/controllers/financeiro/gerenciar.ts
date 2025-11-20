@@ -7,7 +7,7 @@ import PDFDocument from "pdfkit";
 import { atualizarStatusLancamentos } from "./hooks";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
-import { addHours } from "date-fns";
+import { addHours, startOfDay } from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
@@ -25,7 +25,7 @@ export const updateParcela = async (req: Request, res: Response): Promise<any> =
       },
       data: {
         valor: new Decimal(req.body.valor),
-        vencimento: new Date(req.body.vencimento),
+        vencimento: startOfDay(new Date(req.body.vencimento)),
       },
     });
     return ResponseHandler(res, "Parcela atualizada", parcela);
@@ -75,11 +75,13 @@ export const getLancamentosMensal = async (
 
     // Agrupamento por dia
     const agrupado = parcelas.reduce((acc: any, parcela) => {
+      const diaCompleto = parcela.vencimento.toISOString();
       const dia = parcela.vencimento.toISOString().split("T")[0];
 
       if (!acc[dia]) {
         acc[dia] = {
           dia,
+          diaCompleto,
           lancamentos: [],
           saldo: new Decimal(0),
         };
@@ -110,7 +112,7 @@ export const getLancamentosMensal = async (
     }, {});
 
     const data = Object.values(agrupado).map((d: any) => ({
-      dia: d.dia,
+      dia: d.diaCompleto,
       lancamentos: d.lancamentos,
       saldo: Number(d.saldo),
     }));
@@ -259,7 +261,7 @@ export const criarLancamento = async (
           contaId: customData.contaId,
           recorrente: lancamentoRecorrente,
           contasFinanceiroId: Number(contasFinanceiroId) || null,
-          dataLancamento: addHours(new Date(dataLancamento), 3),
+          dataLancamento: startOfDay(new Date(dataLancamento)),
         },
       });
 
@@ -269,10 +271,10 @@ export const criarLancamento = async (
             Uid: gerarIdUnicoComMetaFinal("PAR"),
             numero: 0,
             valor: valorEntradaFormated,
-            vencimento: addHours(new Date(dataEntrada), 3),
+            vencimento: startOfDay(new Date(dataEntrada)),
             pago: true,
             valorPago: valorEntradaFormated,
-            dataPagamento: addHours(new Date(dataEntrada), 3),
+            dataPagamento: startOfDay(new Date(dataEntrada)),
             formaPagamento,
             lancamentoId: novoLancamento.id,
             contaFinanceira: Number(contasFinanceiroId) || null
@@ -293,8 +295,8 @@ export const criarLancamento = async (
           pago: hasEfetivadoTotal ? true : false,
           valorPago: hasEfetivadoTotal ? valorParcela : null,
           formaPagamento: hasEfetivadoTotal ? formaPagamento : null,
-          dataPagamento: hasEfetivadoTotal ? addHours(vencimento, 3) : null,
-          vencimento: addHours(vencimento, 3),
+          dataPagamento: hasEfetivadoTotal ? startOfDay(vencimento) : null,
+          vencimento: startOfDay(vencimento),
           lancamentoId: novoLancamento.id,
           contaFinanceira: Number(contasFinanceiroId) || null
         });
@@ -354,7 +356,7 @@ export const pagarParcela = async (
         pago: true,
         valorPago: parcela.valor,
         formaPagamento: req.body.metodoPagamento,
-        dataPagamento: new Date(req.body.dataPagamento),
+        dataPagamento: startOfDay(new Date(req.body.dataPagamento)),
         contaFinanceira: req.body.contaPagamento,
       },
     });
@@ -386,7 +388,7 @@ export const pagarMultiplasParcelas = async (
       data: {
         pago: true,
         formaPagamento: "PIX",
-        dataPagamento: new Date(),
+        dataPagamento: startOfDay(new Date()),
       },
     });
 
