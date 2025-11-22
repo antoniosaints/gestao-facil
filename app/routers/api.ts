@@ -10,6 +10,7 @@ import { routerUsuarios } from "./administracao/usuarios/router";
 import { routerGerencia } from "./gerencia/router";
 import { routerServicos } from "./servicos/router";
 import { routerDefault } from "./default";
+import { routerAdminMain } from "./administracao/router";
 
 const RouterMain = Router();
 
@@ -24,5 +25,6 @@ RouterMain.use("/api/lancamentos", routerLancamentos);
 RouterMain.use("/api/vendas", routerVendas);
 RouterMain.use("/api/system", monitorRouter);
 RouterMain.use("/api/uploads", routerUploads);
+RouterMain.use("/api/admin", routerAdminMain);
 
 export { RouterMain };
