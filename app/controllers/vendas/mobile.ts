@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
-import { Prisma } from "../../../generated";
+import { Prisma, StatusVenda } from "../../../generated";
 
 export const ListagemMobileVendas = async (
   req: Request,
@@ -9,20 +9,33 @@ export const ListagemMobileVendas = async (
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const {
+    status = null,
     search = undefined,
     limit = "10",
     page = "1",
-  } = req.query as { search: string; limit: string; page: string };
+  } = req.query as { search: string; limit: string; page: string, status: StatusVenda | null };
 
   try {
     const model = prisma.vendas;
 
     const where: Prisma.VendasWhereInput = { contaId: customData.contaId };
+
+    if (status) {
+      if (status === 'FATURADO') {
+        where.faturado = true
+      }
+      if (status === 'PENDENTE') {
+        where.faturado = false
+        where.status = undefined
+      }
+    }
+
     if (search) {
       where.OR = [
         { Uid: { contains: search } },
+        { observacoes: { contains: search } },
         { cliente: { nome: { contains: search } } },
-        { vendedor: { nome: { contains: search } } }
+        { vendedor: { nome: { contains: search } } },
       ];
     }
 
@@ -31,6 +44,7 @@ export const ListagemMobileVendas = async (
 
     const [data, total] = await Promise.all([
       model.findMany({
+        include: { cliente: true, vendedor: true },
         where,
         skip,
         take,
