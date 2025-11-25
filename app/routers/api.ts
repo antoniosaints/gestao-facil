@@ -11,6 +11,7 @@ import { routerGerencia } from "./gerencia/router";
 import { routerServicos } from "./servicos/router";
 import { routerDefault } from "./default";
 import { routerAdminMain } from "./administracao/router";
+import { routerArena } from "./arena/router";
 
 const RouterMain = Router();
 
@@ -26,5 +27,6 @@ RouterMain.use("/api/vendas", routerVendas);
 RouterMain.use("/api/system", monitorRouter);
 RouterMain.use("/api/uploads", routerUploads);
 RouterMain.use("/api/admin", routerAdminMain);
+RouterMain.use("/api/arenas", routerArena);
 
 export { RouterMain };

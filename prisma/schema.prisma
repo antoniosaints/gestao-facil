@@ -94,6 +94,9 @@ model Contas {
   OrdensServico            OrdensServico[]
   ParametrosConta          ParametrosConta[]
   CobrancasFinanceiras     CobrancasFinanceiras[]
+  assinaturas              Assinatura[]
+  notaFiscals              NotaFiscal[]
+  arenaQuadras             ArenaQuadras[]
 }
 
 model ParametrosConta {
@@ -184,6 +187,7 @@ model ClientesFornecedores {
   Assinatura           Assinatura[]
   NotaFiscal           NotaFiscal[]
   OrdensServico        OrdensServico[]
+  arenaAgendamentos    ArenaAgendamentos[]
 }
 
 enum TipoMovimentacao {
@@ -284,6 +288,8 @@ model Servicos {
 
 model NotaFiscal {
   id          Int                  @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas               @relation(fields: [contaId], references: [id])
   tipo        String // "NFE", "NFSE", "NFCE"
   clienteId   Int
   Cliente     ClientesFornecedores @relation(fields: [clienteId], references: [id])
@@ -382,6 +388,8 @@ enum AssinaturaInternaRecorrencia {
 
 model Assinatura {
   id              Int                          @id @default(autoincrement())
+  contaId         Int
+  Conta           Contas                       @relation(fields: [contaId], references: [id])
   clienteId       Int
   servicoId       Int
   inicio          DateTime
@@ -588,4 +596,50 @@ enum StatusPagamentoFinanceiro {
   PAGO
   ATRASADO
   PARCIAL
+}
+
+model ArenaQuadras {
+  id                    Int                 @id @default(autoincrement())
+  contaId               Int
+  Conta                 Contas              @relation(fields: [contaId], references: [id])
+  tempoMinimo           Int                 @default(60)
+  tempoReserva          Int                 @default(60)
+  name                  String
+  description           String?
+  precoHora             Decimal             @default(0)
+  permitirReservaOnline Boolean             @default(true)
+  aprovarSemPagamento   Boolean             @default(false)
+  active                Boolean             @default(true)
+  schedules             ArenaAgendamentos[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+}
+
+model ArenaAgendamentos {
+  id          Int                    @id @default(autoincrement())
+  quadraId    Int
+  clienteId   Int?
+  startAt     DateTime
+  endAt       DateTime
+  status      ArenaAgendamentoStatus @default(PENDENTE)
+  valor       Decimal                @default(0)
+  recorrente  Boolean                @default(false)
+  observacoes String?                @db.Text
+
+  Quadra  ArenaQuadras          @relation(fields: [quadraId], references: [id])
+  Cliente ClientesFornecedores? @relation(fields: [clienteId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([quadraId, startAt, endAt])
+  @@index([quadraId, startAt, endAt])
+}
+
+enum ArenaAgendamentoStatus {
+  PENDENTE
+  CONFIRMADA
+  FINALIZADA
+  CANCELADA
+  BLOQUEADO
 }
