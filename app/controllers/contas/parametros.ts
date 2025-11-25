@@ -97,6 +97,7 @@ export const getDetalhePublico = async (
         id: true,
         nome: true,
         profile: true,
+        telefone: true,
         nomeFantasia: true,
         documento: true,
       },

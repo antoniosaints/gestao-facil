@@ -218,6 +218,7 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
 
     const start = new Date(data.inicio);
     const end = new Date(data.fim);
+    const now = new Date();
 
     const quadra = await prisma.arenaQuadras.findUnique({
       where: {
@@ -241,15 +242,15 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
         quadraId: Number(data.quadraId),
         status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
         AND: [
-          { startAt: { lt: end } }, // começa antes do fim
-          { endAt: { gt: start } }, // termina depois do início
+          { startAt: { lt: end } },
+          { endAt: { gt: start } },
         ],
       },
       orderBy: { startAt: "asc" },
     });
 
     let cursor = start;
-    const slotsDisponiveis = [];
+    const slots = [];
 
     for (
       ;
@@ -261,27 +262,30 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
 
       if (slotEnd > end) break;
 
+      // ignorar horários passados
+      if (slotEnd <= now) continue;
+
       const conflict = reservas.some(
         (b) => b.startAt < slotEnd && b.endAt > slotStart
       );
 
-      if (!conflict) {
-        slotsDisponiveis.push({
-          start: slotStart.toISOString(),
-          end: slotEnd.toISOString(),
-        });
-      }
+      slots.push({
+        start: slotStart.toISOString(),
+        end: slotEnd.toISOString(),
+        reservada: conflict
+      });
     }
 
     return res.status(200).json({
       status: 200,
-      message: "Slots disponiveis encontrados",
-      data: slotsDisponiveis,
+      message: "Slots encontrados",
+      data: slots,
     });
   } catch (error) {
     return handleError(res, error);
   }
 };
+
 
 export const cancelarReserva = async (req: Request, res: Response) => {};
 export const confirmarReserva = async (req: Request, res: Response) => {};
