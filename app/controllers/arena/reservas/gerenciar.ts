@@ -2,9 +2,10 @@ import { Request, Response } from "express";
 import { handleError } from "../../../utils/handleError";
 import { prisma } from "../../../utils/prisma";
 import { getCustomRequest } from "../../../helpers/getCustomRequest";
-import { differenceInMinutes, endOfMonth, startOfMonth } from "date-fns";
+import { differenceInMinutes } from "date-fns";
 import {
   createReservaSchema,
+  listarReservasDisponiveisPublicoSchema,
   listarReservasDisponiveisSchema,
 } from "../../../schemas/arena/reservas";
 import { ResponseHandler } from "../../../utils/response";
@@ -161,6 +162,83 @@ export const getSlotsDisponiveis = async (req: Request, res: Response): Promise<
     const reservas = await prisma.arenaAgendamentos.findMany({
       where: {
         quadraId: Number(body.quadraId),
+        status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
+        AND: [
+          { startAt: { lt: end } }, // começa antes do fim
+          { endAt: { gt: start } }, // termina depois do início
+        ],
+      },
+      orderBy: { startAt: "asc" },
+    });
+
+    let cursor = start;
+    const slotsDisponiveis = [];
+
+    for (
+      ;
+      cursor < end;
+      cursor = new Date(cursor.getTime() + quadra.tempoReserva * 60000)
+    ) {
+      const slotStart = new Date(cursor);
+      const slotEnd = new Date(cursor.getTime() + quadra.tempoReserva * 60000);
+
+      if (slotEnd > end) break;
+
+      const conflict = reservas.some(
+        (b) => b.startAt < slotEnd && b.endAt > slotStart
+      );
+
+      if (!conflict) {
+        slotsDisponiveis.push({
+          start: slotStart.toISOString(),
+          end: slotEnd.toISOString(),
+        });
+      }
+    }
+
+    return res.status(200).json({
+      status: 200,
+      message: "Slots disponiveis encontrados",
+      data: slotsDisponiveis,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const getSlotsDisponiveisPublico = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const body = req.body;
+    const { data, error, success } =
+      listarReservasDisponiveisPublicoSchema.safeParse(body);
+
+    if (!success) {
+      return handleError(res, error);
+    }
+
+    const start = new Date(data.inicio);
+    const end = new Date(data.fim);
+
+    const quadra = await prisma.arenaQuadras.findUnique({
+      where: {
+        id: Number(data.quadraId),
+        contaId: Number(data.contaId),
+        active: true,
+        permitirReservaOnline: true
+      },
+    });
+
+    if (!quadra) {
+      return res.status(400).json({
+        status: 400,
+        message: "Quadra nao encontrada",
+        data: null,
+      });
+    }
+
+    const reservas = await prisma.arenaAgendamentos.findMany({
+      where: {
+        quadraId: Number(data.quadraId),
         status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
         AND: [
           { startAt: { lt: end } }, // começa antes do fim

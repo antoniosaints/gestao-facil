@@ -38,4 +38,24 @@ export const getQuadras = async (req: Request, res: Response): Promise<any> => {
     return handleError(res, error);
   }
 };
+export const getQuadrasPublico = async (req: Request, res: Response): Promise<any> => {
+  try {
+    
+    if (!req.query.contaId || isNaN(Number(req.query.contaId))) {
+      return handleError(res, "conta não informada!");
+    }
+
+    const quadras = await prisma.arenaQuadras.findMany({
+      where: {
+        id: req.query.id ? Number(req.query.id) : undefined,
+        permitirReservaOnline: true,
+        active: true,
+        contaId: Number(req.query.contaId)
+      },
+    });
+    return ResponseHandler(res, "Quadras encontradas", quadras);
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
 export const getResumoQuadra = async (req: Request, res: Response) => {};
