@@ -13,6 +13,19 @@ export const createQuadra = async (req: Request, res: Response): Promise<any> =>
     if (!success) {
       return handleError(res, error);
     }
+    if (req.query.id) {
+      const quadra = await prisma.arenaQuadras.update({
+        where: {
+          id: Number(req.query.id),
+          contaId: customData.contaId,
+        },
+        data: {
+          ...data,
+        },
+      })
+
+      return ResponseHandler(res, "Quadra atualizada", quadra);
+    }
     const quadra = await prisma.arenaQuadras.create({
       data: {
         ...data,
@@ -27,6 +40,15 @@ export const createQuadra = async (req: Request, res: Response): Promise<any> =>
 export const getQuadras = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    if (req.query.id) {
+      const quadra = await prisma.arenaQuadras.findUnique({
+        where: {
+          id: Number(req.query.id),
+          contaId: customData.contaId,
+        },
+      });
+      return ResponseHandler(res, "Quadra encontrada", quadra);
+    }
     const quadras = await prisma.arenaQuadras.findMany({
       where: {
         id: req.query.id ? Number(req.query.id) : undefined,
