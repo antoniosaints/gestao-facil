@@ -616,15 +616,18 @@ model ArenaQuadras {
 }
 
 model ArenaAgendamentos {
-  id          Int                    @id @default(autoincrement())
-  quadraId    Int
-  clienteId   Int?
-  startAt     DateTime
-  endAt       DateTime
-  status      ArenaAgendamentoStatus @default(PENDENTE)
-  valor       Decimal                @default(0)
-  recorrente  Boolean                @default(false)
-  observacoes String?                @db.Text
+  id              Int                    @id @default(autoincrement())
+  quadraId        Int
+  clienteId       Int?
+  nomeCliente     String?
+  enderecoCliente String?
+  telefoneCliente String?
+  startAt         DateTime
+  endAt           DateTime
+  status          ArenaAgendamentoStatus @default(PENDENTE)
+  valor           Decimal                @default(0)
+  recorrente      Boolean                @default(false)
+  observacoes     String?                @db.Text
 
   Quadra  ArenaQuadras          @relation(fields: [quadraId], references: [id])
   Cliente ClientesFornecedores? @relation(fields: [clienteId], references: [id])
