@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import {
   createReserva,
+  deleteReserva,
   getReservas,
   getSlotsDisponiveis,
   getSlotsDisponiveisPublico,
@@ -30,6 +31,7 @@ routerArena.get(
   getSlotsDisponiveis
 );
 routerArena.get("/reservas", authenticateJWT, getReservas);
+routerArena.delete("/reservas", authenticateJWT, deleteReserva);
 routerArena.get("/reservas/tabela", authenticateJWT, ListagemReservas);
 routerArena.post("/reservas/agendar", authenticateJWT, createReserva);
 routerArena.post("/quadras/criar", authenticateJWT, createQuadra);

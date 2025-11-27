@@ -1,17 +1,28 @@
 import PDFDocument from "pdfkit";
 import { Response } from "express";
 import fs from "fs";
-import { ClientesFornecedores, Contas, ItensOrdensServico, OrdensServico, Usuarios } from "../../../../generated";
+import {
+  ClientesFornecedores,
+  Contas,
+  ItensOrdensServico,
+  OrdensServico,
+  Usuarios,
+} from "../../../../generated";
+import { gerarQrCodeBuffer, QrCodePix } from "../../../services/qrcodeGenerator";
 
 interface OrdemServicoData {
   Cliente: ClientesFornecedores;
   Empresa: Contas;
-  Ordem: OrdensServico & { ItensOrdensServico: ItensOrdensServico[], Operador: Usuarios };
+  Ordem: OrdensServico & {
+    ItensOrdensServico: ItensOrdensServico[];
+    Operador: Usuarios;
+  };
 }
 
 export async function gerarPdfOrdemServico(
   ordem: OrdemServicoData,
-  res: Response
+  res: Response,
+  incluirPix: boolean = false
 ) {
   const doc = new PDFDocument({ size: "A4", margin: 50 });
 
@@ -30,7 +41,9 @@ export async function gerarPdfOrdemServico(
   if (ordem.Empresa.profile) {
     const fileExists = fs.existsSync(`./public/${ordem.Empresa.profile}`);
     doc.image(
-      fileExists ? `./public/${ordem.Empresa.profile}` : "./public/imgs/logo.png",
+      fileExists
+        ? `./public/${ordem.Empresa.profile}`
+        : "./public/imgs/logo.png",
       50,
       40,
       { width: 80 }
@@ -41,15 +54,31 @@ export async function gerarPdfOrdemServico(
     .fontSize(12)
     .font("Roboto")
     .text(`ID da OS: ${ordem.Ordem.Uid}`, 150, 75)
-    .text(`Data: ${new Date(ordem.Ordem.data).toLocaleDateString("pt-BR")}`, 150, 90);
+    .text(
+      `Data: ${new Date(ordem.Ordem.data).toLocaleDateString("pt-BR")}`,
+      150,
+      90
+    );
 
   // Linha divisória
   doc.moveTo(50, 120).lineTo(550, 120).strokeColor("#888").stroke();
 
   // Informações principais
   doc.moveDown().fontSize(12);
-  doc.text(`Empresa: ${ordem.Empresa.nome} - ${ordem.Empresa.documento || 'Sem documento'}`, 50, 140);
-  doc.text(`Cliente: ${ordem.Cliente.nome} - ${ordem.Cliente.documento || 'Sem documento'}`, 50, 160);
+  doc.text(
+    `Empresa: ${ordem.Empresa.nome} - ${
+      ordem.Empresa.documento || "Sem documento"
+    }`,
+    50,
+    140
+  );
+  doc.text(
+    `Cliente: ${ordem.Cliente.nome} - ${
+      ordem.Cliente.documento || "Sem documento"
+    }`,
+    50,
+    160
+  );
   if (ordem.Ordem.descricaoCliente)
     doc.text(`Descrição (cliente): ${ordem.Ordem.descricaoCliente}`, 50, 180, {
       width: 500,
@@ -104,7 +133,8 @@ export async function gerarPdfOrdemServico(
       });
   });
 
-  const yFinal = tableTop + 10 + ordem.Ordem.ItensOrdensServico.length * 20 + 20;
+  const yFinal =
+    tableTop + 10 + ordem.Ordem.ItensOrdensServico.length * 20 + 20;
   doc.moveTo(50, yFinal).lineTo(550, yFinal).strokeColor("#000").stroke();
 
   // Resumo financeiro
@@ -130,37 +160,96 @@ export async function gerarPdfOrdemServico(
   // === Linhas de assinatura ===
   const assinaturaY = yFinal + 180;
 
-  doc.moveTo(80, assinaturaY).lineTo(250, assinaturaY).strokeColor("#000").stroke();
   doc
-    .fontSize(10)
-    .text("Assinatura do Cliente", 80, assinaturaY + 5, { width: 170, align: "center" });
+    .moveTo(80, assinaturaY)
+    .lineTo(250, assinaturaY)
+    .strokeColor("#000")
+    .stroke();
+  doc.fontSize(10).text("Assinatura do Cliente", 80, assinaturaY + 5, {
+    width: 170,
+    align: "center",
+  });
 
-  doc.moveTo(330, assinaturaY).lineTo(500, assinaturaY).strokeColor("#000").stroke();
   doc
-    .fontSize(10)
-    .text("Assinatura do Técnico", 330, assinaturaY + 5, { width: 170, align: "center" });
+    .moveTo(330, assinaturaY)
+    .lineTo(500, assinaturaY)
+    .strokeColor("#000")
+    .stroke();
+  doc.fontSize(10).text("Assinatura do Técnico", 330, assinaturaY + 5, {
+    width: 170,
+    align: "center",
+  });
 
   // Nomes abaixo das linhas
   doc
     .fontSize(9)
     .fillColor("#555")
-    .text(`${ordem.Cliente.nome}`, 80, assinaturaY + 25, { width: 170, align: "center" });
+    .text(`${ordem.Cliente.nome}`, 80, assinaturaY + 25, {
+      width: 170,
+      align: "center",
+    });
 
   doc
     .fontSize(9)
     .fillColor("#555")
-    .text(`${ordem.Ordem.Operador?.nome || "Técnico Responsável"}`, 330, assinaturaY + 25, {
-      width: 170,
-      align: "center",
+    .text(
+      `${ordem.Ordem.Operador?.nome || "Técnico Responsável"}`,
+      330,
+      assinaturaY + 25,
+      {
+        width: 170,
+        align: "center",
+      }
+    );
+
+  // ============================================
+  // 🔵 SEÇÃO OPCIONAL: PIX + QR CODE
+  // ============================================
+
+  if (incluirPix) {
+    const qrSize = 90;
+
+    const centerX = (doc.page.width - qrSize) / 2;
+    const centerY = (doc.page.height - qrSize) / 2;
+
+    const pix = QrCodePix({
+      city: "Sao Mateus",
+      key: "07418262329",
+      name: "Arena ERP",
+      version: "01",
     });
+
+    const qr = await gerarQrCodeBuffer(pix.payload());
+
+    // doc.addPage();
+
+    doc.moveDown(1);
+    doc
+      .font("Roboto-Bold")
+      .fontSize(14)
+      .text("Pague via PIX", 50, assinaturaY + 50, { align: "center" });
+    doc.image(qr, centerX, assinaturaY + 70, { width: qrSize });
+
+    doc.moveDown(1);
+    doc
+      .font("Roboto")
+      .fontSize(8)
+      .text(pix.payload(), 60, assinaturaY + 160, { align: "center" });
+  }
+
   // Rodapé
   doc
     .fontSize(9)
     .fillColor("#666")
-    .text("Documento gerado automaticamente via sistema Gestão Fácil - gestaofacil.userp.com.br.", 50, 780, {
-      align: "center",
-      width: 500,
-    });
+    .text(
+      "Documento gerado automaticamente via sistema Gestão Fácil - gestaofacil.userp.com.br.",
+      50,
+      780,
+      {
+        align: "center",
+        width: 500,
+      }
+    );
 
   doc.end();
 }

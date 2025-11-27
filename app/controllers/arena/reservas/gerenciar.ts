@@ -129,6 +129,24 @@ export const createReserva = async (
     handleError(res, error);
   }
 };
+export const deleteReserva = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const { id } = req.query;
+    const reserva = await prisma.arenaAgendamentos.delete({
+      where: {
+        id: Number(id),
+        status: { notIn: ["FINALIZADA"] },
+        Quadra: {
+          contaId: customData.contaId,
+        },
+      },
+    });
+    return ResponseHandler(res, "Reserva deletada", reserva);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 export const getReservas = async (
   req: Request,
   res: Response
