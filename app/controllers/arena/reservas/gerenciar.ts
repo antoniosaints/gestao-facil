@@ -35,14 +35,13 @@ export const createReserva = async (
     // transação para evitar race conditions
     const tsx = await prisma.$transaction(async (prismaTx) => {
       // buscar conflitos: qualquer booking confirmado ou pendente que intersecte
-      if (dto.clienteId) {
-        const cliente = await prismaTx.clientesFornecedores.findUnique({
-          where: { id: dto.clienteId, contaId: customData.contaId },
-        });
-        if (!cliente) {
-          throw new Error("Cliente nao encontrado.");
-        }
+      const cliente = await prismaTx.clientesFornecedores.findUnique({
+        where: { id: dto.clienteId, contaId: customData.contaId },
+      });
+      if (!cliente) {
+        throw new Error("Cliente nao encontrado.");
       }
+
       const quadra = await prismaTx.arenaQuadras.findUnique({
         where: { id: dto.quadraId, contaId: customData.contaId },
       });
@@ -62,35 +61,53 @@ export const createReserva = async (
       const quantidadeReservada = diferencaMinutos / quadra.tempoReserva;
       const ValorTotalReserva = quadra.precoHora.times(quantidadeReservada);
 
-      const conflict = await prismaTx.arenaAgendamentos.findFirst({
-        where: {
-          quadraId: dto.quadraId,
-          status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
-          AND: [
-            { startAt: { lt: end } }, // start < new.end
-            { endAt: { gt: start } }, // end > new.start
-          ],
-        },
-      });
+      let booking: any = null;
 
-      if (conflict) {
-        throw new Error(
-          "Conflito de horário: já existe reserva nesse período."
-        );
+      if (!req.query.id) {
+        const conflict = await prismaTx.arenaAgendamentos.findFirst({
+          where: {
+            quadraId: dto.quadraId,
+            status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
+            AND: [
+              { startAt: { lt: end } }, // start < new.end
+              { endAt: { gt: start } }, // end > new.start
+            ],
+          },
+        });
+
+        if (conflict) {
+          throw new Error(
+            "Conflito de horário: já existe reserva nesse período."
+          );
+        }
+
+        booking = await prismaTx.arenaAgendamentos.create({
+          data: {
+            quadraId: dto.quadraId,
+            clienteId: dto.clienteId,
+            startAt: start,
+            endAt: end,
+            valor: ValorTotalReserva,
+            recorrente: dto.recorrente ?? false,
+            status: "PENDENTE",
+            observacoes: dto.observacoes ?? null,
+          },
+        });
+      } else {
+        booking = await prismaTx.arenaAgendamentos.update({
+          where: { id: Number(req.query.id) },
+          data: {
+            quadraId: dto.quadraId,
+            clienteId: dto.clienteId,
+            startAt: start,
+            endAt: end,
+            valor: ValorTotalReserva,
+            recorrente: dto.recorrente ?? false,
+            status: "PENDENTE",
+            observacoes: dto.observacoes ?? null,
+          },
+        });
       }
-
-      const booking = await prismaTx.arenaAgendamentos.create({
-        data: {
-          quadraId: dto.quadraId,
-          clienteId: dto.clienteId,
-          startAt: start,
-          endAt: end,
-          valor: ValorTotalReserva,
-          recorrente: dto.recorrente ?? false,
-          status: "PENDENTE",
-          observacoes: dto.observacoes ?? null,
-        },
-      });
 
       return {
         booking,
@@ -122,13 +139,13 @@ export const getReservas = async (
     const start = inicio ? new Date(inicio as string) : undefined;
     const end = fim ? new Date(fim as string) : undefined;
 
-   if (req.query.id) {
+    if (req.query.id) {
       const reserva = await prisma.arenaAgendamentos.findUnique({
         where: {
           id: Number(req.query.id),
           Quadra: {
             contaId: customData.contaId,
-          }
+          },
         },
       });
       return ResponseHandler(res, "Reserva encontrada", reserva);

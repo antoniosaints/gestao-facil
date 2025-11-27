@@ -5,10 +5,9 @@ export const createReservaSchema = z.object(
     clienteId: z
       .number({
         invalid_type_error: "O campo clienteId deve ser um numero",
+        required_error: "O campo clienteId é obrigatório",
       })
-      .int()
-      .optional()
-      .nullable(),
+      .int(),
     quadraId: z
       .number({
         required_error: "O campo quadraId é obrigatório",
