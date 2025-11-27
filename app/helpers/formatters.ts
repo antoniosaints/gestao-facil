@@ -9,15 +9,38 @@ export const formatToMoneyValue = (value: any) => {
     currency: "BRL",
   });
 };
-export const formatToMoneyDecimalValue = (valor: Decimal | number): string => {
-  return `R$ ${new Decimal(valor).toFixed(2)}`;
-};
-export function formatCurrencyBR(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
+export const formatToNumberValue = (value: string | number): number => {
+  if (typeof value !== 'string') return Number(value)
+
+  // Se for uma string vazia, retorne 0
+  if (typeof value === 'string' && value.trim() === '') return 0
+
+  // Remove espaços e símbolos de moeda
+  value = value.trim().replace(/[^\d.,-]/g, '')
+
+  // Se tiver vírgula e ponto, assume que vírgula é decimal (ex: 1.234,56)
+  if (value.includes(',') && value.includes('.')) {
+    value = value.replace(/\./g, '').replace(',', '.')
+  }
+  // Se tiver só vírgula, substitui por ponto
+  else if (value.includes(',')) {
+    value = value.replace(',', '.')
+  }
+
+  const number = parseFloat(value)
+  return isNaN(number) ? 0 : number
 }
+export const formatToMoneyDecimalValue = (valor: Decimal | number): string => {
+  return `R$ ${new Decimal(valor).toFixed(2)}`
+}
+export function formatCurrencyBR(value: number | string): string {
+  const valueFormated = typeof value === 'string' ? formatToNumberValue(value) : value
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(valueFormated)
+}
+
 
 export const formatLabel = (label: string, color: string, icon: string, capitalize: boolean = true) => {
   const baseClasses = `inline-flex items-center gap-1 px-2 py-0.5 border-2 rounded-xl w-max`;

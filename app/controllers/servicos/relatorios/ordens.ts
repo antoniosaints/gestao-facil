@@ -9,6 +9,8 @@ import {
   Usuarios,
 } from "../../../../generated";
 import { gerarQrCodeBuffer, QrCodePix } from "../../../services/qrcodeGenerator";
+import { formatCurrencyBR } from "../../../helpers/formatters";
+import { addDays } from "date-fns";
 
 interface OrdemServicoData {
   Cliente: ClientesFornecedores;
@@ -79,21 +81,26 @@ export async function gerarPdfOrdemServico(
     50,
     160
   );
+  doc.text(
+    `Garantia: ${ordem.Ordem.garantia} dias - ${addDays(new Date(ordem.Ordem.data), Number(ordem.Ordem.garantia || 0)).toLocaleDateString("pt-BR")}`,
+    50,
+    180
+  );
   if (ordem.Ordem.descricaoCliente)
-    doc.text(`Descrição (cliente): ${ordem.Ordem.descricaoCliente}`, 50, 180, {
+    doc.text(`Descrição (cliente): ${ordem.Ordem.descricaoCliente}`, 50, 200, {
       width: 500,
     });
 
   // Seção descrição técnica
   if (ordem.Ordem.descricao) {
     doc.moveDown();
-    doc.font("Roboto-Bold").text("Descrição Técnica:", 50, 220);
+    doc.font("Roboto-Bold").text("Descrição Técnica:", 50, 240);
     doc.font("Roboto").text(ordem.Ordem.descricao, { width: 500 });
   }
 
-  const eixosX = [50, 260, 320, 390, 490];
+  const eixosX = [50, 250, 320, 390, 490];
   // Tabela de itens
-  let tableTop = 280;
+  let tableTop = 290;
   doc.moveTo(50, tableTop).lineTo(550, tableTop).strokeColor("#000").stroke();
 
   doc
@@ -123,11 +130,11 @@ export async function gerarPdfOrdemServico(
         width: 50,
         align: "right",
       })
-      .text(`R$ ${Number(item.valor).toFixed(2)}`, eixosX[3], y, {
+      .text(`${formatCurrencyBR(Number(item.valor))}`, eixosX[3], y, {
         width: 80,
         align: "right",
       })
-      .text(`R$ ${total.toFixed(2)}`, eixosX[4], y, {
+      .text(`${formatCurrencyBR(total)}`, eixosX[4], y, {
         width: 60,
         align: "right",
       });
@@ -144,16 +151,16 @@ export async function gerarPdfOrdemServico(
   doc.font("Roboto-Bold").text("Resumo Financeiro", 50, yFinal + 20);
   doc
     .font("Roboto")
-    .text(`Subtotal: R$ ${totalGeral.toFixed(2)}`, 400, yFinal + 20, {
+    .text(`Subtotal: ${formatCurrencyBR(totalGeral)}`, 400, yFinal + 20, {
       align: "right",
     });
-  doc.text(`Desconto: R$ ${desconto.toFixed(2)}`, 400, yFinal + 40, {
+  doc.text(`Desconto: ${formatCurrencyBR(desconto)}`, 400, yFinal + 40, {
     align: "right",
   });
   doc
     .font("Roboto-Bold")
     .fontSize(13)
-    .text(`Total: R$ ${valorFinal.toFixed(2)}`, 400, yFinal + 65, {
+    .text(`Total: ${formatCurrencyBR(valorFinal)}`, 400, yFinal + 65, {
       align: "right",
     });
 
@@ -215,8 +222,10 @@ export async function gerarPdfOrdemServico(
     const pix = QrCodePix({
       city: "Sao Mateus",
       key: "07418262329",
-      name: "Arena ERP",
+      name: ordem.Empresa.nome || "Gestão Facil",
       version: "01",
+      value: valorFinal,
+      message: `Ordem de Servico #${ordem.Ordem.id}`,
     });
 
     const qr = await gerarQrCodeBuffer(pix.payload());
