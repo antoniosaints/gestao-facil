@@ -9,6 +9,7 @@ import {
   listarReservasDisponiveisSchema,
 } from "../../../schemas/arena/reservas";
 import { ResponseHandler } from "../../../utils/response";
+import { enqueuePushNotification } from "../../../services/pushNotificationQueueService";
 
 export const createReserva = async (
   req: Request,
@@ -32,7 +33,7 @@ export const createReserva = async (
     const diferencaMinutos = differenceInMinutes(end, start);
 
     // transação para evitar race conditions
-    const reserva = await prisma.$transaction(async (prismaTx) => {
+    const tsx = await prisma.$transaction(async (prismaTx) => {
       // buscar conflitos: qualquer booking confirmado ou pendente que intersecte
       if (dto.clienteId) {
         const cliente = await prismaTx.clientesFornecedores.findUnique({
@@ -91,10 +92,22 @@ export const createReserva = async (
         },
       });
 
-      return booking;
+      return {
+        booking,
+        quadra,
+      };
     });
 
-    return ResponseHandler(res, "Reserva criada com sucesso", reserva);
+    await enqueuePushNotification(
+      {
+        title: `Nova reserva (${tsx.quadra.name})`,
+        body: `Reserva de ${start.toLocaleString()} a ${end.toLocaleString()}, verifique o sistema para mais detalhes.`,
+      },
+      customData.contaId,
+      true
+    );
+
+    return ResponseHandler(res, "Reserva criada com sucesso", tsx);
   } catch (error) {
     handleError(res, error);
   }
@@ -108,6 +121,19 @@ export const getReservas = async (
     const { id, quadraId, inicio, fim } = req.query;
     const start = inicio ? new Date(inicio as string) : undefined;
     const end = fim ? new Date(fim as string) : undefined;
+
+   if (req.query.id) {
+      const reserva = await prisma.arenaAgendamentos.findUnique({
+        where: {
+          id: Number(req.query.id),
+          Quadra: {
+            contaId: customData.contaId,
+          }
+        },
+      });
+      return ResponseHandler(res, "Reserva encontrada", reserva);
+    }
+
     const reservas = await prisma.arenaAgendamentos.findMany({
       include: {
         Quadra: true,
@@ -130,7 +156,10 @@ export const getReservas = async (
     return handleError(res, error);
   }
 };
-export const getSlotsDisponiveis = async (req: Request, res: Response): Promise<any> => {
+export const getSlotsDisponiveis = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
     const body = req.body;
@@ -206,7 +235,10 @@ export const getSlotsDisponiveis = async (req: Request, res: Response): Promise<
   }
 };
 
-export const getSlotsDisponiveisPublico = async (req: Request, res: Response): Promise<any> => {
+export const getSlotsDisponiveisPublico = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const body = req.body;
     const { data, error, success } =
@@ -225,7 +257,7 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
         id: Number(data.quadraId),
         contaId: Number(data.contaId),
         active: true,
-        permitirReservaOnline: true
+        permitirReservaOnline: true,
       },
     });
 
@@ -241,10 +273,7 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
       where: {
         quadraId: Number(data.quadraId),
         status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
-        AND: [
-          { startAt: { lt: end } },
-          { endAt: { gt: start } },
-        ],
+        AND: [{ startAt: { lt: end } }, { endAt: { gt: start } }],
       },
       orderBy: { startAt: "asc" },
     });
@@ -272,7 +301,7 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
       slots.push({
         start: slotStart.toISOString(),
         end: slotEnd.toISOString(),
-        reservada: conflict
+        reservada: conflict,
       });
     }
 
@@ -285,7 +314,6 @@ export const getSlotsDisponiveisPublico = async (req: Request, res: Response): P
     return handleError(res, error);
   }
 };
-
 
 export const cancelarReserva = async (req: Request, res: Response) => {};
 export const confirmarReserva = async (req: Request, res: Response) => {};
