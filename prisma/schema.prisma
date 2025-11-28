@@ -97,6 +97,7 @@ model Contas {
   assinaturas              Assinatura[]
   notaFiscals              NotaFiscal[]
   arenaQuadras             ArenaQuadras[]
+  comandaVendas            ComandaVenda[]
 }
 
 model ParametrosConta {
@@ -188,6 +189,7 @@ model ClientesFornecedores {
   NotaFiscal           NotaFiscal[]
   OrdensServico        OrdensServico[]
   arenaAgendamentos    ArenaAgendamentos[]
+  comandaVendas        ComandaVenda[]
 }
 
 enum TipoMovimentacao {
@@ -441,6 +443,8 @@ model Vendas {
   faturado             Boolean                @default(false)
   observacoes          String?                @db.Text
   desconto             Decimal                @default(0) @db.Decimal(10, 2)
+  comandaId            Int?
+  comanda              ComandaVenda?          @relation(fields: [comandaId], references: [id])
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   ItensVendas          ItensVendas[]
@@ -613,6 +617,7 @@ model ArenaQuadras {
   schedules             ArenaAgendamentos[]
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
+  comandaVendas         ComandaVenda[]
 }
 
 model ArenaAgendamentos {
@@ -645,4 +650,28 @@ enum ArenaAgendamentoStatus {
   FINALIZADA
   CANCELADA
   BLOQUEADO
+}
+
+enum StatusComanda {
+  ABERTA
+  FECHADA
+  CANCELADA
+}
+
+model ComandaVenda {
+  id          Int                   @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas                @relation(fields: [contaId], references: [id])
+  status      StatusComanda         @default(ABERTA)
+  abertura    DateTime              @default(now())
+  fechamento  DateTime?
+  quadraId    Int?
+  Quadra      ArenaQuadras?         @relation(fields: [quadraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  clienteNome String
+  clienteId   Int?
+  Cliente     ClientesFornecedores? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendas    Vendas[]
 }
