@@ -35,7 +35,7 @@ export const createReservaSchema = z.object(
         /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/,
         "O campo fim deve estar no formato YYYY-MM-DDTHH:MM:SS"
       ),
-    observacoes: z.string().max(500).optional(),
+    observacoes: z.string().max(500).optional().nullable(),
     recorrente: z.boolean().default(false).optional(),
   },
   {
