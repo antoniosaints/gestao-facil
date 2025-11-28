@@ -1,8 +1,12 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import {
+  cancelarReserva,
+  confirmarReserva,
   createReserva,
   deleteReserva,
+  estornarReserva,
+  finalizarReserva,
   getReservas,
   getSlotsDisponiveis,
   getSlotsDisponiveisPublico,
@@ -34,6 +38,10 @@ routerArena.get("/reservas", authenticateJWT, getReservas);
 routerArena.delete("/reservas", authenticateJWT, deleteReserva);
 routerArena.get("/reservas/tabela", authenticateJWT, ListagemReservas);
 routerArena.post("/reservas/agendar", authenticateJWT, createReserva);
+routerArena.get("/reservas/confirmar", authenticateJWT, confirmarReserva);
+routerArena.get("/reservas/cancelar", authenticateJWT, cancelarReserva);
+routerArena.get("/reservas/estornar", authenticateJWT, estornarReserva);
+routerArena.get("/reservas/finalizar", authenticateJWT, finalizarReserva);
 routerArena.post("/quadras/criar", authenticateJWT, createQuadra);
 
 // graficos

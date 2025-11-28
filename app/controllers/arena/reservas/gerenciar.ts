@@ -129,7 +129,10 @@ export const createReserva = async (
     handleError(res, error);
   }
 };
-export const deleteReserva = async (req: Request, res: Response): Promise<any> => {
+export const deleteReserva = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
     const { id } = req.query;
@@ -143,6 +146,138 @@ export const deleteReserva = async (req: Request, res: Response): Promise<any> =
       },
     });
     return ResponseHandler(res, "Reserva deletada", reserva);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+export const confirmarReserva = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return ResponseHandler(res, "id nao informado!");
+    }
+    const customData = getCustomRequest(req).customData;
+    const reserva = await prisma.arenaAgendamentos.findUnique({
+      where: { id: Number(id), Quadra: { contaId: customData.contaId } },
+    });
+
+    if (!reserva) {
+      return ResponseHandler(res, "Reserva nao encontrada!");
+    }
+
+    if (
+      ["CANCELADA", "FINALIZADA", "BLOQUEADA", "CONFIRMADA"].includes(
+        reserva.status
+      )
+    ) {
+      return ResponseHandler(res, "Reserva nao pode ser confirmada!");
+    }
+
+    const re = await prisma.arenaAgendamentos.update({
+      where: { id: Number(id) },
+      data: { status: "CONFIRMADA" },
+    });
+    return ResponseHandler(res, "Reserva confirmada", re);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+export const finalizarReserva = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return ResponseHandler(res, "id nao informado!");
+    }
+    const customData = getCustomRequest(req).customData;
+    const reserva = await prisma.arenaAgendamentos.findUnique({
+      where: { id: Number(id), Quadra: { contaId: customData.contaId } },
+    });
+
+    if (!reserva) {
+      return ResponseHandler(res, "Reserva nao encontrada!");
+    }
+
+    if (
+      ["CANCELADA", "FINALIZADA", "BLOQUEADA", "PENDENTE"].includes(
+        reserva.status
+      )
+    ) {
+      return ResponseHandler(res, "Reserva nao pode ser finalizada!");
+    }
+
+    const re = await prisma.arenaAgendamentos.update({
+      where: { id: Number(id) },
+      data: { status: "FINALIZADA" },
+    });
+    return ResponseHandler(res, "Reserva finalizada", re);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+export const cancelarReserva = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return ResponseHandler(res, "id nao informado!");
+    }
+    const customData = getCustomRequest(req).customData;
+    const reserva = await prisma.arenaAgendamentos.findUnique({
+      where: { id: Number(id), Quadra: { contaId: customData.contaId } },
+    });
+
+    if (!reserva) {
+      return ResponseHandler(res, "Reserva nao encontrada!");
+    }
+
+    if (["FINALIZADA", "CANCELADA", "BLOQUEADA"].includes(reserva.status)) {
+      return ResponseHandler(res, "Reserva nao pode ser cancelada!");
+    }
+
+    const re = await prisma.arenaAgendamentos.update({
+      where: { id: Number(id) },
+      data: { status: "CANCELADA" },
+    });
+    return ResponseHandler(res, "Reserva cancelada", re);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+export const estornarReserva = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return ResponseHandler(res, "id nao informado!");
+    }
+    const customData = getCustomRequest(req).customData;
+    const reserva = await prisma.arenaAgendamentos.findUnique({
+      where: { id: Number(id), Quadra: { contaId: customData.contaId } },
+    });
+
+    if (!reserva) {
+      return ResponseHandler(res, "Reserva nao encontrada!");
+    }
+
+    if (["BLOQUEADA", "CANCELADA", "PENDENTE"].includes(reserva.status)) {
+      return ResponseHandler(res, "Reserva nao pode ser estornada!");
+    }
+
+    const re = await prisma.arenaAgendamentos.update({
+      where: { id: Number(id) },
+      data: { status: "PENDENTE" },
+    });
+    return ResponseHandler(res, "Reserva estornada", re);
   } catch (error) {
     handleError(res, error);
   }
@@ -349,6 +484,3 @@ export const getSlotsDisponiveisPublico = async (
     return handleError(res, error);
   }
 };
-
-export const cancelarReserva = async (req: Request, res: Response) => {};
-export const confirmarReserva = async (req: Request, res: Response) => {};
