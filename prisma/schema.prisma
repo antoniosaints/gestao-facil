@@ -292,6 +292,7 @@ model Servicos {
   updatedAt          DateTime             @updatedAt
   Assinatura         Assinatura[]
   ItensOrdensServico ItensOrdensServico[]
+  itensVendas        ItensVendas[]
 }
 
 model NotaFiscal {
@@ -461,15 +462,18 @@ model Vendas {
 }
 
 model ItensVendas {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
+  itemName   String?
   vendaId    Int
-  venda      Vendas   @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  produtoId  Int
-  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  venda      Vendas    @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoId  Int?
+  produto    Produto?  @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  servicoId  Int?
+  servico    Servicos? @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   quantidade Int
-  valor      Decimal  @db.Decimal(10, 2)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  valor      Decimal   @db.Decimal(10, 2)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 enum StatusPagamento {
