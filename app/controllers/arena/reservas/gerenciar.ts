@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { handleError } from "../../../utils/handleError";
 import { prisma } from "../../../utils/prisma";
 import { getCustomRequest } from "../../../helpers/getCustomRequest";
-import { differenceInMinutes } from "date-fns";
+import { addMinutes, differenceInMinutes, isAfter, isBefore } from "date-fns";
 import {
   createReservaSchema,
   listarReservasDisponiveisPublicoSchema,
@@ -76,9 +76,26 @@ export const createReserva = async (
         });
 
         if (conflict) {
-          throw new Error(
-            "Conflito de horário: já existe reserva nesse período."
-          );
+          const now = new Date();
+          const daqui30 = addMinutes(now, 30);
+          if (
+            conflict.status === "PENDENTE" &&
+            isAfter(conflict.startAt, now) &&
+            isBefore(conflict.startAt, daqui30)
+          ) {
+            await prismaTx.arenaAgendamentos.update({
+              where: { id: conflict.id },
+              data: {
+                status: "CANCELADA",
+                observacoes:
+                  "Cancelada por não pagamento antes dos 30 minutos do inicio da reserva",
+              },
+            });
+          } else {
+            throw new Error(
+              "Conflito de horário: já existe reserva nesse período."
+            );
+          }
         }
 
         booking = await prismaTx.arenaAgendamentos.create({
@@ -94,6 +111,45 @@ export const createReserva = async (
           },
         });
       } else {
+        const conflict = await prismaTx.arenaAgendamentos.findFirst({
+          include: {
+            arenaAgendamentosPagamentos: true,
+          },
+          where: {
+            quadraId: dto.quadraId,
+            status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
+            AND: [
+              { startAt: { lt: end } }, // start < new.end
+              { endAt: { gt: start } }, // end > new.start
+              { id: { not: Number(req.query.id) } },
+            ],
+          },
+        });
+
+        if (conflict) {
+          const now = new Date();
+          const daqui30 = addMinutes(now, 30);
+          if (
+            conflict.status === "PENDENTE" &&
+            isAfter(conflict.startAt, now) &&
+            isBefore(conflict.startAt, daqui30) &&
+            conflict.arenaAgendamentosPagamentos.length === 0
+          ) {
+            await prismaTx.arenaAgendamentos.update({
+              where: { id: conflict.id },
+              data: {
+                status: "CANCELADA",
+                observacoes:
+                  "Cancelada por não pagamento antes dos 30 minutos do inicio da reserva",
+              },
+            });
+          } else {
+            throw new Error(
+              "Conflito de horário: já existe reserva nesse período."
+            );
+          }
+        }
+
         booking = await prismaTx.arenaAgendamentos.update({
           where: { id: Number(req.query.id) },
           data: {
@@ -157,7 +213,7 @@ export const confirmarReserva = async (
   try {
     const { id } = req.query;
     if (!id) {
-      return ResponseHandler(res, "id nao informado!");
+      return ResponseHandler(res, "id nao informado!", null, 400);
     }
     const customData = getCustomRequest(req).customData;
     const reserva = await prisma.arenaAgendamentos.findUnique({
@@ -165,7 +221,7 @@ export const confirmarReserva = async (
     });
 
     if (!reserva) {
-      return ResponseHandler(res, "Reserva nao encontrada!");
+      return ResponseHandler(res, "Reserva nao encontrada!", null, 400);
     }
 
     if (
@@ -173,7 +229,12 @@ export const confirmarReserva = async (
         reserva.status
       )
     ) {
-      return ResponseHandler(res, "Reserva nao pode ser confirmada!");
+      return ResponseHandler(
+        res,
+        "Reserva nao pode ser confirmada!",
+        null,
+        400
+      );
     }
 
     const re = await prisma.arenaAgendamentos.update({
@@ -192,7 +253,7 @@ export const finalizarReserva = async (
   try {
     const { id } = req.query;
     if (!id) {
-      return ResponseHandler(res, "id nao informado!");
+      return ResponseHandler(res, "id nao informado!", null, 400);
     }
     const customData = getCustomRequest(req).customData;
     const reserva = await prisma.arenaAgendamentos.findUnique({
@@ -200,7 +261,7 @@ export const finalizarReserva = async (
     });
 
     if (!reserva) {
-      return ResponseHandler(res, "Reserva nao encontrada!");
+      return ResponseHandler(res, "Reserva nao encontrada!", null, 400);
     }
 
     if (
@@ -208,7 +269,24 @@ export const finalizarReserva = async (
         reserva.status
       )
     ) {
-      return ResponseHandler(res, "Reserva nao pode ser finalizada!");
+      return ResponseHandler(
+        res,
+        "Reserva nao pode ser finalizada!",
+        null,
+        400
+      );
+    }
+
+    const dataFinal = new Date(reserva.endAt);
+    const dataAtual = new Date();
+
+    if (isBefore(dataAtual, dataFinal)) {
+      return ResponseHandler(
+        res,
+        "Reserva nao pode ser finalizada antes do horário informado!",
+        null,
+        400
+      );
     }
 
     const re = await prisma.arenaAgendamentos.update({
@@ -227,7 +305,7 @@ export const cancelarReserva = async (
   try {
     const { id } = req.query;
     if (!id) {
-      return ResponseHandler(res, "id nao informado!");
+      return ResponseHandler(res, "id nao informado!", null, 400);
     }
     const customData = getCustomRequest(req).customData;
     const reserva = await prisma.arenaAgendamentos.findUnique({
@@ -235,11 +313,11 @@ export const cancelarReserva = async (
     });
 
     if (!reserva) {
-      return ResponseHandler(res, "Reserva nao encontrada!");
+      return ResponseHandler(res, "Reserva nao encontrada!", null, 400);
     }
 
     if (["FINALIZADA", "CANCELADA", "BLOQUEADA"].includes(reserva.status)) {
-      return ResponseHandler(res, "Reserva nao pode ser cancelada!");
+      return ResponseHandler(res, "Reserva nao pode ser cancelada!", null, 400);
     }
 
     const re = await prisma.arenaAgendamentos.update({
@@ -258,7 +336,7 @@ export const estornarReserva = async (
   try {
     const { id } = req.query;
     if (!id) {
-      return ResponseHandler(res, "id nao informado!");
+      return ResponseHandler(res, "id nao informado!", null, 400);
     }
     const customData = getCustomRequest(req).customData;
     const reserva = await prisma.arenaAgendamentos.findUnique({
@@ -266,11 +344,11 @@ export const estornarReserva = async (
     });
 
     if (!reserva) {
-      return ResponseHandler(res, "Reserva nao encontrada!");
+      return ResponseHandler(res, "Reserva nao encontrada!", null, 400);
     }
 
     if (["BLOQUEADA", "CANCELADA", "PENDENTE"].includes(reserva.status)) {
-      return ResponseHandler(res, "Reserva nao pode ser estornada!");
+      return ResponseHandler(res, "Reserva nao pode ser estornada!", null, 400);
     }
 
     const re = await prisma.arenaAgendamentos.update({

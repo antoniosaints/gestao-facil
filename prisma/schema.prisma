@@ -642,12 +642,30 @@ model ArenaAgendamentos {
   Quadra  ArenaQuadras          @relation(fields: [quadraId], references: [id])
   Cliente ClientesFornecedores? @relation(fields: [clienteId], references: [id])
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  comandaVendas ComandaVenda[]
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  comandaVendas               ComandaVenda[]
+  arenaAgendamentosPagamentos ArenaAgendamentosPagamentos[]
 
   @@unique([quadraId, startAt, endAt])
   @@index([quadraId, startAt, endAt])
+}
+
+enum TipoPagamentoAgendamento {
+  TOTAL
+  PARCIAL
+}
+
+model ArenaAgendamentosPagamentos {
+  id              Int                      @id @default(autoincrement())
+  agendamentoId   Int
+  agendamento     ArenaAgendamentos        @relation(fields: [agendamentoId], references: [id])
+  valor           Decimal
+  tipo            TipoPagamentoAgendamento @default(TOTAL)
+  metodoPagamento MetodoPagamento          @default(PIX)
+  dataPagamento   DateTime                 @default(now())
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 }
 
 enum ArenaAgendamentoStatus {
