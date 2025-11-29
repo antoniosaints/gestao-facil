@@ -6,6 +6,7 @@ import {
   Contas,
   ItensOrdensServico,
   OrdensServico,
+  ParametrosConta,
   Usuarios,
 } from "../../../../generated";
 import { gerarQrCodeBuffer, QrCodePix } from "../../../services/qrcodeGenerator";
@@ -14,7 +15,9 @@ import { addDays } from "date-fns";
 
 interface OrdemServicoData {
   Cliente: ClientesFornecedores;
-  Empresa: Contas;
+  Empresa: Contas & {
+    ParametrosConta: ParametrosConta[];
+  };
   Ordem: OrdensServico & {
     ItensOrdensServico: ItensOrdensServico[];
     Operador: Usuarios;
@@ -213,7 +216,7 @@ export async function gerarPdfOrdemServico(
   // 🔵 SEÇÃO OPCIONAL: PIX + QR CODE
   // ============================================
 
-  if (incluirPix) {
+  if (incluirPix && ordem.Empresa.ParametrosConta.length > 0 && ordem.Empresa.ParametrosConta[0].chavePix) {
     const qrSize = 90;
 
     const centerX = (doc.page.width - qrSize) / 2;
@@ -221,7 +224,7 @@ export async function gerarPdfOrdemServico(
 
     const pix = QrCodePix({
       city: "Sao Mateus",
-      key: "07418262329",
+      key: ordem.Empresa.ParametrosConta[0].chavePix,
       name: ordem.Empresa.nome || "Gestão Facil",
       version: "01",
       value: valorFinal,

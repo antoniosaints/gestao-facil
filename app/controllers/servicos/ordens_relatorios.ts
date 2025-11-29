@@ -14,12 +14,14 @@ export async function gerarPdfOS(req: Request, res: Response): Promise<any> {
       where: {
         id: customData.contaId,
       },
+      include: {
+        ParametrosConta: true,
+      }
     });
     const ordem = await prisma.ordensServico.findUnique({
       where: { id: Number(id), contaId: customData.contaId },
       include: {
         Cliente: true,
-        Contas: true,
         Operador: true,
         ItensOrdensServico: true,
       },

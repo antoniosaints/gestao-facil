@@ -105,6 +105,11 @@ model ParametrosConta {
   contaId                        Int      @unique
   Contas                         Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   MercadoPagoApiKey              String?
+  AbacatePayApiKey               String?
+  AbacatePaySecret               String?
+  WhatsappAPIToken               String?
+  WhatsappAPISession             String?
+  WhatsappAPINumber              String?
   AsaasApiKey                    String?
   AsaasApiSecret                 String?
   MercadoPagoEnv                 String?
@@ -115,6 +120,7 @@ model ParametrosConta {
   eventoEstoqueBaixo             Boolean? @default(true)
   linkPublicoAtivo               Boolean? @default(false)
   cadastrosPermitidosLinkPublico Int?     @default(1)
+  chavePix                       String?
   createdAt                      DateTime @default(now())
   updatedAt                      DateTime @updatedAt
 }
@@ -617,7 +623,6 @@ model ArenaQuadras {
   schedules             ArenaAgendamentos[]
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
-  comandaVendas         ComandaVenda[]
 }
 
 model ArenaAgendamentos {
@@ -637,8 +642,9 @@ model ArenaAgendamentos {
   Quadra  ArenaQuadras          @relation(fields: [quadraId], references: [id])
   Cliente ClientesFornecedores? @relation(fields: [clienteId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  comandaVendas ComandaVenda[]
 
   @@unique([quadraId, startAt, endAt])
   @@index([quadraId, startAt, endAt])
@@ -659,19 +665,32 @@ enum StatusComanda {
 }
 
 model ComandaVenda {
-  id          Int                   @id @default(autoincrement())
-  contaId     Int
-  Conta       Contas                @relation(fields: [contaId], references: [id])
-  status      StatusComanda         @default(ABERTA)
-  abertura    DateTime              @default(now())
-  fechamento  DateTime?
-  quadraId    Int?
-  Quadra      ArenaQuadras?         @relation(fields: [quadraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  clienteNome String
-  clienteId   Int?
-  Cliente     ClientesFornecedores? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id            Int                   @id @default(autoincrement())
+  contaId       Int
+  Conta         Contas                @relation(fields: [contaId], references: [id])
+  status        StatusComanda         @default(ABERTA)
+  abertura      DateTime              @default(now())
+  fechamento    DateTime?
+  clienteNome   String
+  observacao    String?
+  clienteId     Int?
+  Cliente       ClientesFornecedores? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  reservaId     Int?
+  ArenaReservas ArenaAgendamentos?    @relation(fields: [reservaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  vendas    Vendas[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  vendas            Vendas[]
+  comandaPagamentos ComandaPagamento[]
+}
+
+model ComandaPagamento {
+  id             Int             @id @default(autoincrement())
+  comandaId      Int
+  Comanda        ComandaVenda    @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  formaPagamento MetodoPagamento
+  valor          Decimal
+  dataPagamento  DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
