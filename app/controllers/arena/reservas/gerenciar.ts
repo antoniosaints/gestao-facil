@@ -658,7 +658,7 @@ export const getSlotsDisponiveisPublico = async (
 
     for (
       ;
-      cursor < end;
+      isBefore(cursor, end);
       cursor = new Date(cursor.getTime() + quadra.tempoReserva * 60000)
     ) {
       const slotStart = new Date(cursor);
