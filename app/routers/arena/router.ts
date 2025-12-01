@@ -4,6 +4,7 @@ import {
   cancelarReserva,
   confirmarReserva,
   createReserva,
+  createReservaPublico,
   deleteReserva,
   estornarReserva,
   finalizarReserva,
@@ -26,8 +27,6 @@ const routerArena = Router();
 const g = new ReservasChartsController();
 
 routerArena.get("/quadras", auth, getQuadras);
-routerArena.get("/quadras/publico/agendamento", getQuadrasPublico);
-routerArena.post("/reservas/publico/horarios", getSlotsDisponiveisPublico);
 routerArena.get("/quadras/select2", auth, select2ArenaQuadras);
 routerArena.get("/quadras/:quadraId/disponiveis", auth, getSlotsDisponiveis);
 routerArena.get("/reservas", auth, getReservas);
@@ -43,6 +42,11 @@ routerArena.post("/quadras/criar", auth, createQuadra);
 routerArena.get("/quadras/tabela", auth, ListagemQuadras);
 routerArena.get("/reservas/tabela", auth, ListagemReservas);
 routerArena.get("/comandas/tabela", auth, ListagemComandas);
+
+//publico
+routerArena.post("/reservas/publico/horarios", getSlotsDisponiveisPublico);
+routerArena.get("/quadras/publico/agendamento", getQuadrasPublico);
+routerArena.post("/reservas/publico/agendamento", createReservaPublico);
 
 // graficos
 routerArena.get("/graficos/receita-por-quadra", auth, g.receitaPorQuadra);

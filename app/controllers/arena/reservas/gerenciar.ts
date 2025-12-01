@@ -4,6 +4,7 @@ import { prisma } from "../../../utils/prisma";
 import { getCustomRequest } from "../../../helpers/getCustomRequest";
 import { addMinutes, differenceInMinutes, isAfter, isBefore } from "date-fns";
 import {
+  createReservaPublicoSchema,
   createReservaSchema,
   listarReservasDisponiveisPublicoSchema,
   listarReservasDisponiveisSchema,
@@ -11,6 +12,130 @@ import {
 import { ResponseHandler } from "../../../utils/response";
 import { enqueuePushNotification } from "../../../services/pushNotificationQueueService";
 
+export const createReservaPublico = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const {
+      data: dto,
+      error,
+      success,
+    } = createReservaPublicoSchema.safeParse(req.body);
+
+    if (!success) {
+      return handleError(res, error);
+    }
+
+    const start = new Date(dto.inicio);
+    const end = new Date(dto.fim);
+
+    const diferencaMinutos = differenceInMinutes(end, start);
+
+    // transação para evitar race conditions
+    const tsx = await prisma.$transaction(async (prismaTx) => {
+      let cliente = null;
+      // buscar conflitos: qualquer booking confirmado ou pendente que intersecte
+      if (dto.clienteId) {
+        cliente = await prismaTx.clientesFornecedores.findUnique({
+          where: { id: dto.clienteId, contaId: dto.contaId },
+        });
+        if (!cliente) {
+          throw new Error("Cliente nao encontrado.");
+        }
+      }
+
+      const quadra = await prismaTx.arenaQuadras.findUnique({
+        where: { id: dto.quadraId, contaId: dto.contaId },
+      });
+
+      if (!quadra) {
+        throw new Error("Quadra não encontrada.");
+      }
+
+      const minutosMinimosQuadra = quadra.tempoMinimo;
+
+      if (diferencaMinutos < minutosMinimosQuadra) {
+        throw new Error(
+          `A reserva deve ter pelo menos ${minutosMinimosQuadra} minutos.`
+        );
+      }
+
+      const quantidadeReservada = diferencaMinutos / quadra.tempoReserva;
+      const ValorTotalReserva = quadra.precoHora.times(quantidadeReservada);
+
+      let booking: any = null;
+
+      const conflict = await prismaTx.arenaAgendamentos.findFirst({
+        where: {
+          quadraId: dto.quadraId,
+          status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
+          AND: [
+            { startAt: { lt: end } }, // start < new.end
+            { endAt: { gt: start } }, // end > new.start
+          ],
+        },
+      });
+
+      if (conflict) {
+        const now = new Date();
+        const daqui30 = addMinutes(now, 30);
+        if (
+          conflict.status === "PENDENTE" &&
+          isAfter(conflict.startAt, now) &&
+          isBefore(conflict.startAt, daqui30)
+        ) {
+          await prismaTx.arenaAgendamentos.update({
+            where: { id: conflict.id },
+            data: {
+              status: "CANCELADA",
+              observacoes:
+                "Cancelada por não pagamento antes dos 30 minutos do inicio da reserva",
+            },
+          });
+        } else {
+          throw new Error(
+            "Conflito de horário: já existe reserva nesse período."
+          );
+        }
+      }
+
+      booking = await prismaTx.arenaAgendamentos.create({
+        data: {
+          quadraId: dto.quadraId,
+          clienteId: dto.clienteId,
+          nomeCliente: dto.nomeCliente,
+          telefoneCliente: dto.telefoneCliente,
+          enderecoCliente: dto.enderecoCliente,
+          startAt: start,
+          endAt: end,
+          valor: ValorTotalReserva,
+          recorrente: false,
+          status: "PENDENTE",
+          observacoes: dto.observacoes ? `${dto.observacoes}` : "Reserva online",
+        },
+      });
+
+      return {
+        booking,
+        quadra,
+      };
+    });
+
+    await enqueuePushNotification(
+      {
+        title: `Nova reserva online (${tsx.quadra.name})`,
+        body: `Reserva de ${start.toLocaleString()} a ${end.toLocaleString()}, verifique o sistema para mais detalhes.`,
+      },
+      dto.contaId,
+      true
+    );
+
+    return ResponseHandler(res, "Reserva criada com sucesso", tsx);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 export const createReserva = async (
   req: Request,
   res: Response
@@ -35,11 +160,13 @@ export const createReserva = async (
     // transação para evitar race conditions
     const tsx = await prisma.$transaction(async (prismaTx) => {
       // buscar conflitos: qualquer booking confirmado ou pendente que intersecte
-      const cliente = await prismaTx.clientesFornecedores.findUnique({
-        where: { id: dto.clienteId, contaId: customData.contaId },
-      });
-      if (!cliente) {
-        throw new Error("Cliente nao encontrado.");
+      if (dto.clienteId) {
+        const cliente = await prismaTx.clientesFornecedores.findUnique({
+          where: { id: dto.clienteId, contaId: customData.contaId },
+        });
+        if (!cliente) {
+          throw new Error("Cliente nao encontrado.");
+        }
       }
 
       const quadra = await prismaTx.arenaQuadras.findUnique({
