@@ -152,17 +152,17 @@ export async function webhookMercadoPagoCobrancas(
       bank_transfer: "PIX",
       atm: "OUTRO",
     };
-    
+
     const statusNovo = statusMap[payment.status as string] ?? "PENDENTE";
     const metodoPago =
-    paymentMethodMap[payment.payment_type_id as string] ?? "OUTRO";
+      paymentMethodMap[payment.payment_type_id as string] ?? "OUTRO";
 
     await prisma.cobrancasFinanceiras.update({
       where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
     });
 
-    if (cobranca.lancamentoId && statusNovo === 'EFETIVADO') {
+    if (cobranca.lancamentoId && statusNovo === "EFETIVADO") {
       await prisma.parcelaFinanceiro.update({
         where: { id: cobranca.lancamentoId },
         data: {
@@ -173,10 +173,30 @@ export async function webhookMercadoPagoCobrancas(
       });
       await atualizarStatusLancamentos(cobranca.contaId);
     }
-    if (cobranca.vendaId && statusNovo === 'EFETIVADO') {
+    if (cobranca.reservaId && statusNovo === "EFETIVADO") {
+      const pagamentoReserva = await prisma.arenaAgendamentos.update({
+        where: {
+          id: cobranca.reservaId,
+          Quadra: { contaId: cobranca.contaId },
+        },
+        data: {
+          status: "CONFIRMADA",
+        },
+      });
+      await prisma.arenaAgendamentosPagamentos.create({
+        data: {
+          agendamentoId: pagamentoReserva.id,
+          valor: cobranca.valor,
+          metodoPagamento: metodoPago,
+          dataPagamento: new Date(),
+          tipo: cobranca.valor < pagamentoReserva.valor ? "PARCIAL" : "TOTAL",
+        },
+      });
+    }
+    if (cobranca.vendaId && statusNovo === "EFETIVADO") {
       const venda = await prisma.vendas.findUniqueOrThrow({
         where: { id: cobranca.vendaId, contaId: cobranca.contaId },
-      })
+      });
       await prisma.vendas.update({
         where: { id: cobranca.vendaId },
         data: {
@@ -195,15 +215,15 @@ export async function webhookMercadoPagoCobrancas(
                 metodo: metodoPago,
                 data: new Date(),
                 status: "EFETIVADO",
-              }
+              },
             },
           },
         },
       });
 
       await sendUpdateTable(cobranca.contaId, {
-        message: `A venda ${venda.Uid} foi efetivada`
-      })
+        message: `A venda ${venda.Uid} foi efetivada`,
+      });
     }
 
     res.sendStatus(200);

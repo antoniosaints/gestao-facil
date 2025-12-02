@@ -177,6 +177,8 @@ export const gerarCobrancaMercadoPagoPix = async (
           : null,
       ordemServicoId:
         body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
+      reservaId:
+        body.vinculo && body.vinculo.tipo === "reserva" ? body.vinculo.id : null,
       externalLink:
         pixGenerated.point_of_interaction?.transaction_data?.ticket_url,
       status: "PENDENTE",

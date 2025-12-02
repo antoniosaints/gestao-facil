@@ -121,6 +121,8 @@ model ParametrosConta {
   linkPublicoAtivo               Boolean? @default(false)
   cadastrosPermitidosLinkPublico Int?     @default(1)
   chavePix                       String?
+  corPrimaria                    String?
+  corSecundaria                  String?
   createdAt                      DateTime @default(now())
   updatedAt                      DateTime @updatedAt
 }
@@ -550,6 +552,8 @@ model CobrancasFinanceiras {
   Venda             Vendas?            @relation(fields: [vendaId], references: [id], onDelete: Restrict)
   ordemServicoId    Int?
   Ordemservico      OrdensServico?     @relation(fields: [ordemServicoId], references: [id])
+  reservaId         Int?
+  Reserva           ArenaAgendamentos? @relation(fields: [reservaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 }
 
 model LancamentoFinanceiro {
@@ -650,6 +654,7 @@ model ArenaAgendamentos {
   updatedAt                   DateTime                      @updatedAt
   comandaVendas               ComandaVenda[]
   arenaAgendamentosPagamentos ArenaAgendamentosPagamentos[]
+  cobrancasFinanceiras        CobrancasFinanceiras[]
 
   @@unique([quadraId, startAt, endAt])
   @@index([quadraId, startAt, endAt])

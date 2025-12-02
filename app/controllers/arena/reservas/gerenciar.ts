@@ -11,6 +11,7 @@ import {
 } from "../../../schemas/arena/reservas";
 import { ResponseHandler } from "../../../utils/response";
 import { enqueuePushNotification } from "../../../services/pushNotificationQueueService";
+import { cancelarCobrancaMP } from "../../../services/financeiro/mercadoPagoManager";
 
 export const createReservaPublico = async (
   req: Request,
@@ -192,6 +193,9 @@ export const createReserva = async (
 
       if (!req.query.id) {
         const conflict = await prismaTx.arenaAgendamentos.findFirst({
+          include: {
+            cobrancasFinanceiras: true
+          },
           where: {
             quadraId: dto.quadraId,
             status: { in: ["PENDENTE", "CONFIRMADA", "BLOQUEADO"] },
@@ -218,6 +222,14 @@ export const createReserva = async (
                   "Cancelada por não pagamento antes dos 30 minutos do inicio da reserva",
               },
             });
+            if (conflict.cobrancasFinanceiras.length > 0) {
+              await cancelarCobrancaMP(customData.contaId, conflict.cobrancasFinanceiras[0].idCobranca);
+              await prismaTx.cobrancasFinanceiras.deleteMany({
+                where: {
+                  reservaId: conflict.id,
+                },
+              });
+            }
           } else {
             throw new Error(
               "Conflito de horário: já existe reserva nesse período."
@@ -436,6 +448,7 @@ export const cancelarReserva = async (
     }
     const customData = getCustomRequest(req).customData;
     const reserva = await prisma.arenaAgendamentos.findUnique({
+      include: {cobrancasFinanceiras: true},
       where: { id: Number(id), Quadra: { contaId: customData.contaId } },
     });
 
@@ -451,6 +464,16 @@ export const cancelarReserva = async (
       where: { id: Number(id) },
       data: { status: "CANCELADA" },
     });
+    if (reserva.cobrancasFinanceiras.length > 0) {
+      for (const cobranca of reserva.cobrancasFinanceiras) {
+        if (cobranca.status === "PENDENTE") {
+          await cancelarCobrancaMP(customData.contaId, cobranca.idCobranca);
+          await prisma.cobrancasFinanceiras.delete({
+            where: { id: cobranca.id },
+          })
+        }
+      }
+    }
     return ResponseHandler(res, "Reserva cancelada", re);
   } catch (error) {
     handleError(res, error);
