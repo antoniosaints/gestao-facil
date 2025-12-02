@@ -534,26 +534,27 @@ model CategoriaFinanceiro {
 }
 
 model CobrancasFinanceiras {
-  id                Int                @id @default(autoincrement())
-  contaId           Int
-  Contas            Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade)
-  idCobranca        String             @default("COB_000")
-  Uid               String             @default("COB_000")
-  externalLink      String?            @db.Text
-  valor             Decimal
-  gateway           String
-  dataVencimento    DateTime
-  dataCadastro      DateTime           @default(now())
-  status            StatusPagamento    @default(PENDENTE)
-  observacao        String?
-  lancamentoId      Int?
-  LancamentoParcela ParcelaFinanceiro? @relation(fields: [lancamentoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  vendaId           Int?
-  Venda             Vendas?            @relation(fields: [vendaId], references: [id], onDelete: Restrict)
-  ordemServicoId    Int?
-  Ordemservico      OrdensServico?     @relation(fields: [ordemServicoId], references: [id])
-  reservaId         Int?
-  Reserva           ArenaAgendamentos? @relation(fields: [reservaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id                      Int                       @id @default(autoincrement())
+  contaId                 Int
+  Contas                  Contas                    @relation(fields: [contaId], references: [id], onDelete: Cascade)
+  idCobranca              String                    @default("COB_000")
+  Uid                     String                    @default("COB_000")
+  externalLink            String?                   @db.Text
+  valor                   Decimal
+  gateway                 String
+  dataVencimento          DateTime
+  dataCadastro            DateTime                  @default(now())
+  status                  StatusPagamento           @default(PENDENTE)
+  observacao              String?
+  lancamentoId            Int?
+  LancamentoParcela       ParcelaFinanceiro?        @relation(fields: [lancamentoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  vendaId                 Int?
+  Venda                   Vendas?                   @relation(fields: [vendaId], references: [id], onDelete: Restrict)
+  ordemServicoId          Int?
+  Ordemservico            OrdensServico?            @relation(fields: [ordemServicoId], references: [id])
+  reservaId               Int?
+  Reserva                 ArenaAgendamentos?        @relation(fields: [reservaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  cobrancasOnAgendamentos CobrancasOnAgendamentos[]
 }
 
 model LancamentoFinanceiro {
@@ -655,9 +656,18 @@ model ArenaAgendamentos {
   comandaVendas               ComandaVenda[]
   arenaAgendamentosPagamentos ArenaAgendamentosPagamentos[]
   cobrancasFinanceiras        CobrancasFinanceiras[]
+  cobrancasOnAgendamentos     CobrancasOnAgendamentos[]
 
   @@unique([quadraId, startAt, endAt])
   @@index([quadraId, startAt, endAt])
+}
+
+model CobrancasOnAgendamentos {
+  id            Int                  @id @default(autoincrement())
+  agendamentoId Int
+  agendamento   ArenaAgendamentos    @relation(fields: [agendamentoId], references: [id])
+  cobrancaId    Int
+  cobranca      CobrancasFinanceiras @relation(fields: [cobrancaId], references: [id])
 }
 
 enum TipoPagamentoAgendamento {
