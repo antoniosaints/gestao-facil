@@ -55,6 +55,12 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    chavePix: z
+      .string({
+        invalid_type_error: "O campo chavePix deve ser uma string",
+      })
+      .optional()
+      .nullable(),
   },
   {
     required_error: "Informe os parâmetros da conta",

@@ -1,15 +1,16 @@
 import { Request, Response } from "express";
 import { prisma } from "../../../utils/prisma";
-import { Prisma } from "../../../../generated";
+import { Prisma, StatusComanda } from "../../../../generated";
 import { getCustomRequest } from "../../../helpers/getCustomRequest";
 
 export const ListagemComandas = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const {
     search = undefined,
+    status = undefined,
     limit = "10",
     page = "1",
-  } = req.query as { search: string; limit: string; page: string };
+  } = req.query as { search: string; limit: string; page: string, status: StatusComanda | undefined };
 
   try {
     const model = prisma.comandaVenda;
@@ -22,6 +23,11 @@ export const ListagemComandas = async (req: Request, res: Response): Promise<any
         { clienteNome: { contains: search } },
       ];
     }
+
+    if (status) {
+      where.status = status;
+    }
+    
 
     const take = Number(limit);
     const skip = (Number(page) - 1) * take;

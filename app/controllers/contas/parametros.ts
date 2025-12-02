@@ -38,6 +38,7 @@ export const saveParametros = async (
         eventoVendaConcluida: body.data.eventoVendaConcluida,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
+        chavePix: body.data.chavePix,
       },
       update: {
         AsaasApiKey: body.data.AsaasApiKey,
@@ -49,6 +50,7 @@ export const saveParametros = async (
         eventoVendaConcluida: body.data.eventoVendaConcluida,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
+        chavePix: body.data.chavePix,
       },
     });
 
