@@ -9,13 +9,14 @@ const queue = new Queue(financeQueue, {
 // evita múltiplos cron jobs duplicados
 (async () => {
   const existing = await queue.getJobSchedulers();
-  if (existing.length === 0) {
+  const exists = existing.some(j => j.name === financeQueue);
+  if (!exists) {
     await queue.add(
-      "cron",
+      financeQueue,
       {},
       {
         repeat: {
-          pattern: "0 3 * * *",
+          pattern: "*/5 * * * * *",
         },
         removeOnComplete: true,
         removeOnFail: true,
@@ -31,8 +32,7 @@ export const recurrencyFinanceWorker = () => {
       console.log(`Worker rodou o job ${job.name} com o id ${job.id}`);
       // aqui você executa a lógica diária
     },
-    {
-      connection: redisConnecion,
+    {connection: redisConnecion,
       concurrency: 10,
     }
   );

@@ -23,7 +23,7 @@ export const efetivarVendaSchema = z.object(
     ),
     lancamentoManual: z.boolean({
       required_error: "Informe o tipo de lançamento",
-      invalid_type_error: "O lançamento manual deve ser selecionado ou não"
+      invalid_type_error: "O lançamento manual deve ser selecionado ou não",
     }),
     dataPagamento: z.string({
       required_error: "O campo dataPagamento é obrigatório",
@@ -49,6 +49,13 @@ export const vendaSchema = z.object(
       .number({
         invalid_type_error: "O campo id deve ser um numero",
       })
+      .nullable()
+      .optional(),
+    comandaId: z
+      .number({
+        invalid_type_error: "O campo comandaId deve ser um numero",
+      })
+      .int()
       .nullable()
       .optional(),
     data: z
@@ -119,6 +126,10 @@ export const vendaSchema = z.object(
               message: "produtoId inválido",
             })
             .transform((val) => Number(val)),
+          tipo: z.enum(["PRODUTO", "SERVICO"], {
+            required_error: "O campo tipo é obrigatório",
+            invalid_type_error: "O campo tipo deve ser (PRODUTO ou SERVICO)",
+          }),
           preco: z.number({
             required_error: "O campo preco é obrigatório",
             invalid_type_error: "O campo preco deve ser um numero",

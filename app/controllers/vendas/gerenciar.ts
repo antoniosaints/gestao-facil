@@ -231,6 +231,7 @@ export const deleteVenda = async (
       });
 
       for (const item of items) {
+        if (item.produtoId === null) continue;
         await tx.produto.update({
           where: {
             id: item.produtoId,
@@ -350,28 +351,31 @@ export const updateVendaInternal = async (
 
     await Promise.all(
       itensVendaOriginal.map(async (item) => {
-        await tx.movimentacoesEstoque.deleteMany({
-          where: {
-            vendaId: venda.id,
-            produtoId: item.produtoId,
-          },
-        });
-        await tx.produto.update({
-          where: {
-            id: item.produtoId,
-            contaId: customData.contaId,
-          },
-          data: {
-            estoque: { increment: item.quantidade },
-          },
-        });
+        if (item.produtoId) {
+          await tx.movimentacoesEstoque.deleteMany({
+            where: {
+              vendaId: venda.id,
+              produtoId: item.produtoId,
+            },
+          });
+          await tx.produto.update({
+            where: {
+              id: item.produtoId,
+              contaId: customData.contaId,
+            },
+            data: {
+              estoque: { increment: item.quantidade },
+            },
+          });
+        }
       })
     );
 
     // Novo conjunto de itens
-    const itensVenda = data.itens.map((item: any) => ({
+    const itensVenda = data.itens.map((item) => ({
       vendaId: venda.id,
-      produtoId: item.id,
+      produtoId: item.tipo === 'PRODUTO' ? item.id : null,
+      servicoId: item.tipo === 'SERVICO' ? item.id : null,
       quantidade: item.quantidade,
       valor: new Decimal(item.preco),
     }));
@@ -386,25 +390,27 @@ export const updateVendaInternal = async (
 
     await Promise.all(
       itensVenda.map(async (item) => {
-        await tx.produto.update({
-          where: { id: item.produtoId, contaId: customData.contaId },
-          data: {
-            estoque: { decrement: item.quantidade },
-          },
-        });
-        await tx.movimentacoesEstoque.create({
-          data: {
-            Uid: gerarIdUnicoComMetaFinal("MOV"),
-            vendaId: venda.id,
-            produtoId: item.produtoId,
-            quantidade: item.quantidade,
-            status: "CONCLUIDO",
-            tipo: "SAIDA",
-            clienteFornecedor: data.clienteId,
-            contaId: customData.contaId,
-            custo: new Decimal(item.valor), // aqui assumindo que o valor = preço de venda
-          },
-        });
+        if (item.produtoId) {
+          await tx.produto.update({
+            where: { id: item.produtoId, contaId: customData.contaId },
+            data: {
+              estoque: { decrement: item.quantidade },
+            },
+          });
+          await tx.movimentacoesEstoque.create({
+            data: {
+              Uid: gerarIdUnicoComMetaFinal("MOV"),
+              vendaId: venda.id,
+              produtoId: item.produtoId,
+              quantidade: item.quantidade,
+              status: "CONCLUIDO",
+              tipo: "SAIDA",
+              clienteFornecedor: data.clienteId,
+              contaId: customData.contaId,
+              custo: new Decimal(item.valor), // aqui assumindo que o valor = preço de venda
+            },
+          });
+        }
       })
     );
 
@@ -424,6 +430,7 @@ export const updateVendaInternal = async (
         valor: valorTotal.minus(descontoTotal),
         clienteId: data.clienteId,
         observacoes: data.observacoes,
+        comandaId: data.comandaId,
         vendedorId: data.vendedorId || customData.userId,
         contaId: customData.contaId,
         data: addHours(data.data, 3),
@@ -477,6 +484,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           observacoes: data.observacoes,
           vendedorId: data.vendedorId || customData.userId,
           contaId: customData.contaId,
+          comandaId: data.comandaId,
           data: addHours(data.data, 3),
           status: data.status,
           garantia: data.garantia,
@@ -492,56 +500,67 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       });
 
       for (const item of data.itens) {
-        const produto = await tx.produto.findUniqueOrThrow({
-          where: { id: item.id },
-        });
-
-        if (!produto) {
-          throw new Error(`Produto ${item.id} não encontrado`);
+        if (item.tipo === "PRODUTO") {
+          const produto = await tx.produto.findUniqueOrThrow({
+            where: { id: item.id, contaId: customData.contaId },
+          });
+          if (!produto) {
+            throw new Error(`Produto ${item.id} não encontrado`);
+          }
+          if (produto.saidas === false) {
+            throw new Error(
+              `Produto ${produto.nome} não permite saídas, altere isso antes de continuar`
+            );
+          }
+          if (produto.estoque < item.quantidade) {
+            throw new Error(
+              `Produto ${produto.nome} não possui estoque suficiente (disponível: ${produto.estoque})`
+            );
+          }
         }
-        if (produto.saidas === false) {
-          throw new Error(
-            `Produto ${produto.nome} não permite saídas, altere isso antes de continuar`
-          );
-        }
-
-        if (produto.estoque < item.quantidade) {
-          throw new Error(
-            `Produto ${produto.nome} não possui estoque suficiente (disponível: ${produto.estoque})`
-          );
+        if (item.tipo === "SERVICO") {
+          const servico = await tx.servicos.findUniqueOrThrow({
+            where: { id: item.id, contaId: customData.contaId },
+          });
+          if (!servico) {
+            throw new Error(`Serviço ${item.id} não encontrado`);
+          }
         }
 
         await tx.itensVendas.create({
           data: {
             vendaId: venda.id,
-            produtoId: item.id,
+            produtoId: item.tipo === 'PRODUTO' ? item.id : null,
+            servicoId: item.tipo === 'SERVICO' ? item.id : null,
             quantidade: item.quantidade,
             valor: new Decimal(item.preco),
           },
         });
 
-        await tx.produto.update({
-          where: { id: item.id },
-          data: {
-            estoque: {
-              decrement: item.quantidade,
+        if (item.tipo === "PRODUTO") {
+          await tx.produto.update({
+            where: { id: item.id },
+            data: {
+              estoque: {
+                decrement: item.quantidade,
+              },
             },
-          },
-        });
+          });
+          await tx.movimentacoesEstoque.create({
+            data: {
+              Uid: gerarIdUnicoComMetaFinal("MOV"),
+              vendaId: venda.id,
+              produtoId: item.id,
+              quantidade: item.quantidade,
+              status: "CONCLUIDO",
+              tipo: "SAIDA",
+              clienteFornecedor: data.clienteId,
+              contaId: customData.contaId,
+              custo: new Decimal(item.preco),
+            },
+          });
+        }
 
-        await tx.movimentacoesEstoque.create({
-          data: {
-            Uid: gerarIdUnicoComMetaFinal("MOV"),
-            vendaId: venda.id,
-            produtoId: item.id,
-            quantidade: item.quantidade,
-            status: "CONCLUIDO",
-            tipo: "SAIDA",
-            clienteFornecedor: data.clienteId,
-            contaId: customData.contaId,
-            custo: new Decimal(item.preco),
-          },
-        });
       }
 
       return venda;
