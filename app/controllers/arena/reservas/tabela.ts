@@ -57,7 +57,15 @@ export const ListagemReservas = async (
     const [data, total] = await Promise.all([
       model.findMany({
         where,
-        include: { Quadra: true, Cliente: true },
+        include: {
+          Quadra: true,
+          Cliente: true,
+          cobrancasOnAgendamentos: {
+            include: {
+              cobranca: true,
+            },
+          },
+        },
         skip,
         take,
         orderBy: { nomeCliente: "asc" },

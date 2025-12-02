@@ -336,6 +336,7 @@ export const deleteReserva = async (
   try {
     const customData = getCustomRequest(req).customData;
     const { id } = req.query;
+    await prisma.arenaAgendamentosPagamentos.deleteMany({ where: { agendamentoId: Number(id) } });
     const reserva = await prisma.arenaAgendamentos.delete({
       where: {
         id: Number(id),
