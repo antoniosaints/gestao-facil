@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
-import { generateCobrancaMercadoPago } from "./mercadoPago/gerarCobranca";
+import { generateCobrancaMercadoPago, generateCobrancaMercadoPagoPublico } from "./mercadoPago/gerarCobranca";
 import {
   cancelarCobrancaMercadoPago,
   estornarCobrancaMercadoPago,
@@ -10,17 +10,6 @@ import {
 import { BodyCobrancaPublicoSchema } from "../../schemas/arena/reservas";
 import { handleError } from "../../utils/handleError";
 export interface BodyCobranca {
-  type: "PIX" | "BOLETO" | "LINK";
-  value: number;
-  gateway: "mercadopago" | "pagseguro" | "asaas";
-  clienteId: number | undefined;
-  vinculo?: {
-    id: number;
-    tipo: "parcela" | "venda" | "os" | "reserva";
-  };
-}
-export interface BodyCobrancaPublico {
-  contaId: number;
   type: "PIX" | "BOLETO" | "LINK";
   value: number;
   gateway: "mercadopago" | "pagseguro" | "asaas";
@@ -92,7 +81,7 @@ export const generateCobrancaPublico = async (
       });
 
     if (data.gateway === "mercadopago") {
-      const resp = await generateCobrancaMercadoPago(req.body, parametros);
+      const resp = await generateCobrancaMercadoPagoPublico(req.body, parametros);
       return res.status(200).json({ message: resp });
     }
 

@@ -193,53 +193,70 @@ export const listarReservasDisponiveisPublicoSchema = z.object(
   }
 );
 
-export const BodyCobrancaPublicoSchema = z.object({
-  contaId: z
-    .number({
-      required_error: "O campo contaId é obrigatório",
-      invalid_type_error: "O campo contaId deve ser um numero",
-    })
-    .int(),
-  type: z.enum(["PIX", "BOLETO", "LINK"], {
-    required_error: "O campo type é obrigatório",
-    invalid_type_error: "O campo type deve ser PIX, BOLETO ou LINK",
-  }),
-  value: z
-    .number({
-      required_error: "O campo value é obrigatório",
-      invalid_type_error: "O campo value deve ser um numero",
-    })
-    .positive(),
-  gateway: z.enum(["mercadopago", "pagseguro", "asaas"], {
-    required_error: "O campo gateway é obrigatório",
-    invalid_type_error:
-      "O campo gateway deve ser mercadopago, pagseguro ou asaas",
-  }),
-  clienteId: z
-    .number({
-      invalid_type_error: "O campo clienteId deve ser um numero",
-    })
-    .int()
-    .optional()
-    .nullable(),
-  vinculo: z
-    .object({
-      id: z.number({
-        required_error: "O campo id é obrigatório",
-        invalid_type_error: "O campo id deve ser um numero",
-      }).int(),
-      tipo: z.enum(["parcela", "venda", "os", "reserva"], {
-        required_error: "O campo tipo é obrigatório",
-        invalid_type_error:
-          "O campo tipo deve ser parcela, venda, os ou reserva",
-      }),
-    }, {
-      invalid_type_error: "O campo vinculo deve ser um objeto",
-    })
-    .optional(),
-}, {
-  required_error: "Informe o objeto",
-  invalid_type_error: "O objeto de cobranca deve ser um objeto",
-});
+export const BodyCobrancaPublicoSchema = z.object(
+  {
+    contaId: z
+      .number({
+        required_error: "O campo contaId é obrigatório",
+        invalid_type_error: "O campo contaId deve ser um numero",
+      })
+      .int(),
+    type: z.enum(["PIX", "BOLETO", "LINK"], {
+      required_error: "O campo type é obrigatório",
+      invalid_type_error: "O campo type deve ser PIX, BOLETO ou LINK",
+    }),
+    value: z
+      .number({
+        required_error: "O campo value é obrigatório",
+        invalid_type_error: "O campo value deve ser um numero",
+      })
+      .positive(),
+    gateway: z.enum(["mercadopago", "pagseguro", "asaas"], {
+      required_error: "O campo gateway é obrigatório",
+      invalid_type_error:
+        "O campo gateway deve ser mercadopago, pagseguro ou asaas",
+    }),
+    clienteId: z
+      .number({
+        invalid_type_error: "O campo clienteId deve ser um numero",
+      })
+      .int()
+      .optional()
+      .nullable(),
+    reservas: z
+      .array(
+        z.number({
+          invalid_type_error: "O array de reservas deve conter ao menos um número",
+        })
+      )
+      .nonempty("É necessário informar ao menos uma reserva")
+      .optional()
+      .nullable(),
+    vinculo: z
+      .object(
+        {
+          id: z
+            .number({
+              required_error: "O campo id é obrigatório",
+              invalid_type_error: "O campo id deve ser um numero",
+            })
+            .int(),
+          tipo: z.enum(["parcela", "venda", "os", "reserva"], {
+            required_error: "O campo tipo é obrigatório",
+            invalid_type_error:
+              "O campo tipo deve ser parcela, venda, os ou reserva",
+          }),
+        },
+        {
+          invalid_type_error: "O campo vinculo deve ser um objeto",
+        }
+      )
+      .optional(),
+  },
+  {
+    required_error: "Informe o objeto",
+    invalid_type_error: "O objeto de cobranca deve ser um objeto",
+  }
+);
 
 export type BodyCobrancaPublico = z.infer<typeof BodyCobrancaPublicoSchema>;

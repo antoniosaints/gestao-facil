@@ -113,7 +113,9 @@ export const createReservaPublico = async (
           valor: ValorTotalReserva,
           recorrente: false,
           status: "PENDENTE",
-          observacoes: dto.observacoes ? `${dto.observacoes}` : "Reserva online",
+          observacoes: dto.observacoes
+            ? `${dto.observacoes}`
+            : "Reserva online",
         },
       });
 
@@ -194,7 +196,7 @@ export const createReserva = async (
       if (!req.query.id) {
         const conflict = await prismaTx.arenaAgendamentos.findFirst({
           include: {
-            cobrancasFinanceiras: true
+            cobrancasFinanceiras: true,
           },
           where: {
             quadraId: dto.quadraId,
@@ -223,7 +225,10 @@ export const createReserva = async (
               },
             });
             if (conflict.cobrancasFinanceiras.length > 0) {
-              await cancelarCobrancaMP(customData.contaId, conflict.cobrancasFinanceiras[0].idCobranca);
+              await cancelarCobrancaMP(
+                customData.contaId,
+                conflict.cobrancasFinanceiras[0].idCobranca
+              );
               await prismaTx.cobrancasFinanceiras.deleteMany({
                 where: {
                   reservaId: conflict.id,
@@ -448,7 +453,7 @@ export const cancelarReserva = async (
     }
     const customData = getCustomRequest(req).customData;
     const reserva = await prisma.arenaAgendamentos.findUnique({
-      include: {cobrancasFinanceiras: true},
+      include: { cobrancasOnAgendamentos: true },
       where: { id: Number(id), Quadra: { contaId: customData.contaId } },
     });
 
@@ -464,13 +469,16 @@ export const cancelarReserva = async (
       where: { id: Number(id) },
       data: { status: "CANCELADA" },
     });
-    if (reserva.cobrancasFinanceiras.length > 0) {
-      for (const cobranca of reserva.cobrancasFinanceiras) {
-        if (cobranca.status === "PENDENTE") {
-          await cancelarCobrancaMP(customData.contaId, cobranca.idCobranca);
+    if (reserva.cobrancasOnAgendamentos && reserva.cobrancasOnAgendamentos.length > 0) {
+      for (const cobranca of reserva.cobrancasOnAgendamentos) {
+        const res = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
+          where: { id: cobranca.cobrancaId },
+        })
+        if (res.status === "PENDENTE") {
           await prisma.cobrancasFinanceiras.delete({
-            where: { id: cobranca.id },
-          })
+            where: { id: cobranca.cobrancaId },
+          });
+          await cancelarCobrancaMP(customData.contaId, res.idCobranca);
         }
       }
     }

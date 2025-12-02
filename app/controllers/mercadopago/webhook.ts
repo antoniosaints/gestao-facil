@@ -121,6 +121,7 @@ export async function webhookMercadoPagoCobrancas(
     }
 
     const cobranca = await prisma.cobrancasFinanceiras.findFirst({
+      include: { cobrancasOnAgendamentos: true },
       where: { idCobranca: String(paymentId) },
     });
 
@@ -161,6 +162,35 @@ export async function webhookMercadoPagoCobrancas(
       where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
     });
+
+    if (
+      cobranca.cobrancasOnAgendamentos &&
+      cobranca.cobrancasOnAgendamentos.length > 0 &&
+      statusNovo === "EFETIVADO"
+    ) {
+      const promises = cobranca.cobrancasOnAgendamentos.map(async (reserva) => {
+        const agendamento = await prisma.arenaAgendamentos.update({
+          where: {
+            id: reserva.agendamentoId,
+            Quadra: { contaId: cobranca.contaId },
+          },
+          data: {
+            status: "CONFIRMADA",
+          },
+        });
+        return await prisma.arenaAgendamentosPagamentos.create({
+          data: {
+            agendamentoId: agendamento.id,
+            valor: cobranca.valor,
+            metodoPagamento: metodoPago,
+            dataPagamento: new Date(),
+            tipo: cobranca.valor < agendamento.valor ? "PARCIAL" : "TOTAL",
+          },
+        });
+      });
+
+      await Promise.all(promises);
+    }
 
     if (cobranca.lancamentoId && statusNovo === "EFETIVADO") {
       await prisma.parcelaFinanceiro.update({

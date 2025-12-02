@@ -6,6 +6,7 @@ import { MercadoPagoService } from "../../../services/financeiro/mercadoPagoServ
 import { BodyCobranca } from "../cobrancas";
 import { ParametrosConta } from "../../../../generated";
 import { env } from "../../../utils/dotenv";
+import { BodyCobrancaPublico } from "../../../schemas/arena/reservas";
 
 export const gerarCobrancaMercadoPagoBoleto = async (
   mp: MercadoPagoService,
@@ -178,7 +179,99 @@ export const gerarCobrancaMercadoPagoPix = async (
       ordemServicoId:
         body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
       reservaId:
-        body.vinculo && body.vinculo.tipo === "reserva" ? body.vinculo.id : null,
+        body.vinculo && body.vinculo.tipo === "reserva"
+          ? body.vinculo.id
+          : null,
+      externalLink:
+        pixGenerated.point_of_interaction?.transaction_data?.ticket_url,
+      status: "PENDENTE",
+      observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
+      contaId: parametros.contaId,
+    },
+  });
+
+  return pixGenerated.point_of_interaction?.transaction_data?.ticket_url;
+};
+export const gerarCobrancaMercadoPagoPixPublico = async (
+  mp: MercadoPagoService,
+  body: BodyCobrancaPublico,
+  parametros: ParametrosConta
+) => {
+  const Uid = gerarIdUnicoComMetaFinal("COB");
+  const pixGenerated = await mp.payment.create({
+    requestOptions: {
+      idempotencyKey: String(parametros.contaId) + randomUUID(),
+    },
+    body: {
+      payer: {
+        email: parametros.emailAvisos || "admin@userp.com.br",
+        entity_type: "individual",
+      },
+      external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|pix`,
+      transaction_amount: body.value,
+      description: `Cobrança gerada pelo sistema - Gestão Fácil - ERP`,
+      payment_method_id: "pix",
+      installments: 1,
+      callback_url: `${env.BASE_URL_FRONTEND}`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
+    },
+  });
+
+  if (body.reservas && body.reservas.length > 0) {
+    const cobranca = await prisma.cobrancasFinanceiras.create({
+      data: {
+        dataVencimento: pixGenerated.date_of_expiration
+          ? new Date(pixGenerated.date_of_expiration)
+          : new Date(),
+        gateway: "mercadopago",
+        valor: body.value,
+        Uid: Uid,
+        dataCadastro: new Date(),
+        idCobranca: pixGenerated.id?.toString(),
+        externalLink:
+          pixGenerated.point_of_interaction?.transaction_data?.ticket_url,
+        status: "PENDENTE",
+        observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
+        contaId: parametros.contaId,
+      },
+    });
+
+    const promises = body.reservas.map(async (reserva) => {
+      return await prisma.cobrancasOnAgendamentos.create({
+        data: {
+          cobrancaId: cobranca.id,
+          agendamentoId: reserva,
+        },
+      });
+    });
+
+    await Promise.all(promises);
+
+    return pixGenerated.point_of_interaction?.transaction_data?.ticket_url;
+  }
+
+  await prisma.cobrancasFinanceiras.create({
+    data: {
+      dataVencimento: pixGenerated.date_of_expiration
+        ? new Date(pixGenerated.date_of_expiration)
+        : new Date(),
+      gateway: "mercadopago",
+      valor: body.value,
+      Uid: Uid,
+      dataCadastro: new Date(),
+      idCobranca: pixGenerated.id?.toString(),
+      vendaId:
+        body.vinculo && body.vinculo.tipo === "venda" ? body.vinculo.id : null,
+      lancamentoId:
+        body.vinculo && body.vinculo.tipo === "parcela"
+          ? body.vinculo.id
+          : null,
+      ordemServicoId:
+        body.vinculo && body.vinculo.tipo === "os" ? body.vinculo.id : null,
+      reservaId:
+        body.vinculo && body.vinculo.tipo === "reserva"
+          ? body.vinculo.id
+          : null,
       externalLink:
         pixGenerated.point_of_interaction?.transaction_data?.ticket_url,
       status: "PENDENTE",
@@ -243,6 +336,23 @@ export const generateCobrancaMercadoPago = async (
     return gerarCobrancaMercadoPagoPix(mp, body, parametros);
   } else if (tipo === "BOLETO") {
     return await gerarCobrancaMercadoPagoBoleto(mp, body, parametros);
+  } else {
+    throw new Error("Tipo de cobranca nao encontrado.");
+  }
+};
+export const generateCobrancaMercadoPagoPublico = async (
+  body: BodyCobrancaPublico,
+  parametros: ParametrosConta
+) => {
+  if (!parametros.MercadoPagoApiKey)
+    throw new Error(
+      "API Key nao encontrada, adicione a chave do Mercado Pago."
+    );
+
+  const tipo = body.type;
+  const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+  if (tipo === "PIX") {
+    return gerarCobrancaMercadoPagoPixPublico(mp, body, parametros);
   } else {
     throw new Error("Tipo de cobranca nao encontrado.");
   }
