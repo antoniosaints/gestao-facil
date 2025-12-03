@@ -7,11 +7,15 @@ import { handleError } from "../../utils/handleError";
 import { isBefore } from "date-fns";
 import { redisConnecion } from "../../utils/redis";
 
+export const clearCacheAccount = async (contaId: number) => {
+    await redisConnecion.del(`assinaturaconta:conta${contaId}`);
+    await redisConnecion.del(`infoconta:conta${contaId}`);
+}
 export const assinaturaConta = async (req: Request, res: Response): Promise<any> => {
     try {
         const customData = getCustomRequest(req).customData;
 
-        const cacheKey = `assinaturaconta:${customData.userId}:${customData.contaId}`;
+        const cacheKey = `assinaturaconta:conta${customData.contaId}`;
 
         const cached = await redisConnecion.get(cacheKey);
 
@@ -53,7 +57,7 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
             labelAssinatura: conta.status === "ATIVO" ? "Assinatura em dias" : "Fatura pendente",
         }
 
-        await redisConnecion.set(cacheKey, JSON.stringify(data));
+        await redisConnecion.set(cacheKey, JSON.stringify(data), "EX", 3600);
 
         ResponseHandler(res, "OK", data, 200);
     } catch (error: any) {

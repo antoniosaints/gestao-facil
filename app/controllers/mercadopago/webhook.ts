@@ -11,6 +11,8 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
+import { redisConnecion } from "../../utils/redis";
+import { clearCacheAccount } from "../administracao/contas";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -100,6 +102,7 @@ export async function webhookMercadoPago(
           vencimento: vencimentoNovo,
         },
       });
+      await clearCacheAccount(conta.id);
     }
 
     return res.sendStatus(200);

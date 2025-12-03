@@ -121,7 +121,7 @@ export const atualizarDadosConta = async (req: Request, res: Response): Promise<
 export const dadosConta = async (req: Request, res: Response): Promise<any> => {
   try {
     const data = getCustomRequest(req).customData;
-    const cacheKey = `infoconta:${data.userId}:${data.contaId}`;
+    const cacheKey = `infoconta:conta${data.contaId}`;
     const cached = await redisConnecion.get(cacheKey);
 
     if (cached) {
