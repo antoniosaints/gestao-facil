@@ -5,6 +5,7 @@ import { prisma } from "../../utils/prisma";
 import { addDays } from "date-fns";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { updateContaSchema } from "../../schemas/contas";
+import { redisConnecion } from "../../utils/redis";
 
 export const criarConta = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -120,6 +121,13 @@ export const atualizarDadosConta = async (req: Request, res: Response): Promise<
 export const dadosConta = async (req: Request, res: Response): Promise<any> => {
   try {
     const data = getCustomRequest(req).customData;
+    const cacheKey = `infoconta:${data.userId}:${data.contaId}`;
+    const cached = await redisConnecion.get(cacheKey);
+
+    if (cached) {
+      return res.json(JSON.parse(cached));
+    }
+
     const conta = await prisma.contas.findFirst({
       where: {
         id: data.contaId,
@@ -133,6 +141,9 @@ export const dadosConta = async (req: Request, res: Response): Promise<any> => {
         Usuarios: true,
       },
     });
+
+    await redisConnecion.set(cacheKey, JSON.stringify(conta), "EX", 3600);
+    
     return res.json(conta);
   } catch (err: any) {
     console.log(err);

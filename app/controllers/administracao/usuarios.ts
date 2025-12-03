@@ -6,16 +6,27 @@ import { isAccountOverdue } from "../../routers/web";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { hasPermission } from "../../helpers/userPermission";
+import { redisConnecion } from "../../utils/redis";
 
 export const getMinhaConexao = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    const cacheKey = `minhaconexao:${customData.userId}:${customData.contaId}`;
+    const cached = await redisConnecion.get(cacheKey);
+
+    if (cached) {
+      return res.json({ status: "success", data: JSON.parse(cached) });
+    }
+
     const usuario = await prisma.usuarios.findUniqueOrThrow({
       where: {
         id: customData.userId,
         contaId: customData.contaId,
       },
     });
+
+    await redisConnecion.set(cacheKey, JSON.stringify(usuario), "EX", 3600);
+
     return res.json({ status: "success", data: usuario });
   } catch (error) {
     return handleError(res, error);

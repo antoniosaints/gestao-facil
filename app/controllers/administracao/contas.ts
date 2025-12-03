@@ -5,10 +5,19 @@ import { ResponseHandler } from "../../utils/response";
 import Decimal from "decimal.js";
 import { handleError } from "../../utils/handleError";
 import { isBefore } from "date-fns";
+import { redisConnecion } from "../../utils/redis";
 
-export const assinaturaConta = async (req: Request, res: Response) => {
+export const assinaturaConta = async (req: Request, res: Response): Promise<any> => {
     try {
         const customData = getCustomRequest(req).customData;
+
+        const cacheKey = `assinaturaconta:${customData.userId}:${customData.contaId}`;
+
+        const cached = await redisConnecion.get(cacheKey);
+
+        if (cached) {
+            return ResponseHandler(res, "OK", JSON.parse(cached), 200);
+        }
 
         const conta = await prisma.contas.findUniqueOrThrow({
             where: { id: customData.contaId },
@@ -43,6 +52,8 @@ export const assinaturaConta = async (req: Request, res: Response) => {
             proximoLinkPagamento: conta.FaturasContas.filter((fatura) => fatura.status === "PENDENTE").slice(-1)[0]?.urlPagamento || null,
             labelAssinatura: conta.status === "ATIVO" ? "Assinatura em dias" : "Fatura pendente",
         }
+
+        await redisConnecion.set(cacheKey, JSON.stringify(data));
 
         ResponseHandler(res, "OK", data, 200);
     } catch (error: any) {
