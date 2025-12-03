@@ -68,7 +68,7 @@ export const ListagemReservas = async (
         },
         skip,
         take,
-        orderBy: { nomeCliente: "asc" },
+        orderBy: { startAt: "asc" },
       }),
       model.count({ where }),
     ]);

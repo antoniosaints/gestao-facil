@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { handleError } from "../../../utils/handleError";
 import { prisma } from "../../../utils/prisma";
 import { getCustomRequest } from "../../../helpers/getCustomRequest";
-import { addMinutes, differenceInMinutes, isAfter, isBefore } from "date-fns";
+import { addMinutes, differenceInMinutes, format, isAfter, isBefore } from "date-fns";
 import {
   createReservaPublicoSchema,
   createReservaSchema,
@@ -128,7 +128,7 @@ export const createReservaPublico = async (
     await enqueuePushNotification(
       {
         title: `Nova reserva online (${tsx.quadra.name})`,
-        body: `Reserva de ${start.toLocaleString()} a ${end.toLocaleString()}, verifique o sistema para mais detalhes.`,
+        body: `Reserva de ${format(start, "dd/MM/yyyy HH:mm")} a ${format(end, "dd/MM/yyyy HH:mm")}, verifique o sistema para mais detalhes.`,
       },
       dto.contaId,
       true
@@ -318,7 +318,7 @@ export const createReserva = async (
     await enqueuePushNotification(
       {
         title: `Nova reserva (${tsx.quadra.name})`,
-        body: `Reserva de ${start.toLocaleString()} a ${end.toLocaleString()}, verifique o sistema para mais detalhes.`,
+        body: `Reserva de ${format(start, "dd/MM/yyyy HH:mm")} a ${format(end, "dd/MM/yyyy HH:mm")}, verifique o sistema para mais detalhes.`,
       },
       customData.contaId,
       true
