@@ -12,6 +12,32 @@ import { saveOrdemServicoSchema } from "../../schemas/ordemservico";
 import { ItensOrdensServico } from "../../../generated";
 import { hasPermission } from "../../helpers/userPermission";
 
+export const addNovaMensagemOrdem = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+    if (!id || isNaN(id)) {
+      throw new Error("Id nao encontrado");
+    }
+    if (!req.body.mensagem) {
+      throw new Error("Mensagem não encontrada");
+    }
+
+    const resultado = await prisma.mensagensInteracoesOrdemServico.create({
+      data: {
+        ordemId: id,
+        mensagem: req.body.mensagem,
+        autorId: customData.userId,
+        tipo: "MENSAGEM"
+      },
+    })
+
+    return ResponseHandler(res, "Mensagem adicionada com sucesso", resultado);
+  }catch (err: any) {
+    handleError(res, err);
+  }
+}
+
 export const updateVendaInternal = async (
   osId: number,
   data: z.infer<typeof saveOrdemServicoSchema>,

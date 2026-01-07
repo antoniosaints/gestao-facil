@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import { deleteServico, getServico, getServicos, mobileServico, saveServico, tableServico } from "../../controllers/servicos/servicos";
 import { select2Servicos } from "../../controllers/servicos/hooks";
-import { buscarOrdem, buscarOrdemDetalhe, buscarOrdens, deleteOrdemServico, saveOrdemServico } from "../../controllers/servicos/ordens";
+import { addNovaMensagemOrdem, buscarOrdem, buscarOrdemDetalhe, buscarOrdens, deleteOrdemServico, saveOrdemServico } from "../../controllers/servicos/ordens";
 import { ListagemMobileOrdens, tableOrdensServico } from "../../controllers/servicos/table_ordens";
 import { gerarPdfOS } from "../../controllers/servicos/ordens_relatorios";
 import { getEventosCalendario, resumoOrdensServico } from "../../controllers/servicos/resumo_os";
@@ -25,6 +25,7 @@ routerServicos.get("/ordens/relatorio/:id", authenticateJWT, gerarPdfOS);
 routerServicos.get("/ordens/dashboard/resumo", authenticateJWT, resumoOrdensServico);
 routerServicos.get("/ordens/dashboard/graficoMensalOs", authenticateJWT, resumoMensalOrdensServico);
 routerServicos.get("/ordens/dashboard/eventos", authenticateJWT, getEventosCalendario);
+routerServicos.post("/ordens/mensagens/:id", authenticateJWT, addNovaMensagemOrdem);
 //Tabela e Mobile
 routerServicos.get("/lista/tabela", authenticateJWT, tableServico);
 routerServicos.get("/lista/mobile", authenticateJWT, mobileServico);
