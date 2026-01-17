@@ -5,6 +5,7 @@ dotenv.config();
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]).default("development"),
+  GEMINI_API_KEY: z.string({ required_error: "GEMINI_API_KEY é obrigatório" }),
   BASE_URL: z
     .string({
       required_error: "BASE_URL é obrigatório",

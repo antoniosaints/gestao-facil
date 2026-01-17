@@ -11,6 +11,9 @@ export const callChatGemini = async (req: Request, res: Response): Promise<any> 
         const body = z.object({
             prompt: z.string(),
             history: z.any()
+        }, {
+            required_error: "Preencha o objeto JSON com os campos prompt e history",
+            invalid_type_error: "Preencha o objeto JSON com os campos prompt e history"
         })
         const {success, data, error} = body.safeParse(req.body)
 

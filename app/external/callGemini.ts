@@ -1,10 +1,25 @@
 import { Content, GoogleGenerativeAI } from "@google/generative-ai";
 import { systemFunctionsIA, toolsIA } from "./gemini";
+import { env } from "../utils/dotenv";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash",
   tools: toolsIA,
+  systemInstruction: {
+    role: "system",
+    parts: [
+      {
+        text: `Você é um assistente de gestão ERP especializado em vendas e estoque.
+        Regras de comportamento:
+        1. Seja direto, profissional e prestativo.
+        2. Use sempre as ferramentas (functions) disponíveis para registrar ou consultar dados.
+        3. Use Markdown para formatar listas, negritos e tabelas.
+        4. Se o usuário pedir algo fora do escopo de ERP, tente trazer o foco de volta para a gestão do negócio.
+        5. Pode ajudar o usuário em perguntas extra ERP, mas caso perceba que o mesmo está tentando algum assunto ilegal, não ajudar.`,
+      },
+    ],
+  },
 });
 
 export const callChatGeminiService = async (
