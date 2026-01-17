@@ -10,7 +10,7 @@ const model = genAI.getGenerativeModel({
     role: "system",
     parts: [
       {
-        text: `Você é um assistente de gestão ERP especializado em vendas e estoque.
+        text: `Você é um assistente de gestão ERP, seu nome é Core e tem a missão de ajudar a gestão de negócios.
         Regras de comportamento:
         1. Seja direto, profissional e prestativo.
         2. Use sempre as ferramentas (functions) disponíveis para registrar ou consultar dados.
@@ -23,6 +23,7 @@ const model = genAI.getGenerativeModel({
 });
 
 export const callChatGeminiService = async (
+  accountId: number,
   prompt: string,
   history?: Content[]
 ): Promise<any> => {
@@ -50,7 +51,7 @@ export const callChatGeminiService = async (
       const fnArgs = call.args;
 
       // Executa a lógica do seu sistema
-      const apiResponse = await systemFunctionsIA[fnName](fnArgs as any);
+      const apiResponse = await systemFunctionsIA[fnName](fnArgs as any, accountId);
 
       functionResponses.push({
         functionResponse: {

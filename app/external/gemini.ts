@@ -1,18 +1,50 @@
 import { SchemaType, Tool } from "@google/generative-ai";
+import { prisma } from "../utils/prisma";
 
 // Funções reais do seu sistema
 export const systemFunctionsIA = {
-  getInventory: async (args: { product: string }) => {
-    console.log(`[Sistema] Verificando estoque de: ${args.product}`);
-    // Simulação de banco de dados
-    const stock: Record<string, number> = { "iphone": 5, "macbook": 2, "ipad": 0 };
+  getProdutosSistema: async (args: { product: string }, accountId: number) => {
+    const produtos = await prisma.produto.findMany({
+      where: {
+        contaId: accountId,
+        nome: {
+          contains: args.product
+        }
+      },
+      select: {
+        id: true,
+        nome: true,
+        estoque: true,
+        minimo: true,
+        preco: true
+      }
+    });
     return { 
-      product: args.product, 
-      quantity: stock[args.product.toLowerCase()] ?? 0 
+      produtos
+    };
+  },
+  getClientesSistema: async (args: { cliente: string }, accountId: number) => {
+    const response = await prisma.clientesFornecedores.findMany({
+      where: {
+        contaId: accountId,
+        nome: {
+          contains: args.cliente
+        }
+      },
+      select: {
+        id: true,
+        nome: true,
+        status: true,
+        documento: true,
+        telefone: true
+      }
+    });
+    return { 
+      response
     };
   },
   
-  generateDiscountCode: async (args: { percentage: number }) => {
+  generateDiscountCode: async (args: { percentage: number }, accountId: number) => {
     const code = `PROMO${args.percentage}-${Math.random().toString(36).toUpperCase().substring(7)}`;
     return { code, validUntil: "2024-12-31" };
   }
@@ -23,16 +55,24 @@ export const toolsIA: Tool[] = [
   {
     functionDeclarations: [
       {
-        name: "getInventory",
-        description: "Consulta o estoque de um produto no armazém",
+        name: "getProdutosSistema",
+        description: "Consulta os produtos do sistema",
         parameters: {
           type: SchemaType.OBJECT,
-          description: "Objeto com o nome do produto",
           properties: {
-            product: { type: SchemaType.STRING, description: "Nome do produto" },
-          },
-          required: ["product"],
-        },
+            product: { type: SchemaType.STRING, description: "Nome do produto, é opcional para casos de busca por nome" },
+          }
+        }
+      },
+      {
+        name: "getClientesSistema",
+        description: "Consulta os clientes e fornecedores do sistema",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            cliente: { type: SchemaType.STRING, description: "Nome do cliente, é opcional para casos de busca por nome" },
+          }
+        }
       },
       {
         name: "generateDiscountCode",
@@ -40,7 +80,7 @@ export const toolsIA: Tool[] = [
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
-            percentage: { type: SchemaType.NUMBER, description: "Porcentagem do desconto (ex: 10, 20)" },
+            percentage: { type: SchemaType.NUMBER, description: "Porcentagem do desconto (ex: 10, 20), não pode ser maior que 20" },
           },
           required: ["percentage"],
         },

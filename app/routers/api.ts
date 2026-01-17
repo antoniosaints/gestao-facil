@@ -13,6 +13,7 @@ import { routerDefault } from "./default";
 import { routerAdminMain } from "./administracao/router";
 import { routerArena } from "./arena/router";
 import { callChatGemini } from "../controllers/inteligence/gemini";
+import { authenticateJWT } from "../middlewares/auth";
 
 const RouterMain = Router();
 
@@ -29,6 +30,6 @@ RouterMain.use("/api/system", monitorRouter);
 RouterMain.use("/api/uploads", routerUploads);
 RouterMain.use("/api/admin", routerAdminMain);
 RouterMain.use("/api/arenas", routerArena);
-RouterMain.post("/api/gemini/chat", callChatGemini);
+RouterMain.post("/api/gemini/chat", authenticateJWT, callChatGemini);
 
 export { RouterMain };

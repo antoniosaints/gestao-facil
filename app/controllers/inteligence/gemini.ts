@@ -21,7 +21,7 @@ export const callChatGemini = async (req: Request, res: Response): Promise<any> 
             return handleError(res, error);
         }
 
-        const result = await callChatGeminiService(data.prompt, data.history)
+        const result = await callChatGeminiService(custom.contaId, data.prompt, data.history);
 
         return ResponseHandler(res, "Sucesso", result);
     }catch (err: any) {
