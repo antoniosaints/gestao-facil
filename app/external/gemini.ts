@@ -8,19 +8,19 @@ export const systemFunctionsIA = {
       where: {
         contaId: accountId,
         nome: {
-          contains: args.product
-        }
+          contains: args.product,
+        },
       },
       select: {
         id: true,
         nome: true,
         estoque: true,
         minimo: true,
-        preco: true
-      }
+        preco: true,
+      },
     });
-    return { 
-      produtos
+    return {
+      produtos,
     };
   },
   getClientesSistema: async (args: { cliente: string }, accountId: number) => {
@@ -28,26 +28,39 @@ export const systemFunctionsIA = {
       where: {
         contaId: accountId,
         nome: {
-          contains: args.cliente
-        }
+          contains: args.cliente,
+        },
       },
       select: {
         id: true,
         nome: true,
         status: true,
         documento: true,
-        telefone: true
-      }
+        telefone: true,
+      },
     });
-    return { 
-      response
+    return {
+      response,
     };
   },
-  
-  generateDiscountCode: async (args: { percentage: number }, accountId: number) => {
-    const code = `PROMO${args.percentage}-${Math.random().toString(36).toUpperCase().substring(7)}`;
-    return { code, validUntil: "2024-12-31" };
-  }
+  getResumoVendas: async (args: any, accountId: number) => {
+    const response = await prisma.vendas.findMany({
+      where: {
+        contaId: accountId,
+      },
+      include: {
+        cliente: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+    });
+
+    return {
+      response,
+    };
+  },
 };
 
 // Declaração para a IA
@@ -60,9 +73,13 @@ export const toolsIA: Tool[] = [
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
-            product: { type: SchemaType.STRING, description: "Nome do produto, é opcional para casos de busca por nome" },
-          }
-        }
+            product: {
+              type: SchemaType.STRING,
+              description:
+                "Nome do produto, é opcional para casos de busca por nome",
+            },
+          },
+        },
       },
       {
         name: "getClientesSistema",
@@ -70,21 +87,19 @@ export const toolsIA: Tool[] = [
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
-            cliente: { type: SchemaType.STRING, description: "Nome do cliente, é opcional para casos de busca por nome" },
-          }
-        }
+            cliente: {
+              type: SchemaType.STRING,
+              description:
+                "Nome do cliente, é opcional para casos de busca por nome",
+            },
+          },
+        },
       },
       {
-        name: "generateDiscountCode",
-        description: "Gera um cupom de desconto para o cliente",
-        parameters: {
-          type: SchemaType.OBJECT,
-          properties: {
-            percentage: { type: SchemaType.NUMBER, description: "Porcentagem do desconto (ex: 10, 20), não pode ser maior que 20" },
-          },
-          required: ["percentage"],
-        },
-      }
+        name: "getResumoVendas",
+        description: `Busca as vendas do sistema e cria um relatorio de vendas com base nos dados recuperados. 
+        formate de forma resumida e só mostre os dados essenciais. formate datas para o padrão brasileiro`,
+      },
     ],
   },
 ];

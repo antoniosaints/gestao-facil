@@ -98,6 +98,32 @@ model Contas {
   notaFiscals              NotaFiscal[]
   arenaQuadras             ArenaQuadras[]
   comandaVendas            ComandaVenda[]
+  moduloOnContas           ModuloOnConta[]
+}
+
+model ModulosAdicionais {
+  id             Int             @id @default(autoincrement())
+  nome           String
+  descricao      String?
+  categoria      String
+  preco          Decimal         @db.Decimal(10, 2)
+  status         Boolean         @default(true)
+  desconto       Decimal?        @default(0) @db.Decimal(10, 2)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  moduloOnContas ModuloOnConta[]
+}
+
+model ModuloOnConta {
+  id        Int               @id @default(autoincrement())
+  moduloId  Int
+  Modulos   ModulosAdicionais @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  contaId   Int
+  Contas    Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([moduloId, contaId], map: "ModuloOnConta_moduloId_contaId_key")
 }
 
 model ParametrosConta {
