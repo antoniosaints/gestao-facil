@@ -115,13 +115,14 @@ model ModulosAdicionais {
 }
 
 model ModuloOnConta {
-  id        Int               @id @default(autoincrement())
-  moduloId  Int
-  Modulos   ModulosAdicionais @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  contaId   Int
-  Contas    Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id         Int               @id @default(autoincrement())
+  vencimento DateTime          @default(now())
+  moduloId   Int
+  Modulos    ModulosAdicionais @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  contaId    Int
+  Contas     Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   @@unique([moduloId, contaId], map: "ModuloOnConta_moduloId_contaId_key")
 }
