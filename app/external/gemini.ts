@@ -37,6 +37,9 @@ export const systemFunctionsIA = {
         nome: true,
         status: true,
         documento: true,
+        endereco: true,
+        email: true,
+        Vendas: true,
         telefone: true,
       },
     });
@@ -135,7 +138,7 @@ export const toolsIA: Tool[] = [
     functionDeclarations: [
       {
         name: "getProdutosSistema",
-        description: "Consulta os produtos do sistema",
+        description: "Consulta os produtos do sistema, peça o nome apenas se o usuario quiser um produto especifico.",
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
