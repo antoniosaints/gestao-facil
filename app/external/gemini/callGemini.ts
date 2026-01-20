@@ -1,7 +1,7 @@
 import { Content, GoogleGenerativeAI } from "@google/generative-ai";
 import { systemFunctionsIA, toolsIA } from "./gemini";
-import { env } from "../utils/dotenv";
-import { CustomData } from "../helpers/getCustomRequest";
+import { env } from "../../utils/dotenv";
+import { CustomData } from "../../helpers/getCustomRequest";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({

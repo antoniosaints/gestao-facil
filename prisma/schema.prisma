@@ -38,6 +38,7 @@ model FaturasContas {
   conta          Contas       @relation(fields: [contaId], references: [id])
   Uid            String       @default("INV_000")
   asaasPaymentId String       @unique
+  descricao      String?
   vencimento     DateTime
   valor          Float
   urlPagamento   String
