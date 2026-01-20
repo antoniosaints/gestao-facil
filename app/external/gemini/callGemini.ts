@@ -20,7 +20,8 @@ const model = genAI.getGenerativeModel({
         3. Use Markdown para formatar listas, negritos, tabelas, headers e dados que vem em formato JSON, escolha a melhor formatação para facilitar a visualização do cliente.
         4. Se o usuário pedir algo fora do escopo de ERP, tente trazer o foco de volta para a gestão do negócio.
         5. Pode ajudar o cliente com perguntas simples fora do escopo ERP, como calculos matemáticos, etc.
-        6. a data atual de hoje é ${new Date().toISOString().split("T")[0]}.`,
+        6. a data atual de hoje é ${new Date().toISOString().split("T")[0]}.
+        7. Caso o usuario queira o acesso ao site, envie pra ele um link em formato de markdown para "${env.BASE_URL_FRONTEND}/site"`,
       },
     ],
   },
