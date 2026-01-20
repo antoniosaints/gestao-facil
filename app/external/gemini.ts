@@ -204,7 +204,6 @@ export const systemFunctionsIA = {
     };
   },
 };
-
 // Declaração para a IA
 export const toolsIA: Tool[] = [
   {
@@ -240,7 +239,7 @@ export const toolsIA: Tool[] = [
       {
         name: "getResumoVendas",
         description: `Busca as vendas do sistema e cria um relatorio de vendas com base nos dados recuperados. 
-        formate de forma resumida e só mostre os dados essenciais. formate datas para o padrão brasileiro`,
+        formate de forma resumida e só mostre os dados essenciais. formate datas para o padrão brasileiro e mostre em tabela`,
       },
       {
         name: "getResumoFinanceiro",
