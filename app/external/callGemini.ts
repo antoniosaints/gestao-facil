@@ -1,6 +1,7 @@
 import { Content, GoogleGenerativeAI } from "@google/generative-ai";
 import { systemFunctionsIA, toolsIA } from "./gemini";
 import { env } from "../utils/dotenv";
+import { CustomData } from "../helpers/getCustomRequest";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
@@ -24,7 +25,7 @@ const model = genAI.getGenerativeModel({
 });
 
 export const callChatGeminiService = async (
-  accountId: number,
+  request: CustomData,
   prompt: string,
   history?: Content[]
 ): Promise<any> => {
@@ -52,7 +53,7 @@ export const callChatGeminiService = async (
       const fnArgs = call.args;
 
       // Executa a lógica do seu sistema
-      const apiResponse = await systemFunctionsIA[fnName](fnArgs as any, accountId);
+      const apiResponse = await systemFunctionsIA[fnName](fnArgs as any, request);
 
       functionResponses.push({
         functionResponse: {
