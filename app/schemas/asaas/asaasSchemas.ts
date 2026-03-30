@@ -221,3 +221,10 @@ export const AsaasSubscriptionSchema = z.object({
   callback: callback,
 });
 export type AsaasSubscription = z.infer<typeof AsaasSubscriptionSchema>;
+
+export const AsaasUpdateSubscriptionSchema = AsaasSubscriptionSchema.partial({
+  callback: true,
+}).extend({
+  updatePendingPayments: z.boolean().optional(),
+});
+export type AsaasUpdateSubscription = z.infer<typeof AsaasUpdateSubscriptionSchema>;

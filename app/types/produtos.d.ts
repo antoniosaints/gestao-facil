@@ -1,5 +1,7 @@
 export interface ProdutoCSV {
   nome: string;
+  categoria?: string;
+  nomeVariante?: string;
   descricao?: string;
   preco: string;
   precoCompra?: string;
@@ -14,6 +16,7 @@ export interface ProdutoCSV {
 export interface ProdutoCreate {
   contaId: number;
   nome: string;
+  categoriaId?: number | null;
   descricao?: string | null;
   preco: number;
   precoCompra?: number | null;

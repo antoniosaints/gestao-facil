@@ -199,6 +199,7 @@ export async function getTopProdutos(req: Request, res: Response) {
   const result = await prisma.itensVendas.groupBy({
     by: ["produtoId"],
     where: {
+      produtoId: { not: null },
       venda: {
         data: { gte: start, lte: end },
         status: { in: ["FATURADO", "FINALIZADO"] },
@@ -210,11 +211,18 @@ export async function getTopProdutos(req: Request, res: Response) {
     take: 10,
   });
 
-  const produtosIds = result.map((r) => r.produtoId);
-  const produtos = await prisma.produto.findMany({
-    where: { id: { in: produtosIds } },
-    select: { id: true, nome: true },
-  });
+  const produtosIds = result.flatMap((item) =>
+    typeof item.produtoId === "number" ? [item.produtoId] : [],
+  );
+  const produtos = produtosIds.length
+    ? await prisma.produto.findMany({
+        where: {
+          id: { in: produtosIds },
+          contaId: customData.contaId,
+        },
+        select: { id: true, nome: true },
+      })
+    : [];
 
   const labels = result.map((r) => {
     const p = produtos.find((x) => x.id === r.produtoId);

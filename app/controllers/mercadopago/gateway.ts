@@ -1,16 +1,22 @@
 import { Request, Response } from "express";
-import { mercadoPagoPreference } from "../../utils/mercadoPago";
 import { randomUUID } from "node:crypto";
+import { mercadoPagoPreference } from "../../utils/mercadoPago";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
+import { getContaNextRecurringValue } from "../../services/contas/storeModulesService";
 
-export async function criarLinkAssinatura(req: Request, res: Response): Promise<any> {
+export async function criarLinkAssinatura(
+  req: Request,
+  res: Response,
+): Promise<any> {
   try {
     const customData = getCustomRequest(req).customData;
     const conta = await prisma.contas.findUniqueOrThrow({
       where: { id: customData.contaId },
     });
+    const recurringValue = await getContaNextRecurringValue(conta.id);
+
     const payment = await mercadoPagoPreference.create({
       body: {
         items: [
@@ -18,7 +24,7 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
             id: randomUUID(),
             title: `${conta.nome} - Mensalidade Gestão Fácil - ERP`,
             quantity: 1,
-            unit_price: conta.valor.toNumber() || 89.9,
+            unit_price: recurringValue.toNumber(),
           },
         ],
         payer: {
@@ -42,6 +48,8 @@ export async function criarLinkAssinatura(req: Request, res: Response): Promise<
     return res.json({ link: payment.init_point });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Erro ao gerar link de assinatura.", error: err });
+    return res
+      .status(500)
+      .json({ message: "Erro ao gerar link de assinatura.", error: err });
   }
 }

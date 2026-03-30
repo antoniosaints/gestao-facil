@@ -116,12 +116,13 @@ export const relatorioProdutos = async (
   let y = tableTop + rowHeight;
   doc.font("Roboto").fontSize(query.fontSize ? Number(query.fontSize) : 10);
 
-  produtos.forEach((p, index) => {
+  produtos.forEach((p) => {
     const valorUnitario = new Decimal(p.preco);
     const total = valorUnitario.times(p.estoque);
+    const nomeProduto = `${p.nome} / ${p.nomeVariante || "Padrão"}`;
 
     // Altura estimada da linha
-    const nomeAltura = doc.heightOfString(p.nome, {
+    const nomeAltura = doc.heightOfString(nomeProduto, {
       width: colX.preco - colX.nome - 10,
     });
     const linhaAltura = Math.max(rowHeight, nomeAltura + 5);
@@ -146,7 +147,7 @@ export const relatorioProdutos = async (
 
     // Conteúdo da linha
     doc.text(`# ${p.codigo}`, colX.id, y);
-    doc.text(p.nome, colX.nome, y, {
+    doc.text(nomeProduto, colX.nome, y, {
       width: colX.preco - colX.nome - 5,
     });
     doc.text(formatarValorMonetario(valorUnitario), colX.preco, y);

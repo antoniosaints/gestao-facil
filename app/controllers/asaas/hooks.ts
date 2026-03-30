@@ -1,6 +1,51 @@
 import { addMonths, isBefore, isEqual, parseISO, subDays } from "date-fns";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { prisma } from "../../utils/prisma";
+import {
+  activateStoreModuleFromCharge,
+  reconcileStoreModulesAfterPayment,
+  releaseStoreModuleCharge,
+} from "../../services/contas/storeModulesService";
+
+async function getModuleCharge(paymentId: string) {
+  return prisma.cobrancasFinanceiras.findFirst({
+    where: {
+      idCobranca: paymentId,
+    },
+  });
+}
+
+async function handleModuleChargePaymentStatus(
+  paymentId: string,
+  status: "PENDENTE" | "CANCELADO" | "EFETIVADO",
+) {
+  const charge = await getModuleCharge(paymentId);
+
+  if (!charge) {
+    return false;
+  }
+
+  await prisma.cobrancasFinanceiras.update({
+    where: {
+      id: charge.id,
+    },
+    data: {
+      status,
+    },
+  });
+
+  if (status === "EFETIVADO") {
+    await activateStoreModuleFromCharge(charge.id);
+    return true;
+  }
+
+  if (status === "CANCELADO") {
+    await releaseStoreModuleCharge(charge.id);
+    return true;
+  }
+
+  return true;
+}
 
 export function renovarVencimento(
   vencimento: string | Date,
@@ -104,7 +149,10 @@ export async function handleSubscriptionDeleted(data: any) {
   );
 }
 export async function handlePaymentCreated(data: any) {
-  if (!data.payment.subscription) return;
+  if (!data.payment.subscription) {
+    await handleModuleChargePaymentStatus(String(data.payment.id), "PENDENTE");
+    return;
+  }
 
   const contaCreated = await prisma.contas.findFirst({
     where: { asaasCustomerId: data.payment.customer },
@@ -132,7 +180,10 @@ export async function handlePaymentCreated(data: any) {
   );
 }
 export async function handlePaymentDeleted(data: any) {
-  if (!data.payment.subscription) return;
+  if (!data.payment.subscription) {
+    await handleModuleChargePaymentStatus(String(data.payment.id), "CANCELADO");
+    return;
+  }
 
   const conta = await prisma.contas.findFirst({
     where: { asaasCustomerId: data.payment.customer },
@@ -153,7 +204,10 @@ export async function handlePaymentDeleted(data: any) {
   );
 }
 export async function handlePaymentOverdue(data: any) {
-  if (!data.payment.subscription) return;
+  if (!data.payment.subscription) {
+    await handleModuleChargePaymentStatus(String(data.payment.id), "CANCELADO");
+    return;
+  }
 
   const fatura = await prisma.faturasContas.findUnique({
     where: { asaasPaymentId: data.payment.id },
@@ -187,7 +241,10 @@ export async function handlePaymentOverdue(data: any) {
 }
 
 export async function handlePagamentoEvento(data: any, titulo: string) {
-  if (!data.payment.subscription) return;
+  if (!data.payment.subscription) {
+    await handleModuleChargePaymentStatus(String(data.payment.id), "EFETIVADO");
+    return;
+  }
 
   const fatura = await prisma.faturasContas.findUnique({
     where: { asaasPaymentId: data.payment.id },
@@ -211,15 +268,21 @@ export async function handlePagamentoEvento(data: any, titulo: string) {
     conta.vencimento,
     data.payment.confirmedDate
   );
+  const previousDueDate = conta.vencimento;
 
   await prisma.contas.update({
     where: { id: fatura.contaId },
     data: {
-      valor: parseFloat(data.payment.value),
       status: "ATIVO",
       vencimento: novoVencimento,
     },
   });
+
+  await reconcileStoreModulesAfterPayment(
+    fatura.contaId,
+    previousDueDate,
+    new Date(novoVencimento)
+  );
 
   await enqueuePushNotification(
     {

@@ -5,8 +5,8 @@ import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
-import { deleteCategoria, saveCategoria, select2Categorias } from "../../controllers/financeiro/categorias";
-import { deleteContaFinanceiro, saveContaFinanceiro } from "../../controllers/financeiro/contas";
+import { deleteCategoria, listCategorias, saveCategoria, select2Categorias, tableCategorias } from "../../controllers/financeiro/categorias";
+import { deleteContaFinanceiro, listContasFinanceiro, saveContaFinanceiro, tableContasFinanceiro } from "../../controllers/financeiro/contas";
 import { select2ContasFinanceiras } from "../../controllers/financeiro/hooks";
 import { cancelarCobranca, cancelarMercadoPagoPagamento, deletarCobranca, estornarCobranca, generateCobranca, generateCobrancaPublico, getCobrancas } from "../../controllers/financeiro/cobrancas";
 import { tableCobrancas } from "../../controllers/financeiro/table_cobrancas";
@@ -24,6 +24,8 @@ routerLancamentos.post("/parcelas/:id/estornar", authenticateJWT, estornarParcel
 routerLancamentos.post("/parcelas/:id/atualizar", authenticateJWT, updateParcela);
 routerLancamentos.post("/parcelas/cliente", authenticateJWT, listarParcelas);
 routerLancamentos.post("/parcelas/:id/recibo", authenticateJWT, gerarReciboPdf);
+routerLancamentos.get("/categorias", authenticateJWT, listCategorias);
+routerLancamentos.get("/contas", authenticateJWT, listContasFinanceiro);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos
@@ -46,10 +48,12 @@ routerLancamentos.get("/relatorios/valor-status", authenticateJWT, getLancamento
 routerLancamentos.get("/relatorios/valor-pagamento", authenticateJWT, getLancamentosPorPagamento);
 routerLancamentos.get("/relatorios/totais", authenticateJWT, getLancamentosTotaisGerais);
 // Categorias
+routerLancamentos.get("/categorias/getDataTable", authenticateJWT, tableCategorias);
 routerLancamentos.get("/categorias/select2", authenticateJWT, select2Categorias);
 routerLancamentos.delete("/categorias/:id", authenticateJWT, deleteCategoria);
 routerLancamentos.post("/categorias", authenticateJWT, saveCategoria);
 // Contas
+routerLancamentos.get("/contas/getDataTable", authenticateJWT, tableContasFinanceiro);
 routerLancamentos.get("/contas/select2", authenticateJWT, select2ContasFinanceiras);
 routerLancamentos.delete("/contas/:id", authenticateJWT, deleteContaFinanceiro);
 routerLancamentos.post("/contas", authenticateJWT, saveContaFinanceiro);

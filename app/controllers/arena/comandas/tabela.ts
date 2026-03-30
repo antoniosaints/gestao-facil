@@ -3,6 +3,26 @@ import { prisma } from "../../../utils/prisma";
 import { Prisma, StatusComanda } from "../../../../generated";
 import { getCustomRequest } from "../../../helpers/getCustomRequest";
 
+function parseStatusQuery(statusQuery?: string) {
+  if (!statusQuery) {
+    return [];
+  }
+
+  const validStatus: StatusComanda[] = [
+    "ABERTA",
+    "PENDENTE",
+    "FECHADA",
+    "CANCELADA",
+  ];
+
+  return statusQuery
+    .split(",")
+    .map((status) => status.trim())
+    .filter((status): status is StatusComanda =>
+      validStatus.includes(status as StatusComanda)
+    );
+}
+
 export const ListagemComandas = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const {
@@ -10,7 +30,7 @@ export const ListagemComandas = async (req: Request, res: Response): Promise<any
     status = undefined,
     limit = "10",
     page = "1",
-  } = req.query as { search: string; limit: string; page: string, status: StatusComanda | undefined };
+  } = req.query as { search: string; limit: string; page: string, status: string | undefined };
 
   try {
     const model = prisma.comandaVenda;
@@ -24,8 +44,14 @@ export const ListagemComandas = async (req: Request, res: Response): Promise<any
       ];
     }
 
-    if (status) {
-      where.status = status;
+    const statuses = parseStatusQuery(status);
+
+    if (statuses.length === 1) {
+      where.status = statuses[0];
+    } else if (statuses.length > 1) {
+      where.status = {
+        in: statuses,
+      };
     }
     
 

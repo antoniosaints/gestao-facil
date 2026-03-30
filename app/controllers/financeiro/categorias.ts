@@ -4,6 +4,7 @@ import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
 import { Prisma } from "../../../generated";
+import { isAccountOverdue } from "../../routers/web";
 
 export const select2Categorias = async (
   req: Request,
@@ -85,6 +86,112 @@ export const select2Categorias = async (
     return res.json({ results: result });
   } catch (error) {
     return res.json({ results: [] });
+  }
+};
+
+export const listCategorias = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { contaId } = getCustomRequest(req).customData;
+
+    const categorias = await prisma.categoriaFinanceiro.findMany({
+      where: {
+        contaId,
+      },
+      select: {
+        id: true,
+        nome: true,
+        parentId: true,
+      },
+      orderBy: [{ parentId: "asc" }, { nome: "asc" }],
+    });
+
+    return ResponseHandler(res, "Categorias listadas com sucesso!", categorias, 200);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const tableCategorias = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    if (await isAccountOverdue(req)) {
+      return res.status(404).json({
+        message: "Conta inativa ou bloqueada, verifique seu plano",
+      });
+    }
+
+    const { contaId } = getCustomRequest(req).customData;
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const search = (req.query.search as string) || "";
+    const sortBy = (req.query.sortBy as string) || "nome";
+    const order = req.query.order === "desc" ? "desc" : "asc";
+
+    const where: Prisma.CategoriaFinanceiroWhereInput = {
+      contaId,
+    };
+
+    if (search) {
+      where.OR = [
+        { nome: { contains: search } },
+        { Uid: { contains: search } },
+        { Parent: { nome: { contains: search } } },
+      ];
+    }
+
+    const orderBy: Prisma.CategoriaFinanceiroOrderByWithRelationInput[] = [];
+
+    switch (sortBy) {
+      case "id":
+        orderBy.push({ id: order });
+        break;
+      case "Uid":
+        orderBy.push({ Uid: order });
+        break;
+      case "parentId":
+        orderBy.push({ parentId: order });
+        break;
+      default:
+        orderBy.push({ nome: order });
+        break;
+    }
+
+    orderBy.push({ id: "asc" });
+
+    const total = await prisma.categoriaFinanceiro.count({ where });
+    const data = await prisma.categoriaFinanceiro.findMany({
+      where,
+      select: {
+        id: true,
+        Uid: true,
+        nome: true,
+        parentId: true,
+        Parent: {
+          select: {
+            id: true,
+            nome: true,
+          },
+        },
+      },
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return res.json({
+      data,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    });
+  } catch (error) {
+    handleError(res, error);
   }
 };
 

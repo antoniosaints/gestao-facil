@@ -7,12 +7,20 @@ import {
 } from "../../controllers/produtos/relatorios";
 import { tableProdutos } from "../../controllers/produtos/table";
 import {
+  deleteCategoriaProduto,
   deleteProduto,
+  deleteProdutoVariante,
+  getCategoriasProduto,
   getProduto,
   getProdutos,
+  getProdutoVariante,
   getResumoProduto,
+  getResumoProdutoVariante,
+  getVariantesProduto,
   reposicaoProduto,
+  saveCategoriaProduto,
   saveProduto,
+  saveProdutoVariante,
 } from "../../controllers/produtos/produtos";
 import { ListagemMobileProdutos } from "../../controllers/produtos/mobile";
 import {
@@ -20,7 +28,10 @@ import {
   postImportarProdutos,
 } from "../../controllers/produtos/lote/uploadcsv";
 import multer from "multer";
-import { select2Produtos } from "../../controllers/produtos/hooks";
+import {
+  select2CategoriasProduto,
+  select2Produtos,
+} from "../../controllers/produtos/hooks";
 import {
   getGiroEstoque,
   getLucroMedioProdutos,
@@ -43,10 +54,23 @@ routerProdutos.get(
 );
 
 routerProdutos.get("/select2", authenticateJWT, select2Produtos);
+routerProdutos.get(
+  "/categorias/select2",
+  authenticateJWT,
+  select2CategoriasProduto
+);
+routerProdutos.get("/categorias", authenticateJWT, getCategoriasProduto);
 routerProdutos.get("/mobile/data", authenticateJWT, ListagemMobileProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
 routerProdutos.get("/download/csv", authenticateJWT, getCsvBase);
 
+routerProdutos.get(
+  "/variantes/:id/resumo",
+  authenticateJWT,
+  getResumoProdutoVariante
+);
+routerProdutos.get("/variantes/:id", authenticateJWT, getProdutoVariante);
+routerProdutos.get("/:id/variantes", authenticateJWT, getVariantesProduto);
 routerProdutos.get("/:produtoId/resumo", authenticateJWT, getResumoProduto);
 routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 
@@ -54,6 +78,8 @@ routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 routerProdutos.get("/:id", authenticateJWT, getProduto);
 
 routerProdutos.post("/", authenticateJWT, saveProduto);
+routerProdutos.post("/variantes", authenticateJWT, saveProdutoVariante);
+routerProdutos.post("/categorias", authenticateJWT, saveCategoriaProduto);
 routerProdutos.get("/", authenticateJWT, tableProdutos);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post(
@@ -64,6 +90,8 @@ routerProdutos.post(
 );
 
 routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
+routerProdutos.delete("/variantes/:id", authenticateJWT, deleteProdutoVariante);
+routerProdutos.delete("/categorias/:id", authenticateJWT, deleteCategoriaProduto);
 
 //graficos
 routerProdutos.get(

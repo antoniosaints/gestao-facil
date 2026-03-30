@@ -55,6 +55,7 @@ model Contas {
   id                       Int                    @id @default(autoincrement())
   nome                     String
   valor                    Decimal                @db.Decimal(10, 2)
+  valorBasePlano           Decimal                @default(70) @db.Decimal(10, 2)
   data                     DateTime
   profile                  String?                @default("imgs/logo.png")
   status                   Status                 @default(ATIVO)
@@ -83,6 +84,8 @@ model Contas {
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
   Produto                  Produto[]
+  ProdutoBase              ProdutoBase[]
+  ProdutoCategoria         ProdutoCategoria[]
   Clientes                 ClientesFornecedores[]
   Vendas                   Vendas[]
   MovimentacoesEstoque     MovimentacoesEstoque[]
@@ -104,6 +107,7 @@ model Contas {
 
 model ModulosAdicionais {
   id             Int             @id @default(autoincrement())
+  codigo         String          @unique
   nome           String
   descricao      String?
   categoria      String
@@ -116,16 +120,37 @@ model ModulosAdicionais {
 }
 
 model ModuloOnConta {
-  id         Int               @id @default(autoincrement())
-  vencimento DateTime          @default(now())
-  moduloId   Int
-  Modulos    ModulosAdicionais @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  contaId    Int
-  Contas     Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id                        Int               @id @default(autoincrement())
+  vencimento                DateTime          @default(now())
+  valorAdicional            Decimal           @default(0) @db.Decimal(10, 2)
+  status                    StatusModuloConta @default(ATIVO)
+  ativoDesde                DateTime          @default(now())
+  solicitadoCancelamentoEm  DateTime?
+  canceladoEm               DateTime?
+  tipoCobrancaAtual         TipoCobrancaModuloConta?
+  valorCobrancaAtual        Decimal?          @db.Decimal(10, 2)
+  cobrancaAtualId           Int?              @unique
+  CobrancaAtual             CobrancasFinanceiras? @relation("ModuloCobrancaAtual", fields: [cobrancaAtualId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  moduloId                  Int
+  Modulos                   ModulosAdicionais @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  contaId                   Int
+  Contas                    Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
 
   @@unique([moduloId, contaId], map: "ModuloOnConta_moduloId_contaId_key")
+}
+
+enum StatusModuloConta {
+  PENDENTE_ATIVACAO
+  ATIVO
+  CANCELAMENTO_AGENDADO
+  CANCELADO
+}
+
+enum TipoCobrancaModuloConta {
+  PROPORCIONAL
+  MENSAL
 }
 
 model ParametrosConta {
@@ -268,10 +293,14 @@ model Produto {
   id                   Int                    @id @default(autoincrement())
   contaId              Int
   Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  produtoBaseId        Int?
+  ProdutoBase          ProdutoBase?           @relation(fields: [produtoBaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   Uid                  String                 @default("PRO_000")
   status               Status                 @default(ATIVO)
   categoria            String?
   nome                 String
+  nomeVariante         String                 @default("Padrão")
+  ehPadrao             Boolean                @default(false)
   descricao            String?
   preco                Decimal                @db.Decimal(10, 2)
   precoCompra          Decimal?               @db.Decimal(10, 2)
@@ -297,6 +326,51 @@ model Produto {
   ItensVendas          ItensVendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   ItensOrdensServico   ItensOrdensServico[]
+  ComandaItens         ComandaItem[]
+
+  @@index([produtoBaseId])
+}
+
+model ProdutoCategoria {
+  id          Int           @id @default(autoincrement())
+  contaId     Int
+  Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid         String        @default("PCAT_000")
+  nome        String
+  status      Status        @default(ATIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  ProdutoBase ProdutoBase[]
+
+  @@unique([contaId, nome])
+}
+
+model ProdutoBase {
+  id              Int               @id @default(autoincrement())
+  contaId         Int
+  Contas          Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  categoriaId     Int?
+  Categoria       ProdutoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Uid             String            @default("PB_000")
+  nome            String
+  descricao       String?
+  status          Status            @default(ATIVO)
+  ncm             String?
+  cest            String?
+  cfop            String?
+  origem          Int?
+  aliquotaIcms    Decimal?          @db.Decimal(5, 2)
+  aliquotaIpi     Decimal?          @db.Decimal(5, 2)
+  aliquotaPis     Decimal?          @db.Decimal(5, 2)
+  aliquotaCofins  Decimal?          @db.Decimal(5, 2)
+  codigoProduto   String?
+  issAliquota     Decimal?          @db.Decimal(5, 2)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  variantes       Produto[]
+
+  @@index([contaId, nome])
+  @@index([categoriaId])
 }
 
 model Servicos {
@@ -323,6 +397,7 @@ model Servicos {
   Assinatura         Assinatura[]
   ItensOrdensServico ItensOrdensServico[]
   itensVendas        ItensVendas[]
+  ComandaItens       ComandaItem[]
 }
 
 model NotaFiscal {
@@ -489,6 +564,7 @@ model Vendas {
   MovimentacoesEstoque MovimentacoesEstoque[]
   LancamentoFinanceiro LancamentoFinanceiro[]
   CobrancasFinanceiras CobrancasFinanceiras[]
+  ComandaItens         ComandaItem[]
 }
 
 model ItensVendas {
@@ -583,6 +659,7 @@ model CobrancasFinanceiras {
   reservaId               Int?
   Reserva                 ArenaAgendamentos?        @relation(fields: [reservaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   cobrancasOnAgendamentos CobrancasOnAgendamentos[]
+  moduloOnContaAtual      ModuloOnConta?            @relation("ModuloCobrancaAtual")
 }
 
 model LancamentoFinanceiro {
@@ -725,8 +802,14 @@ enum ArenaAgendamentoStatus {
 
 enum StatusComanda {
   ABERTA
+  PENDENTE
   FECHADA
   CANCELADA
+}
+
+enum TipoItemComanda {
+  PRODUTO
+  SERVICO
 }
 
 model ComandaVenda {
@@ -747,6 +830,25 @@ model ComandaVenda {
   updatedAt         DateTime           @updatedAt
   vendas            Vendas[]
   comandaPagamentos ComandaPagamento[]
+  itens             ComandaItem[]
+}
+
+model ComandaItem {
+  id         Int              @id @default(autoincrement())
+  comandaId  Int
+  Comanda    ComandaVenda     @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  itemName   String
+  tipo       TipoItemComanda
+  produtoId  Int?
+  produto    Produto?         @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  servicoId  Int?
+  servico    Servicos?        @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  quantidade Int
+  valor      Decimal          @db.Decimal(10, 2)
+  vendaId    Int?
+  venda      Vendas?          @relation(fields: [vendaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 }
 
 model ComandaPagamento {

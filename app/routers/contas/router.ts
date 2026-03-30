@@ -15,6 +15,11 @@ import {
   infosConta,
 } from "../../controllers/contas/cadastro";
 import {
+  activateStoreModule,
+  cancelStoreModule,
+  listStoreModules,
+} from "../../controllers/contas/store";
+import {
   gerenciarLinkPublicoCliente,
     getDetalhePublico,
   getParametros,
@@ -45,6 +50,9 @@ routerContas.get("/detalhes", authenticateJWT, infosConta);
 routerContas.post("/parametros", authenticateJWT, saveParametros);
 routerContas.get("/parametros", authenticateJWT, getParametros);
 routerContas.post("/parametros/linkpublico", authenticateJWT, gerenciarLinkPublicoCliente);
+routerContas.get("/store/modulos", authenticateJWT, listStoreModules);
+routerContas.post("/store/modulos/:id/ativar", authenticateJWT, activateStoreModule);
+routerContas.post("/store/modulos/:id/cancelar", authenticateJWT, cancelStoreModule);
 
 routerContas.get("/publico/detalhes", getDetalhePublico);
 routerContas.post("/publico/salvarCliente", savePublicoCliente);

@@ -13,6 +13,12 @@ import { atualizarStatusLancamentos } from "../financeiro/hooks";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { redisConnecion } from "../../utils/redis";
 import { clearCacheAccount } from "../administracao/contas";
+import { recalculateComandaStatus } from "../vendas/comandas";
+import {
+  activateStoreModuleFromCharge,
+  reconcileStoreModulesAfterPayment,
+  releaseStoreModuleCharge,
+} from "../../services/contas/storeModulesService";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -102,6 +108,7 @@ export async function webhookMercadoPago(
           vencimento: vencimentoNovo,
         },
       });
+      await reconcileStoreModulesAfterPayment(contaId, vencimentoConta, vencimentoNovo);
       await clearCacheAccount(conta.id);
     }
 
@@ -165,6 +172,20 @@ export async function webhookMercadoPagoCobrancas(
       where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
     });
+
+    if (statusNovo === "EFETIVADO") {
+      const moduloAtivado = await activateStoreModuleFromCharge(cobranca.id);
+      if (moduloAtivado) {
+        return res.sendStatus(200);
+      }
+    }
+
+    if (["CANCELADO", "ESTORNADO"].includes(statusNovo)) {
+      const moduloLiberado = await releaseStoreModuleCharge(cobranca.id);
+      if (moduloLiberado) {
+        return res.sendStatus(200);
+      }
+    }
 
     if (
       cobranca.cobrancasOnAgendamentos &&
@@ -257,6 +278,10 @@ export async function webhookMercadoPagoCobrancas(
       await sendUpdateTable(cobranca.contaId, {
         message: `A venda ${venda.Uid} foi efetivada`,
       });
+
+      if (venda.comandaId) {
+        await recalculateComandaStatus(prisma, venda.comandaId, cobranca.contaId);
+      }
     }
 
     res.sendStatus(200);

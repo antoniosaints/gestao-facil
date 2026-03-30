@@ -114,6 +114,7 @@ export async function getProdutosMenosSaida(req: Request, res: Response) {
   const result = await prisma.itensVendas.groupBy({
     by: ["produtoId"],
     where: {
+      produtoId: { not: null },
       venda: { data: { gte: start, lte: end }, contaId: customData.contaId },
     },
     _sum: { quantidade: true },
@@ -121,13 +122,18 @@ export async function getProdutosMenosSaida(req: Request, res: Response) {
     take: 10,
   });
 
-  const produtos = await prisma.produto.findMany({
-    where: {
-      id: { in: result.map((r) => r.produtoId) },
-      contaId: customData.contaId,
-    },
-    select: { id: true, nome: true },
-  });
+  const produtosIds = result.flatMap((item) =>
+    typeof item.produtoId === "number" ? [item.produtoId] : [],
+  );
+  const produtos = produtosIds.length
+    ? await prisma.produto.findMany({
+        where: {
+          id: { in: produtosIds },
+          contaId: customData.contaId,
+        },
+        select: { id: true, nome: true },
+      })
+    : [];
 
   const labels = result.map(
     (r) => produtos.find((p) => p.id === r.produtoId)?.nome ?? "Desconhecido"
@@ -224,7 +230,10 @@ export async function getGiroEstoque(req: Request, res: Response) {
   });
 
   const vendas = await prisma.itensVendas.groupBy({
-    where: { venda: { contaId: customData.contaId } },
+    where: {
+      produtoId: { not: null },
+      venda: { contaId: customData.contaId },
+    },
     by: ["produtoId"],
     _sum: { quantidade: true },
   });
@@ -332,7 +341,7 @@ export async function getResumoGeralProdutos(req: Request, res: Response): Promi
     });
 
     const lucroMensal = itensVendidos.reduce((acc, item) => {
-      const custo = new Decimal(item.produto.precoCompra || 0).times(item.quantidade);
+    const custo = new Decimal(item.produto?.precoCompra || 0).times(item.quantidade);
       const totalVenda = new Decimal(item.valor).times(item.quantidade);
       return acc.plus(totalVenda.minus(custo));
     }, new Decimal(0));

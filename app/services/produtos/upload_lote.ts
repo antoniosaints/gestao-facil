@@ -1,15 +1,16 @@
 import fs from "fs";
 import csvParser from "csv-parser";
 import { parse as jsonToCsv } from "json2csv";
+import Decimal from "decimal.js";
 import { ImportResult, ProdutoCSV } from "../../types/produtos";
 import { prisma } from "../../utils/prisma";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
-import { Produto } from "../../../generated";
-import Decimal from "decimal.js";
 
 export function gerarCsvBase(): string {
   const campos = [
     "nome",
+    "categoria",
+    "nomeVariante",
     "descricao",
     "preco",
     "precoCompra",
@@ -24,6 +25,8 @@ export function gerarCsvBase(): string {
   const exemplo = [
     {
       nome: "Produto Exemplo",
+      categoria: "Bebidas",
+      nomeVariante: "Padrão",
       descricao: "Descrição do produto",
       preco: "100.00",
       precoCompra: "80.00",
@@ -52,126 +55,160 @@ export async function importarProdutos(
       .on("data", (row: ProdutoCSV) => resultados.push(row))
       .on("end", async () => {
         try {
-          // 🔍 Validação completa antes de qualquer tentativa de insert
-          const produtosValidos: Omit<Produto, "id">[] = [];
+          const produtosValidos = resultados
+            .map((produto, index) => {
+              const linha = index + 2;
 
-          resultados.forEach((produto, index) => {
-            const linha = index + 2;
+              if (
+                !produto.nome ||
+                !produto.preco ||
+                !produto.estoque ||
+                !produto.minimo
+              ) {
+                erros.push({
+                  linha,
+                  erro:
+                    "Campos obrigatórios ausentes: nome, preco, estoque, minimo",
+                });
+                return null;
+              }
 
-            // Validação básica
-            if (
-              !produto.nome ||
-              !produto.preco ||
-              !produto.estoque ||
-              !produto.minimo
-            ) {
-              erros.push({
-                linha,
-                erro:
-                  "Campos obrigatórios ausentes: nome, preco, estoque, minimo",
-              });
-              return;
-            }
+              const preco = parseFloat(produto.preco);
+              const estoque = parseInt(produto.estoque);
+              const minimo = parseInt(produto.minimo);
 
-            const preco = parseFloat(produto.preco);
-            const estoque = parseInt(produto.estoque);
-            const minimo = parseInt(produto.minimo);
+              if (isNaN(preco) || preco < 0) {
+                erros.push({ linha, erro: "Preço inválido" });
+                return null;
+              }
 
-            if (isNaN(preco) || preco < 0) {
-              erros.push({ linha, erro: "Preço inválido" });
-              return;
-            }
+              if (isNaN(estoque) || estoque < 0) {
+                erros.push({ linha, erro: "Estoque inválido" });
+                return null;
+              }
 
-            if (isNaN(estoque) || estoque < 0) {
-              erros.push({ linha, erro: "Estoque inválido" });
-              return;
-            }
+              if (isNaN(minimo) || minimo < 0) {
+                erros.push({ linha, erro: "Mínimo inválido" });
+                return null;
+              }
 
-            if (isNaN(minimo) || minimo < 0) {
-              erros.push({ linha, erro: "Mínimo inválido" });
-              return;
-            }
-
-            produtosValidos.push({
-              contaId,
-              Uid: gerarIdUnicoComMetaFinal("PRO"),
-              nome: produto.nome.trim(),
-              descricao: produto.descricao?.trim() || null,
-              preco: new Decimal(preco),
-              precoCompra: produto.precoCompra
-                ? new Decimal(parseFloat(produto.precoCompra))
-                : null,
-              entradas:
-                produto.entradas !== undefined
-                  ? ["sim", "true", "1"].includes(
-                      produto.entradas.toLowerCase()
-                    )
-                  : true,
-              saidas:
-                produto.saidas !== undefined
-                  ? ["sim", "true", "1"].includes(produto.saidas.toLowerCase())
-                  : true,
-              unidade: produto.unidade?.trim() || null,
-              estoque,
-              minimo,
-              codigo: produto.codigo?.trim() || null,
-              status: "ATIVO",
-              aliquotaCofins: null,
-              aliquotaIcms: null,
-              aliquotaIpi: null,
-              aliquotaPis: null,
-              categoria: null,
-              cest: null,
-              cfop: null,
-              codigoProduto: null,
-              ncm: null,
-              origem: null,
-              issAliquota: null,
-              producaoLocal: false,
-              controlaEstoque: false,
-              custoMedioProducao: null,
-            });
-          });
+              return {
+                nome: produto.nome.trim(),
+                categoria: produto.categoria?.trim() || null,
+                nomeVariante: produto.nomeVariante?.trim() || "Padrão",
+                descricao: produto.descricao?.trim() || null,
+                preco: new Decimal(preco),
+                precoCompra: produto.precoCompra
+                  ? new Decimal(parseFloat(produto.precoCompra))
+                  : null,
+                entradas:
+                  produto.entradas !== undefined
+                    ? ["sim", "true", "1"].includes(
+                        produto.entradas.toLowerCase()
+                      )
+                    : true,
+                saidas:
+                  produto.saidas !== undefined
+                    ? ["sim", "true", "1"].includes(
+                        produto.saidas.toLowerCase()
+                      )
+                    : true,
+                unidade: produto.unidade?.trim() || null,
+                estoque,
+                minimo,
+                codigo: produto.codigo?.trim() || null,
+              };
+            })
+            .filter((item) => item !== null);
 
           fs.unlinkSync(arquivoPath);
 
-          // ❌ Se houver qualquer erro, encerra sem tentar inserir
           if (erros.length > 0 || produtosValidos.length === 0) {
             resolve({ inseridos: 0, erros });
             return;
           }
 
-          // 🔎 Elimina duplicados dentro do CSV (por código)
-          const codigosUnicos = new Set<string>();
-          const semDuplicados = produtosValidos.filter((p) => {
-            if (!p.codigo) return true;
-            if (codigosUnicos.has(p.codigo)) return false;
-            codigosUnicos.add(p.codigo);
-            return true;
-          });
-
-          // 🔎 Busca duplicados no banco
-          const codigos = semDuplicados
+          const codigos = produtosValidos
             .map((p) => p.codigo)
-            .filter((c): c is string => !!c);
+            .filter((codigo): codigo is string => !!codigo);
 
           const existentes = await prisma.produto.findMany({
-            where: { codigo: { in: codigos }, contaId },
+            where: {
+              codigo: { in: codigos },
+              contaId,
+            },
             select: { codigo: true },
           });
 
           const codigosExistentes = new Set(existentes.map((e) => e.codigo));
-          const novos = semDuplicados.filter(
+          const novos = produtosValidos.filter(
             (p) => !p.codigo || !codigosExistentes.has(p.codigo)
           );
 
-          // ✅ Só agora insere os que passaram em todas as verificações
-          if (novos.length > 0) {
-            await prisma.produto.createMany({
-              data: novos,
-              skipDuplicates: false,
-            });
+          if (!novos.length) {
+            resolve({ inseridos: 0, erros });
+            return;
           }
+
+          await prisma.$transaction(async (tx) => {
+            for (const produto of novos) {
+              let categoriaId: number | null = null;
+
+              if (produto.categoria) {
+                const categoria = await tx.produtoCategoria.upsert({
+                  where: {
+                    contaId_nome: {
+                      contaId,
+                      nome: produto.categoria,
+                    },
+                  },
+                  create: {
+                    Uid: gerarIdUnicoComMetaFinal("PCAT"),
+                    contaId,
+                    nome: produto.categoria,
+                    status: "ATIVO",
+                  },
+                  update: {},
+                });
+                categoriaId = categoria.id;
+              }
+
+              const produtoBase = await tx.produtoBase.create({
+                data: {
+                  Uid: gerarIdUnicoComMetaFinal("PB"),
+                  contaId,
+                  categoriaId,
+                  nome: produto.nome,
+                  descricao: produto.descricao,
+                },
+              });
+
+              await tx.produto.create({
+                data: {
+                  contaId,
+                  produtoBaseId: produtoBase.id,
+                  Uid: gerarIdUnicoComMetaFinal("PRO"),
+                  nome: produto.nome,
+                  nomeVariante: produto.nomeVariante,
+                  ehPadrao: true,
+                  descricao: produto.descricao,
+                  preco: produto.preco,
+                  precoCompra: produto.precoCompra,
+                  entradas: produto.entradas,
+                  saidas: produto.saidas,
+                  unidade: produto.unidade,
+                  estoque: produto.estoque,
+                  minimo: produto.minimo,
+                  codigo: produto.codigo,
+                  status: "ATIVO",
+                  categoria: produto.categoria,
+                  producaoLocal: false,
+                  controlaEstoque: false,
+                  custoMedioProducao: null,
+                },
+              });
+            }
+          });
 
           resolve({ inseridos: novos.length, erros });
         } catch (error) {

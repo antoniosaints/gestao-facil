@@ -7,6 +7,7 @@ import { env } from "../../utils/dotenv";
 import { handleError } from "../../utils/handleError";
 import { hasPermission } from "../../helpers/userPermission";
 import { isAccountOverdue } from "../../routers/web";
+import { getContaNextRecurringValue } from "../../services/contas/storeModulesService";
 
 export const checkarPermissao = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -55,7 +56,7 @@ export const createSubscription = async (
         customer: conta.asaasCustomerId,
         fine: { type: "FIXED", value: 0 },
         nextDueDate: addDays(new Date(), 2).toISOString().split("T")[0],
-        value: 70.0,
+        value: (await getContaNextRecurringValue(conta.id)).toNumber(),
         cycle: "MONTHLY",
         description: "Assinatura do plano PRO do Gestão Fácil",
         externalReference: `conta-gestaofacil-${conta.id}`,

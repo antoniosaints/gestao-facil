@@ -4,10 +4,19 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { z } from "zod";
 import { callChatGeminiService } from "../../external/gemini/callGemini";
 import { ResponseHandler } from "../../utils/response";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 export const callChatGemini = async (req: Request, res: Response): Promise<any> => {
     try {
         const custom = getCustomRequest(req).customData;
+        const hasAccess = await contaHasActiveModule(custom.contaId, "core-ia");
+
+        if (!hasAccess) {
+            return res.status(403).json({
+                message: "O app CORE IA não está ativo no seu plano.",
+            });
+        }
+
         const body = z.object({
             prompt: z.string(),
             history: z.any()

@@ -43,6 +43,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
           nome: conta,
           email,
           valor: 70,
+          valorBasePlano: 70,
           asaasCustomerId: "MERCADOPAGO",
           data: new Date(),
           funcionarios: Number(funcionarios),

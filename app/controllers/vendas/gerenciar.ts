@@ -12,6 +12,15 @@ import { hasPermission } from "../../helpers/userPermission";
 import { formatCurrency } from "../../utils/formatters";
 import { z } from "zod";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
+import { recalculateComandaStatus } from "./comandas";
+import { cancelarCobrancaMercadoPago } from "../financeiro/cobrancas/managerCobranca";
+
+function buildProdutoItemName(produto: {
+  nome: string;
+  nomeVariante?: string | null;
+}) {
+  return `${produto.nome} / ${produto.nomeVariante || "Padrão"}`;
+}
 
 export const efetivarVenda = async (
   req: Request,
@@ -29,13 +38,22 @@ export const efetivarVenda = async (
       return handleError(res, error);
     }
 
-    const { pagamento, dataPagamento, conta: contaId, categoria } = resultado;
+    const {
+      pagamento,
+      dataPagamento,
+      conta: contaId,
+      categoria,
+      cancelarCobrancaExterna,
+    } = resultado;
 
     const transaction = await prisma.$transaction(async (tx) => {
       const venda = await tx.vendas.findUniqueOrThrow({
         where: {
           id: Number(req.params.id),
           contaId: customData.contaId,
+        },
+        include: {
+          CobrancasFinanceiras: true,
         },
       });
 
@@ -71,7 +89,24 @@ export const efetivarVenda = async (
         },
       });
 
+      await tx.cobrancasFinanceiras.updateMany({
+        where: {
+          vendaId: venda.id,
+          status: "PENDENTE",
+          gateway: "interno",
+        },
+        data: {
+          status: "EFETIVADO",
+        },
+      });
+
       if (!resultado.lancamentoManual) {
+        if (!categoria || !contaId) {
+          throw new Error(
+            "Conta e categoria sao obrigatorias quando o lancamento automatico estiver ativo."
+          );
+        }
+
         await tx.lancamentoFinanceiro.create({
           data: {
             Uid: gerarIdUnicoComMetaFinal("FIN"),
@@ -104,11 +139,53 @@ export const efetivarVenda = async (
         });
       }
 
-      return venda;
+      const cobrancasMercadoPagoPendentes = venda.CobrancasFinanceiras.filter(
+        (cobranca) =>
+          cobranca.gateway === "mercadopago" && cobranca.status === "PENDENTE"
+      );
+
+      return {
+        ...venda,
+        cobrancasMercadoPagoPendentes,
+      };
     });
 
+    let cancelamentosFalharam = 0;
+
+    if (
+      cancelarCobrancaExterna &&
+      transaction.cobrancasMercadoPagoPendentes.length > 0
+    ) {
+      const parametros = await prisma.parametrosConta.findUniqueOrThrow({
+        where: {
+          contaId: customData.contaId,
+        },
+      });
+
+      for (const cobranca of transaction.cobrancasMercadoPagoPendentes) {
+        try {
+          await cancelarCobrancaMercadoPago(parametros, cobranca);
+        } catch (error) {
+          console.log(error);
+          cancelamentosFalharam += 1;
+        }
+      }
+    }
+
+    if (transaction.comandaId) {
+      await recalculateComandaStatus(
+        prisma,
+        transaction.comandaId,
+        transaction.contaId
+      );
+    }
+
     sendUpdateTable(transaction.contaId, { efetivada: true });
-    ResponseHandler(res, "Venda efetivada", transaction);
+    const message =
+      cancelamentosFalharam > 0
+        ? "Venda efetivada, mas nem todas as cobrancas do Mercado Pago puderam ser canceladas."
+        : "Venda efetivada";
+    ResponseHandler(res, message, transaction);
   } catch (err: any) {
     handleError(res, err);
   }
@@ -119,25 +196,51 @@ export const estornarVenda = async (
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
-    const venda = await prisma.vendas.update({
-      where: {
-        id: Number(req.params.id),
-        contaId: customData.contaId,
-        status: "FATURADO",
-      },
-      data: {
-        status: "PENDENTE",
-        faturado: false,
-        PagamentoVendas: {
-          delete: true,
+    const venda = await prisma.$transaction(async (tx) => {
+      const vendaAtual = await tx.vendas.findUniqueOrThrow({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
         },
-        LancamentoFinanceiro: {
-          deleteMany: {
-            vendaId: Number(req.params.id),
+      });
+
+      const vendaEstornada = await tx.vendas.update({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+          status: "FATURADO",
+        },
+        data: {
+          status: "PENDENTE",
+          faturado: false,
+          PagamentoVendas: {
+            delete: true,
+          },
+          LancamentoFinanceiro: {
+            deleteMany: {
+              vendaId: Number(req.params.id),
+            },
           },
         },
-      },
+      });
+
+      await tx.cobrancasFinanceiras.updateMany({
+        where: {
+          vendaId: vendaAtual.id,
+          status: "EFETIVADO",
+        },
+        data: {
+          status: "ESTORNADO",
+        },
+      });
+
+      return vendaEstornada;
     });
+
+    if (venda.comandaId) {
+      await recalculateComandaStatus(prisma, venda.comandaId, customData.contaId);
+    }
+
     sendUpdateTable(customData.contaId, { efetivada: false });
     ResponseHandler(res, "Venda estornada", venda);
   } catch (err: any) {
@@ -222,6 +325,55 @@ export const deleteVenda = async (
 
       if (isEfetivada.status === "FATURADO") {
         throw new Error("Venda efetivada, não pode ser deletada!");
+      }
+
+      if (isEfetivada.comandaId) {
+        const cobrancasEfetivadas = await tx.cobrancasFinanceiras.count({
+          where: {
+            vendaId: isEfetivada.id,
+            status: "EFETIVADO",
+          },
+        });
+
+        if (cobrancasEfetivadas > 0) {
+          throw new Error(
+            "A venda da comanda possui cobranca efetivada e nao pode ser excluida."
+          );
+        }
+
+        await tx.comandaItem.updateMany({
+          where: {
+            vendaId: isEfetivada.id,
+          },
+          data: {
+            vendaId: null,
+          },
+        });
+
+        await tx.cobrancasFinanceiras.deleteMany({
+          where: {
+            vendaId: isEfetivada.id,
+          },
+        });
+
+        const venda = await tx.vendas.delete({
+          where: {
+            id: Number(req.params.id),
+            contaId: customData.contaId,
+          },
+        });
+
+        await recalculateComandaStatus(
+          tx,
+          isEfetivada.comandaId,
+          customData.contaId
+        );
+
+        return venda;
+      }
+
+      if (isEfetivada.comandaId) {
+        throw new Error("Vendas vinculadas a comandas não podem ser deletadas diretamente.");
       }
 
       const items = await tx.itensVendas.findMany({
@@ -374,8 +526,9 @@ export const updateVendaInternal = async (
     // Novo conjunto de itens
     const itensVenda = data.itens.map((item) => ({
       vendaId: venda.id,
-      produtoId: item.tipo === 'PRODUTO' ? item.id : null,
-      servicoId: item.tipo === 'SERVICO' ? item.id : null,
+      itemName: item.nome,
+      produtoId: item.tipo === "PRODUTO" ? item.id : null,
+      servicoId: item.tipo === "SERVICO" ? item.id : null,
       quantidade: item.quantidade,
       valor: new Decimal(item.preco),
     }));
@@ -500,6 +653,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       });
 
       for (const item of data.itens) {
+        let itemName = item.nome || "Item";
         if (item.tipo === "PRODUTO") {
           const produto = await tx.produto.findUniqueOrThrow({
             where: { id: item.id, contaId: customData.contaId },
@@ -530,8 +684,9 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         await tx.itensVendas.create({
           data: {
             vendaId: venda.id,
-            produtoId: item.tipo === 'PRODUTO' ? item.id : null,
-            servicoId: item.tipo === 'SERVICO' ? item.id : null,
+            itemName,
+            produtoId: item.tipo === "PRODUTO" ? item.id : null,
+            servicoId: item.tipo === "SERVICO" ? item.id : null,
             quantidade: item.quantidade,
             valor: new Decimal(item.preco),
           },
