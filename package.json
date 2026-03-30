@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "tsup app",
+    "build": "tsup --config tsup.config.ts",
     "dev": "tsx watch app/server.ts",
     "email:dev": "tsx watch app/workers/sendEmailWorker.ts",
     "notification:dev": "tsx app/workers/pushNotificationWorker.ts",
