@@ -10,6 +10,7 @@ import {
 import { clearCacheAccount } from "../../controllers/administracao/contas";
 import { MercadoPagoService } from "../financeiro/mercadoPagoService";
 import { env } from "../../utils/dotenv";
+import { getSaasMercadoPagoService } from "../../utils/mercadoPago";
 
 const DEFAULT_MODULES = [
   {
@@ -46,8 +47,8 @@ function getToday() {
 
 function getChargeDescription(moduleName: string, billingMode: ModuleBillingMode) {
   return billingMode === "PROPORCIONAL"
-    ? `Liberacao proporcional do app ${moduleName} ate o proximo vencimento`
-    : `Primeira mensalidade do app ${moduleName}`;
+    ? `App Store - Liberacao proporcional do app ${moduleName} ate o proximo vencimento`
+    : `App Store - Primeira mensalidade do app ${moduleName}`;
 }
 
 function getChargeLink(cobranca: {
@@ -116,20 +117,14 @@ async function createMercadoPagoModuleCharge(args: {
   amount: Decimal;
   description: string;
 }) {
-  const parametros = await getContaGatewayConfig(args.contaId);
-
-  if (!parametros.MercadoPagoApiKey) {
-    throw new Error("API Key do Mercado Pago nao encontrada.");
-  }
-
-  const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+  const mp = getSaasMercadoPagoService();
   const payment = await mp.payment.create({
     requestOptions: {
       idempotencyKey: `${args.contaId}-${args.moduloOnContaId}-${randomUUID()}`,
     },
     body: {
       payer: {
-        email: args.email || parametros.emailAvisos || "admin@userp.com.br",
+        email: args.email || "admin@userp.com.br",
         entity_type: "individual",
       },
       external_reference: `conta:${args.contaId}|modulo:${args.moduloOnContaId}|app`,
@@ -216,13 +211,7 @@ async function cancelGatewayCharge(cobranca: {
   }
 
   if (cobranca.gateway === "mercadopago") {
-    const parametros = await getContaGatewayConfig(cobranca.contaId);
-
-    if (!parametros.MercadoPagoApiKey) {
-      throw new Error("API Key do Mercado Pago nao encontrada.");
-    }
-
-    const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+    const mp = getSaasMercadoPagoService();
     await mp.payment.cancel({
       id: Number(cobranca.idCobranca),
     });

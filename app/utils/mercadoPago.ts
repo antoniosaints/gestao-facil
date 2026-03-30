@@ -1,12 +1,19 @@
-import { MercadoPagoConfig, Order, Payment, Preference } from 'mercadopago';
 import { env } from './dotenv';
+import { MercadoPagoService } from '../services/financeiro/mercadoPagoService';
 
-const mercadoPago = new MercadoPagoConfig({
-  accessToken: env.MP_ACCESS_TOKEN as string,
-});
+const saasMercadoPago = new MercadoPagoService(env.MP_ACCESS_TOKEN as string);
 
-const mercadoPagoOrder = new Order(mercadoPago);
-const mercadoPagoPayment = new Payment(mercadoPago);
-const mercadoPagoPreference = new Preference(mercadoPago);
+const mercadoPagoOrder = saasMercadoPago.order;
+const mercadoPagoPayment = saasMercadoPago.payment;
+const mercadoPagoPreference = saasMercadoPago.preference;
 
-export { mercadoPagoOrder, mercadoPagoPayment, mercadoPagoPreference };
+function getSaasMercadoPagoService() {
+  return saasMercadoPago;
+}
+
+export {
+  getSaasMercadoPagoService,
+  mercadoPagoOrder,
+  mercadoPagoPayment,
+  mercadoPagoPreference,
+};

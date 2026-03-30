@@ -11,6 +11,31 @@ export const clearCacheAccount = async (contaId: number) => {
     await redisConnecion.del(`assinaturaconta:conta${contaId}`);
     await redisConnecion.del(`infoconta:conta${contaId}`);
 }
+
+function isStoreModuleCharge(observacao?: string | null) {
+    if (!observacao) return false;
+
+    return [
+        "App Store",
+        "Liberacao proporcional do app",
+        "Primeira mensalidade do app",
+    ].some((pattern) => observacao.includes(pattern));
+}
+
+function formatDatePtBR(date: Date) {
+    return date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+}
+
+function normalizeChargeStatus(status: string) {
+    if (status === "EFETIVADO") return "PAGO";
+    if (status === "ESTORNADO") return "CANCELADO";
+    return status;
+}
+
 export const assinaturaConta = async (req: Request, res: Response): Promise<any> => {
     try {
         const customData = getCustomRequest(req).customData;
@@ -34,27 +59,81 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
                 },
             },
         });
+        const cobrancasApps = await prisma.cobrancasFinanceiras.findMany({
+            where: {
+                contaId: customData.contaId,
+                OR: [
+                    { observacao: { contains: "App Store" } },
+                    { observacao: { contains: "Liberacao proporcional do app" } },
+                    { observacao: { contains: "Primeira mensalidade do app" } },
+                ],
+            },
+            orderBy: {
+                dataCadastro: "desc",
+            },
+            take: 10,
+        });
+
+        const faturasMensalidade = conta.FaturasContas.map((fatura) => ({
+            asaasPaymentId: fatura.asaasPaymentId,
+            vencimento: formatDatePtBR(fatura.vencimento),
+            valor: fatura.valor,
+            status: fatura.status,
+            linkPagamento: fatura.urlPagamento,
+            id: `mensalidade-${fatura.id}`,
+            color: fatura.status === "PENDENTE" ? "orange" : fatura.status === "PAGO" ? "green" : "red",
+            origem: "MENSALIDADE",
+            descricao: fatura.descricao || "Mensalidade do plano",
+            criadoEm: fatura.criadoEm,
+        }));
+
+        const faturasApps = cobrancasApps
+            .filter((cobranca) => isStoreModuleCharge(cobranca.observacao))
+            .map((cobranca) => {
+                const status = normalizeChargeStatus(cobranca.status);
+
+                return {
+                    asaasPaymentId: cobranca.idCobranca,
+                    vencimento: formatDatePtBR(cobranca.dataVencimento),
+                    valor: new Decimal(cobranca.valor).toNumber(),
+                    status,
+                    linkPagamento: cobranca.externalLink,
+                    id: `app-${cobranca.id}`,
+                    color: status === "PENDENTE" ? "orange" : status === "PAGO" ? "green" : "red",
+                    origem: "APP",
+                    descricao: cobranca.observacao || "Cobranca de app",
+                    criadoEm: cobranca.dataCadastro,
+                };
+            });
+
+        const faturasCombinadas = [...faturasMensalidade, ...faturasApps]
+            .sort((a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime())
+            .slice(0, 10);
+
+        const proximaCobrancaPendente = [...faturasCombinadas]
+            .filter((fatura) => fatura.status === "PENDENTE" && !!fatura.linkPagamento)
+            .sort((a, b) => {
+                const [dayA, monthA, yearA] = a.vencimento.split("/").map(Number);
+                const [dayB, monthB, yearB] = b.vencimento.split("/").map(Number);
+                return new Date(yearA, monthA - 1, dayA).getTime() - new Date(yearB, monthB - 1, dayB).getTime();
+            })[0] || null;
 
         const data = {
             status: isBefore(conta.vencimento, new Date()) ? "INATIVO" : "ATIVO",
             valor: conta.valor ? `R$ ${new Decimal(conta.valor).toFixed(2).replace('.', ',')}` : "R$ 0,00",
-            faturas: conta.FaturasContas.map((fatura) => ({
-                asaasPaymentId: fatura.asaasPaymentId,
-                vencimento: fatura.vencimento.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
-                valor: fatura.valor ? fatura.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "R$ 0,00",
-                status: fatura.status,
-                linkPagamento: fatura.urlPagamento,
-                id: fatura.id,
-                color: fatura.status === "PENDENTE" ? "orange" : fatura.status === "PAGO" ? "green" : "red",
-            })),
+            faturas: faturasCombinadas,
             diasParaVencer: (conta.vencimento.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-            proximoVencimento: conta.vencimento.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }),
-            valorTotal: conta.FaturasContas.reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
-            valorPendente: conta.FaturasContas.filter((fatura) => fatura.status === "PENDENTE").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
-            valorPago: conta.FaturasContas.filter((fatura) => fatura.status === "PAGO").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
-            valorCancelado: conta.FaturasContas.filter((fatura) => fatura.status === "CANCELADO").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
-            proximoLinkPagamento: conta.FaturasContas.filter((fatura) => fatura.status === "PENDENTE").slice(-1)[0]?.urlPagamento || null,
-            labelAssinatura: conta.status === "ATIVO" ? "Assinatura em dias" : "Fatura pendente",
+            proximoVencimento: formatDatePtBR(conta.vencimento),
+            valorTotal: faturasCombinadas.reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
+            valorPendente: faturasCombinadas.filter((fatura) => fatura.status === "PENDENTE").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
+            valorPago: faturasCombinadas.filter((fatura) => fatura.status === "PAGO").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
+            valorCancelado: faturasCombinadas.filter((fatura) => fatura.status === "CANCELADO").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
+            proximoLinkPagamento: proximaCobrancaPendente?.linkPagamento || null,
+            labelAssinatura: proximaCobrancaPendente?.origem === "APP"
+                ? "App com cobranca pendente"
+                : conta.status === "ATIVO"
+                    ? "Assinatura em dias"
+                    : "Fatura pendente",
         }
 
         await redisConnecion.set(cacheKey, JSON.stringify(data), "EX", 3600);

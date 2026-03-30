@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { mercadoPagoPayment } from "../../utils/mercadoPago";
+import { getSaasMercadoPagoService, mercadoPagoPayment } from "../../utils/mercadoPago";
 import { prisma } from "../../utils/prisma";
 import {
   MetodoPagamento,
@@ -140,16 +140,32 @@ export async function webhookMercadoPagoCobrancas(
       return res.sendStatus(204);
     }
 
-    const parametros = await prisma.parametrosConta.findUniqueOrThrow({
-      where: { contaId: cobranca.contaId },
+    const moduleCharge = await prisma.moduloOnConta.findFirst({
+      where: {
+        cobrancaAtualId: cobranca.id,
+      },
+      select: {
+        id: true,
+      },
     });
 
-    if (!parametros?.MercadoPagoApiKey) {
-      console.warn(`Conta ${cobranca.contaId} sem chave Mercado Pago`);
-      return res.sendStatus(204);
+    let mp: MercadoPagoService;
+
+    if (moduleCharge) {
+      mp = getSaasMercadoPagoService();
+    } else {
+      const parametros = await prisma.parametrosConta.findUniqueOrThrow({
+        where: { contaId: cobranca.contaId },
+      });
+
+      if (!parametros?.MercadoPagoApiKey) {
+        console.warn(`Conta ${cobranca.contaId} sem chave Mercado Pago`);
+        return res.sendStatus(204);
+      }
+
+      mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
     }
 
-    const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
     const payment = await mp.payment.get({ id: paymentId });
 
     const statusMap: Record<string, StatusPagamento> = {
