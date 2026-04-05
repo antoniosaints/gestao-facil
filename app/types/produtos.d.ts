@@ -26,6 +26,8 @@ export interface ProdutoCreate {
   estoque: number;
   minimo: number;
   codigo?: string | null;
+  mostrarNoPdv?: boolean;
+  materiaPrima?: boolean;
 }
 
 export interface ImportResult {

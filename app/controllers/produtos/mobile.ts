@@ -72,6 +72,8 @@ export const ListagemMobileProdutos = async (
           preco: variantePadrao?.preco ?? 0,
           codigo: variantePadrao?.codigo ?? null,
           unidade: variantePadrao?.unidade ?? null,
+          mostrarNoPdv: variantePadrao?.mostrarNoPdv ?? true,
+          materiaPrima: variantePadrao?.materiaPrima ?? false,
           variantePadraoId: variantePadrao?.id ?? null,
         };
       }),

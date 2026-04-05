@@ -322,6 +322,8 @@ model Produto {
   issAliquota          Decimal?               @db.Decimal(5, 2)
   controlaEstoque      Boolean?               @default(false)
   producaoLocal        Boolean?               @default(false)
+  mostrarNoPdv         Boolean?               @default(true)
+  materiaPrima         Boolean?               @default(false)
   custoMedioProducao   Decimal?               @db.Decimal(10, 2)
   ItensVendas          ItensVendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]

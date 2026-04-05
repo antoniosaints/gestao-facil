@@ -419,6 +419,9 @@ export const buscarOrdemDetalhe = async (
         ItensOrdensServico: true,
         Cliente: true,
         MensagensInteracoesOrdemServico: {
+          orderBy: {
+            data: "asc",
+          },
           include: {
             Autor: {
               select: {

@@ -15,10 +15,40 @@ export const relatorioProdutos = async (
 ): Promise<any> => {
   const query = req.query;
   const customData = getCustomRequest(req).customData;
+
+  const inicio = query.inicio ? new Date(String(query.inicio)) : null;
+  const fim = query.fim ? new Date(String(query.fim)) : null;
+
   const produtos = await prisma.produto.findMany({
     where: {
       contaId: customData.contaId,
+      ...(inicio || fim
+        ? {
+            ProdutoBase: {
+              createdAt: {
+                ...(inicio ? { gte: inicio } : {}),
+                ...(fim ? { lte: fim } : {}),
+              },
+            },
+          }
+        : {}),
     },
+    include: {
+      ProdutoBase: {
+        select: {
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        ProdutoBase: {
+          createdAt: "desc",
+        },
+      },
+      { nome: "asc" },
+      { nomeVariante: "asc" },
+    ],
   });
 
   const conta = await prisma.contas.findUnique({
@@ -80,6 +110,12 @@ export const relatorioProdutos = async (
     .fontSize(18)
     .text(`Relatório de Produtos - ${conta.nome}`, textLeft, marginTop);
 
+  const periodoLabel = inicio || fim
+    ? `${inicio ? dayjs(inicio).format("DD/MM/YYYY") : "Início aberto"} até ${
+        fim ? dayjs(fim).format("DD/MM/YYYY") : "Hoje"
+      }`
+    : "Todos os cadastros";
+
   doc
     .font("Roboto")
     .fontSize(10)
@@ -90,6 +126,7 @@ export const relatorioProdutos = async (
       textLeft
     )
     .text(`Documento: ${conta.documento}`, textLeft)
+    .text(`Período filtrado: ${periodoLabel}`, textLeft)
     .text(`Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, textLeft);
 
   doc.moveDown(2);

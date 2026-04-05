@@ -71,6 +71,8 @@ function buildProdutoBaseResponse(
     codigo: variantePadrao?.codigo ?? null,
     controlaEstoque: variantePadrao?.controlaEstoque ?? false,
     producaoLocal: variantePadrao?.producaoLocal ?? false,
+    mostrarNoPdv: variantePadrao?.mostrarNoPdv ?? true,
+    materiaPrima: variantePadrao?.materiaPrima ?? false,
     custoMedioProducao: variantePadrao?.custoMedioProducao ?? null,
   };
 }
@@ -169,6 +171,18 @@ export const getProdutos = async (
       take: query?.limit ? Number(query?.limit) : 10,
       where: {
         contaId: customData.contaId,
+        ...(String(query?.pdv).toLowerCase() === "true"
+          ? {
+              AND: [
+                {
+                  OR: [{ mostrarNoPdv: true }, { mostrarNoPdv: null }],
+                },
+                {
+                  OR: [{ materiaPrima: false }, { materiaPrima: null }],
+                },
+              ],
+            }
+          : {}),
         ...(query?.search
           ? {
               OR: [
@@ -347,6 +361,8 @@ export const saveProduto = async (
               saidas: data.saidas,
               controlaEstoque: data.controlaEstoque,
               producaoLocal: data.producaoLocal,
+              mostrarNoPdv: data.mostrarNoPdv,
+              materiaPrima: data.materiaPrima,
               custoMedioProducao: data.custoMedioProducao,
             },
           });
@@ -370,6 +386,8 @@ export const saveProduto = async (
               saidas: data.saidas,
               controlaEstoque: data.controlaEstoque,
               producaoLocal: data.producaoLocal,
+              mostrarNoPdv: data.mostrarNoPdv,
+              materiaPrima: data.materiaPrima,
               custoMedioProducao: data.custoMedioProducao,
               categoria: categoriaNome,
             },
@@ -434,6 +452,8 @@ export const saveProduto = async (
           saidas: data.saidas,
           controlaEstoque: data.controlaEstoque,
           producaoLocal: data.producaoLocal,
+          mostrarNoPdv: data.mostrarNoPdv,
+          materiaPrima: data.materiaPrima,
           custoMedioProducao: data.custoMedioProducao,
           categoria: categoriaNome,
         },
@@ -737,6 +757,8 @@ export const saveProdutoVariante = async (
             saidas: data.saidas,
             controlaEstoque: data.controlaEstoque,
             producaoLocal: data.producaoLocal,
+            mostrarNoPdv: data.mostrarNoPdv,
+            materiaPrima: data.materiaPrima,
             custoMedioProducao: data.custoMedioProducao,
           },
         });
@@ -762,6 +784,8 @@ export const saveProdutoVariante = async (
           codigo: data.codigo,
           controlaEstoque: data.controlaEstoque,
           producaoLocal: data.producaoLocal,
+          mostrarNoPdv: data.mostrarNoPdv,
+          materiaPrima: data.materiaPrima,
           custoMedioProducao: data.custoMedioProducao,
           ehPadrao: false,
         },

@@ -204,6 +204,8 @@ export async function importarProdutos(
                   categoria: produto.categoria,
                   producaoLocal: false,
                   controlaEstoque: false,
+                  mostrarNoPdv: true,
+                  materiaPrima: false,
                   custoMedioProducao: null,
                 },
               });

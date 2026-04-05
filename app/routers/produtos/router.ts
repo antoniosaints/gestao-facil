@@ -33,6 +33,8 @@ import {
   select2Produtos,
 } from "../../controllers/produtos/hooks";
 import {
+  getDistribuicaoCategorias,
+  getFluxoEstoqueMensal,
   getGiroEstoque,
   getLucroMedioProdutos,
   getMargemMedia,
@@ -40,6 +42,7 @@ import {
   getProdutosMenosSaida,
   getReposicaoMensal,
   getResumoGeralProdutos,
+  getSaudeEstoqueProdutos,
   getTicketMedio,
 } from "../../controllers/produtos/graficos";
 
@@ -117,6 +120,21 @@ routerProdutos.get(
 routerProdutos.get("/graficos/ticket-medio", authenticateJWT, getTicketMedio);
 routerProdutos.get("/graficos/giro-estoque", authenticateJWT, getGiroEstoque);
 routerProdutos.get("/graficos/margem-media", authenticateJWT, getMargemMedia);
+routerProdutos.get(
+  "/graficos/fluxo-estoque",
+  authenticateJWT,
+  getFluxoEstoqueMensal
+);
+routerProdutos.get(
+  "/graficos/categorias",
+  authenticateJWT,
+  getDistribuicaoCategorias
+);
+routerProdutos.get(
+  "/graficos/saude-estoque",
+  authenticateJWT,
+  getSaudeEstoqueProdutos
+);
 routerProdutos.get("/graficos/resumo-geral", authenticateJWT, getResumoGeralProdutos);
 
 export { routerProdutos };

@@ -78,6 +78,8 @@ export const tableProdutos = async (req: Request, res: Response) => {
         codigo: variantePadrao?.codigo ?? null,
         controlaEstoque: variantePadrao?.controlaEstoque ?? false,
         producaoLocal: variantePadrao?.producaoLocal ?? false,
+        mostrarNoPdv: variantePadrao?.mostrarNoPdv ?? true,
+        materiaPrima: variantePadrao?.materiaPrima ?? false,
         custoMedioProducao: variantePadrao?.custoMedioProducao ?? null,
         variantePadraoId: variantePadrao?.id ?? null,
       };

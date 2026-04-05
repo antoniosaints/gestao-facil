@@ -67,4 +67,5 @@ O schema Prisma é grande e multi-tenant por `contaId`. Os domínios mais fortes
 - Não presumir uma camada de serviço obrigatória onde o código atual não segue isso.
 - Quando adicionar endpoints, respeitar o agrupamento por domínio em `routers` e `controllers`.
 - Sempre considerar o recorte multi-tenant via `contaId`.
+- Endpoints analíticos e dashboards devem aplicar o `contaId` do contexto autenticado em toda agregação, groupBy e relação encadeada para impedir mistura de dados entre contas.
 - Antes de remover algo de `views` ou `public`, confirmar se a rota ou fluxo legado ainda está em uso.
