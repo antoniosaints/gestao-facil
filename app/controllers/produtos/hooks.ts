@@ -10,8 +10,48 @@ export const select2Produtos = async (
   try {
     const search = (req.query.search as string) || null;
     const withStock = (req.query.withStock as string) || null;
+    const baseOnly = String(req.query.baseOnly || "").toLowerCase() === "true";
     const id = (req.query.id as string) || null;
     const customData = getCustomRequest(req).customData;
+
+    if (baseOnly) {
+      if (id) {
+        const produtoBase = await prisma.produtoBase.findFirst({
+          where: { id: Number(id), contaId: customData.contaId },
+        });
+        if (!produtoBase) {
+          return res.json({ results: [] });
+        }
+
+        return res.json({
+          results: [{ id: produtoBase.id, label: produtoBase.nome }],
+        });
+      }
+
+      const bases = await prisma.produtoBase.findMany({
+        where: {
+          contaId: customData.contaId,
+          ...(search
+            ? {
+                OR: [
+                  { nome: { contains: search } },
+                  { descricao: { contains: search } },
+                  { Uid: { contains: search } },
+                ],
+              }
+            : {}),
+        },
+        take: 20,
+        orderBy: { nome: "asc" },
+      });
+
+      return res.json({
+        results: bases.map((produtoBase) => ({
+          id: produtoBase.id,
+          label: produtoBase.nome,
+        })),
+      });
+    }
 
     if (id) {
       const responseUnique = await prisma.produto.findFirst({
