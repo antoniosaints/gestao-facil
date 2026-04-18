@@ -107,8 +107,10 @@ export const resumoDashboard = async (
           estoque: true,
           minimo: true,
           nome: true,
+          nomeVariante: true,
           preco: true,
           unidade: true,
+          controlaEstoque: true,
         },
         where: {
           OR: [{ contaId: customData.contaId }],
@@ -119,7 +121,11 @@ export const resumoDashboard = async (
       const estoquesBaixos =
         produtos && produtos.length > 0
           ? produtos.filter((produto) => {
-              return produto.estoque <= produto.minimo;
+              return (
+                produto.controlaEstoque === true &&
+                produto.estoque > 0 &&
+                produto.estoque <= produto.minimo
+              );
             })
           : [];
 

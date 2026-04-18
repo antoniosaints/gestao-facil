@@ -60,6 +60,7 @@ O schema Prisma é grande e multi-tenant por `contaId`. Os domínios mais fortes
 No domínio de produtos, o backend trabalha com duas visões complementares:
 - `ProdutoBase`, que representa o cadastro principal e agrega variantes;
 - `Produto`, que representa cada variante operacional vendável ou movimentável.
+- o mesmo domínio expõe relatórios separados para catálogo/estoque, movimentações de variante, vendas por produto e lucro por produto, sempre filtrados por `contaId` e pelo escopo explícito de produto base ou variante.
 
 ## Áreas especiais e legado
 - `views/` e `public/` continuam ativos e não podem ser tratados como lixo histórico sem validação.

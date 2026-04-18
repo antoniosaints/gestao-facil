@@ -200,6 +200,7 @@ pm2 start ecosystem.config.js
 - `generated/` é gerado pelo Prisma e não deve ser editado manualmente.
 - O schema Prisma é grande e multi-tenant via `contaId`.
 - No módulo de produtos, há endpoints que respondem tanto na visão de produto base quanto na visão de variante, dependendo do caso de uso da interface.
+- O mesmo domínio também mantém exportações separadas para catálogo/estoque, movimentações de variante, vendas por produto e lucro por produto, com filtros opcionais de período.
 
 ## Domínios principais encontrados no código
 

@@ -2,8 +2,10 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import {
   gerarEtiquetasProduto,
+  relatorioLucroProduto,
   relatorioProdutoMovimentacoes,
   relatorioProdutos,
+  relatorioVendasProduto,
 } from "../../controllers/produtos/relatorios";
 import { tableProdutos } from "../../controllers/produtos/table";
 import {
@@ -50,6 +52,8 @@ const routerProdutos = Router();
 const upload = multer({ dest: "uploads/" });
 
 routerProdutos.get("/relatorio", authenticateJWT, relatorioProdutos);
+routerProdutos.get("/relatorio/vendas", authenticateJWT, relatorioVendasProduto);
+routerProdutos.get("/relatorio/lucro", authenticateJWT, relatorioLucroProduto);
 routerProdutos.get(
   "/relatorio/reposicao/:id",
   authenticateJWT,

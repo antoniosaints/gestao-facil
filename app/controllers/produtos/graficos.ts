@@ -512,7 +512,7 @@ export async function getSaudeEstoqueProdutos(req: Request, res: Response) {
       continue;
     }
 
-    if (produto.estoque < produto.minimo) {
+    if (produto.estoque <= produto.minimo) {
       resumo.baixo++;
       continue;
     }
@@ -650,7 +650,7 @@ export async function getResumoGeralProdutos(
       (produto) =>
         Boolean(produto.controlaEstoque) &&
         produto.estoque > 0 &&
-        produto.estoque < produto.minimo
+        produto.estoque <= produto.minimo
     ).length;
 
     const produtosSemEstoque = produtos.filter(
