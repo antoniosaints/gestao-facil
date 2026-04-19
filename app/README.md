@@ -29,3 +29,4 @@
 ## Cuidados
 - Não documentar ou implementar essa pasta como se fosse arquitetura em camadas rígidas.
 - Ao editar, seguir o domínio existente antes de criar uma nova convenção.
+- Nos relatórios e dashboards financeiros, preferir agregações a partir de `ParcelaFinanceiro` com `Decimal.js`, usando `vencimento`/`dataPagamento` como datas operacionais e deixando `LancamentoFinanceiro` como cabeçalho do agrupamento.

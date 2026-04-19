@@ -1,168 +1,213 @@
+import fs from "node:fs";
 import { Request, Response } from "express";
 import PDFDocument from "pdfkit";
 import { prisma } from "../../utils/prisma";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import {
-  addHours,
+  endOfDay,
   endOfMonth,
   formatDate,
+  startOfDay,
   startOfMonth,
   subMonths,
 } from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 
+type DREGroupedItem = {
+  categoria: string;
+  valor: Decimal;
+};
+
+type DREPayload = {
+  receitas: DREGroupedItem[];
+  despesas: DREGroupedItem[];
+  totalReceitas: Decimal;
+  totalDespesas: Decimal;
+  lucro: Decimal;
+};
+
+function parseDrePeriodo(inicio?: unknown, fim?: unknown) {
+  if (!inicio || !fim) return null;
+
+  const dataInicio = startOfDay(new Date(String(inicio)));
+  const dataFim = endOfDay(new Date(String(fim)));
+
+  if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) {
+    return null;
+  }
+
+  return {
+    inicio: dataInicio,
+    fim: dataFim,
+  };
+}
+
+function getDreLogoPath(profile?: string | null) {
+  const profilePath = `./public/${profile || ""}`;
+  return fs.existsSync(profilePath) ? profilePath : "./public/imgs/logo.png";
+}
+
+function serializeGroupedMap(map: Map<string, Decimal>) {
+  return Array.from(map.entries())
+    .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+    .map(([categoria, valor]) => ({ categoria, valor }));
+}
+
+async function buildDrePayload(contaId: number, inicio: Date, fim: Date): Promise<DREPayload> {
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      vencimento: {
+        gte: inicio,
+        lte: fim,
+      },
+      lancamento: {
+        contaId,
+      },
+    },
+    select: {
+      valor: true,
+      lancamento: {
+        select: {
+          tipo: true,
+          categoria: {
+            select: {
+              nome: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ vencimento: "asc" }, { id: "asc" }],
+  });
+
+  const receitas = new Map<string, Decimal>();
+  const despesas = new Map<string, Decimal>();
+  let totalReceitas = new Decimal(0);
+  let totalDespesas = new Decimal(0);
+
+  for (const parcela of parcelas) {
+    const nomeCategoria = parcela.lancamento.categoria?.nome ?? "Sem categoria";
+    const valor = new Decimal(parcela.valor || 0);
+
+    if (parcela.lancamento.tipo === "RECEITA") {
+      const atual = receitas.get(nomeCategoria) ?? new Decimal(0);
+      receitas.set(nomeCategoria, atual.plus(valor));
+      totalReceitas = totalReceitas.plus(valor);
+      continue;
+    }
+
+    const atual = despesas.get(nomeCategoria) ?? new Decimal(0);
+    despesas.set(nomeCategoria, atual.plus(valor));
+    totalDespesas = totalDespesas.plus(valor);
+  }
+
+  return {
+    receitas: serializeGroupedMap(receitas),
+    despesas: serializeGroupedMap(despesas),
+    totalReceitas,
+    totalDespesas,
+    lucro: totalReceitas.minus(totalDespesas),
+  };
+}
+
+function drawDrePdfHeader(
+  doc: any,
+  conta: {
+    nome: string;
+    nomeFantasia?: string | null;
+    documento?: string | null;
+    profile?: string | null;
+  } | null,
+  inicio: Date,
+  fim: Date,
+  modelo: string
+) {
+  doc.image(getDreLogoPath(conta?.profile), 40, 36, {
+    fit: [58, 58],
+  });
+
+  doc
+    .font("Roboto-Bold")
+    .fontSize(20)
+    .fillColor("#111827")
+    .text(conta?.nomeFantasia || conta?.nome || "Conta", 112, 38, {
+      width: 320,
+    });
+
+  doc
+    .font("Roboto")
+    .fontSize(10)
+    .fillColor("#6B7280")
+    .text(conta?.nome || "", 112, 62, {
+      width: 320,
+    })
+    .text(conta?.documento || "Documento não informado", 112, 76, {
+      width: 320,
+    });
+
+  doc
+    .font("Roboto-Bold")
+    .fontSize(16)
+    .fillColor("#111827")
+    .text(`DRE financeiro - ${modelo}`, 40, 116);
+
+  doc
+    .font("Roboto")
+    .fontSize(10)
+    .fillColor("#6B7280")
+    .text("Demonstração do resultado do exercício", 40, 138)
+    .text(
+      `Período: ${formatDate(inicio, "dd/MM/yyyy")} a ${formatDate(fim, "dd/MM/yyyy")}`,
+      40,
+      152
+    )
+    .text(`Emitido em ${formatDate(new Date(), "dd/MM/yyyy HH:mm")}`, 40, 166);
+
+  doc.y = 200;
+}
+
 export const getDRELancamentos = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseDrePeriodo(req.query.inicio, req.query.fim);
 
-  if (!inicio || !fim) {
+  if (!periodo) {
     return res
       .status(400)
-      .json({ erro: 'Informe os parâmetros "inicio" e "fim".' });
+      .json({ erro: 'Informe os parâmetros válidos "inicio" e "fim".' });
   }
-
-  const filtro = {
-    dataLancamento: {
-      gte: new Date(inicio as string),
-      lte: new Date(fim as string),
-    },
-  };
 
   const contaId = getCustomRequest(req).customData.contaId;
+  const dre = await buildDrePayload(contaId, periodo.inicio, periodo.fim);
 
-  // Buscar lançamentos filtrados diretamente
-  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
-    where: {
-      ...filtro,
-      contaId,
-    },
-    select: {
-      valorTotal: true,
-      desconto: true,
-      tipo: true,
-      categoria: {
-        select: {
-          nome: true,
-        },
-      },
-    },
-  });
-
-  const dre = {
-    receitas: new Map<string, Decimal>(),
-    despesas: new Map<string, Decimal>(),
-    totalReceitas: new Decimal(0),
-    totalDespesas: new Decimal(0),
-    lucro: new Decimal(0),
-  };
-
-  for (const l of lancamentos) {
-    const nomeCategoria = l.categoria?.nome ?? "Sem categoria";
-    const valor = new Decimal(l.valorTotal);
-
-    if (l.tipo === "RECEITA") {
-      const atual = dre.receitas.get(nomeCategoria) ?? new Decimal(0);
-      dre.receitas.set(nomeCategoria, atual.plus(valor));
-      dre.totalReceitas = dre.totalReceitas.plus(valor);
-    } else if (l.tipo === "DESPESA") {
-      const atual = dre.despesas.get(nomeCategoria) ?? new Decimal(0);
-      dre.despesas.set(nomeCategoria, atual.plus(valor));
-      dre.totalDespesas = dre.totalDespesas.plus(valor);
-    }
-  }
-
-  dre.lucro = dre.totalReceitas.minus(dre.totalDespesas);
-
-  res.json({
-    receitas: Array.from(dre.receitas.entries()).map(([categoria, valor]) => ({
-      categoria,
-      valor,
-    })),
-    despesas: Array.from(dre.despesas.entries()).map(([categoria, valor]) => ({
-      categoria,
-      valor,
-    })),
-    totalReceitas: dre.totalReceitas,
-    totalDespesas: dre.totalDespesas,
-    lucro: dre.lucro,
-  });
+  res.json(dre);
 };
 export const getDRELancamentosPDF = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseDrePeriodo(req.query.inicio, req.query.fim);
   const customData = getCustomRequest(req).customData;
 
-  if (!inicio || !fim) {
+  if (!periodo) {
     return res
       .status(400)
-      .json({ erro: 'Informe os parâmetros "inicio" e "fim".' });
+      .json({ erro: 'Informe os parâmetros válidos "inicio" e "fim".' });
   }
 
-  const filtro = {
-    dataLancamento: {
-      gte: new Date(inicio as string),
-      lte: new Date(fim as string),
-    },
-  };
-
-  const conta = await prisma.contas.findFirst({
-    where: {
-      id: customData.contaId,
-    },
-  });
-
-  const categorias = await prisma.categoriaFinanceiro.findMany({
-    where: {
-      contaId: customData.contaId,
-    },
-    include: {
-      lancamentos: {
-        where: filtro,
-        select: {
-          valorTotal: true,
-          tipo: true,
-        },
+  const [conta, dre] = await Promise.all([
+    prisma.contas.findFirst({
+      where: {
+        id: customData.contaId,
       },
-    },
-  });
+    }),
+    buildDrePayload(customData.contaId, periodo.inicio, periodo.fim),
+  ]);
 
-  const dre = {
-    receitas: [] as { categoria: string; valor: Decimal }[],
-    despesas: [] as { categoria: string; valor: Decimal }[],
-    totalReceitas: new Decimal(0),
-    totalDespesas: new Decimal(0),
-    lucro: new Decimal(0),
-  };
-
-  for (const cat of categorias) {
-    let totalReceita = new Decimal(0);
-    let totalDespesa = new Decimal(0);
-
-    for (const l of cat.lancamentos) {
-      if (l.tipo === "RECEITA") {
-        totalReceita = totalReceita.plus(l.valorTotal);
-      } else if (l.tipo === "DESPESA") {
-        totalDespesa = totalDespesa.plus(l.valorTotal);
-      }
-    }
-
-    if (!totalReceita.isZero()) {
-      dre.receitas.push({ categoria: cat.nome, valor: totalReceita });
-      dre.totalReceitas = dre.totalReceitas.plus(totalReceita);
-    }
-
-    if (!totalDespesa.isZero()) {
-      dre.despesas.push({ categoria: cat.nome, valor: totalDespesa });
-      dre.totalDespesas = dre.totalDespesas.plus(totalDespesa);
-    }
-  }
-
-  dre.lucro = dre.totalReceitas.minus(dre.totalDespesas);
+  const inicio = formatDate(periodo.inicio, "yyyy-MM-dd");
+  const fim = formatDate(periodo.fim, "yyyy-MM-dd");
 
   // Configuração do PDF
   const doc = new PDFDocument({
@@ -406,28 +451,7 @@ export const getDRELancamentosPDF = async (
     doc.moveDown(0.5);
   };
 
-  // Cabeçalho do documento
-  doc
-    .fontSize(16)
-    .font("Roboto-Bold")
-    .text(`DRE - ${conta?.nome}`, { align: "center" });
-
-  doc
-    .fontSize(12)
-    .font("Roboto")
-    .text("Demonstração do resultado do exercício", { align: "center" });
-  doc
-    .fontSize(12)
-    .font("Roboto")
-    .text(
-      `Período: ${formatDate(
-        addHours(new Date(inicio as string), 3),
-        "dd/MM/yyyy"
-      )} a ${formatDate(addHours(new Date(fim as string), 3), "dd/MM/yyyy")}`,
-      { align: "center" }
-    );
-
-  doc.moveDown(1);
+  drawDrePdfHeader(doc, conta, periodo.inicio, periodo.fim, "Modelo 01");
 
   // Desenhar tabelas
   if (dre.receitas.length > 0) {
@@ -526,73 +550,59 @@ export const getDRELancamentosPDFV2 = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseDrePeriodo(req.query.inicio, req.query.fim);
   const customData = getCustomRequest(req).customData;
 
-  if (!inicio || !fim) {
+  if (!periodo) {
     return res
       .status(400)
-      .json({ erro: 'Informe os parâmetros "inicio" e "fim".' });
+      .json({ erro: 'Informe os parâmetros válidos "inicio" e "fim".' });
   }
 
-  const filtro = {
-    dataLancamento: {
-      gte: new Date(inicio as string),
-      lte: new Date(fim as string),
-    },
-  };
-
-  const conta = await prisma.contas.findUnique({
-    where: {
-      id: customData.contaId,
-    },
-  });
-
-  const categorias = await prisma.categoriaFinanceiro.findMany({
-    where: {
-      contaId: customData.contaId,
-    },
-    include: {
-      lancamentos: {
-        where: filtro,
-        select: {
-          valorTotal: true,
-          tipo: true,
-        },
+  const [conta, groupedDre] = await Promise.all([
+    prisma.contas.findUnique({
+      where: {
+        id: customData.contaId,
       },
-    },
+    }),
+    buildDrePayload(customData.contaId, periodo.inicio, periodo.fim),
+  ]);
+
+  const categoriaMap = new Map<string, { receita: Decimal; despesa: Decimal }>();
+
+  groupedDre.receitas.forEach((item) => {
+    const current = categoriaMap.get(item.categoria) ?? {
+      receita: new Decimal(0),
+      despesa: new Decimal(0),
+    };
+    current.receita = current.receita.plus(item.valor);
+    categoriaMap.set(item.categoria, current);
   });
+
+  groupedDre.despesas.forEach((item) => {
+    const current = categoriaMap.get(item.categoria) ?? {
+      receita: new Decimal(0),
+      despesa: new Decimal(0),
+    };
+    current.despesa = current.despesa.plus(item.valor);
+    categoriaMap.set(item.categoria, current);
+  });
+
   const dre = {
-    lancamentos: [] as {
-      categoria: string;
-      receita: Decimal;
-      despesa: Decimal;
-    }[],
-    totalReceitas: new Decimal(0),
-    totalDespesas: new Decimal(0),
-    lucro: new Decimal(0),
+    lancamentos: Array.from(categoriaMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+      .map(([categoria, valores]) => ({
+        categoria,
+        receita: valores.receita,
+        despesa: valores.despesa,
+      })),
+    totalReceitas: groupedDre.totalReceitas,
+    totalDespesas: groupedDre.totalDespesas,
+    lucro: groupedDre.lucro,
   };
 
-  for (const cat of categorias) {
-    const receita = new Decimal(
-      cat.lancamentos
-        .filter((l) => l.tipo === "RECEITA")
-        .reduce((s, l) => s.plus(l.valorTotal), new Decimal(0))
-    );
-    const despesa = new Decimal(
-      cat.lancamentos
-        .filter((l) => l.tipo === "DESPESA")
-        .reduce((s, l) => s.plus(l.valorTotal), new Decimal(0))
-    );
-
-    if (!receita.isZero() || !despesa.isZero()) {
-      dre.lancamentos.push({ categoria: cat.nome, receita, despesa });
-      dre.totalReceitas = dre.totalReceitas.plus(receita);
-      dre.totalDespesas = dre.totalDespesas.plus(despesa);
-    }
-  }
-
-  dre.lucro = dre.totalReceitas.minus(dre.totalDespesas);
+  const inicio = formatDate(periodo.inicio, "yyyy-MM-dd");
+  const fim = formatDate(periodo.fim, "yyyy-MM-dd");
 
   // Configuração do PDF
   const doc = new PDFDocument({
@@ -663,28 +673,7 @@ export const getDRELancamentosPDFV2 = async (
   const finalTableWidth = Math.min(totalTableWidth, availableWidth);
   const startX = doc.page.margins.left + (availableWidth - finalTableWidth) / 2;
 
-  // Cabeçalho do documento
-  doc
-    .fontSize(16)
-    .font("Roboto-Bold")
-    .text(`DRE - ${conta?.nome}`, { align: "center" });
-
-  doc
-    .fontSize(12)
-    .font("Roboto")
-    .text("Demonstração do resultado do exercício", { align: "center" });
-  doc
-    .fontSize(12)
-    .font("Roboto")
-    .text(
-      `Período: ${formatDate(
-        addHours(new Date(inicio as string), 3),
-        "dd/MM/yyyy"
-      )} a ${formatDate(addHours(new Date(fim as string), 3), "dd/MM/yyyy")}`,
-      { align: "center" }
-    );
-
-  doc.moveDown(1.5);
+  drawDrePdfHeader(doc, conta, periodo.inicio, periodo.fim, "Modelo 02");
 
   // Cabeçalho da tabela única
   let currentX = startX;
