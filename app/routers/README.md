@@ -30,7 +30,7 @@
   - mobile;
   - estatísticas;
   - ações auxiliares.
-- No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança e importação/exportação CSV do financeiro.
+- No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança, importação/exportação CSV do financeiro, edição rápida de metadados do lançamento, detalhe de contas financeiras, transferência entre contas e ajuste manual de saldo da conta.
 
 ## Regras
 - Novos endpoints devem entrar no router do domínio correspondente.

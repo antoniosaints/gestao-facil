@@ -30,3 +30,4 @@
 - Não documentar ou implementar essa pasta como se fosse arquitetura em camadas rígidas.
 - Ao editar, seguir o domínio existente antes de criar uma nova convenção.
 - Nos relatórios, dashboards e resumos legados do financeiro, preferir agregações a partir de `ParcelaFinanceiro` com `Decimal.js`, usando `vencimento`/`dataPagamento` como datas operacionais e deixando `LancamentoFinanceiro` como cabeçalho do agrupamento.
+- No financeiro operacional, edições posteriores do lançamento devem ser restritas a metadados seguros (descrição, categoria, conta, cliente/fornecedor e forma de pagamento padrão), enquanto detalhes completos de conta financeira devem nascer de endpoints dedicados com filtros, resumo consolidado, transferência entre contas e ajuste manual de saldo com ou sem reflexo nas listagens financeiras.

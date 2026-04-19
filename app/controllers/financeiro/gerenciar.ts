@@ -460,6 +460,145 @@ export const getLacamento = async (
     handleError(res, error);
   }
 };
+
+export const updateLancamentoBasico = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const { id } = req.params;
+
+    if (!id || Number.isNaN(Number(id))) {
+      return res.status(400).json({ message: "Informe um lançamento válido." });
+    }
+
+    const descricao = typeof req.body?.descricao === "string" ? req.body.descricao.trim() : "";
+    const categoriaId = Number(req.body?.categoriaId);
+    const contasFinanceiroId = Number(req.body?.contasFinanceiroId);
+    const clienteId = req.body?.clienteId === null || req.body?.clienteId === undefined || req.body?.clienteId === ""
+      ? null
+      : Number(req.body?.clienteId);
+    const formaPagamento = typeof req.body?.formaPagamento === "string" ? req.body.formaPagamento.trim().toUpperCase() : "";
+
+    const formasPagamentoValidas = [
+      "DINHEIRO",
+      "DEBITO",
+      "CREDITO",
+      "BOLETO",
+      "DEPOSITO",
+      "TRANSFERENCIA",
+      "CHEQUE",
+      "PIX",
+    ];
+
+    if (!descricao) {
+      return res.status(400).json({ message: "Informe a descrição do lançamento." });
+    }
+
+    if (!categoriaId || Number.isNaN(categoriaId)) {
+      return res.status(400).json({ message: "Informe uma categoria válida." });
+    }
+
+    if (!contasFinanceiroId || Number.isNaN(contasFinanceiroId)) {
+      return res.status(400).json({ message: "Informe uma conta financeira válida." });
+    }
+
+    if (!formaPagamento || !formasPagamentoValidas.includes(formaPagamento)) {
+      return res.status(400).json({ message: "Informe uma forma de pagamento válida." });
+    }
+
+    if (clienteId !== null && Number.isNaN(clienteId)) {
+      return res.status(400).json({ message: "Informe um cliente válido." });
+    }
+
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: {
+        id: Number(id),
+        contaId: customData.contaId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!lancamento) {
+      return res.status(404).json({ message: "Lançamento não encontrado." });
+    }
+
+    const [categoria, contaFinanceira, cliente] = await Promise.all([
+      prisma.categoriaFinanceiro.findFirst({
+        where: {
+          id: categoriaId,
+          contaId: customData.contaId,
+        },
+        select: { id: true },
+      }),
+      prisma.contasFinanceiro.findFirst({
+        where: {
+          id: contasFinanceiroId,
+          contaId: customData.contaId,
+        },
+        select: { id: true },
+      }),
+      clienteId === null
+        ? Promise.resolve(null)
+        : prisma.clientesFornecedores.findFirst({
+          where: {
+            id: clienteId,
+            contaId: customData.contaId,
+          },
+          select: { id: true },
+        }),
+    ]);
+
+    if (!categoria) {
+      return res.status(400).json({ message: "Categoria inválida para esta conta." });
+    }
+
+    if (!contaFinanceira) {
+      return res.status(400).json({ message: "Conta financeira inválida para esta conta." });
+    }
+
+    if (clienteId !== null && !cliente) {
+      return res.status(400).json({ message: "Cliente/fornecedor inválido para esta conta." });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.lancamentoFinanceiro.update({
+        where: {
+          id: Number(id),
+        },
+        data: {
+          descricao,
+          categoriaId,
+          contasFinanceiroId,
+          clienteId,
+          formaPagamento: formaPagamento as any,
+        },
+      });
+
+      await tx.parcelaFinanceiro.updateMany({
+        where: {
+          lancamentoId: Number(id),
+          pago: false,
+        },
+        data: {
+          contaFinanceira: contasFinanceiroId,
+          formaPagamento: formaPagamento as any,
+        },
+      });
+    });
+
+    return ResponseHandler(res, "Lançamento atualizado com sucesso.", {
+      id: Number(id),
+      atualizacaoRestrita: true,
+      parcelasPendentesAtualizadas: true,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 export const criarLancamento = async (
   req: Request,
   res: Response
