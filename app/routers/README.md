@@ -24,12 +24,13 @@
 ## Padrão de rota
 - O router de domínio define paths e middlewares.
 - `authenticateJWT` protege quase toda a API privada.
-- A rota normalmente delega para controllers menores por caso de uso, por exemplo:
+- O router normalmente delega para controllers menores por caso de uso, por exemplo:
   - listagem;
   - tabela;
   - mobile;
   - estatísticas;
   - ações auxiliares.
+- No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança e importação/exportação CSV do financeiro.
 
 ## Regras
 - Novos endpoints devem entrar no router do domínio correspondente.

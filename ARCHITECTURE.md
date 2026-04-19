@@ -74,4 +74,5 @@ No domínio de produtos, o backend trabalha com duas visões complementares:
 - Sempre considerar o recorte multi-tenant via `contaId`.
 - Endpoints analíticos e dashboards devem aplicar o `contaId` do contexto autenticado em toda agregação, groupBy e relação encadeada para impedir mistura de dados entre contas.
 - No financeiro, cálculos de acompanhamento, saldo atual, saldo previsto, atraso e pendência devem partir das `ParcelaFinanceiro` e das datas operacionais (`vencimento` e `dataPagamento`), mantendo o `LancamentoFinanceiro` como cabeçalho do agrupamento.
+- O mesmo domínio também centraliza regras reutilizáveis de parcelamento (periodicidade mensal/semanal/diária/quinzenal/personalizada), atualização em cascata por escopo de parcela e importação em lote por CSV.
 - Antes de remover algo de `views` ou `public`, confirmar se a rota ou fluxo legado ainda está em uso.

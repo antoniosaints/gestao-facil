@@ -5,6 +5,7 @@ import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
 import { Prisma } from "../../../generated";
 import { isAccountOverdue } from "../../routers/web";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 
 export const select2Categorias = async (
   req: Request,
@@ -222,6 +223,7 @@ export const saveCategoria = async (
     } else {
       await prisma.categoriaFinanceiro.create({
         data: {
+          Uid: gerarIdUnicoComMetaFinal("CAT"),
           contaId,
           nome,
           parentId: categoriaPai ? Number(categoriaPai) : null,

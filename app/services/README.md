@@ -5,9 +5,11 @@
 
 ## O que existe hoje
 - Integrações financeiras e gateways.
+- Regras reutilizáveis de lançamentos financeiros, parcelamento configurável e atualização em cascata de parcelas.
 - Push notifications e filas.
 - QR Code e barcode.
-- Upload em lote de produtos.
+- Importação em lote de produtos.
+- Importação em lote de lançamentos financeiros por CSV.
 - Cache Redis.
 - Integrações S3/R2.
 - Serviços específicos de `arena`.

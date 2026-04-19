@@ -5,6 +5,7 @@ import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { Prisma } from "../../../generated";
 import { isAccountOverdue } from "../../routers/web";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 
 export const listContasFinanceiro = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -57,6 +58,7 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
             await prisma.contasFinanceiro.create({
                 data: {
                     contaId,
+                    Uid: gerarIdUnicoComMetaFinal('CON'),
                     nome: req.body.nome,
                 },
             });

@@ -12,10 +12,15 @@ import { cancelarCobranca, cancelarMercadoPagoPagamento, deletarCobranca, estorn
 import { tableCobrancas } from "../../controllers/financeiro/table_cobrancas";
 import { ListagemMobileCobrancas } from "../../controllers/financeiro/mobile_cobrancas";
 import { getDashboardFinanceiroVisaoGeral } from "../../controllers/financeiro/dashboard";
+import { getCsvBaseLancamentos, postImportarLancamentos } from "../../controllers/financeiro/lote/uploadcsv";
+import multer from "multer";
 
 const routerLancamentos = Router();
+const upload = multer({ dest: "uploads/" });
 
 routerLancamentos.post("/", authenticateJWT, criarLancamento);
+routerLancamentos.get("/download/csv", authenticateJWT, getCsvBaseLancamentos);
+routerLancamentos.post("/importar/csv", authenticateJWT, upload.single("arquivo"), postImportarLancamentos);
 routerLancamentos.get("/getDataTable", authenticateJWT, tableFinanceiro);
 routerLancamentos.get("/lancamentosMes", authenticateJWT, getLancamentosMensal);
 routerLancamentos.get("/mobile/data", authenticateJWT, ListagemMobileLancamentos);
