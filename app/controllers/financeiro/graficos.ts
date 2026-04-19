@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
-import { endOfMonth, startOfMonth, subMonths } from "date-fns";
+import { eachMonthOfInterval, endOfDay, endOfMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
@@ -319,16 +319,47 @@ export const graficoSaldoMensal = async (
     });
   }
 
-  const meses = Array.from({ length: 6 }).map((_, i) => {
-    const ref = subMonths(new Date(), 5 - i);
-    return {
-      label: ref.toLocaleDateString("pt-BR", {
-        month: "short",
-        year: "numeric",
-      }),
-      inicio: startOfMonth(ref),
-      fim: endOfMonth(ref),
-    };
+  const inicioPeriodo = req.query.inicio
+    ? startOfDay(new Date(String(req.query.inicio)))
+    : startOfMonth(subMonths(new Date(), 5));
+  const fimPeriodo = req.query.fim
+    ? endOfDay(new Date(String(req.query.fim)))
+    : endOfMonth(new Date());
+
+  if (Number.isNaN(inicioPeriodo.getTime()) || Number.isNaN(fimPeriodo.getTime()) || inicioPeriodo > fimPeriodo) {
+    return res.status(400).json({ message: "Informe um período válido." });
+  }
+
+  const meses = eachMonthOfInterval({ start: inicioPeriodo, end: fimPeriodo }).map((ref) => ({
+    label: ref.toLocaleDateString("pt-BR", {
+      month: "short",
+      year: "numeric",
+    }),
+    inicio: startOfMonth(ref),
+    fim: endOfMonth(ref),
+  }));
+
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      vencimento: {
+        gte: startOfMonth(inicioPeriodo),
+        lte: endOfMonth(fimPeriodo),
+      },
+      lancamento: {
+        contaId: customData.contaId,
+      },
+    },
+    select: {
+      valor: true,
+      valorPago: true,
+      pago: true,
+      vencimento: true,
+      lancamento: {
+        select: {
+          tipo: true,
+        },
+      },
+    },
   });
 
   const labels: string[] = [];
@@ -337,45 +368,23 @@ export const graficoSaldoMensal = async (
   for (const mes of meses) {
     labels.push(mes.label);
 
-    const lancamentos = await prisma.lancamentoFinanceiro.findMany({
-      where: {
-        contaId: customData.contaId,
-        dataLancamento: { gte: mes.inicio, lte: mes.fim },
-      },
-      include: {
-        parcelas: true,
-      },
-    });
+    const saldo = parcelas
+      .filter((parcela) => parcela.vencimento >= mes.inicio && parcela.vencimento <= mes.fim)
+      .reduce((acc, parcela) => {
+        const valorBase = new Decimal(parcela.pago ? (parcela.valorPago ?? parcela.valor) : parcela.valor);
+        return parcela.lancamento.tipo === "RECEITA"
+          ? acc.plus(valorBase)
+          : acc.minus(valorBase);
+      }, new Decimal(0));
 
-    const totalReceita = lancamentos
-      .filter((l) => l.tipo === "RECEITA")
-      .reduce((acc, l) => {
-        const somaParcelas = l.parcelas.reduce(
-          (pAcc, p) => pAcc + Number(p.valor),
-          0
-        );
-        return acc + somaParcelas;
-      }, 0);
-
-    const totalDespesa = lancamentos
-      .filter((l) => l.tipo === "DESPESA")
-      .reduce((acc, l) => {
-        const somaParcelas = l.parcelas.reduce(
-          (pAcc, p) => pAcc + Number(p.valor),
-          0
-        );
-        return acc + somaParcelas;
-      }, 0);
-
-    const saldo = new Decimal(totalReceita).minus(totalDespesa);
-    saldos.push(Number(saldo));
+    saldos.push(saldo.toNumber());
   }
 
   res.json({
     labels,
     datasets: [
       {
-        label: "Saldo",
+        label: "Saldo mensal operacional",
         borderColor: "#3b82f6",
         backgroundColor: "rgba(59, 130, 246, 0.1)",
         fill: true,

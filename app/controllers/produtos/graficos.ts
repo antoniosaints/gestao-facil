@@ -267,22 +267,22 @@ export async function getTicketMedio(req: Request, res: Response) {
     where: {
       data: { gte: start, lte: end },
       contaId,
-      status: "FATURADO",
+      faturado: true,
     },
     select: { valor: true, data: true },
   });
 
   const agrupado = vendas.reduce((acc, v) => {
     const mes = dayjs(v.data).format("MM/YYYY");
-    acc[mes] = acc[mes] || { total: 0, count: 0 };
-    acc[mes].total += Number(v.valor);
+    acc[mes] = acc[mes] || { total: new Decimal(0), count: 0 };
+    acc[mes].total = acc[mes].total.plus(new Decimal(v.valor || 0));
     acc[mes].count++;
     return acc;
-  }, {} as Record<string, { total: number; count: number }>);
+  }, {} as Record<string, { total: Decimal; count: number }>);
 
   const labels = getLabelsPeriodo(start, end);
   const data = labels.map((m) =>
-    agrupado[m] ? agrupado[m].total / agrupado[m].count : 0
+    agrupado[m] ? agrupado[m].total.div(agrupado[m].count).toNumber() : 0,
   );
 
   res.json({

@@ -6,7 +6,7 @@ import { efetivarVendaSchema, vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
-import { addHours, format } from "date-fns";
+import { addHours, eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
 import { formatCurrency } from "../../utils/formatters";
@@ -417,22 +417,45 @@ export const getResumoVendasMensalChart = async (
   try {
     const customData = getCustomRequest(req).customData;
     const permission = await hasPermission(customData, 3);
+
+    const inicio = req.query.inicio
+      ? startOfDay(new Date(String(req.query.inicio)))
+      : startOfMonth(new Date());
+    const fim = req.query.fim
+      ? endOfDay(new Date(String(req.query.fim)))
+      : endOfMonth(new Date());
+
+    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) || inicio > fim) {
+      return res.status(400).json({ message: "Informe um período válido." });
+    }
+
     const vendas = await prisma.vendas.findMany({
       where: {
-        status: {
-          in: ["FATURADO", "FINALIZADO"],
-        },
+        faturado: true,
         contaId: customData.contaId,
         vendedorId: permission ? undefined : customData.userId,
+        data: {
+          gte: inicio,
+          lte: fim,
+        },
       },
       select: {
         data: true,
         valor: true,
       },
+      orderBy: {
+        data: "asc",
+      },
     });
 
-    // Estrutura com quantidade e valor
-    const resumo: Record<string, { total: Decimal; quantidade: number }> = {};
+    const labelsPeriodo = eachMonthOfInterval({ start: inicio, end: fim }).map((mes) =>
+      format(mes, "MM/yyyy"),
+    );
+
+    const resumo = labelsPeriodo.reduce((acc, label) => {
+      acc[label] = { total: new Decimal(0), quantidade: 0 };
+      return acc;
+    }, {} as Record<string, { total: Decimal; quantidade: number }>);
 
     vendas.forEach((venda) => {
       const mes = format(venda.data, "MM/yyyy");
@@ -445,12 +468,11 @@ export const getResumoVendasMensalChart = async (
       resumo[mes].quantidade += 1;
     });
 
-    const labels = Object.keys(resumo).sort();
-    const valores = labels.map((mes) => resumo[mes].total.toNumber());
-    const quantidades = labels.map((mes) => resumo[mes].quantidade);
+    const valores = labelsPeriodo.map((mes) => resumo[mes]?.total.toNumber() || 0);
+    const quantidades = labelsPeriodo.map((mes) => resumo[mes]?.quantidade || 0);
 
     const chartData = {
-      labels,
+      labels: labelsPeriodo,
       datasets: [
         {
           label: "Valor Total (R$)",

@@ -21,7 +21,7 @@ export async function getFaturamentoDiario(req: Request, res: Response) {
   const vendas = await prisma.vendas.findMany({
     where: {
       data: { gte: start, lte: end },
-      status: { in: ["FATURADO", "FINALIZADO"] },
+      faturado: true,
       contaId: customData.contaId,
     },
     select: {
@@ -66,7 +66,7 @@ export async function getFaturamentoMensal(req: Request, res: Response) {
   const vendas = await prisma.vendas.findMany({
     where: {
       data: { gte: inicioAno, lte: fimAno },
-      status: { in: ["FATURADO", "FINALIZADO"] },
+      faturado: true,
       contaId: customData.contaId,
     },
     select: {
@@ -196,47 +196,62 @@ export async function getPorStatusVenda(req: Request, res: Response) {
 export async function getTopProdutos(req: Request, res: Response) {
   const { start, end } = getPeriodo(req);
   const customData = getCustomRequest(req).customData;
-  const result = await prisma.itensVendas.groupBy({
-    by: ["produtoId"],
+
+  const itens = await prisma.itensVendas.findMany({
     where: {
-      produtoId: { not: null },
       venda: {
         data: { gte: start, lte: end },
-        status: { in: ["FATURADO", "FINALIZADO"] },
+        faturado: true,
         contaId: customData.contaId,
       },
+      OR: [
+        { produtoId: { not: null } },
+        { itemName: { not: null } },
+      ],
     },
-    _sum: { quantidade: true },
-    orderBy: { _sum: { quantidade: "desc" } },
-    take: 10,
-  });
-
-  const produtosIds = result.flatMap((item) =>
-    typeof item.produtoId === "number" ? [item.produtoId] : [],
-  );
-  const produtos = produtosIds.length
-    ? await prisma.produto.findMany({
-        where: {
-          id: { in: produtosIds },
-          contaId: customData.contaId,
+    select: {
+      produtoId: true,
+      itemName: true,
+      quantidade: true,
+      produto: {
+        select: {
+          nome: true,
+          nomeVariante: true,
         },
-        select: { id: true, nome: true },
-      })
-    : [];
-
-  const labels = result.map((r) => {
-    const p = produtos.find((x) => x.id === r.produtoId);
-    return p?.nome ?? "Desconhecido";
+      },
+    },
   });
 
-  const data = result.map((r) => r._sum.quantidade ?? 0);
+  const agrupado = itens.reduce((acc, item) => {
+    const nomeProduto = item.produto
+      ? item.produto.nomeVariante && item.produto.nomeVariante !== "Padrão"
+        ? `${item.produto.nome} / ${item.produto.nomeVariante}`
+        : item.produto.nome
+      : item.itemName || "Desconhecido";
+
+    const key = item.produtoId ? `produto:${item.produtoId}` : `nome:${nomeProduto}`;
+
+    if (!acc[key]) {
+      acc[key] = {
+        nome: nomeProduto,
+        quantidade: 0,
+      };
+    }
+
+    acc[key].quantidade += Number(item.quantidade || 0);
+    return acc;
+  }, {} as Record<string, { nome: string; quantidade: number }>);
+
+  const ranking = Object.values(agrupado)
+    .sort((a, b) => b.quantidade - a.quantidade)
+    .slice(0, 10);
 
   res.json({
-    labels,
+    labels: ranking.map((item) => item.nome),
     datasets: [
       {
         label: "Top Produtos Vendidos",
-        data,
+        data: ranking.map((item) => item.quantidade),
         backgroundColor: "#0610c9",
       },
     ],
