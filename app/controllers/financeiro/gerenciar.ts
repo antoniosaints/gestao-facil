@@ -11,15 +11,33 @@ import { addHours, startOfDay } from "date-fns";
 import { formatCurrency } from "../../utils/formatters";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
+import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
 
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
+    const customData = getCustomRequest(req).customData;
+
     if (!id || isNaN(Number(id))) return res.status(400).json({ message: "Informe o id da parcela!" });
     if (!req.body) return res.status(400).json({ message: "Informe os dados a serem atualizados (vencimento, valor)!" });
+
     const dataValida = dayjs(req.body.vencimento).isValid();
     if (!dataValida) return res.status(400).json({ message: "Data inválida, informe uma data válida!" });
-    const parcela = await prisma.parcelaFinanceiro.update({
+
+    const parcela = await prisma.parcelaFinanceiro.findFirst({
+      where: {
+        id: Number(id),
+        lancamento: {
+          contaId: customData.contaId,
+        },
+      },
+    });
+
+    if (!parcela) {
+      return res.status(404).json({ message: "Parcela não encontrada." });
+    }
+
+    const parcelaAtualizada = await prisma.parcelaFinanceiro.update({
       where: {
         id: Number(id),
       },
@@ -28,7 +46,8 @@ export const updateParcela = async (req: Request, res: Response): Promise<any> =
         vencimento: startOfDay(new Date(req.body.vencimento)),
       },
     });
-    return ResponseHandler(res, "Parcela atualizada", parcela);
+
+    return ResponseHandler(res, "Parcela atualizada", parcelaAtualizada);
   } catch (error) {
     handleError(res, error);
   }
@@ -41,83 +60,265 @@ export const getLancamentosMensal = async (
   try {
     const { mes } = req.query;
     const customData = getCustomRequest(req).customData;
-    if (!mes)
-      return res
-        .status(400)
-        .json({ error: "Informe o mês no formato YYYY-MM" });
 
-    const inicio = new Date(`${mes}-01T00:00:00`);
-    const fim = new Date(inicio);
+    if (!mes || typeof mes !== "string") {
+      return res.status(400).json({ error: "Informe o mês no formato YYYY-MM" });
+    }
+
+    const inicio = startOfDay(new Date(`${mes}-01T00:00:00`));
+    const fim = startOfDay(new Date(inicio));
     fim.setMonth(fim.getMonth() + 1);
+    fim.setMilliseconds(-1);
 
-    // Busca parcelas do mês com dados do lançamento
-    const parcelas = await prisma.parcelaFinanceiro.findMany({
+    const filters = parseFinanceiroFilters(req);
+
+    const contasFinanceiras = await prisma.contasFinanceiro.findMany({
       where: {
-        vencimento: {
-          gte: inicio,
-          lt: fim,
-        },
-        lancamento: {
-          contaId: customData.contaId,
-        },
+        contaId: customData.contaId,
+        ...(filters.contaFinanceiraId ? { id: filters.contaFinanceiraId } : {}),
       },
-      include: {
-        lancamento: {
-          include: {
-            categoria: true,
-          }
-        },
-      },
-      orderBy: {
-        vencimento: "desc",
+      select: {
+        id: true,
+        nome: true,
+        saldoInicial: true,
       },
     });
 
-    // Agrupamento por dia
-    const agrupado = parcelas.reduce((acc: any, parcela) => {
-      const diaCompleto = parcela.vencimento.toISOString();
+    const saldoInicialTotal = contasFinanceiras.reduce(
+      (acc, conta) => acc + decimalToNumber(conta.saldoInicial),
+      0
+    );
+
+    const parcelas = await prisma.parcelaFinanceiro.findMany({
+      where: buildParcelaFinanceiroWhere(customData.contaId, filters),
+      select: {
+        id: true,
+        numero: true,
+        valor: true,
+        pago: true,
+        vencimento: true,
+        dataPagamento: true,
+        contaFinanceira: true,
+        formaPagamento: true,
+        CobrancasFinanceiras: {
+          select: {
+            id: true,
+            externalLink: true,
+          },
+        },
+        ContaFinanceira: {
+          select: {
+            id: true,
+            nome: true,
+          },
+        },
+        lancamento: {
+          select: {
+            id: true,
+            Uid: true,
+            descricao: true,
+            tipo: true,
+            categoria: {
+              select: {
+                id: true,
+                nome: true,
+              },
+            },
+            cliente: {
+              select: {
+                id: true,
+                nome: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ vencimento: "asc" }, { id: "asc" }],
+    });
+
+    const hoje = startOfDay(new Date());
+    const parcelasFiltradas = parcelas.filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje));
+
+    const parcelasDoMes = parcelasFiltradas.filter(
+      (parcela) => parcela.vencimento >= inicio && parcela.vencimento <= fim
+    );
+
+    const saldoRealizadoInicial = saldoInicialTotal + parcelasFiltradas
+      .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento < inicio)
+      .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
+
+    const saldoPrevistoInicial = saldoInicialTotal + parcelasFiltradas
+      .filter((parcela) => parcela.vencimento < inicio)
+      .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
+
+    const agrupado = parcelasDoMes.reduce((acc, parcela) => {
       const dia = parcela.vencimento.toISOString().split("T")[0];
 
       if (!acc[dia]) {
         acc[dia] = {
-          dia,
-          diaCompleto,
+          dia: parcela.vencimento,
+          entradasPrevistas: 0,
+          saidasPrevistas: 0,
+          entradasRealizadas: 0,
+          saidasRealizadas: 0,
+          saldoRealizado: 0,
+          saldoPrevisto: 0,
           lancamentos: [],
-          saldo: new Decimal(0),
         };
       }
 
-      const lanc = parcela.lancamento;
-      const valor = parcela.valor;
-      const status = parcela.pago ? "PAGO" : "PENDENTE";
+      const valor = decimalToNumber(parcela.valor);
+      const status = getParcelaStatus(parcela, hoje);
 
-      acc[dia].lancamentos.push({
-        id: lanc.id,
-        categoria: lanc.categoria.nome,
-        parcelaId: parcela.id,
-        descricao: lanc.descricao,
-        valor: Number(valor),
-        status,
-        tipo: lanc.tipo,
-      });
-
-      // Soma ou subtrai no saldo diário
-      if (lanc.tipo === "RECEITA") {
-        acc[dia].saldo = acc[dia].saldo.add(valor);
-      } else if (lanc.tipo === "DESPESA") {
-        acc[dia].saldo = acc[dia].saldo.sub(valor);
+      if (parcela.lancamento.tipo === "RECEITA") {
+        acc[dia].entradasPrevistas += valor;
+        if (parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim) {
+          acc[dia].entradasRealizadas += valor;
+        }
+      } else {
+        acc[dia].saidasPrevistas += valor;
+        if (parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim) {
+          acc[dia].saidasRealizadas += valor;
+        }
       }
 
+      acc[dia].lancamentos.push({
+        id: parcela.lancamento.id,
+        uid: parcela.lancamento.Uid,
+        parcelaId: parcela.id,
+        numero: parcela.numero,
+        descricao: parcela.lancamento.descricao,
+        categoria: parcela.lancamento.categoria.nome,
+        cliente: parcela.lancamento.cliente?.nome || null,
+        conta: parcela.ContaFinanceira?.nome || null,
+        valor,
+        tipo: parcela.lancamento.tipo,
+        status,
+        pago: parcela.pago,
+        vencimento: parcela.vencimento,
+        dataPagamento: parcela.dataPagamento,
+        formaPagamento: parcela.formaPagamento,
+        cobrancaLink: parcela.CobrancasFinanceiras[0]?.externalLink || null,
+      });
+
       return acc;
-    }, {});
+    }, {} as Record<string, {
+      dia: Date;
+      entradasPrevistas: number;
+      saidasPrevistas: number;
+      entradasRealizadas: number;
+      saidasRealizadas: number;
+      saldoRealizado: number;
+      saldoPrevisto: number;
+      lancamentos: Array<{
+        id: number;
+        uid: string;
+        parcelaId: number;
+        numero: number;
+        descricao: string;
+        categoria: string;
+        cliente: string | null;
+        conta: string | null;
+        valor: number;
+        tipo: "RECEITA" | "DESPESA";
+        status: "PAGO" | "PENDENTE" | "ATRASADO";
+        pago: boolean;
+        vencimento: Date;
+        dataPagamento: Date | null;
+        formaPagamento: string | null;
+        cobrancaLink: string | null;
+      }>;
+    }>);
 
-    const data = Object.values(agrupado).map((d: any) => ({
-      dia: d.diaCompleto,
-      lancamentos: d.lancamentos,
-      saldo: Number(d.saldo),
-    }));
+    const diasOrdenados = Object.values(agrupado)
+      .sort((a, b) => a.dia.getTime() - b.dia.getTime())
+      .map((dia) => {
+        const inicioDia = startOfDay(dia.dia);
+        const fimDia = new Date(inicioDia);
+        fimDia.setHours(23, 59, 59, 999);
 
-    return res.json({ data });
+        dia.entradasRealizadas = parcelasFiltradas
+          .filter((parcela) => parcela.lancamento.tipo === "RECEITA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicioDia && parcela.dataPagamento <= fimDia)
+          .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+        dia.saidasRealizadas = parcelasFiltradas
+          .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicioDia && parcela.dataPagamento <= fimDia)
+          .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+        const saldoRealizado = saldoRealizadoInicial + parcelasFiltradas
+          .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento <= fimDia)
+          .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
+
+        const saldoPrevisto = saldoPrevistoInicial + parcelasFiltradas
+          .filter((parcela) => parcela.vencimento <= fimDia)
+          .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
+
+        return {
+          dia: dia.dia,
+          entradasPrevistas: dia.entradasPrevistas,
+          saidasPrevistas: dia.saidasPrevistas,
+          entradasRealizadas: dia.entradasRealizadas,
+          saidasRealizadas: dia.saidasRealizadas,
+          saldoRealizado,
+          saldoPrevisto,
+          lancamentos: dia.lancamentos,
+        };
+      });
+
+    const receitasPrevistas = parcelasDoMes
+      .filter((parcela) => parcela.lancamento.tipo === "RECEITA")
+      .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+    const despesasPrevistas = parcelasDoMes
+      .filter((parcela) => parcela.lancamento.tipo === "DESPESA")
+      .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+    const receitasRealizadas = parcelasFiltradas
+      .filter((parcela) => parcela.lancamento.tipo === "RECEITA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim)
+      .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+    const despesasRealizadas = parcelasFiltradas
+      .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim)
+      .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+    const pendenteReceber = parcelasDoMes
+      .filter((parcela) => parcela.lancamento.tipo === "RECEITA" && !parcela.pago)
+      .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+    const pendentePagar = parcelasDoMes
+      .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && !parcela.pago)
+      .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
+
+    const referenciaSaldo =
+      inicio.getMonth() === hoje.getMonth() && inicio.getFullYear() === hoje.getFullYear()
+        ? hoje
+        : fim;
+
+    const saldoRealizadoReferencia = saldoRealizadoInicial + parcelasFiltradas
+      .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= referenciaSaldo)
+      .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
+
+    const saldoPrevistoReferencia = saldoPrevistoInicial + parcelasFiltradas
+      .filter((parcela) => parcela.vencimento >= inicio && parcela.vencimento <= referenciaSaldo)
+      .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
+
+    return res.json({
+      data: {
+        dias: diasOrdenados,
+        resumo: {
+          saldoInicialPeriodo: saldoRealizadoInicial,
+          receitasPrevistas,
+          despesasPrevistas,
+          receitasRealizadas,
+          despesasRealizadas,
+          pendenteReceber,
+          pendentePagar,
+          saldoAtualDia: saldoRealizadoReferencia,
+          saldoPossivelDia: saldoPrevistoReferencia,
+          dataReferenciaSaldo: referenciaSaldo,
+        },
+      },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Erro ao listar lançamentos" });
@@ -131,7 +332,7 @@ export const getLacamento = async (
   try {
     const customData = getCustomRequest(req).customData;
     const { id } = req.params;
-    const lancamento = await prisma.lancamentoFinanceiro.findUnique({
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
       where: {
         id: Number(id),
         contaId: customData.contaId,
@@ -139,9 +340,11 @@ export const getLacamento = async (
       include: {
         categoria: true,
         cliente: true,
+        ContasFinanceiro: true,
         parcelas: {
           include: {
-            CobrancasFinanceiras: true
+            CobrancasFinanceiras: true,
+            ContaFinanceira: true,
           }
         },
       },
@@ -338,8 +541,13 @@ export const pagarParcela = async (
   if (!req.body) return res.status(400).json({ message: "Dados obrigatorio!" });
   if (!req.body.metodoPagamento || !req.body.dataPagamento || !req.body.contaPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento, contaPagamento)!" });
   try {
-    const parcela = await prisma.parcelaFinanceiro.findUnique({
-      where: { id: parcelaId, lancamento: { contaId: customData.contaId } },
+    const parcela = await prisma.parcelaFinanceiro.findFirst({
+      where: {
+        id: parcelaId,
+        lancamento: {
+          contaId: customData.contaId,
+        },
+      },
     });
 
     if (!parcela) {
@@ -383,8 +591,23 @@ export const pagarMultiplasParcelas = async (
   }
 
   try {
+    const parcelasPermitidas = await prisma.parcelaFinanceiro.findMany({
+      where: {
+        id: { in: parcelas },
+        pago: false,
+        lancamento: {
+          contaId: customData.contaId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!parcelasPermitidas.length) {
+      return res.status(404).json({ message: "Nenhuma parcela válida encontrada para pagamento." });
+    }
+
     await prisma.parcelaFinanceiro.updateMany({
-      where: { id: { in: parcelas }, pago: false },
+      where: { id: { in: parcelasPermitidas.map((item) => item.id) } },
       data: {
         pago: true,
         formaPagamento: "PIX",
@@ -408,8 +631,14 @@ export const estornarParcela = async (
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   try {
-    const parcela = await prisma.parcelaFinanceiro.findUnique({
-      where: { id: parcelaId, pago: true },
+    const parcela = await prisma.parcelaFinanceiro.findFirst({
+      where: {
+        id: parcelaId,
+        pago: true,
+        lancamento: {
+          contaId: customData.contaId,
+        },
+      },
     });
 
     if (!parcela || !parcela.pago) {
@@ -442,11 +671,13 @@ export const listarParcelas = async (
   res: Response
 ): Promise<any> => {
   const { clienteId, vencimentoInicio, vencimentoFim } = req.query;
+  const customData = getCustomRequest(req).customData;
 
   try {
     const parcelas = await prisma.parcelaFinanceiro.findMany({
       where: {
         lancamento: {
+          contaId: customData.contaId,
           clienteId: clienteId ? parseInt(clienteId as string) : undefined,
         },
         vencimento: {
@@ -480,9 +711,15 @@ export const gerarReciboPdf = async (
   res: Response
 ): Promise<any> => {
   const parcelaId = parseInt(req.params.id);
+  const customData = getCustomRequest(req).customData;
 
-  const parcela = await prisma.parcelaFinanceiro.findUnique({
-    where: { id: parcelaId },
+  const parcela = await prisma.parcelaFinanceiro.findFirst({
+    where: {
+      id: parcelaId,
+      lancamento: {
+        contaId: customData.contaId,
+      },
+    },
     include: {
       lancamento: {
         include: {
@@ -540,7 +777,7 @@ export const deletarLancamento = async (
   const id = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   try {
-    const lancamento = await prisma.lancamentoFinanceiro.findUnique({
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
       where: { id, contaId: customData.contaId },
     });
 
@@ -548,8 +785,7 @@ export const deletarLancamento = async (
       return res.status(404).json({ erro: "Lançamento não encontrado." });
     }
 
-    // Deleta o lançamento
-    await prisma.lancamentoFinanceiro.delete({
+    await prisma.lancamentoFinanceiro.deleteMany({
       where: { id, contaId: customData.contaId },
     });
 

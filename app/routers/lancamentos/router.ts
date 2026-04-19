@@ -11,6 +11,7 @@ import { select2ContasFinanceiras } from "../../controllers/financeiro/hooks";
 import { cancelarCobranca, cancelarMercadoPagoPagamento, deletarCobranca, estornarCobranca, generateCobranca, generateCobrancaPublico, getCobrancas } from "../../controllers/financeiro/cobrancas";
 import { tableCobrancas } from "../../controllers/financeiro/table_cobrancas";
 import { ListagemMobileCobrancas } from "../../controllers/financeiro/mobile_cobrancas";
+import { getDashboardFinanceiroVisaoGeral } from "../../controllers/financeiro/dashboard";
 
 const routerLancamentos = Router();
 
@@ -26,6 +27,7 @@ routerLancamentos.post("/parcelas/cliente", authenticateJWT, listarParcelas);
 routerLancamentos.post("/parcelas/:id/recibo", authenticateJWT, gerarReciboPdf);
 routerLancamentos.get("/categorias", authenticateJWT, listCategorias);
 routerLancamentos.get("/contas", authenticateJWT, listContasFinanceiro);
+routerLancamentos.get("/dashboard/visao-geral", authenticateJWT, getDashboardFinanceiroVisaoGeral);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos
