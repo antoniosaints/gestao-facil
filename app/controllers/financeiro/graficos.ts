@@ -345,6 +345,7 @@ export const graficoSaldoMensal = async (
         gte: startOfMonth(inicioPeriodo),
         lte: endOfMonth(fimPeriodo),
       },
+      pago: true,
       lancamento: {
         contaId: customData.contaId,
       },
