@@ -43,6 +43,21 @@ function parseDrePeriodo(inicio?: unknown, fim?: unknown) {
   };
 }
 
+function parseOptionalPeriodo(inicio?: unknown, fim?: unknown) {
+  if (!inicio || !fim) return null;
+  return parseDrePeriodo(inicio, fim);
+}
+
+function getDecimalValue(value: Decimal.Value | null | undefined) {
+  return new Decimal(value || 0);
+}
+
+function getParcelaPagoValue(parcela: { valor?: Decimal.Value | null; valorPago?: Decimal.Value | null }) {
+  return parcela.valorPago !== null && parcela.valorPago !== undefined
+    ? getDecimalValue(parcela.valorPago)
+    : getDecimalValue(parcela.valor);
+}
+
 function getDreLogoPath(profile?: string | null) {
   const profilePath = `./public/${profile || ""}`;
   return fs.existsSync(profilePath) ? profilePath : "./public/imgs/logo.png";
@@ -893,45 +908,51 @@ export const getResumoPorCliente = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseOptionalPeriodo(req.query.inicio, req.query.fim);
   const customData = getCustomRequest(req).customData;
-  const dataFilter =
-    inicio && fim
-      ? {
-          dataLancamento: {
-            gte: new Date(inicio as string),
-            lte: new Date(fim as string),
-          },
-        }
-      : {};
 
   const clientes = await prisma.clientesFornecedores.findMany({
     where: { contaId: customData.contaId },
     include: {
       LancamentoFinanceiro: {
-        where: dataFilter,
         select: {
-          valorTotal: true,
           tipo: true,
+          parcelas: {
+            where: periodo
+              ? {
+                  vencimento: {
+                    gte: periodo.inicio,
+                    lte: periodo.fim,
+                  },
+                }
+              : undefined,
+            select: {
+              valor: true,
+            },
+          },
         },
       },
     },
   });
 
   const resultado = clientes.map((cliente) => {
-    const receitas = cliente.LancamentoFinanceiro.filter(
+    const totalReceitas = cliente.LancamentoFinanceiro.filter(
       (l) => l.tipo === "RECEITA"
-    );
-    const despesas = cliente.LancamentoFinanceiro.filter(
-      (l) => l.tipo === "DESPESA"
-    );
-
-    const totalReceitas = receitas.reduce(
-      (s, l) => s.plus(l.valorTotal),
+    ).reduce(
+      (s, l) =>
+        s.plus(
+          l.parcelas.reduce((parcelasTotal, parcela) => parcelasTotal.plus(getDecimalValue(parcela.valor)), new Decimal(0))
+        ),
       new Decimal(0)
     );
-    const totalDespesas = despesas.reduce(
-      (s, l) => s.plus(l.valorTotal),
+
+    const totalDespesas = cliente.LancamentoFinanceiro.filter(
+      (l) => l.tipo === "DESPESA"
+    ).reduce(
+      (s, l) =>
+        s.plus(
+          l.parcelas.reduce((parcelasTotal, parcela) => parcelasTotal.plus(getDecimalValue(parcela.valor)), new Decimal(0))
+        ),
       new Decimal(0)
     );
 
@@ -964,42 +985,54 @@ export const getMediaMensalLancamentos = async (
     })
     .reverse();
 
-  const resultado = [];
-
-  for (const mes of meses) {
-    const receitas = await prisma.lancamentoFinanceiro.aggregate({
-      _sum: { valorTotal: true },
-      where: {
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      vencimento: {
+        gte: meses[0].inicio,
+        lte: meses[meses.length - 1].fim,
+      },
+      lancamento: {
         contaId: customData.contaId,
-        tipo: "RECEITA",
-        dataLancamento: {
-          gte: mes.inicio,
-          lte: mes.fim,
+      },
+    },
+    select: {
+      valor: true,
+      vencimento: true,
+      lancamento: {
+        select: {
+          tipo: true,
         },
       },
-    });
+    },
+    orderBy: [{ vencimento: "asc" }, { id: "asc" }],
+  });
 
-    const despesas = await prisma.lancamentoFinanceiro.aggregate({
-      _sum: { valorTotal: true },
-      where: {
-        contaId: customData.contaId,
-        tipo: "DESPESA",
-        dataLancamento: {
-          gte: mes.inicio,
-          lte: mes.fim,
-        },
-      },
-    });
+  const resultado = meses.map((mes) => {
+    const receitas = parcelas
+      .filter(
+        (parcela) =>
+          parcela.lancamento.tipo === "RECEITA" &&
+          parcela.vencimento >= mes.inicio &&
+          parcela.vencimento <= mes.fim
+      )
+      .reduce((soma, parcela) => soma.plus(getDecimalValue(parcela.valor)), new Decimal(0));
 
-    resultado.push({
+    const despesas = parcelas
+      .filter(
+        (parcela) =>
+          parcela.lancamento.tipo === "DESPESA" &&
+          parcela.vencimento >= mes.inicio &&
+          parcela.vencimento <= mes.fim
+      )
+      .reduce((soma, parcela) => soma.plus(getDecimalValue(parcela.valor)), new Decimal(0));
+
+    return {
       mes: mes.label,
-      receitas: receitas._sum.valorTotal || new Decimal(0),
-      despesas: despesas._sum.valorTotal || new Decimal(0),
-      saldo: new Decimal(receitas._sum.valorTotal || 0).minus(
-        despesas._sum.valorTotal || 0
-      ),
-    });
-  }
+      receitas,
+      despesas,
+      saldo: receitas.minus(despesas),
+    };
+  });
 
   res.json(resultado);
 };
@@ -1025,12 +1058,12 @@ export const getLancamentosPorConta = async (
     const despesas = parcelas.filter((p) => p.lancamento.tipo === "DESPESA");
 
     const sum = (items: typeof parcelas) =>
-      items.reduce((s, p) => s.plus(p.valor), new Decimal(0));
+      items.reduce((s, p) => s.plus(getDecimalValue(p.valor)), new Decimal(0));
 
     const sumPago = (items: typeof parcelas) =>
       items
         .filter((p) => p.pago)
-        .reduce((s, p) => s.plus(p.valor), new Decimal(0));
+        .reduce((s, p) => s.plus(getParcelaPagoValue(p)), new Decimal(0));
 
     const totalReceitas = sum(receitas);
     const totalReceitasPago = sumPago(receitas);
@@ -1059,102 +1092,113 @@ export const getLancamentosPorStatus = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseOptionalPeriodo(req.query.inicio, req.query.fim);
   const customData = getCustomRequest(req).customData;
-  const dataFilter =
-    inicio && fim
-      ? {
-          dataLancamento: {
-            gte: new Date(inicio as string),
-            lte: new Date(fim as string),
-          },
-        }
-      : {};
 
-  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
-    where: { contaId: customData.contaId, ...dataFilter },
-    include: { parcelas: true },
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      ...(periodo
+        ? {
+            vencimento: {
+              gte: periodo.inicio,
+              lte: periodo.fim,
+            },
+          }
+        : {}),
+      lancamento: {
+        contaId: customData.contaId,
+      },
+    },
+    select: {
+      valor: true,
+      valorPago: true,
+      pago: true,
+    },
   });
 
-  const receitas = lancamentos.filter((l) => l.tipo === "RECEITA");
-  const despesas = lancamentos.filter((l) => l.tipo === "DESPESA");
+  const pendente = parcelas
+    .filter((parcela) => !parcela.pago)
+    .reduce((total, parcela) => total.plus(getDecimalValue(parcela.valor)), new Decimal(0));
 
-  const totalPendenteReceitas = receitas
-    .flatMap((l) =>
-      l.parcelas.filter((p) => !p.pago).map((p) => p.valor as Decimal)
-    )
-    .reduce((total, valor) => total.plus(valor), new Decimal(0));
+  const pago = parcelas
+    .filter((parcela) => parcela.pago)
+    .reduce((total, parcela) => total.plus(getParcelaPagoValue(parcela)), new Decimal(0));
 
-  const totalPendenteDespesas = despesas
-    .flatMap((l) =>
-      l.parcelas.filter((p) => !p.pago).map((p) => p.valor as Decimal)
-    )
-    .reduce((total, valor) => total.plus(valor), new Decimal(0));
-  const totalPagoReceitas = receitas
-    .flatMap((l) =>
-      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
-    )
-    .reduce((total, valor) => total.plus(valor), new Decimal(0));
-
-  const totalPagoDespesas = despesas
-    .flatMap((l) =>
-      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
-    )
-    .reduce((total, valor) => total.plus(valor), new Decimal(0));
-
-  const pendente = totalPendenteDespesas.plus(totalPendenteReceitas);
-  const pago = totalPagoDespesas.plus(totalPagoReceitas);
-
-  res.json({ pendente: pendente, pago: pago });
+  res.json({ pendente, pago });
 };
 export const getLancamentosPorPagamento = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseOptionalPeriodo(req.query.inicio, req.query.fim);
   const customData = getCustomRequest(req).customData;
-  const dataFilter =
-    inicio && fim
-      ? {
-          dataLancamento: {
-            gte: new Date(inicio as string),
-            lte: new Date(fim as string),
-          },
-        }
-      : {};
 
-  const formas = await prisma.lancamentoFinanceiro.groupBy({
-    by: ["formaPagamento"],
-    where: { contaId: customData.contaId, ...dataFilter },
-    _sum: { valorTotal: true },
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      pago: true,
+      ...(periodo
+        ? {
+            dataPagamento: {
+              gte: periodo.inicio,
+              lte: periodo.fim,
+            },
+          }
+        : {}),
+      lancamento: {
+        contaId: customData.contaId,
+      },
+    },
+    select: {
+      valor: true,
+      valorPago: true,
+      formaPagamento: true,
+      lancamento: {
+        select: {
+          formaPagamento: true,
+        },
+      },
+    },
   });
 
-  res.json(formas);
+  const formas = new Map<string, Decimal>();
+
+  parcelas.forEach((parcela) => {
+    const formaPagamento = parcela.formaPagamento || parcela.lancamento.formaPagamento || "NÃO INFORMADO";
+    const atual = formas.get(formaPagamento) ?? new Decimal(0);
+    formas.set(formaPagamento, atual.plus(getParcelaPagoValue(parcela)));
+  });
+
+  res.json(
+    Array.from(formas.entries()).map(([formaPagamento, valorTotal]) => ({
+      formaPagamento,
+      _sum: {
+        valorTotal,
+      },
+    }))
+  );
 };
 export const getLancamentosPorCategoria = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseOptionalPeriodo(req.query.inicio, req.query.fim);
   const { contaId } = getCustomRequest(req).customData;
-
-  const dataFilter =
-    inicio && fim
-      ? {
-          dataLancamento: {
-            gte: new Date(inicio as string),
-            lte: new Date(fim as string),
-          },
-        }
-      : {};
 
   const categorias = await prisma.categoriaFinanceiro.findMany({
     where: { contaId },
     include: {
       lancamentos: {
-        where: dataFilter,
         include: {
-          parcelas: true, // usamos estas parcelas para o cálculo real
+          parcelas: {
+            where: periodo
+              ? {
+                  vencimento: {
+                    gte: periodo.inicio,
+                    lte: periodo.fim,
+                  },
+                }
+              : undefined,
+          },
         },
         select: {
           tipo: true,
@@ -1172,7 +1216,7 @@ export const getLancamentosPorCategoria = async (
       lancs.reduce(
         (soma, l) =>
           soma.plus(
-            l.parcelas.reduce((ps, p) => ps.plus(p.valor), new Decimal(0))
+            l.parcelas.reduce((ps, p) => ps.plus(getDecimalValue(p.valor)), new Decimal(0))
           ),
         new Decimal(0)
       );
@@ -1195,38 +1239,42 @@ export const getLancamentosTotaisGerais = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { inicio, fim } = req.query;
+  const periodo = parseOptionalPeriodo(req.query.inicio, req.query.fim);
   const { contaId } = getCustomRequest(req).customData;
 
-  const where: any =
-    inicio && fim
-      ? {
-          dataLancamento: {
-            gte: new Date(inicio as string),
-            lte: new Date(fim as string),
-          },
-        }
-      : {};
-
-  const lancamentos = await prisma.lancamentoFinanceiro.findMany({
-    where: { contaId, ...where },
-    include: { parcelas: true },
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      pago: true,
+      ...(periodo
+        ? {
+            dataPagamento: {
+              gte: periodo.inicio,
+              lte: periodo.fim,
+            },
+          }
+        : {}),
+      lancamento: {
+        contaId,
+      },
+    },
+    select: {
+      valor: true,
+      valorPago: true,
+      lancamento: {
+        select: {
+          tipo: true,
+        },
+      },
+    },
   });
 
-  const receitas = lancamentos.filter((l) => l.tipo === "RECEITA");
-  const despesas = lancamentos.filter((l) => l.tipo === "DESPESA");
+  const totalReceitas = parcelas
+    .filter((parcela) => parcela.lancamento.tipo === "RECEITA")
+    .reduce((total, parcela) => total.plus(getParcelaPagoValue(parcela)), new Decimal(0));
 
-  const totalReceitas = receitas
-    .flatMap((l) =>
-      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
-    )
-    .reduce((total, valor) => total.plus(valor), new Decimal(0));
-
-  const totalDespesas = despesas
-    .flatMap((l) =>
-      l.parcelas.filter((p) => p.pago).map((p) => p.valorPago as Decimal)
-    )
-    .reduce((total, valor) => total.plus(valor), new Decimal(0));
+  const totalDespesas = parcelas
+    .filter((parcela) => parcela.lancamento.tipo === "DESPESA")
+    .reduce((total, parcela) => total.plus(getParcelaPagoValue(parcela)), new Decimal(0));
 
   res.json({
     receitas: formatCurrency(totalReceitas),

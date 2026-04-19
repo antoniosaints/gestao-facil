@@ -199,7 +199,7 @@ pm2 start ecosystem.config.js
 - `views/` e `public/` ainda atendem fluxos ativos.
 - `generated/` é gerado pelo Prisma e não deve ser editado manualmente.
 - O schema Prisma é grande e multi-tenant via `contaId`.
-- No módulo financeiro, os endpoints de acompanhamento, dashboard, resumos analíticos e DRE devem calcular saldo, previsto, atraso e agregações por categoria a partir das parcelas financeiras, respeitando as datas operacionais (`vencimento` e `dataPagamento`) e sempre filtrando pelo `contaId` autenticado.
+- No módulo financeiro, os endpoints de acompanhamento, dashboard, resumos analíticos legados (`totais`, `valor-status`, `valor-conta`, `valor-pagamento`, `resumo-clientes`, `media-mensal`, `categoria`) e DRE devem calcular saldo, previsto, atraso e agregações por categoria a partir das parcelas financeiras, respeitando as datas operacionais (`vencimento` e `dataPagamento`) e sempre filtrando pelo `contaId` autenticado.
 - Os dois modelos de PDF do DRE financeiro usam esse mesmo consolidado por parcelas e renderizam o cabeçalho com a foto/logo da conta quando disponível, mantendo fallback para a logo padrão.
 - O domínio financeiro também expõe criação de lançamentos com parcelamento configurável por período, atualização em cascata de parcelas por escopo e importação em lote por CSV com download de modelo.
 - No módulo de produtos, há endpoints que respondem tanto na visão de produto base quanto na visão de variante, dependendo do caso de uso da interface.
