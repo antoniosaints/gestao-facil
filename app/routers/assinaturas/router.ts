@@ -1,7 +1,12 @@
 import { Router } from 'express'
 import { authenticateJWT } from '../../middlewares/auth'
 import {
+  cancelarCobrancaCicloAssinatura,
+  deleteAssinatura,
+  deletePlanoAssinatura,
+  estornarCobrancaCicloAssinatura,
   gerarCicloAssinatura,
+  gerarCobrancaCicloAssinatura,
   getAssinaturaDetalhe,
   getAssinaturas,
   getAssinaturasDashboard,
@@ -17,6 +22,7 @@ import {
   getPlanosAssinatura,
   getPlanosAssinaturaMobile,
   getPlanosAssinaturaTable,
+  reajustarCobrancaCicloAssinatura,
   saveAssinatura,
   savePlanoAssinatura,
   select2PlanosAssinatura,
@@ -35,11 +41,13 @@ routerAssinaturas.get('/planos/select2', authenticateJWT, select2PlanosAssinatur
 routerAssinaturas.get('/planos/tabela', authenticateJWT, getPlanosAssinaturaTable)
 routerAssinaturas.get('/planos/mobile', authenticateJWT, getPlanosAssinaturaMobile)
 routerAssinaturas.post('/planos', authenticateJWT, savePlanoAssinatura)
+routerAssinaturas.delete('/planos/:id', authenticateJWT, deletePlanoAssinatura)
 
 routerAssinaturas.get('/assinaturas', authenticateJWT, getAssinaturas)
 routerAssinaturas.get('/assinaturas/tabela', authenticateJWT, getAssinaturasTable)
 routerAssinaturas.get('/assinaturas/mobile', authenticateJWT, getAssinaturasMobile)
 routerAssinaturas.post('/assinaturas', authenticateJWT, saveAssinatura)
+routerAssinaturas.delete('/assinaturas/:id', authenticateJWT, deleteAssinatura)
 routerAssinaturas.get('/assinaturas/:id', authenticateJWT, getAssinaturaDetalhe)
 routerAssinaturas.post('/assinaturas/:id/status', authenticateJWT, updateAssinaturaStatus)
 routerAssinaturas.post('/assinaturas/:id/gerar-ciclo', authenticateJWT, gerarCicloAssinatura)
@@ -48,6 +56,10 @@ routerAssinaturas.get('/cobrancas', authenticateJWT, getCobrancasAssinatura)
 routerAssinaturas.get('/cobrancas/tabela', authenticateJWT, getCobrancasAssinaturaTable)
 routerAssinaturas.get('/cobrancas/mobile', authenticateJWT, getCobrancasAssinaturaMobile)
 routerAssinaturas.post('/cobrancas/:id/status', authenticateJWT, updateCicloAssinaturaStatus)
+routerAssinaturas.post('/cobrancas/:id/gerar-gateway', authenticateJWT, gerarCobrancaCicloAssinatura)
+routerAssinaturas.post('/cobrancas/:id/cancelar', authenticateJWT, cancelarCobrancaCicloAssinatura)
+routerAssinaturas.post('/cobrancas/:id/estornar', authenticateJWT, estornarCobrancaCicloAssinatura)
+routerAssinaturas.post('/cobrancas/:id/reajustar', authenticateJWT, reajustarCobrancaCicloAssinatura)
 
 routerAssinaturas.get('/comodatos', authenticateJWT, getComodatosAssinatura)
 routerAssinaturas.get('/comodatos/tabela', authenticateJWT, getComodatosAssinaturaTable)

@@ -50,7 +50,10 @@ export const generateCobranca = async (
 
     if (gateway === "mercadopago") {
       const resp = await generateCobrancaMercadoPago(req.body, parametros);
-      return res.status(200).json({ message: resp });
+      return res.status(200).json({
+        message: resp.paymentLink || "Cobranca gerada com sucesso.",
+        data: resp,
+      });
     }
 
     return res.status(200).json({ message: "Cobranca gerada com sucesso." });

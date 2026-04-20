@@ -916,7 +916,7 @@ export async function checkoutComanda(
         };
 
         paymentLink =
-          (await generateCobrancaMercadoPago(body, parametros, tx)) || null;
+          (await generateCobrancaMercadoPago(body, parametros, tx)).paymentLink || null;
       }
 
       await recalculateComandaStatus(tx, comanda.id, customData.contaId);

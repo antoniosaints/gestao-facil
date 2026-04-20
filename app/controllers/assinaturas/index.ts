@@ -6,7 +6,15 @@ import { prisma } from '../../utils/prisma'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
 import { hasPermission } from '../../helpers/userPermission'
 import { gerarIdUnicoComMetaFinal } from '../../helpers/generateUUID'
-import { createCycleForSubscription as createRecurringCycleForSubscription } from '../../services/assinaturas/recorrenciaService'
+import {
+  createCycleForSubscription as createRecurringCycleForSubscription,
+  gerarCobrancaAutomatica,
+  gerarLancamentoFinanceiroAutomatico,
+} from '../../services/assinaturas/recorrenciaService'
+import {
+  cancelarCobrancaMercadoPago,
+  estornarCobrancaMercadoPago,
+} from '../financeiro/cobrancas/managerCobranca'
 
 const planoItemSchema = z.object({
   tipoItem: z.enum(['SERVICO', 'PRODUTO']),
@@ -85,6 +93,10 @@ const updateCicloStatusSchema = z.object({
 
 const updateComodatoStatusSchema = z.object({
   status: z.enum(['EM_USO', 'DEVOLVIDO', 'PERDIDO', 'AVARIADO']),
+})
+
+const reajusteCicloSchema = z.object({
+  valor: z.number().positive('Informe um valor maior que zero para reajustar a cobrança.'),
 })
 
 function toNumber(value: unknown) {
@@ -343,6 +355,19 @@ function mapCobrancaAssinaturaListItem(item: any) {
       nomeContrato: item.assinatura.nomeContrato,
       cliente: item.assinatura.cliente?.nome || 'Cliente não informado',
     },
+    cobranca: item.cobrancaFinanceira
+      ? {
+          id: item.cobrancaFinanceira.id,
+          idCobranca: item.cobrancaFinanceira.idCobranca,
+          Uid: item.cobrancaFinanceira.Uid,
+          status: item.cobrancaFinanceira.status,
+          externalLink: item.cobrancaFinanceira.externalLink,
+          gateway: item.cobrancaFinanceira.gateway,
+          valor: toNumber(item.cobrancaFinanceira.valor),
+          dataVencimento: item.cobrancaFinanceira.dataVencimento,
+          dataCadastro: item.cobrancaFinanceira.dataCadastro,
+        }
+      : null,
   }
 }
 
@@ -391,6 +416,47 @@ async function registerHistory(
       payloadJson: payload ? JSON.stringify(payload) : null,
     },
   })
+}
+
+function getTipoCobrancaOperavel(tipoCobranca?: string | null) {
+  return ['PIX', 'BOLETO'].includes(tipoCobranca || '')
+}
+
+async function resolveParcelaIdDoCiclo(lancamentoFinanceiroId?: number | null) {
+  if (!lancamentoFinanceiroId) return null
+
+  const parcela = await prisma.parcelaFinanceiro.findFirst({
+    where: { lancamentoId: lancamentoFinanceiroId },
+    orderBy: [{ numero: 'asc' }, { id: 'asc' }],
+  })
+
+  return parcela?.id || null
+}
+
+async function atualizarFinanceiroDoCiclo(args: {
+  lancamentoFinanceiroId?: number | null
+  valor: number
+}) {
+  if (!args.lancamentoFinanceiroId) return
+
+  const parcelaId = await resolveParcelaIdDoCiclo(args.lancamentoFinanceiroId)
+
+  await prisma.lancamentoFinanceiro.update({
+    where: { id: args.lancamentoFinanceiroId },
+    data: {
+      valorTotal: args.valor,
+      valorBruto: args.valor,
+    },
+  })
+
+  if (parcelaId) {
+    await prisma.parcelaFinanceiro.update({
+      where: { id: parcelaId },
+      data: {
+        valor: args.valor,
+      },
+    })
+  }
 }
 
 async function createCycleForSubscription(
@@ -851,6 +917,42 @@ export async function savePlanoAssinatura(req: Request, res: Response): Promise<
   return res.json({ message: payload.id ? 'Plano atualizado com sucesso.' : 'Plano criado com sucesso.', data: plano })
 }
 
+export async function deletePlanoAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+
+  if (!id) {
+    return res.status(400).json({ message: 'Plano inválido.' })
+  }
+
+  const plano = await prisma.planoAssinatura.findFirst({
+    where: { id, contaId },
+    include: {
+      _count: {
+        select: {
+          assinaturas: true,
+        },
+      },
+    },
+  })
+
+  if (!plano) {
+    return res.status(404).json({ message: 'Plano não encontrado.' })
+  }
+
+  if (plano._count.assinaturas > 0) {
+    return res.status(400).json({
+      message: 'Este plano possui assinaturas vinculadas e não pode ser excluído.',
+    })
+  }
+
+  await prisma.planoAssinatura.delete({ where: { id } })
+
+  return res.json({ message: 'Plano excluído com sucesso.' })
+}
+
 export async function getAssinaturas(req: Request, res: Response): Promise<any> {
   if (!(await ensurePermission(req, res))) return
 
@@ -1143,6 +1245,69 @@ export async function saveAssinatura(req: Request, res: Response): Promise<any> 
   })
 }
 
+export async function deleteAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+
+  if (!id) {
+    return res.status(400).json({ message: 'Assinatura inválida.' })
+  }
+
+  const assinatura = await prisma.assinaturaCliente.findFirst({
+    where: { id, contaId },
+    include: {
+      itens: {
+        include: {
+          comodatos: true,
+        },
+      },
+      ciclos: {
+        include: {
+          cobrancaFinanceira: true,
+        },
+      },
+    },
+  })
+
+  if (!assinatura) {
+    return res.status(404).json({ message: 'Assinatura não encontrada.' })
+  }
+
+  const possuiComodatoEmUso = assinatura.itens.some((item) =>
+    item.comodatos.some((comodato) => comodato.status === 'EM_USO'),
+  )
+
+  if (possuiComodatoEmUso) {
+    return res.status(400).json({
+      message: 'A assinatura possui comodatos em uso e não pode ser excluída.',
+    })
+  }
+
+  const possuiCobrancaAtiva = assinatura.ciclos.some((ciclo) =>
+    ['PENDENTE', 'EFETIVADO'].includes(ciclo.cobrancaFinanceira?.status || ''),
+  )
+
+  if (possuiCobrancaAtiva) {
+    return res.status(400).json({
+      message: 'A assinatura possui cobranças ativas e precisa regularizá-las antes da exclusão.',
+    })
+  }
+
+  const possuiCicloPago = assinatura.ciclos.some((ciclo) => ciclo.status === 'PAGO')
+
+  if (possuiCicloPago) {
+    return res.status(400).json({
+      message: 'A assinatura já possui ciclos pagos e deve ser preservada para histórico financeiro.',
+    })
+  }
+
+  await prisma.assinaturaCliente.delete({ where: { id } })
+
+  return res.json({ message: 'Assinatura excluída com sucesso.' })
+}
+
 export async function getAssinaturaDetalhe(req: Request, res: Response): Promise<any> {
   if (!(await ensurePermission(req, res))) return
 
@@ -1273,6 +1438,19 @@ export async function getAssinaturaDetalhe(req: Request, res: Response): Promise
         gatewayUsado: item.gatewayUsado,
         tipoCobrancaUsado: item.tipoCobrancaUsado,
         createdAt: item.createdAt,
+        cobranca: item.cobrancaFinanceira
+          ? {
+              id: item.cobrancaFinanceira.id,
+              idCobranca: item.cobrancaFinanceira.idCobranca,
+              Uid: item.cobrancaFinanceira.Uid,
+              status: item.cobrancaFinanceira.status,
+              externalLink: item.cobrancaFinanceira.externalLink,
+              gateway: item.cobrancaFinanceira.gateway,
+              valor: toNumber(item.cobrancaFinanceira.valor),
+              dataVencimento: item.cobrancaFinanceira.dataVencimento,
+              dataCadastro: item.cobrancaFinanceira.dataCadastro,
+            }
+          : null,
       })),
       historico: data.historico.map((item) => ({
         id: item.id,
@@ -1333,6 +1511,272 @@ export async function gerarCicloAssinatura(req: Request, res: Response): Promise
   return res.json({ message: 'Ciclo gerado com sucesso.', data: { id: ciclo.id } })
 }
 
+export async function gerarCobrancaCicloAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+
+  const ciclo = await prisma.assinaturaCiclo.findFirst({
+    where: { id, assinatura: { contaId } },
+    include: {
+      assinatura: true,
+      cobrancaFinanceira: true,
+    },
+  })
+
+  if (!ciclo) {
+    return res.status(404).json({ message: 'Cobrança não encontrada.' })
+  }
+
+  if (!ciclo.assinatura.gateway || !ciclo.assinatura.tipoCobranca) {
+    return res.status(400).json({
+      message: 'Configure gateway e tipo de cobrança na assinatura antes de gerar a cobrança no gateway.',
+    })
+  }
+
+  if (
+    ciclo.cobrancaFinanceira &&
+    !['CANCELADO', 'ESTORNADO'].includes(ciclo.cobrancaFinanceira.status)
+  ) {
+    return res.status(400).json({
+      message: 'Este ciclo já possui uma cobrança ativa vinculada.',
+    })
+  }
+
+  let parcelaId = await resolveParcelaIdDoCiclo(ciclo.lancamentoFinanceiroId)
+
+  if (!parcelaId && ciclo.assinatura.gerarLancamentoFinanceiro) {
+    const financeiro = await gerarLancamentoFinanceiroAutomatico(ciclo.id, userId)
+    parcelaId = financeiro.parcelaId ?? null
+  }
+
+  const resultado = await gerarCobrancaAutomatica(ciclo.id, userId, parcelaId)
+
+  if (!resultado.cobrancaId) {
+    return res.status(400).json({ message: 'Não foi possível gerar a cobrança no gateway para este ciclo.' })
+  }
+
+  return res.json({
+    message: 'Cobrança gerada com sucesso no gateway.',
+    data: { cicloId: ciclo.id, cobrancaId: resultado.cobrancaId },
+  })
+}
+
+export async function cancelarCobrancaCicloAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+
+  const ciclo = await prisma.assinaturaCiclo.findFirst({
+    where: { id, assinatura: { contaId } },
+    include: {
+      assinatura: true,
+      cobrancaFinanceira: true,
+    },
+  })
+
+  if (!ciclo || !ciclo.cobrancaFinanceira) {
+    return res.status(404).json({ message: 'Cobrança vinculada não encontrada.' })
+  }
+
+  if (!getTipoCobrancaOperavel(ciclo.tipoCobrancaUsado || ciclo.assinatura.tipoCobranca)) {
+    return res.status(400).json({ message: 'Somente cobranças PIX e boleto podem ser canceladas por este fluxo.' })
+  }
+
+  if (ciclo.cobrancaFinanceira.status !== 'PENDENTE') {
+    return res.status(400).json({ message: 'Apenas cobranças pendentes podem ser canceladas.' })
+  }
+
+  if (ciclo.cobrancaFinanceira.gateway !== 'mercadopago') {
+    return res.status(400).json({ message: 'O cancelamento automático está disponível apenas para Mercado Pago.' })
+  }
+
+  const parametros = await prisma.parametrosConta.findUnique({ where: { contaId } })
+
+  if (!parametros) {
+    return res.status(400).json({ message: 'Parâmetros de integração não encontrados para a conta.' })
+  }
+
+  await cancelarCobrancaMercadoPago(parametros, ciclo.cobrancaFinanceira)
+  await prisma.assinaturaCiclo.update({
+    where: { id: ciclo.id },
+    data: { status: 'CANCELADO' },
+  })
+
+  await registerHistory(ciclo.assinaturaId, userId, 'CICLO_COBRANCA_CANCELADA', {
+    cicloId: ciclo.id,
+    cobrancaFinanceiraId: ciclo.cobrancaFinanceira.id,
+  })
+
+  return res.json({ message: 'Cobrança cancelada com sucesso.' })
+}
+
+export async function estornarCobrancaCicloAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+
+  const ciclo = await prisma.assinaturaCiclo.findFirst({
+    where: { id, assinatura: { contaId } },
+    include: {
+      assinatura: true,
+      cobrancaFinanceira: true,
+    },
+  })
+
+  if (!ciclo || !ciclo.cobrancaFinanceira) {
+    return res.status(404).json({ message: 'Cobrança vinculada não encontrada.' })
+  }
+
+  if (!getTipoCobrancaOperavel(ciclo.tipoCobrancaUsado || ciclo.assinatura.tipoCobranca)) {
+    return res.status(400).json({ message: 'Somente cobranças PIX e boleto podem ser estornadas por este fluxo.' })
+  }
+
+  if (ciclo.cobrancaFinanceira.status !== 'EFETIVADO') {
+    return res.status(400).json({ message: 'Apenas cobranças efetivadas podem ser estornadas.' })
+  }
+
+  if (ciclo.cobrancaFinanceira.gateway !== 'mercadopago') {
+    return res.status(400).json({ message: 'O estorno automático está disponível apenas para Mercado Pago.' })
+  }
+
+  const parametros = await prisma.parametrosConta.findUnique({ where: { contaId } })
+
+  if (!parametros) {
+    return res.status(400).json({ message: 'Parâmetros de integração não encontrados para a conta.' })
+  }
+
+  await estornarCobrancaMercadoPago(parametros, ciclo.cobrancaFinanceira)
+  await prisma.assinaturaCiclo.update({
+    where: { id: ciclo.id },
+    data: { status: 'CANCELADO' },
+  })
+
+  await registerHistory(ciclo.assinaturaId, userId, 'CICLO_COBRANCA_ESTORNADA', {
+    cicloId: ciclo.id,
+    cobrancaFinanceiraId: ciclo.cobrancaFinanceira.id,
+  })
+
+  return res.json({ message: 'Cobrança estornada com sucesso.' })
+}
+
+export async function reajustarCobrancaCicloAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const parsed = reajusteCicloSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ message: parsed.error.errors[0]?.message || 'Valor inválido para reajuste.' })
+  }
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+  const novoValor = Number(parsed.data.valor)
+
+  const ciclo = await prisma.assinaturaCiclo.findFirst({
+    where: { id, assinatura: { contaId } },
+    include: {
+      assinatura: true,
+      cobrancaFinanceira: true,
+    },
+  })
+
+  if (!ciclo) {
+    return res.status(404).json({ message: 'Cobrança não encontrada.' })
+  }
+
+  if (ciclo.cobrancaFinanceira?.status === 'EFETIVADO' || ciclo.status === 'PAGO') {
+    return res.status(400).json({ message: 'Cobranças já pagas não podem ser reajustadas automaticamente.' })
+  }
+
+  if (
+    ciclo.cobrancaFinanceira &&
+    !getTipoCobrancaOperavel(ciclo.tipoCobrancaUsado || ciclo.assinatura.tipoCobranca)
+  ) {
+    return res.status(400).json({
+      message: 'O reajuste automático exige uma cobrança PIX ou boleto para cancelar e recriar no gateway.',
+    })
+  }
+
+  if (ciclo.cobrancaFinanceira?.status === 'PENDENTE') {
+    if (ciclo.cobrancaFinanceira.gateway !== 'mercadopago') {
+      return res.status(400).json({ message: 'O reajuste automático está disponível apenas para Mercado Pago.' })
+    }
+
+    const parametros = await prisma.parametrosConta.findUnique({ where: { contaId } })
+    if (!parametros) {
+      return res.status(400).json({ message: 'Parâmetros de integração não encontrados para a conta.' })
+    }
+
+    await cancelarCobrancaMercadoPago(parametros, ciclo.cobrancaFinanceira)
+  }
+
+  await atualizarFinanceiroDoCiclo({
+    lancamentoFinanceiroId: ciclo.lancamentoFinanceiroId,
+    valor: novoValor,
+  })
+
+  await prisma.assinaturaCiclo.update({
+    where: { id: ciclo.id },
+    data: {
+      valorCobrado: novoValor,
+      status: 'PENDENTE',
+    },
+  })
+
+  let parcelaId = await resolveParcelaIdDoCiclo(ciclo.lancamentoFinanceiroId)
+
+  if (!parcelaId && ciclo.assinatura.gerarLancamentoFinanceiro) {
+    const financeiro = await gerarLancamentoFinanceiroAutomatico(ciclo.id, userId)
+    parcelaId = financeiro.parcelaId ?? null
+  }
+
+  try {
+    const resultado = await gerarCobrancaAutomatica(ciclo.id, userId, parcelaId)
+
+    if (!resultado.cobrancaId) {
+      throw new Error('Não foi possível criar a nova cobrança no gateway.')
+    }
+
+    await registerHistory(ciclo.assinaturaId, userId, 'CICLO_COBRANCA_REAJUSTADA', {
+      cicloId: ciclo.id,
+      valorAnterior: toNumber(ciclo.valorCobrado),
+      valorNovo: novoValor,
+      cobrancaAnteriorId: ciclo.cobrancaFinanceira?.id || null,
+      novaCobrancaId: resultado.cobrancaId,
+    })
+
+    return res.json({
+      message: 'Cobrança reajustada com sucesso. A cobrança anterior foi cancelada e uma nova cobrança foi gerada.',
+      data: {
+        cicloId: ciclo.id,
+        valorCobrado: novoValor,
+        cobrancaAnteriorId: ciclo.cobrancaFinanceira?.id || null,
+        novaCobrancaId: resultado.cobrancaId,
+      },
+    })
+  } catch (error: any) {
+    await prisma.assinaturaCiclo.update({
+      where: { id: ciclo.id },
+      data: { status: 'FALHA' },
+    })
+
+    await registerHistory(ciclo.assinaturaId, userId, 'CICLO_COBRANCA_REAJUSTE_FALHOU', {
+      cicloId: ciclo.id,
+      valorAnterior: toNumber(ciclo.valorCobrado),
+      valorNovo: novoValor,
+      cobrancaAnteriorId: ciclo.cobrancaFinanceira?.id || null,
+      erro: error?.message || 'Falha desconhecida ao recriar a cobrança.',
+    })
+
+    return res.status(500).json({
+      message: error?.message || 'A cobrança anterior foi cancelada, mas a nova cobrança não pôde ser criada.',
+    })
+  }
+}
+
 export async function getCobrancasAssinatura(req: Request, res: Response): Promise<any> {
   if (!(await ensurePermission(req, res))) return
 
@@ -1359,6 +1803,7 @@ export async function getCobrancasAssinatura(req: Request, res: Response): Promi
         : {}),
     },
     include: {
+      cobrancaFinanceira: true,
       assinatura: {
         include: {
           cliente: true,
@@ -1407,6 +1852,7 @@ export async function getCobrancasAssinaturaTable(req: Request, res: Response): 
     prisma.assinaturaCiclo.findMany({
       where,
       include: {
+        cobrancaFinanceira: true,
         assinatura: {
           include: {
             cliente: true,
@@ -1459,6 +1905,7 @@ export async function getCobrancasAssinaturaMobile(req: Request, res: Response):
     prisma.assinaturaCiclo.findMany({
       where,
       include: {
+        cobrancaFinanceira: true,
         assinatura: {
           include: {
             cliente: true,

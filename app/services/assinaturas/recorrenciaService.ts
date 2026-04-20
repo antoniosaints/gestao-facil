@@ -124,7 +124,7 @@ async function ensureFinancialContext(contaId: number) {
   return { categoria, contaFinanceira }
 }
 
-async function gerarLancamentoFinanceiroAutomatico(cicloId: number, usuarioId: number | null) {
+export async function gerarLancamentoFinanceiroAutomatico(cicloId: number, usuarioId: number | null) {
   const ciclo = await prisma.assinaturaCiclo.findUniqueOrThrow({
     where: { id: cicloId },
     include: {
@@ -187,7 +187,7 @@ async function gerarLancamentoFinanceiroAutomatico(cicloId: number, usuarioId: n
   return result
 }
 
-async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null, parcelaId?: number | null) {
+export async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null, parcelaId?: number | null) {
   const ciclo = await prisma.assinaturaCiclo.findUniqueOrThrow({
     where: { id: cicloId },
     include: {
@@ -196,7 +196,11 @@ async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null
     },
   })
 
-  if (ciclo.cobrancaFinanceiraId) {
+  if (
+    ciclo.cobrancaFinanceiraId &&
+    ciclo.cobrancaFinanceira &&
+    !['CANCELADO', 'ESTORNADO'].includes(ciclo.cobrancaFinanceira.status)
+  ) {
     return { cobrancaId: ciclo.cobrancaFinanceiraId }
   }
 
@@ -228,20 +232,6 @@ async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null
     return { cobrancaId: null }
   }
 
-  if (tipoCobranca === 'LINK') {
-    await prisma.assinaturaCiclo.update({
-      where: { id: ciclo.id },
-      data: { status: 'FALHA' },
-    })
-    await registerHistory(ciclo.assinaturaId, usuarioId, 'CICLO_COBRANCA_AUTOMATICA_FALHOU', {
-      cicloId,
-      gateway,
-      tipoCobranca,
-      motivo: 'Link de pagamento automático ainda não é monitorado no módulo de assinaturas. Use PIX ou boleto.',
-    })
-    return { cobrancaId: null }
-  }
-
   const parametros = await prisma.parametrosConta.findUnique({
     where: { contaId: ciclo.assinatura.contaId },
   })
@@ -260,7 +250,7 @@ async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null
     return { cobrancaId: null }
   }
 
-  await generateCobrancaMercadoPago(
+  const generated = await generateCobrancaMercadoPago(
     {
       type: tipoCobranca,
       value: toNumber(ciclo.valorCobrado),
@@ -271,16 +261,7 @@ async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null
     parametros,
   )
 
-  const cobranca = await prisma.cobrancasFinanceiras.findFirst({
-    where: {
-      contaId: ciclo.assinatura.contaId,
-      gateway: 'mercadopago',
-      ...(parcelaId ? { lancamentoId: parcelaId } : {}),
-    },
-    orderBy: [{ dataCadastro: 'desc' }, { id: 'desc' }],
-  })
-
-  if (!cobranca) {
+  if (!generated.chargeId) {
     await prisma.assinaturaCiclo.update({
       where: { id: ciclo.id },
       data: { status: 'FALHA' },
@@ -297,19 +278,21 @@ async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number | null
   await prisma.assinaturaCiclo.update({
     where: { id: ciclo.id },
     data: {
-      cobrancaFinanceiraId: cobranca.id,
+      cobrancaFinanceiraId: generated.chargeId,
       status: 'COBRADO',
     },
   })
 
   await registerHistory(ciclo.assinaturaId, usuarioId, 'CICLO_COBRANCA_AUTOMATICA_GERADA', {
     cicloId,
-    cobrancaFinanceiraId: cobranca.id,
+    cobrancaFinanceiraId: generated.chargeId,
     gateway,
     tipoCobranca,
+    gatewayReference: generated.gatewayReference,
+    paymentLink: generated.paymentLink,
   })
 
-  return { cobrancaId: cobranca.id }
+  return { cobrancaId: generated.chargeId }
 }
 
 async function executarAutomacoesDoCiclo(cicloId: number, usuarioId: number | null) {

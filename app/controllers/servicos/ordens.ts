@@ -76,6 +76,10 @@ export const updateVendaInternal = async (
       throw new Error("OS nao encontrada");
     }
 
+    if (ordemEncontrada.status === "FATURADA") {
+      throw new Error("OS faturada não pode ser editada.");
+    }
+
     const itensOSOriginal = ordemEncontrada.ItensOrdensServico || [];
 
     // Remove itens e movimentações antigas

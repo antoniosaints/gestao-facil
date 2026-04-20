@@ -21,6 +21,12 @@ import {
 } from "../../services/contas/storeModulesService";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 
+function extractChargeUidFromExternalReference(externalReference?: string | null) {
+  if (!externalReference) return null;
+  const match = externalReference.match(/cobranca:([^|]+)/i);
+  return match?.[1] || null;
+}
+
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
     const { id } = req.query;
@@ -131,10 +137,32 @@ export async function webhookMercadoPagoCobrancas(
       return res.sendStatus(204);
     }
 
-    const cobranca = await prisma.cobrancasFinanceiras.findFirst({
+    let cobranca = await prisma.cobrancasFinanceiras.findFirst({
       include: { cobrancasOnAgendamentos: true },
       where: { idCobranca: String(paymentId) },
     });
+
+    if (!cobranca) {
+      const paymentProbe = await mercadoPagoPayment.get({ id: paymentId });
+      const chargeUid = extractChargeUidFromExternalReference(
+        paymentProbe.external_reference as string | undefined,
+      );
+
+      if (chargeUid) {
+        cobranca = await prisma.cobrancasFinanceiras.findFirst({
+          include: { cobrancasOnAgendamentos: true },
+          where: { Uid: chargeUid, gateway: "mercadopago" },
+        });
+
+        if (cobranca && cobranca.idCobranca !== String(paymentId)) {
+          cobranca = await prisma.cobrancasFinanceiras.update({
+            where: { id: cobranca.id },
+            data: { idCobranca: String(paymentId) },
+            include: { cobrancasOnAgendamentos: true },
+          });
+        }
+      }
+    }
 
     if (!cobranca) {
       console.warn(`Cobrança ${paymentId} não encontrada`);
