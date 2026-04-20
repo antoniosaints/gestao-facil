@@ -9,12 +9,17 @@ import {
   getAssinaturasOpcoes,
   getAssinaturasTable,
   getCobrancasAssinatura,
+  getCobrancasAssinaturaMobile,
+  getCobrancasAssinaturaTable,
   getComodatosAssinatura,
+  getComodatosAssinaturaMobile,
+  getComodatosAssinaturaTable,
   getPlanosAssinatura,
   getPlanosAssinaturaMobile,
   getPlanosAssinaturaTable,
   saveAssinatura,
   savePlanoAssinatura,
+  select2PlanosAssinatura,
   updateAssinaturaStatus,
   updateCicloAssinaturaStatus,
   updateComodatoAssinaturaStatus,
@@ -26,6 +31,7 @@ routerAssinaturas.get('/dashboard', authenticateJWT, getAssinaturasDashboard)
 routerAssinaturas.get('/opcoes', authenticateJWT, getAssinaturasOpcoes)
 
 routerAssinaturas.get('/planos', authenticateJWT, getPlanosAssinatura)
+routerAssinaturas.get('/planos/select2', authenticateJWT, select2PlanosAssinatura)
 routerAssinaturas.get('/planos/tabela', authenticateJWT, getPlanosAssinaturaTable)
 routerAssinaturas.get('/planos/mobile', authenticateJWT, getPlanosAssinaturaMobile)
 routerAssinaturas.post('/planos', authenticateJWT, savePlanoAssinatura)
@@ -39,9 +45,13 @@ routerAssinaturas.post('/assinaturas/:id/status', authenticateJWT, updateAssinat
 routerAssinaturas.post('/assinaturas/:id/gerar-ciclo', authenticateJWT, gerarCicloAssinatura)
 
 routerAssinaturas.get('/cobrancas', authenticateJWT, getCobrancasAssinatura)
+routerAssinaturas.get('/cobrancas/tabela', authenticateJWT, getCobrancasAssinaturaTable)
+routerAssinaturas.get('/cobrancas/mobile', authenticateJWT, getCobrancasAssinaturaMobile)
 routerAssinaturas.post('/cobrancas/:id/status', authenticateJWT, updateCicloAssinaturaStatus)
 
 routerAssinaturas.get('/comodatos', authenticateJWT, getComodatosAssinatura)
+routerAssinaturas.get('/comodatos/tabela', authenticateJWT, getComodatosAssinaturaTable)
+routerAssinaturas.get('/comodatos/mobile', authenticateJWT, getComodatosAssinaturaMobile)
 routerAssinaturas.post('/comodatos/:id/status', authenticateJWT, updateComodatoAssinaturaStatus)
 
 export { routerAssinaturas }

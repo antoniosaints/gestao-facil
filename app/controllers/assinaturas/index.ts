@@ -203,6 +203,39 @@ function resolveAssinaturaSortField(value: unknown) {
   }
 }
 
+function resolveCobrancaSortField(value: unknown) {
+  const sortBy = typeof value === 'string' ? value : 'createdAt'
+
+  switch (sortBy) {
+    case 'referencia':
+    case 'status':
+    case 'valorCobrado':
+    case 'valorCalculado':
+    case 'inicioPeriodo':
+    case 'fimPeriodo':
+    case 'createdAt':
+      return sortBy
+    default:
+      return 'createdAt'
+  }
+}
+
+function resolveComodatoSortField(value: unknown) {
+  const sortBy = typeof value === 'string' ? value : 'createdAt'
+
+  switch (sortBy) {
+    case 'status':
+    case 'quantidade':
+    case 'dataEntrega':
+    case 'dataPrevistaDevolucao':
+    case 'dataDevolucao':
+    case 'createdAt':
+      return sortBy
+    default:
+      return 'createdAt'
+  }
+}
+
 function mapPlanoAssinaturaListItem(item: any) {
   return {
     id: item.id,
@@ -289,6 +322,48 @@ function mapAssinaturaListItem(item: any) {
     },
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+  }
+}
+
+function mapCobrancaAssinaturaListItem(item: any) {
+  return {
+    id: item.id,
+    referencia: item.referencia,
+    inicioPeriodo: item.inicioPeriodo,
+    fimPeriodo: item.fimPeriodo,
+    valorCalculado: toNumber(item.valorCalculado),
+    valorCobrado: toNumber(item.valorCobrado),
+    status: item.status,
+    gatewayUsado: item.gatewayUsado,
+    tipoCobrancaUsado: item.tipoCobrancaUsado,
+    createdAt: item.createdAt,
+    assinatura: {
+      id: item.assinatura.id,
+      Uid: item.assinatura.Uid,
+      nomeContrato: item.assinatura.nomeContrato,
+      cliente: item.assinatura.cliente?.nome || 'Cliente não informado',
+    },
+  }
+}
+
+function mapComodatoAssinaturaListItem(item: any) {
+  return {
+    id: item.id,
+    quantidade: item.quantidade,
+    identificacao: item.identificacao,
+    status: item.status,
+    dataEntrega: item.dataEntrega,
+    dataPrevistaDevolucao: item.dataPrevistaDevolucao,
+    dataDevolucao: item.dataDevolucao,
+    observacoes: item.observacoes,
+    createdAt: item.createdAt,
+    produto: item.produto ? { id: item.produto.id, nome: item.produto.nome, variante: item.produto.nomeVariante } : null,
+    assinatura: {
+      id: item.assinaturaItem.assinatura.id,
+      Uid: item.assinaturaItem.assinatura.Uid,
+      nomeContrato: item.assinaturaItem.assinatura.nomeContrato,
+      cliente: item.assinaturaItem.assinatura.cliente?.nome || 'Cliente não informado',
+    },
   }
 }
 
@@ -546,6 +621,44 @@ export async function getAssinaturasOpcoes(req: Request, res: Response): Promise
         label: `${item.nome}${item.nomeVariante ? ` / ${item.nomeVariante}` : ''} • ${toNumber(item.preco).toFixed(2)}`,
       })),
     },
+  })
+}
+
+export async function select2PlanosAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const search = normalizeSearch(req.query.search)
+  const id = Number(req.query.id)
+  const status = normalizeSearch(req.query.status)
+
+  const data = await prisma.planoAssinatura.findMany({
+    where: {
+      contaId,
+      ...(Number.isInteger(id) && id > 0 ? { id } : {}),
+      ...(status && status !== 'TODOS' ? { status: status as 'ATIVO' | 'INATIVO' } : {}),
+      ...(search
+        ? {
+            OR: [{ nome: { contains: search } }, { descricao: { contains: search } }, { Uid: { contains: search } }],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      nome: true,
+      descricao: true,
+      Uid: true,
+      status: true,
+    },
+    orderBy: [{ status: 'asc' }, { nome: 'asc' }],
+    take: Number.isInteger(id) && id > 0 ? 1 : 20,
+  })
+
+  return res.json({
+    results: data.map((item) => ({
+      id: item.id,
+      label: `${item.nome} • ${item.Uid}${item.status === 'INATIVO' ? ' • Inativo' : ''}`,
+    })),
   })
 }
 
@@ -1256,24 +1369,117 @@ export async function getCobrancasAssinatura(req: Request, res: Response): Promi
   })
 
   return res.json({
-    data: data.map((item) => ({
-      id: item.id,
-      referencia: item.referencia,
-      inicioPeriodo: item.inicioPeriodo,
-      fimPeriodo: item.fimPeriodo,
-      valorCalculado: toNumber(item.valorCalculado),
-      valorCobrado: toNumber(item.valorCobrado),
-      status: item.status,
-      gatewayUsado: item.gatewayUsado,
-      tipoCobrancaUsado: item.tipoCobrancaUsado,
-      createdAt: item.createdAt,
-      assinatura: {
-        id: item.assinatura.id,
-        Uid: item.assinatura.Uid,
-        nomeContrato: item.assinatura.nomeContrato,
-        cliente: item.assinatura.cliente?.nome || 'Cliente não informado',
+    data: data.map(mapCobrancaAssinaturaListItem),
+  })
+}
+
+export async function getCobrancasAssinaturaTable(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const sortBy = resolveCobrancaSortField(req.query.sortBy)
+  const order = parseSortOrder(req.query.order)
+
+  const where = {
+    assinatura: {
+      contaId,
+      ...(search
+        ? {
+            OR: [
+              { nomeContrato: { contains: search } },
+              { Uid: { contains: search } },
+              { cliente: { nome: { contains: search } } },
+            ],
+          }
+        : {}),
+    },
+    ...(status && status !== 'TODOS'
+      ? { status: status as 'PENDENTE' | 'COBRADO' | 'PAGO' | 'ATRASADO' | 'CANCELADO' | 'FALHA' }
+      : {}),
+  }
+
+  const [total, data] = await Promise.all([
+    prisma.assinaturaCiclo.count({ where }),
+    prisma.assinaturaCiclo.findMany({
+      where,
+      include: {
+        assinatura: {
+          include: {
+            cliente: true,
+          },
+        },
       },
-    })),
+      orderBy: { [sortBy]: order },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ])
+
+  return res.json({
+    data: data.map(mapCobrancaAssinaturaListItem),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  })
+}
+
+export async function getCobrancasAssinaturaMobile(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const take = parsePositiveQueryNumber(req.query.limit, 10)
+
+  const where = {
+    assinatura: {
+      contaId,
+      ...(search
+        ? {
+            OR: [
+              { nomeContrato: { contains: search } },
+              { Uid: { contains: search } },
+              { cliente: { nome: { contains: search } } },
+            ],
+          }
+        : {}),
+    },
+    ...(status && status !== 'TODOS'
+      ? { status: status as 'PENDENTE' | 'COBRADO' | 'PAGO' | 'ATRASADO' | 'CANCELADO' | 'FALHA' }
+      : {}),
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.assinaturaCiclo.findMany({
+      where,
+      include: {
+        assinatura: {
+          include: {
+            cliente: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * take,
+      take,
+    }),
+    prisma.assinaturaCiclo.count({ where }),
+  ])
+
+  return res.json({
+    data: data.map(mapCobrancaAssinaturaListItem),
+    pagination: {
+      total,
+      page,
+      limit: take,
+      totalPages: Math.ceil(total / take),
+    },
   })
 }
 
@@ -1348,23 +1554,131 @@ export async function getComodatosAssinatura(req: Request, res: Response): Promi
   })
 
   return res.json({
-    data: data.map((item) => ({
-      id: item.id,
-      quantidade: item.quantidade,
-      identificacao: item.identificacao,
-      status: item.status,
-      dataEntrega: item.dataEntrega,
-      dataPrevistaDevolucao: item.dataPrevistaDevolucao,
-      dataDevolucao: item.dataDevolucao,
-      observacoes: item.observacoes,
-      produto: item.produto ? { id: item.produto.id, nome: item.produto.nome, variante: item.produto.nomeVariante } : null,
+    data: data.map(mapComodatoAssinaturaListItem),
+  })
+}
+
+export async function getComodatosAssinaturaTable(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const sortBy = resolveComodatoSortField(req.query.sortBy)
+  const order = parseSortOrder(req.query.order)
+
+  const where = {
+    assinaturaItem: {
       assinatura: {
-        id: item.assinaturaItem.assinatura.id,
-        Uid: item.assinaturaItem.assinatura.Uid,
-        nomeContrato: item.assinaturaItem.assinatura.nomeContrato,
-        cliente: item.assinaturaItem.assinatura.cliente?.nome || 'Cliente não informado',
+        contaId,
+        ...(search
+          ? {
+              OR: [
+                { nomeContrato: { contains: search } },
+                { Uid: { contains: search } },
+                { cliente: { nome: { contains: search } } },
+              ],
+            }
+          : {}),
       },
-    })),
+    },
+    ...(status && status !== 'TODOS'
+      ? { status: status as 'EM_USO' | 'DEVOLVIDO' | 'PERDIDO' | 'AVARIADO' }
+      : {}),
+  }
+
+  const [total, data] = await Promise.all([
+    prisma.assinaturaComodato.count({ where }),
+    prisma.assinaturaComodato.findMany({
+      where,
+      include: {
+        produto: true,
+        assinaturaItem: {
+          include: {
+            assinatura: {
+              include: {
+                cliente: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { [sortBy]: order },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ])
+
+  return res.json({
+    data: data.map(mapComodatoAssinaturaListItem),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  })
+}
+
+export async function getComodatosAssinaturaMobile(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const take = parsePositiveQueryNumber(req.query.limit, 10)
+
+  const where = {
+    assinaturaItem: {
+      assinatura: {
+        contaId,
+        ...(search
+          ? {
+              OR: [
+                { nomeContrato: { contains: search } },
+                { Uid: { contains: search } },
+                { cliente: { nome: { contains: search } } },
+              ],
+            }
+          : {}),
+      },
+    },
+    ...(status && status !== 'TODOS'
+      ? { status: status as 'EM_USO' | 'DEVOLVIDO' | 'PERDIDO' | 'AVARIADO' }
+      : {}),
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.assinaturaComodato.findMany({
+      where,
+      include: {
+        produto: true,
+        assinaturaItem: {
+          include: {
+            assinatura: {
+              include: {
+                cliente: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * take,
+      take,
+    }),
+    prisma.assinaturaComodato.count({ where }),
+  ])
+
+  return res.json({
+    data: data.map(mapComodatoAssinaturaListItem),
+    pagination: {
+      total,
+      page,
+      limit: take,
+      totalPages: Math.ceil(total / take),
+    },
   })
 }
 
