@@ -5,10 +5,14 @@ import {
   getAssinaturaDetalhe,
   getAssinaturas,
   getAssinaturasDashboard,
+  getAssinaturasMobile,
   getAssinaturasOpcoes,
+  getAssinaturasTable,
   getCobrancasAssinatura,
   getComodatosAssinatura,
   getPlanosAssinatura,
+  getPlanosAssinaturaMobile,
+  getPlanosAssinaturaTable,
   saveAssinatura,
   savePlanoAssinatura,
   updateAssinaturaStatus,
@@ -22,9 +26,13 @@ routerAssinaturas.get('/dashboard', authenticateJWT, getAssinaturasDashboard)
 routerAssinaturas.get('/opcoes', authenticateJWT, getAssinaturasOpcoes)
 
 routerAssinaturas.get('/planos', authenticateJWT, getPlanosAssinatura)
+routerAssinaturas.get('/planos/tabela', authenticateJWT, getPlanosAssinaturaTable)
+routerAssinaturas.get('/planos/mobile', authenticateJWT, getPlanosAssinaturaMobile)
 routerAssinaturas.post('/planos', authenticateJWT, savePlanoAssinatura)
 
 routerAssinaturas.get('/assinaturas', authenticateJWT, getAssinaturas)
+routerAssinaturas.get('/assinaturas/tabela', authenticateJWT, getAssinaturasTable)
+routerAssinaturas.get('/assinaturas/mobile', authenticateJWT, getAssinaturasMobile)
 routerAssinaturas.post('/assinaturas', authenticateJWT, saveAssinatura)
 routerAssinaturas.get('/assinaturas/:id', authenticateJWT, getAssinaturaDetalhe)
 routerAssinaturas.post('/assinaturas/:id/status', authenticateJWT, updateAssinaturaStatus)

@@ -8,9 +8,10 @@ import { addHours } from "date-fns";
 import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { z } from "zod";
-import { saveOrdemServicoSchema } from "../../schemas/ordemservico";
+import { efetivarOsSchema, saveOrdemServicoSchema } from "../../schemas/ordemservico";
 import { ItensOrdensServico } from "../../../generated";
 import { hasPermission } from "../../helpers/userPermission";
+import { cancelarCobrancaMercadoPago } from "../financeiro/cobrancas/managerCobranca";
 
 export const addNovaMensagemOrdem = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -36,6 +37,23 @@ export const addNovaMensagemOrdem = async (req: Request, res: Response): Promise
   }catch (err: any) {
     handleError(res, err);
   }
+}
+
+function getOrdemServicoTotal(
+  ordem: {
+    desconto?: Decimal | number | string | null;
+    ItensOrdensServico: Array<{ quantidade: number; valor: Decimal | number | string }>;
+  }
+) {
+  const subtotal = ordem.ItensOrdensServico.reduce((acc, item) => {
+    return acc.plus(new Decimal(item.valor).times(item.quantidade));
+  }, new Decimal(0));
+
+  return subtotal.minus(new Decimal(ordem.desconto || 0));
+}
+
+function getOrdemServicoFinanceDescription(uid: string) {
+  return `Faturamento OS ${uid}`;
 }
 
 export const updateVendaInternal = async (
@@ -295,6 +313,201 @@ export const saveOrdemServico = async (
   }
 };
 
+export const efetivarOrdemServico = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const parsed = efetivarOsSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return handleError(res, parsed.error);
+    }
+
+    const {
+      pagamento,
+      dataPagamento,
+      conta,
+      categoria,
+      lancamentoManual,
+      cancelarCobrancaExterna,
+    } = parsed.data;
+
+    const transaction = await prisma.$transaction(async (tx) => {
+      const ordem = await tx.ordensServico.findUniqueOrThrow({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+        },
+        include: {
+          ItensOrdensServico: true,
+          CobrancasFinanceiras: true,
+        },
+      });
+
+      if (ordem.status === "FATURADA") {
+        throw new Error("OS já faturada.");
+      }
+
+      const valorTotal = getOrdemServicoTotal(ordem);
+      if (valorTotal.lte(0)) {
+        throw new Error("A OS precisa ter valor maior que zero para faturar.");
+      }
+
+      await tx.ordensServico.update({
+        where: {
+          id: ordem.id,
+          contaId: customData.contaId,
+        },
+        data: {
+          status: "FATURADA",
+        },
+      });
+
+      if (!lancamentoManual) {
+        if (!categoria || !conta) {
+          throw new Error(
+            "Conta e categoria são obrigatórias quando o lançamento automático estiver ativo."
+          );
+        }
+
+        const descricaoFinanceira = getOrdemServicoFinanceDescription(ordem.Uid);
+
+        await tx.lancamentoFinanceiro.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("FIN"),
+            contaId: customData.contaId,
+            clienteId: ordem.clienteId,
+            valorBruto: valorTotal,
+            valorTotal: valorTotal,
+            desconto: new Decimal(0),
+            recorrente: false,
+            dataLancamento: new Date(dataPagamento),
+            descricao: descricaoFinanceira,
+            status: "PAGO",
+            categoriaId: categoria,
+            contasFinanceiroId: conta,
+            formaPagamento: pagamento,
+            tipo: "RECEITA",
+            parcelas: {
+              create: {
+                dataPagamento: new Date(dataPagamento),
+                numero: 1,
+                vencimento: new Date(dataPagamento),
+                formaPagamento: pagamento,
+                pago: true,
+                Uid: gerarIdUnicoComMetaFinal("PAR"),
+                valorPago: valorTotal,
+                valor: valorTotal,
+              },
+            },
+          },
+        });
+      }
+
+      const cobrancasMercadoPagoPendentes = ordem.CobrancasFinanceiras.filter(
+        (cobranca) =>
+          cobranca.gateway === "mercadopago" && cobranca.status === "PENDENTE"
+      );
+
+      return {
+        id: ordem.id,
+        Uid: ordem.Uid,
+        valorTotal,
+        cobrancasMercadoPagoPendentes,
+      };
+    });
+
+    let cancelamentosFalharam = 0;
+
+    if (
+      cancelarCobrancaExterna &&
+      transaction.cobrancasMercadoPagoPendentes.length > 0
+    ) {
+      const parametros = await prisma.parametrosConta.findUniqueOrThrow({
+        where: { contaId: customData.contaId },
+      });
+
+      for (const cobranca of transaction.cobrancasMercadoPagoPendentes) {
+        try {
+          await cancelarCobrancaMercadoPago(parametros, cobranca);
+        } catch (error) {
+          console.log(error);
+          cancelamentosFalharam += 1;
+        }
+      }
+    }
+
+    const message =
+      cancelamentosFalharam > 0
+        ? "OS faturada, mas nem todas as cobranças do Mercado Pago puderam ser canceladas."
+        : "OS faturada com sucesso.";
+
+    return ResponseHandler(res, message, transaction);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+
+export const estornarOrdemServico = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+
+    const ordem = await prisma.$transaction(async (tx) => {
+      const ordemAtual = await tx.ordensServico.findUniqueOrThrow({
+        where: {
+          id: Number(req.params.id),
+          contaId: customData.contaId,
+        },
+        include: {
+          CobrancasFinanceiras: true,
+        },
+      });
+
+      if (ordemAtual.status !== "FATURADA") {
+        throw new Error("Apenas OS faturadas podem ser estornadas.");
+      }
+
+      const cobrancasAtivas = ordemAtual.CobrancasFinanceiras.filter((cobranca) =>
+        ["PENDENTE", "EFETIVADO"].includes(cobranca.status)
+      );
+
+      if (cobrancasAtivas.length) {
+        throw new Error(
+          "Esta OS possui cobranças ativas e precisa regularizá-las antes do estorno."
+        );
+      }
+
+      await tx.lancamentoFinanceiro.deleteMany({
+        where: {
+          contaId: customData.contaId,
+          clienteId: ordemAtual.clienteId,
+          descricao: getOrdemServicoFinanceDescription(ordemAtual.Uid),
+          tipo: "RECEITA",
+        },
+      });
+
+      return await tx.ordensServico.update({
+        where: {
+          id: ordemAtual.id,
+          contaId: customData.contaId,
+        },
+        data: {
+          status: "APROVADA",
+        },
+      });
+    });
+
+    return ResponseHandler(res, "OS estornada com sucesso.", ordem);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+
 export const deleteOrdemServico = async (
   req: Request,
   res: Response
@@ -317,11 +530,22 @@ export const deleteOrdemServico = async (
         },
         include: {
           ItensOrdensServico: true,
+          CobrancasFinanceiras: true,
         },
       });
 
       if (ordemBusca.status === "FATURADA") {
         throw new Error("OS faturada não pode ser deletada!");
+      }
+
+      const possuiCobrancaAtiva = ordemBusca.CobrancasFinanceiras.some((cobranca) =>
+        ["PENDENTE", "EFETIVADO"].includes(cobranca.status)
+      );
+
+      if (possuiCobrancaAtiva) {
+        throw new Error(
+          "A OS possui cobrança ativa e não pode ser excluída enquanto houver vínculo financeiro pendente."
+        );
       }
 
       for (const item of ordemBusca.ItensOrdensServico) {
@@ -418,6 +642,7 @@ export const buscarOrdemDetalhe = async (
       include: {
         ItensOrdensServico: true,
         Cliente: true,
+        CobrancasFinanceiras: true,
         MensagensInteracoesOrdemServico: {
           orderBy: {
             data: "asc",

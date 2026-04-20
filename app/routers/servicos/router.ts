@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import { deleteServico, getServico, getServicos, mobileServico, saveServico, tableServico } from "../../controllers/servicos/servicos";
 import { select2Servicos } from "../../controllers/servicos/hooks";
-import { addNovaMensagemOrdem, buscarOrdem, buscarOrdemDetalhe, buscarOrdens, deleteOrdemServico, saveOrdemServico } from "../../controllers/servicos/ordens";
+import { addNovaMensagemOrdem, buscarOrdem, buscarOrdemDetalhe, buscarOrdens, deleteOrdemServico, efetivarOrdemServico, estornarOrdemServico, saveOrdemServico } from "../../controllers/servicos/ordens";
 import { ListagemMobileOrdens, tableOrdensServico } from "../../controllers/servicos/table_ordens";
 import { gerarPdfOS } from "../../controllers/servicos/ordens_relatorios";
 import { getEventosCalendario, resumoOrdensServico } from "../../controllers/servicos/resumo_os";
@@ -18,6 +18,8 @@ routerServicos.delete("/:id", authenticateJWT, deleteServico);
 //Ordens de serviço
 routerServicos.get("/ordens", authenticateJWT, buscarOrdens);
 routerServicos.post("/ordens", authenticateJWT, saveOrdemServico);
+routerServicos.post("/ordens/:id/efetivar", authenticateJWT, efetivarOrdemServico);
+routerServicos.get("/ordens/:id/estornar", authenticateJWT, estornarOrdemServico);
 routerServicos.delete("/ordens/:id", authenticateJWT, deleteOrdemServico);
 routerServicos.get("/ordens/:id", authenticateJWT, buscarOrdem);
 routerServicos.get("/ordem-detalhe/:id", authenticateJWT, buscarOrdemDetalhe);

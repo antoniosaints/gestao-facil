@@ -164,6 +164,134 @@ function normalizeSearch(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function parsePositiveQueryNumber(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) return fallback
+  return parsed
+}
+
+function parseSortOrder(value: unknown): 'asc' | 'desc' {
+  return value === 'desc' ? 'desc' : 'asc'
+}
+
+function resolvePlanoSortField(value: unknown) {
+  const sortBy = typeof value === 'string' ? value : 'updatedAt'
+
+  switch (sortBy) {
+    case 'nome':
+    case 'status':
+    case 'valorBase':
+    case 'periodicidadePadrao':
+    case 'createdAt':
+      return sortBy
+    default:
+      return 'updatedAt'
+  }
+}
+
+function resolveAssinaturaSortField(value: unknown) {
+  const sortBy = typeof value === 'string' ? value : 'updatedAt'
+
+  switch (sortBy) {
+    case 'nomeContrato':
+    case 'status':
+    case 'proximaCobranca':
+    case 'createdAt':
+      return sortBy
+    default:
+      return 'updatedAt'
+  }
+}
+
+function mapPlanoAssinaturaListItem(item: any) {
+  return {
+    id: item.id,
+    Uid: item.Uid,
+    nome: item.nome,
+    descricao: item.descricao,
+    status: item.status,
+    periodicidadePadrao: item.periodicidadePadrao,
+    intervaloDiasPadrao: item.intervaloDiasPadrao,
+    valorBase: toNumber(item.valorBase),
+    modoValorPadrao: item.modoValorPadrao,
+    gatewayPadrao: item.gatewayPadrao,
+    tipoCobrancaPadrao: item.tipoCobrancaPadrao,
+    itens: item.itens.map((subItem: any) => ({
+      id: subItem.id,
+      tipoItem: subItem.tipoItem,
+      servicoId: subItem.servicoId,
+      produtoId: subItem.produtoId,
+      descricaoSnapshot: subItem.descricaoSnapshot,
+      quantidade: subItem.quantidade,
+      valorUnitario: toNumber(subItem.valorUnitario),
+      cobrar: subItem.cobrar,
+      comodato: subItem.comodato,
+    })),
+    resumo: {
+      itens: item.itens.length,
+      itensCobrados: item.itens.filter((subItem: any) => subItem.cobrar).length,
+      assinaturasVinculadas: item._count.assinaturas,
+    },
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }
+}
+
+function mapAssinaturaListItem(item: any) {
+  const valorAtual = resolveSubscriptionValue({
+    modoValor: item.modoValor,
+    valorManual: item.valorManual ? Number(item.valorManual) : null,
+    planBaseValue: item.plano ? Number(item.plano.valorBase) : null,
+    itens: item.itens.map((subItem: any) => ({
+      quantidade: subItem.quantidade,
+      valorUnitario: Number(subItem.valorUnitario),
+      cobrar: subItem.cobrar,
+      ativo: subItem.ativo,
+    })),
+  })
+
+  return {
+    id: item.id,
+    Uid: item.Uid,
+    nomeContrato: item.nomeContrato,
+    status: item.status,
+    modoValor: item.modoValor,
+    valorManual: item.valorManual ? toNumber(item.valorManual) : null,
+    valorAtual,
+    periodicidade: item.periodicidade,
+    intervaloDiasPersonalizado: item.intervaloDiasPersonalizado,
+    inicio: item.inicio,
+    fim: item.fim,
+    recorrenciaIndefinida: item.recorrenciaIndefinida,
+    proximaCobranca: item.proximaCobranca,
+    cobrancaAutomatica: item.cobrancaAutomatica,
+    gateway: item.gateway,
+    tipoCobranca: item.tipoCobranca,
+    observacoes: item.observacoes,
+    cliente: item.cliente ? { id: item.cliente.id, nome: item.cliente.nome } : null,
+    plano: item.plano ? { id: item.plano.id, nome: item.plano.nome } : null,
+    itens: item.itens.map((subItem: any) => ({
+      id: subItem.id,
+      tipoItem: subItem.tipoItem,
+      servicoId: subItem.servicoId,
+      produtoId: subItem.produtoId,
+      descricaoSnapshot: subItem.descricaoSnapshot,
+      quantidade: subItem.quantidade,
+      valorUnitario: toNumber(subItem.valorUnitario),
+      cobrar: subItem.cobrar,
+      comodato: subItem.comodato,
+      ativo: subItem.ativo,
+    })),
+    resumo: {
+      itens: item.itens.length,
+      ciclosRecentes: item.ciclos.length,
+      pendencias: item.ciclos.filter((cycle: any) => ['PENDENTE', 'ATRASADO'].includes(cycle.status)).length,
+    },
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }
+}
+
 async function ensurePermission(req: Request, res: Response) {
   const allowed = await hasPermission(getCustomRequest(req).customData, 3)
   if (!allowed) {
@@ -433,11 +561,7 @@ export async function getPlanosAssinatura(req: Request, res: Response): Promise<
       contaId,
       ...(search
         ? {
-            OR: [
-              { nome: { contains: search } },
-              { descricao: { contains: search } },
-              { Uid: { contains: search } },
-            ],
+            OR: [{ nome: { contains: search } }, { descricao: { contains: search } }, { Uid: { contains: search } }],
           }
         : {}),
       ...(status && status !== 'TODOS' ? { status: status as 'ATIVO' | 'INATIVO' } : {}),
@@ -449,38 +573,94 @@ export async function getPlanosAssinatura(req: Request, res: Response): Promise<
     orderBy: { updatedAt: 'desc' },
   })
 
-  return res.json({
-    data: data.map((item) => ({
-      id: item.id,
-      Uid: item.Uid,
-      nome: item.nome,
-      descricao: item.descricao,
-      status: item.status,
-      periodicidadePadrao: item.periodicidadePadrao,
-      intervaloDiasPadrao: item.intervaloDiasPadrao,
-      valorBase: toNumber(item.valorBase),
-      modoValorPadrao: item.modoValorPadrao,
-      gatewayPadrao: item.gatewayPadrao,
-      tipoCobrancaPadrao: item.tipoCobrancaPadrao,
-      itens: item.itens.map((subItem) => ({
-        id: subItem.id,
-        tipoItem: subItem.tipoItem,
-        servicoId: subItem.servicoId,
-        produtoId: subItem.produtoId,
-        descricaoSnapshot: subItem.descricaoSnapshot,
-        quantidade: subItem.quantidade,
-        valorUnitario: toNumber(subItem.valorUnitario),
-        cobrar: subItem.cobrar,
-        comodato: subItem.comodato,
-      })),
-      resumo: {
-        itens: item.itens.length,
-        itensCobrados: item.itens.filter((subItem) => subItem.cobrar).length,
-        assinaturasVinculadas: item._count.assinaturas,
+  return res.json({ data: data.map(mapPlanoAssinaturaListItem) })
+}
+
+export async function getPlanosAssinaturaTable(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const sortBy = resolvePlanoSortField(req.query.sortBy)
+  const order = parseSortOrder(req.query.order)
+
+  const where = {
+    contaId,
+    ...(search
+      ? {
+          OR: [{ nome: { contains: search } }, { descricao: { contains: search } }, { Uid: { contains: search } }],
+        }
+      : {}),
+    ...(status && status !== 'TODOS' ? { status: status as 'ATIVO' | 'INATIVO' } : {}),
+  }
+
+  const [total, data] = await Promise.all([
+    prisma.planoAssinatura.count({ where }),
+    prisma.planoAssinatura.findMany({
+      where,
+      include: {
+        itens: true,
+        _count: { select: { assinaturas: true } },
       },
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-    })),
+      orderBy: { [sortBy]: order },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ])
+
+  return res.json({
+    data: data.map(mapPlanoAssinaturaListItem),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  })
+}
+
+export async function getPlanosAssinaturaMobile(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const take = parsePositiveQueryNumber(req.query.limit, 10)
+
+  const where = {
+    contaId,
+    ...(search
+      ? {
+          OR: [{ nome: { contains: search } }, { descricao: { contains: search } }, { Uid: { contains: search } }],
+        }
+      : {}),
+    ...(status && status !== 'TODOS' ? { status: status as 'ATIVO' | 'INATIVO' } : {}),
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.planoAssinatura.findMany({
+      where,
+      include: {
+        itens: true,
+        _count: { select: { assinaturas: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      skip: (page - 1) * take,
+      take,
+    }),
+    prisma.planoAssinatura.count({ where }),
+  ])
+
+  return res.json({
+    data: data.map(mapPlanoAssinaturaListItem),
+    pagination: {
+      total,
+      page,
+      limit: take,
+      totalPages: Math.ceil(total / take),
+    },
   })
 }
 
@@ -568,9 +748,7 @@ export async function getAssinaturas(req: Request, res: Response): Promise<any> 
   const data = await prisma.assinaturaCliente.findMany({
     where: {
       contaId,
-      ...(status && status !== 'TODOS'
-        ? { status: status as 'ATIVA' | 'SUSPENSA' | 'CANCELADA' | 'ENCERRADA' }
-        : {}),
+      ...(status && status !== 'TODOS' ? { status: status as 'ATIVA' | 'SUSPENSA' | 'CANCELADA' | 'ENCERRADA' } : {}),
       ...(search
         ? {
             OR: [
@@ -593,47 +771,112 @@ export async function getAssinaturas(req: Request, res: Response): Promise<any> 
     orderBy: { updatedAt: 'desc' },
   })
 
-  return res.json({
-    data: data.map((item) => {
-      const valorAtual = resolveSubscriptionValue({
-        modoValor: item.modoValor,
-        valorManual: item.valorManual ? Number(item.valorManual) : null,
-        planBaseValue: item.plano ? Number(item.plano.valorBase) : null,
-        itens: item.itens.map((subItem) => ({
-          quantidade: subItem.quantidade,
-          valorUnitario: Number(subItem.valorUnitario),
-          cobrar: subItem.cobrar,
-          ativo: subItem.ativo,
-        })),
-      })
+  return res.json({ data: data.map(mapAssinaturaListItem) })
+}
 
-      return {
-        id: item.id,
-        Uid: item.Uid,
-        nomeContrato: item.nomeContrato,
-        status: item.status,
-        modoValor: item.modoValor,
-        valorManual: item.valorManual ? toNumber(item.valorManual) : null,
-        valorAtual,
-        periodicidade: item.periodicidade,
-        intervaloDiasPersonalizado: item.intervaloDiasPersonalizado,
-        inicio: item.inicio,
-        fim: item.fim,
-        recorrenciaIndefinida: item.recorrenciaIndefinida,
-        proximaCobranca: item.proximaCobranca,
-        cobrancaAutomatica: item.cobrancaAutomatica,
-        gateway: item.gateway,
-        tipoCobranca: item.tipoCobranca,
-        observacoes: item.observacoes,
-        cliente: item.cliente ? { id: item.cliente.id, nome: item.cliente.nome } : null,
-        plano: item.plano ? { id: item.plano.id, nome: item.plano.nome } : null,
-        resumo: {
-          itens: item.itens.length,
-          ciclosRecentes: item.ciclos.length,
-          pendencias: item.ciclos.filter((cycle) => ['PENDENTE', 'ATRASADO'].includes(cycle.status)).length,
+export async function getAssinaturasTable(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const sortBy = resolveAssinaturaSortField(req.query.sortBy)
+  const order = parseSortOrder(req.query.order)
+
+  const where = {
+    contaId,
+    ...(status && status !== 'TODOS' ? { status: status as 'ATIVA' | 'SUSPENSA' | 'CANCELADA' | 'ENCERRADA' } : {}),
+    ...(search
+      ? {
+          OR: [
+            { nomeContrato: { contains: search } },
+            { Uid: { contains: search } },
+            { cliente: { nome: { contains: search } } },
+          ],
+        }
+      : {}),
+  }
+
+  const [total, data] = await Promise.all([
+    prisma.assinaturaCliente.count({ where }),
+    prisma.assinaturaCliente.findMany({
+      where,
+      include: {
+        cliente: true,
+        plano: true,
+        itens: true,
+        ciclos: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
         },
-      }
+      },
+      orderBy: { [sortBy]: order },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
+  ])
+
+  return res.json({
+    data: data.map(mapAssinaturaListItem),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+  })
+}
+
+export async function getAssinaturasMobile(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const search = normalizeSearch(req.query.search)
+  const status = normalizeSearch(req.query.status)
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const take = parsePositiveQueryNumber(req.query.limit, 10)
+
+  const where = {
+    contaId,
+    ...(status && status !== 'TODOS' ? { status: status as 'ATIVA' | 'SUSPENSA' | 'CANCELADA' | 'ENCERRADA' } : {}),
+    ...(search
+      ? {
+          OR: [
+            { nomeContrato: { contains: search } },
+            { Uid: { contains: search } },
+            { cliente: { nome: { contains: search } } },
+          ],
+        }
+      : {}),
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.assinaturaCliente.findMany({
+      where,
+      include: {
+        cliente: true,
+        plano: true,
+        itens: true,
+        ciclos: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      skip: (page - 1) * take,
+      take,
+    }),
+    prisma.assinaturaCliente.count({ where }),
+  ])
+
+  return res.json({
+    data: data.map(mapAssinaturaListItem),
+    pagination: {
+      total,
+      page,
+      limit: take,
+      totalPages: Math.ceil(total / take),
+    },
   })
 }
 

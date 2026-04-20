@@ -39,6 +39,7 @@ export const efetivarOsSchema = z.object(
       required_error: "O campo categoria é obrigatório",
       invalid_type_error: "O campo categoria deve ser um número",
     }),
+    cancelarCobrancaExterna: z.boolean().optional().default(true),
   },
   { required_error: "Informe os dados de pagamento" }
 );
