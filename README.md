@@ -147,6 +147,8 @@ npm run initialize
 npm run seed
 ```
 
+O repositório agora inclui a migration `prisma/migrations/20260419110000_assinaturas_modulo_inicial`, que cria o domínio recorrente de planos, assinaturas, ciclos e comodatos.
+
 ### 4. Subir a API
 
 ```bash
@@ -199,6 +201,8 @@ pm2 start ecosystem.config.js
 - `views/` e `public/` ainda atendem fluxos ativos.
 - `generated/` é gerado pelo Prisma e não deve ser editado manualmente.
 - O schema Prisma é grande e multi-tenant via `contaId`.
+- O backend agora expõe um domínio dedicado `/api/assinaturas`, separado das rotas `/api/contas/assinatura`: as rotas antigas continuam cobrindo a assinatura da própria conta do ERP, enquanto o novo domínio gerencia planos recorrentes de clientes, contratos, ciclos/cobranças, histórico e comodatos.
+- O worker `cronJobsWorker.ts` também passa a processar recorrência de assinaturas, gerando ciclos vencidos e tentando acionar automações financeiras do módulo quando a assinatura estiver configurada para isso.
 - No módulo financeiro, os endpoints de acompanhamento, dashboard, resumos analíticos legados (`totais`, `valor-status`, `valor-conta`, `valor-pagamento`, `resumo-clientes`, `media-mensal`, `categoria`) e DRE devem calcular saldo, previsto, atraso e agregações por categoria a partir das parcelas financeiras, respeitando as datas operacionais (`vencimento` e `dataPagamento`) e sempre filtrando pelo `contaId` autenticado. Isso também vale para gráficos de saldo mensal exibidos em dashboards transversais.
 - O mesmo domínio também expõe edição restrita de lançamentos já registrados, permitindo ajustar apenas descrição, categoria, conta financeira, cliente/fornecedor e forma de pagamento padrão, além de um endpoint de detalhe de conta financeira com resumo e movimentações filtráveis por período, tipo, status e busca, uma operação de transferência entre contas com modo de geração financeira ou remanejamento direto dos lançamentos filtrados com prévia de impacto e um ajuste manual de saldo que pode gerar lançamento financeiro ou apenas recalibrar internamente o saldo base da conta.
 - Os dois modelos de PDF do DRE financeiro usam esse mesmo consolidado por parcelas e renderizam o cabeçalho com a foto/logo da conta quando disponível, mantendo fallback para a logo padrão.
@@ -216,6 +220,7 @@ pm2 start ecosystem.config.js
 - vendas e comandas;
 - financeiro;
 - serviços e ordens de serviço;
+- assinaturas da conta, assinaturas recorrentes de clientes e integrações com gateways;
 - arena;
 - impressão;
 - notificações;

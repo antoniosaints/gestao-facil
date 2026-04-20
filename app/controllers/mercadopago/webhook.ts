@@ -19,6 +19,7 @@ import {
   reconcileStoreModulesAfterPayment,
   releaseStoreModuleCharge,
 } from "../../services/contas/storeModulesService";
+import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -188,6 +189,12 @@ export async function webhookMercadoPagoCobrancas(
       where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
     });
+
+    if (statusNovo === "EFETIVADO") {
+      await syncCycleStatusFromCharge(cobranca.id, "PAGO");
+    } else if (["CANCELADO", "ESTORNADO"].includes(statusNovo)) {
+      await syncCycleStatusFromCharge(cobranca.id, "CANCELADO");
+    }
 
     if (statusNovo === "EFETIVADO") {
       const moduloAtivado = await activateStoreModuleFromCharge(cobranca.id);

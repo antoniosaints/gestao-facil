@@ -12,6 +12,7 @@ import { routerServicos } from "./servicos/router";
 import { routerDefault } from "./default";
 import { routerAdminMain } from "./administracao/router";
 import { routerArena } from "./arena/router";
+import { routerAssinaturas } from "./assinaturas/router";
 import { callChatGemini } from "../controllers/inteligence/gemini";
 import { authenticateJWT } from "../middlewares/auth";
 
@@ -30,6 +31,7 @@ RouterMain.use("/api/system", monitorRouter);
 RouterMain.use("/api/uploads", routerUploads);
 RouterMain.use("/api/admin", routerAdminMain);
 RouterMain.use("/api/arenas", routerArena);
+RouterMain.use("/api/assinaturas", routerAssinaturas);
 RouterMain.post("/api/gemini/chat", authenticateJWT, callChatGemini);
 
 export { RouterMain };

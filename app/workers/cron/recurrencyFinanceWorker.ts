@@ -1,49 +1,60 @@
-import { Job, Queue, Worker } from "bullmq";
-import { redisConnecion } from "../../utils/redis";
+import { Job, Queue, Worker } from 'bullmq'
 
-const financeQueue = "recurrencyFinance";
+import { redisConnecion } from '../../utils/redis'
+import { processDueSubscriptionCycles } from '../../services/assinaturas/recorrenciaService'
+
+const financeQueue = 'recurrencyFinance'
 const queue = new Queue(financeQueue, {
   connection: redisConnecion,
-});
+})
 
-// evita múltiplos cron jobs duplicados
-(async () => {
-  const existing = await queue.getJobSchedulers();
-  const exists = existing.some(j => j.name === financeQueue);
+;(async () => {
+  const existing = await queue.getJobSchedulers()
+  const exists = existing.some((job) => job.name === financeQueue)
+
   if (!exists) {
     await queue.add(
       financeQueue,
       {},
       {
         repeat: {
-          pattern: "*/5 * * * * *",
+          pattern: '*/5 * * * *',
         },
-        removeOnComplete: true,
-        removeOnFail: true,
-      }
-    );
+        removeOnComplete: 20,
+        removeOnFail: 20,
+      },
+    )
   }
-})();
+})()
 
 export const recurrencyFinanceWorker = () => {
   const worker = new Worker(
     financeQueue,
     async (job: Job) => {
-      console.log(`Worker rodou o job ${job.name} com o id ${job.id}`);
-      // aqui você executa a lógica diária
+      const summary = await processDueSubscriptionCycles()
+      console.log(
+        `[recurrencyFinance] job=${job.id} checked=${summary.checked} created=${summary.created} failed=${summary.failed}`,
+      )
+
+      if (summary.errors.length) {
+        console.error('[recurrencyFinance] errors:', summary.errors)
+      }
+
+      return summary
     },
-    {connection: redisConnecion,
-      concurrency: 10,
-    }
-  );
+    {
+      connection: redisConnecion,
+      concurrency: 1,
+    },
+  )
 
-  worker.on("ready", () => {
-    console.log("Worker de gerenciamento financeiro iniciado com sucesso!");
-  });
+  worker.on('ready', () => {
+    console.log('Worker de recorrência financeira iniciado com sucesso!')
+  })
 
-  worker.on("failed", (job, err) => {
-    console.error("Erro no job:", job?.id, err);
-  });
+  worker.on('failed', (job, err) => {
+    console.error('Erro no job:', job?.id, err)
+  })
 
-  return worker;
-};
+  return worker
+}
