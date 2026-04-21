@@ -67,6 +67,24 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    WhatsappAPIToken: z
+      .string({
+        invalid_type_error: "O campo WhatsappAPIToken deve ser uma string",
+      })
+      .optional()
+      .nullable(),
+    WhatsappAPISession: z
+      .string({
+        invalid_type_error: "O campo WhatsappAPISession deve ser uma string",
+      })
+      .optional()
+      .nullable(),
+    WhatsappAPINumber: z
+      .string({
+        invalid_type_error: "O campo WhatsappAPINumber deve ser uma string",
+      })
+      .optional()
+      .nullable(),
     chavePix: z
       .string({
         invalid_type_error: "O campo chavePix deve ser uma string",

@@ -3,6 +3,7 @@ import { authenticateJWT } from '../../middlewares/auth'
 import {
   cancelarCobrancaCicloAssinatura,
   deleteAssinatura,
+  deleteCobrancaCicloAssinatura,
   deletePlanoAssinatura,
   estornarCobrancaCicloAssinatura,
   gerarCicloAssinatura,
@@ -59,6 +60,7 @@ routerAssinaturas.post('/cobrancas/:id/status', authenticateJWT, updateCicloAssi
 routerAssinaturas.post('/cobrancas/:id/gerar-gateway', authenticateJWT, gerarCobrancaCicloAssinatura)
 routerAssinaturas.post('/cobrancas/:id/cancelar', authenticateJWT, cancelarCobrancaCicloAssinatura)
 routerAssinaturas.post('/cobrancas/:id/estornar', authenticateJWT, estornarCobrancaCicloAssinatura)
+routerAssinaturas.delete('/cobrancas/:id', authenticateJWT, deleteCobrancaCicloAssinatura)
 routerAssinaturas.post('/cobrancas/:id/reajustar', authenticateJWT, reajustarCobrancaCicloAssinatura)
 
 routerAssinaturas.get('/comodatos', authenticateJWT, getComodatosAssinatura)

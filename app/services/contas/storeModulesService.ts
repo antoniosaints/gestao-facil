@@ -27,6 +27,27 @@ const DEFAULT_MODULES = [
     categoria: "Notificacoes",
     preco: 19.9,
   },
+  {
+    codigo: "assinaturas",
+    nome: "Assinaturas",
+    descricao: "Gestao de contratos recorrentes, ciclos, comodatos e cobrancas do modulo de assinaturas.",
+    categoria: "Recorrencia",
+    preco: 5,
+  },
+  {
+    codigo: "mercado-pago",
+    nome: "Mercado Pago",
+    descricao: "Integracao gratuita para configurar as credenciais operacionais do Mercado Pago da conta.",
+    categoria: "Financeiro",
+    preco: 0,
+  },
+  {
+    codigo: "abacatepay",
+    nome: "AbacatePay",
+    descricao: "Integracao gratuita para configurar as credenciais operacionais do AbacatePay da conta.",
+    categoria: "Financeiro",
+    preco: 0,
+  },
 ] as const;
 
 const MODULE_CYCLE_DAYS = 30;

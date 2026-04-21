@@ -11,6 +11,7 @@ import {
   gerarCobrancaAutomatica,
   gerarLancamentoFinanceiroAutomatico,
 } from '../../services/assinaturas/recorrenciaService'
+import { contaHasActiveModule } from '../../services/contas/storeModulesService'
 import {
   cancelarCobrancaMercadoPago,
   estornarCobrancaMercadoPago,
@@ -393,9 +394,16 @@ function mapComodatoAssinaturaListItem(item: any) {
 }
 
 async function ensurePermission(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData
   const allowed = await hasPermission(getCustomRequest(req).customData, 3)
   if (!allowed) {
     res.status(403).json({ message: 'Sem permissão para acessar o módulo de assinaturas.' })
+    return false
+  }
+
+  const hasModuleAccess = await contaHasActiveModule(contaId, 'assinaturas')
+  if (!hasModuleAccess) {
+    res.status(403).json({ message: 'O app Assinaturas não está ativo no plano desta conta.' })
     return false
   }
 
@@ -1661,6 +1669,68 @@ export async function estornarCobrancaCicloAssinatura(req: Request, res: Respons
   })
 
   return res.json({ message: 'Cobrança estornada com sucesso.' })
+}
+
+export async function deleteCobrancaCicloAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const id = Number(req.params.id)
+
+  const ciclo = await prisma.assinaturaCiclo.findFirst({
+    where: { id, assinatura: { contaId } },
+    include: {
+      assinatura: true,
+      cobrancaFinanceira: true,
+    },
+  })
+
+  if (!ciclo || !ciclo.cobrancaFinanceira) {
+    return res.status(404).json({ message: 'Cobrança vinculada não encontrada.' })
+  }
+
+  const tipoCobranca = ciclo.tipoCobrancaUsado || ciclo.assinatura.tipoCobranca
+  const statusCobranca = ciclo.cobrancaFinanceira.status
+  const deleteBlockedByGatewayRules = getTipoCobrancaOperavel(tipoCobranca)
+
+  if (ciclo.status === 'PAGO' || statusCobranca === 'EFETIVADO') {
+    return res.status(400).json({
+      message: 'Cobranças já pagas não podem ser apagadas para preservar o histórico financeiro.',
+    })
+  }
+
+  if (deleteBlockedByGatewayRules && !['CANCELADO', 'ESTORNADO'].includes(statusCobranca)) {
+    return res.status(400).json({
+      message:
+        'Para cobranças PIX e boleto, cancele ou estorne a cobrança antes de apagá-la do ciclo.',
+    })
+  }
+
+  const cobrancaId = ciclo.cobrancaFinanceira.id
+
+  await prisma.$transaction(async (tx) => {
+    await tx.assinaturaCiclo.update({
+      where: { id: ciclo.id },
+      data: {
+        cobrancaFinanceiraId: null,
+        status: 'PENDENTE',
+      },
+    })
+
+    await tx.cobrancasFinanceiras.delete({
+      where: { id: cobrancaId },
+    })
+  })
+
+  await registerHistory(ciclo.assinaturaId, userId, 'CICLO_COBRANCA_APAGADA', {
+    cicloId: ciclo.id,
+    cobrancaFinanceiraId: cobrancaId,
+    gateway: ciclo.cobrancaFinanceira.gateway,
+    statusAnterior: statusCobranca,
+    tipoCobranca,
+  })
+
+  return res.json({ message: 'Cobrança apagada do ciclo com sucesso.' })
 }
 
 export async function reajustarCobrancaCicloAssinatura(req: Request, res: Response): Promise<any> {

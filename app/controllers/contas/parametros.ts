@@ -41,6 +41,9 @@ export const saveParametros = async (
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
         AbacatePaySecret: body.data.AbacatePaySecret,
+        WhatsappAPIToken: body.data.WhatsappAPIToken,
+        WhatsappAPISession: body.data.WhatsappAPISession,
+        WhatsappAPINumber: body.data.WhatsappAPINumber,
         chavePix: body.data.chavePix,
       },
       update: {
@@ -55,6 +58,9 @@ export const saveParametros = async (
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
         AbacatePaySecret: body.data.AbacatePaySecret,
+        WhatsappAPIToken: body.data.WhatsappAPIToken,
+        WhatsappAPISession: body.data.WhatsappAPISession,
+        WhatsappAPINumber: body.data.WhatsappAPINumber,
         chavePix: body.data.chavePix,
       },
     });

@@ -208,6 +208,7 @@ export async function activateStoreModule(req: Request, res: Response): Promise<
     ]);
 
     const statusAtual = vinculoAtual?.status as ModuleStatus | undefined;
+    const isFreeModule = Number(modulo.preco ?? 0) <= 0;
 
     if (statusAtual === "ATIVO") {
       return res.status(400).json({ message: "Este app ja esta ativo na conta." });
@@ -225,7 +226,11 @@ export async function activateStoreModule(req: Request, res: Response): Promise<
       !!vinculoAtual &&
       isAfter(vinculoAtual.vencimento, new Date());
 
-    const nextStatus: ModuleStatus = manterAtivo ? "ATIVO" : "PENDENTE_ATIVACAO";
+    const nextStatus: ModuleStatus = isFreeModule
+      ? "ATIVO"
+      : manterAtivo
+        ? "ATIVO"
+        : "PENDENTE_ATIVACAO";
     const contaAtiva = isContaSubscriptionActive(conta);
 
     const vinculo = vinculoAtual
@@ -263,6 +268,18 @@ export async function activateStoreModule(req: Request, res: Response): Promise<
         message: "Modulo reativado para continuar na recorrencia da proxima mensalidade.",
         data: {
           recurringValue: recurringValue.toNumber(),
+        },
+      });
+    }
+
+    if (isFreeModule) {
+      return res.json({
+        message: "App gratuito ativado com sucesso. Agora voce pode configurar este recurso na App Store.",
+        data: {
+          recurringValue: recurringValue.toNumber(),
+          billingMode: null,
+          paymentLink: null,
+          immediateCharge: null,
         },
       });
     }
@@ -312,7 +329,7 @@ export async function cancelStoreModule(req: Request, res: Response): Promise<an
       return res.status(400).json({ message: "Modulo invalido." });
     }
 
-    const [conta, vinculo] = await Promise.all([
+    const [conta, modulo, vinculo] = await Promise.all([
       prisma.contas.findUniqueOrThrow({
         where: {
           id: customData.contaId,
@@ -320,6 +337,17 @@ export async function cancelStoreModule(req: Request, res: Response): Promise<an
         select: {
           id: true,
           vencimento: true,
+        },
+      }),
+      prisma.modulosAdicionais.findFirstOrThrow({
+        where: {
+          id: moduleId,
+          status: true,
+        },
+        select: {
+          id: true,
+          nome: true,
+          preco: true,
         },
       }),
       prisma.moduloOnConta.findUnique({
@@ -333,6 +361,7 @@ export async function cancelStoreModule(req: Request, res: Response): Promise<an
     ]);
 
     const statusAtual = vinculo?.status as ModuleStatus | undefined;
+    const isFreeModule = Number(modulo.preco ?? vinculo?.valorAdicional ?? 0) <= 0;
 
     if (!vinculo || statusAtual === "CANCELADO") {
       return res.status(404).json({ message: "Modulo nao esta vinculado a conta." });
@@ -357,6 +386,24 @@ export async function cancelStoreModule(req: Request, res: Response): Promise<an
 
       message =
         "Solicitacao cancelada. O app foi removido da proxima mensalidade e a cobranca avulsa pendente foi encerrada.";
+    } else if (isFreeModule) {
+      await cancelModuleCurrentCharge(vinculo.id);
+
+      await prisma.moduloOnConta.update({
+        where: {
+          id: vinculo.id,
+        },
+        data: {
+          status: "CANCELADO",
+          canceladoEm: new Date(),
+          solicitadoCancelamentoEm: null,
+          cobrancaAtualId: null,
+          tipoCobrancaAtual: null,
+          valorCobrancaAtual: null,
+        },
+      });
+
+      message = `App gratuito ${modulo.nome} removido da conta.`;
     } else if (statusAtual !== "CANCELAMENTO_AGENDADO") {
       await prisma.moduloOnConta.update({
         where: {
