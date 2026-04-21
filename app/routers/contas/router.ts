@@ -6,7 +6,7 @@ import {
   createSubscription,
   verificarAssinatura,
 } from "../../controllers/asaas/assinatura";
-import { criarLinkAssinatura } from "../../controllers/mercadopago/gateway";
+import { criarCheckoutAssinaturaConta } from "../../controllers/contas/assinaturaGateway";
 import { getPaymentMercadoPago } from "../../controllers/mercadopago/webhook";
 import {
   atualizarDadosConta,
@@ -34,9 +34,14 @@ routerContas.get("/assinatura", authenticateJWT, createSubscription);
 routerContas.post("/verificarPermissao", authenticateJWT, checkarPermissao);
 routerContas.post("/verificarAssinatura", authenticateJWT, verificarAssinatura);
 routerContas.get(
+  "/assinatura/checkout",
+  authenticateJWT,
+  criarCheckoutAssinaturaConta,
+);
+routerContas.get(
   "/assinatura/mercadopago",
   authenticateJWT,
-  criarLinkAssinatura
+  criarCheckoutAssinaturaConta,
 );
 routerContas.get(
   "/assinatura/mercadopago/getPagamento",

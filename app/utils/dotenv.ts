@@ -43,6 +43,8 @@ const envSchema = z.object({
   MP_ACCESS_TOKEN: z.string({
     required_error: "MP_ACCESS_TOKEN é obrigatório",
   }),
+  ABACATEPAY_API_KEY: z.string().optional(),
+  ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
   EMAIL_PASSWORD: z.string({
     required_error: "EMAIL_PASSWORD é obrigatório",
   }),

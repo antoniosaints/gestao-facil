@@ -2,9 +2,10 @@ import { addDays, addMonths, addWeeks, addYears, format, subDays } from 'date-fn
 
 import { prisma } from '../../utils/prisma'
 import { criarLancamentoFinanceiro } from '../financeiro/lancamentoService'
+import { generateCobrancaAbacatePay } from '../../controllers/financeiro/abacatePay/gerarCobranca'
 import { generateCobrancaMercadoPago } from '../../controllers/financeiro/mercadoPago/gerarCobranca'
 
-export type AutomaticGateway = 'mercadopago' | 'asaas' | 'pagseguro'
+export type AutomaticGateway = 'mercadopago' | 'abacatepay' | 'asaas' | 'pagseguro'
 export type AutomaticBillingType = 'PIX' | 'BOLETO' | 'LINK'
 
 function toNumber(value: unknown) {
@@ -219,19 +220,6 @@ export async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number
     return { cobrancaId: null }
   }
 
-  if (gateway !== 'mercadopago') {
-    await prisma.assinaturaCiclo.update({
-      where: { id: ciclo.id },
-      data: { status: 'FALHA' },
-    })
-    await registerHistory(ciclo.assinaturaId, usuarioId, 'CICLO_COBRANCA_AUTOMATICA_FALHOU', {
-      cicloId,
-      gateway,
-      motivo: 'Somente Mercado Pago está suportado na automação recorrente neste momento.',
-    })
-    return { cobrancaId: null }
-  }
-
   const parametros = await prisma.parametrosConta.findUnique({
     where: { contaId: ciclo.assinatura.contaId },
   })
@@ -250,16 +238,44 @@ export async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number
     return { cobrancaId: null }
   }
 
-  const generated = await generateCobrancaMercadoPago(
-    {
-      type: tipoCobranca,
-      value: toNumber(ciclo.valorCobrado),
-      gateway: 'mercadopago',
-      clienteId: ciclo.assinatura.clienteId,
-      vinculo: parcelaId ? { id: parcelaId, tipo: 'parcela' } : undefined,
-    },
-    parametros,
-  )
+  const generated =
+    gateway === 'abacatepay'
+      ? await generateCobrancaAbacatePay(
+          {
+            type: tipoCobranca,
+            value: toNumber(ciclo.valorCobrado),
+            gateway: 'abacatepay',
+            clienteId: ciclo.assinatura.clienteId,
+            vinculo: parcelaId ? { id: parcelaId, tipo: 'parcela' } : undefined,
+          },
+          ciclo.assinatura.contaId,
+        )
+      : gateway === 'mercadopago'
+        ? await generateCobrancaMercadoPago(
+            {
+              type: tipoCobranca,
+              value: toNumber(ciclo.valorCobrado),
+              gateway: 'mercadopago',
+              clienteId: ciclo.assinatura.clienteId,
+              vinculo: parcelaId ? { id: parcelaId, tipo: 'parcela' } : undefined,
+            },
+            parametros,
+          )
+        : null
+
+  if (!generated) {
+    await prisma.assinaturaCiclo.update({
+      where: { id: ciclo.id },
+      data: { status: 'FALHA' },
+    })
+    await registerHistory(ciclo.assinaturaId, usuarioId, 'CICLO_COBRANCA_AUTOMATICA_FALHOU', {
+      cicloId,
+      gateway,
+      tipoCobranca,
+      motivo: 'Gateway ainda não suportado na automação recorrente.',
+    })
+    return { cobrancaId: null }
+  }
 
   if (!generated.chargeId) {
     await prisma.assinaturaCiclo.update({

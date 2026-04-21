@@ -11,10 +11,10 @@ Este backend atende a API principal do sistema, processos assíncronos e partes 
 - `jsonwebtoken` para autenticação.
 - `zod` e `yup` em validação.
 - `express-handlebars` para views legadas.
-- `multer`, `nodemailer`, `web-push`, `mercadopago`, `@aws-sdk/client-s3` e `@google/generative-ai` em integrações específicas.
+- `multer`, `nodemailer`, `web-push`, `mercadopago`, `axios`, `@aws-sdk/client-s3` e `@google/generative-ai` em integrações específicas.
 
 ## Entradas e execução
-- `app/server.ts` sobe o servidor HTTP, registra handlebars, serve estáticos de `public`, monta rotas e inicializa Socket.IO.
+- `app/server.ts` sobe o servidor HTTP, registra handlebars, serve estáticos de `public`, monta rotas, preserva `req.rawBody` no parse JSON para webhooks assinados e inicializa Socket.IO.
 - `app/routers/api.ts` agrega os routers principais da API.
 - Há processos separados para:
   - servidor web;
@@ -77,5 +77,8 @@ No domínio de produtos, o backend trabalha com duas visões complementares:
 - No financeiro, cálculos de acompanhamento, saldo atual, saldo previsto, atraso, pendência, resumos analíticos legados e DRE devem partir das `ParcelaFinanceiro` e das datas operacionais (`vencimento` e `dataPagamento`), mantendo o `LancamentoFinanceiro` como cabeçalho do agrupamento.
 - O mesmo domínio também expõe edição restrita de metadados do lançamento após o registro, sem reabrir valores nem datas, detalhe operacional de conta financeira com resumo consolidado e movimentações filtráveis, transferência entre contas com duas estratégias (gerar lançamentos espelho de entrada/saída ou mover os lançamentos filtrados sem criar novos registros) e ajuste manual de saldo da conta com opção de lançamento financeiro auditável ou recalibração interna do saldo base.
 - Os relatórios PDF do DRE mantêm dois layouts distintos, mas compartilham o mesmo consolidado financeiro por parcelas e o cabeçalho visual com a foto/logo da conta quando existir.
+- No fluxo de mensalidade do SaaS, o gateway efetivo vem de `Contas.gateway`; o superadmin altera esse padrão em `/admin/configuracoes`, e a mudança sincroniza as contas existentes e o padrão de novos cadastros.
+- Quando o gateway selecionado for AbacatePay, o backend cria checkout hospedado, grava a fatura pendente em `FaturasContas` e confirma a renovação via webhook assinado com `ABACATEPAY_WEBHOOK_SECRET` do ambiente.
+- O mesmo endpoint de webhook da AbacatePay também atende cobranças operacionais multi-tenant, resolvendo o secret por `ParametrosConta.AbacatePaySecret` e mantendo separado o uso das credenciais globais do SaaS e das credenciais do cliente final.
 - O mesmo domínio também centraliza regras reutilizáveis de parcelamento (periodicidade mensal/semanal/diária/quinzenal/personalizada), atualização em cascata por escopo de parcela e importação em lote por CSV.
 - Antes de remover algo de `views` ou `public`, confirmar se a rota ou fluxo legado ainda está em uso.

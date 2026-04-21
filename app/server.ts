@@ -25,7 +25,13 @@ app.use("/api/printer", routerPrinter);
 
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as any).rawBody = buf.toString("utf8");
+    },
+  })
+);
 
 app.use(RouterMain);
 

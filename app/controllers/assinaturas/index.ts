@@ -38,7 +38,7 @@ const planoSchema = z.object({
   intervaloDiasPadrao: z.number().int().positive().optional().nullable(),
   valorBase: z.number().min(0).default(0),
   modoValorPadrao: z.enum(['MANUAL', 'DINAMICO']).default('DINAMICO'),
-  gatewayPadrao: z.enum(['mercadopago', 'asaas', 'pagseguro']).optional().nullable(),
+  gatewayPadrao: z.enum(['mercadopago', 'abacatepay', 'asaas', 'pagseguro']).optional().nullable(),
   tipoCobrancaPadrao: z.enum(['PIX', 'BOLETO', 'LINK']).optional().nullable(),
   itens: z.array(planoItemSchema).default([]),
 })
@@ -75,7 +75,7 @@ const assinaturaSchema = z.object({
   recorrenciaIndefinida: z.boolean().default(true),
   proximaCobranca: z.string().datetime().optional().nullable(),
   cobrancaAutomatica: z.boolean().default(false),
-  gateway: z.enum(['mercadopago', 'asaas', 'pagseguro']).optional().nullable(),
+  gateway: z.enum(['mercadopago', 'abacatepay', 'asaas', 'pagseguro']).optional().nullable(),
   tipoCobranca: z.enum(['PIX', 'BOLETO', 'LINK']).optional().nullable(),
   gerarLancamentoFinanceiro: z.boolean().default(false),
   observacoes: z.string().trim().optional().nullable(),

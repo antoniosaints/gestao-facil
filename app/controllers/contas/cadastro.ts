@@ -6,6 +6,7 @@ import { addDays } from "date-fns";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { updateContaSchema } from "../../schemas/contas";
 import { redisConnecion } from "../../utils/redis";
+import { getConfiguredPlatformGateway } from "../../services/contas/platformGatewayService";
 
 export const criarConta = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -37,6 +38,8 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    const platformGateway = await getConfiguredPlatformGateway();
+
     const data = await prisma.$transaction(async (tx) => {
       const created = await tx.contas.create({
         data: {
@@ -47,7 +50,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
           asaasCustomerId: "MERCADOPAGO",
           data: new Date(),
           funcionarios: Number(funcionarios),
-          gateway: "mercadopago",
+          gateway: platformGateway as any,
           vencimento: addDays(new Date(), 7),
           categoria: tipo,
           tipo: tipo,

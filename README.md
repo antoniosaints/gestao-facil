@@ -11,7 +11,7 @@ API principal do sistema, workers assíncronos, integrações externas e partes 
 - Socket.IO
 - JWT
 - Express Handlebars
-- Web Push, email, Mercado Pago, Asaas, Gemini e armazenamento S3/R2 compatível
+- Web Push, email, Mercado Pago, AbacatePay, Asaas, Gemini e armazenamento S3/R2 compatível
 
 ## Estrutura principal
 
@@ -59,9 +59,19 @@ Esse bootstrap:
 - habilita CORS;
 - monta a rota `/api/printer`;
 - serve arquivos estáticos de `public/`;
+- preserva o corpo bruto em `req.rawBody` durante o parse JSON para validação de webhooks assinados;
 - registra `RouterMain`;
 - inicializa Socket.IO;
 - escuta a porta definida em `PORT`.
+
+## Cobrança da mensalidade SaaS
+
+- A renovação da mensalidade da conta usa o endpoint `GET /api/contas/assinatura/checkout`.
+- O gateway dessa renovação vem de `Contas.gateway`, sincronizado globalmente pelo painel do superadmin em `GET/POST /api/admin/configuracoes/gateway`.
+- No fluxo AbacatePay da mensalidade SaaS, o backend usa `ABACATEPAY_API_KEY` e `ABACATEPAY_WEBHOOK_SECRET` do ambiente, cria checkout hospedado com métodos `PIX` e `CARD`, grava a fatura pendente em `FaturasContas` e espera confirmação por webhook.
+- O mesmo endpoint público `POST /abacatepay/webhook` também trata cobranças operacionais das contas, mas nesse caso valida a assinatura HMAC com o `AbacatePaySecret` salvo em `ParametrosConta` e atualiza `CobrancasFinanceiras`, vendas, parcelas e ciclos recorrentes da conta.
+- As credenciais da AbacatePay informadas em `/configuracoes` pertencem ao tenant e servem apenas para cobranças internas da conta; quando `BASE_URL` é HTTPS, o backend também tenta sincronizar automaticamente a webhook dessa conta na AbacatePay.
+- O fluxo legado do Mercado Pago continua disponível no mesmo endpoint genérico como fallback.
 
 ## Scripts disponíveis
 
@@ -124,6 +134,11 @@ Atualmente, o backend exige na inicialização variáveis como:
 - `R2_ACCESS_KEY_ID`
 - `R2_ENDPOINT`
 - `R2_BUCKET`
+
+Variáveis opcionais usadas quando a plataforma habilita mensalidade SaaS via AbacatePay:
+
+- `ABACATEPAY_API_KEY`
+- `ABACATEPAY_WEBHOOK_SECRET`
 
 > Importante: nem todas as variáveis exigidas pelo validador estão listadas no `env.example`. Se surgir erro de inicialização, consulte `app/utils/dotenv.ts`.
 

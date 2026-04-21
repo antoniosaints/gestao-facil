@@ -55,6 +55,18 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    AbacatePayApiKey: z
+      .string({
+        invalid_type_error: "O campo AbacatePayApiKey deve ser uma string",
+      })
+      .optional()
+      .nullable(),
+    AbacatePaySecret: z
+      .string({
+        invalid_type_error: "O campo AbacatePaySecret deve ser uma string",
+      })
+      .optional()
+      .nullable(),
     chavePix: z
       .string({
         invalid_type_error: "O campo chavePix deve ser uma string",

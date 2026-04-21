@@ -3,6 +3,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
 import { generateCobrancaMercadoPago, generateCobrancaMercadoPagoPublico } from "./mercadoPago/gerarCobranca";
+import { generateCobrancaAbacatePay } from "./abacatePay/gerarCobranca";
 import {
   cancelarCobrancaMercadoPago,
   estornarCobrancaMercadoPago,
@@ -12,7 +13,7 @@ import { handleError } from "../../utils/handleError";
 export interface BodyCobranca {
   type: "PIX" | "BOLETO" | "LINK";
   value: number;
-  gateway: "mercadopago" | "pagseguro" | "asaas";
+  gateway: "mercadopago" | "abacatepay" | "pagseguro" | "asaas";
   clienteId: number | undefined;
   vinculo?: {
     id: number;
@@ -36,20 +37,28 @@ export const generateCobranca = async (
           "Dados inválidos, informe o tipo de cobrança, o valor e a gateway",
       });
 
-    const parametros = await prisma.parametrosConta.findFirst({
-      where: {
-        contaId: customData.contaId,
-      },
-    });
-
-    if (!parametros)
-      return res.status(400).json({
-        message:
-          "Parametros nao encontrados, informe os parametros da conta para continuar.",
+    if (gateway === "mercadopago") {
+      const parametros = await prisma.parametrosConta.findFirst({
+        where: {
+          contaId: customData.contaId,
+        },
       });
 
-    if (gateway === "mercadopago") {
+      if (!parametros)
+        return res.status(400).json({
+          message:
+            "Parametros nao encontrados, informe os parametros da conta para continuar.",
+        });
+
       const resp = await generateCobrancaMercadoPago(req.body, parametros);
+      return res.status(200).json({
+        message: resp.paymentLink || "Cobranca gerada com sucesso.",
+        data: resp,
+      });
+    }
+
+    if (gateway === "abacatepay") {
+      const resp = await generateCobrancaAbacatePay(req.body, customData.contaId);
       return res.status(200).json({
         message: resp.paymentLink || "Cobranca gerada com sucesso.",
         data: resp,

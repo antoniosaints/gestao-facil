@@ -23,6 +23,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@abacatepay/sdk": "^1.2.0",
     "@aws-sdk/client-s3": "^3.933.0",
     "@aws-sdk/s3-request-presigner": "^3.933.0",
     "@google/generative-ai": "^0.24.1",

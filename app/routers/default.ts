@@ -3,6 +3,7 @@ import { checkAuth, login, renewToken, verify } from "../controllers/auth/login"
 import { authenticateJWT } from "../middlewares/auth";
 import { resumoDashboard } from "../controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "../controllers/asaas/webhook";
+import { webhookAbacatePay } from "../controllers/abacatepay/webhook";
 import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "../controllers/mercadopago/webhook";
 import { sendNotification, subscribe, unsubscribe } from "../controllers/notifications/push";
 import { env } from "../utils/dotenv";
@@ -28,6 +29,7 @@ routerDefault.get("/api/auth/renew", authenticateJWT, renewToken);
 
 // Rotas webhook
 routerDefault.post("/asaas/webhook", webhookAsaasCheck);
+routerDefault.post("/abacatepay/webhook", webhookAbacatePay);
 routerDefault.post("/mercadopago/webhook", webhookMercadoPago);
 routerDefault.post("/mercadopago/webhook/cobrancas", webhookMercadoPagoCobrancas);
 // Rotas Push

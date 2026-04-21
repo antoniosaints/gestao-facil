@@ -6,6 +6,7 @@ import { ResponseHandler } from "../../utils/response";
 import { updateParametrosContaSchema } from "../../schemas/contas";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
+import { ensureTenantAbacatePayWebhook } from "../../services/financeiro/abacatePayWebhookService";
 
 export const saveParametros = async (
   req: Request,
@@ -38,6 +39,8 @@ export const saveParametros = async (
         eventoVendaConcluida: body.data.eventoVendaConcluida,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
+        AbacatePayApiKey: body.data.AbacatePayApiKey,
+        AbacatePaySecret: body.data.AbacatePaySecret,
         chavePix: body.data.chavePix,
       },
       update: {
@@ -50,11 +53,35 @@ export const saveParametros = async (
         eventoVendaConcluida: body.data.eventoVendaConcluida,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
+        AbacatePayApiKey: body.data.AbacatePayApiKey,
+        AbacatePaySecret: body.data.AbacatePaySecret,
         chavePix: body.data.chavePix,
       },
     });
 
-    return ResponseHandler(res, "Parametros salvos com sucesso!", parametros);
+    let abacatePayWebhookStatus: string | null = null;
+
+    if (parametros.AbacatePayApiKey && parametros.AbacatePaySecret) {
+      try {
+        const webhookResult = await ensureTenantAbacatePayWebhook({
+          contaId: customData.contaId,
+          apiKey: parametros.AbacatePayApiKey,
+          secret: parametros.AbacatePaySecret,
+        });
+        abacatePayWebhookStatus = webhookResult.reason;
+      } catch (webhookError) {
+        console.warn(
+          `Falha ao sincronizar webhook AbacatePay da conta ${customData.contaId}:`,
+          webhookError,
+        );
+        abacatePayWebhookStatus = "sync-failed";
+      }
+    }
+
+    return ResponseHandler(res, "Parametros salvos com sucesso!", {
+      ...parametros,
+      abacatePayWebhookStatus,
+    });
   } catch (err: any) {
     console.log(err);
     handleError(res, err);
@@ -72,7 +99,7 @@ export const getParametros = async (
         contaId: customData.contaId,
       },
     });
-    return ResponseHandler(res, "Parametros encontrados!", parametros);
+    return ResponseHandler(res, "Parametros encontrados!", parametros || {});
   } catch (err: any) {
     console.log(err);
     handleError(res, err);
