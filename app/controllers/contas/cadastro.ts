@@ -7,6 +7,8 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { updateContaSchema } from "../../schemas/contas";
 import { redisConnecion } from "../../utils/redis";
 import { getConfiguredPlatformGateway } from "../../services/contas/platformGatewayService";
+import { getContaInfoCacheKey, syncAuthenticatedSessionCaches } from "../../services/session/accountSessionCacheService";
+import { sendSessionUpdated } from "../../hooks/contas/socket";
 
 export const criarConta = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -116,6 +118,13 @@ export const atualizarDadosConta = async (req: Request, res: Response): Promise<
         emailAvisos: body.data.emailAvisos,
       },
     });
+
+    await syncAuthenticatedSessionCaches(customData.contaId, customData.userId);
+    sendSessionUpdated(customData.contaId, {
+      reason: "dados-conta-atualizados",
+      contaId: customData.contaId,
+    });
+
     return res.json(conta);
   } catch (err: any) {
     console.log(err);
@@ -125,7 +134,7 @@ export const atualizarDadosConta = async (req: Request, res: Response): Promise<
 export const dadosConta = async (req: Request, res: Response): Promise<any> => {
   try {
     const data = getCustomRequest(req).customData;
-    const cacheKey = `infoconta:conta${data.contaId}`;
+    const cacheKey = getContaInfoCacheKey(data.contaId);
     const cached = await redisConnecion.get(cacheKey);
 
     if (cached) {

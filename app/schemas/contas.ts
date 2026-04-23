@@ -43,6 +43,36 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    eventoProdutoAlterado: z
+      .boolean({
+        invalid_type_error: "O campo eventoProdutoAlterado deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
+    permitirLancamentoRetroativo: z
+      .boolean({
+        invalid_type_error: "O campo permitirLancamentoRetroativo deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
+    permitirEfetivacaoFutura: z
+      .boolean({
+        invalid_type_error: "O campo permitirEfetivacaoFutura deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
+    permitirTransferenciaContaFinanceira: z
+      .boolean({
+        invalid_type_error: "O campo permitirTransferenciaContaFinanceira deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
+    permitirCriacaoCobranca: z
+      .boolean({
+        invalid_type_error: "O campo permitirCriacaoCobranca deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
     MercadoPagoApiKey: z
       .string({
         invalid_type_error: "O campo MercadoPagoApiKey deve ser uma string",

@@ -175,6 +175,11 @@ model ParametrosConta {
   eventoVendaConcluida           Boolean? @default(true)
   eventoSangria                  Boolean? @default(false)
   eventoEstoqueBaixo             Boolean? @default(true)
+  eventoProdutoAlterado          Boolean? @default(true)
+  permitirLancamentoRetroativo   Boolean? @default(true)
+  permitirEfetivacaoFutura       Boolean? @default(true)
+  permitirTransferenciaContaFinanceira Boolean? @default(true)
+  permitirCriacaoCobranca        Boolean? @default(true)
   linkPublicoAtivo               Boolean? @default(false)
   cadastrosPermitidosLinkPublico Int?     @default(1)
   chavePix                       String?

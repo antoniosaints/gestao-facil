@@ -6,6 +6,7 @@ import { prisma } from "../../../utils/prisma";
 import { AbacatePayService } from "../../../services/financeiro/abacatePayService";
 import type { BodyCobranca } from "../cobrancas";
 import type { GeneratedChargeResult } from "../mercadoPago/gerarCobranca";
+import { assertChargeCreationAllowed } from "../../../services/financeiro/financeiroPolicyService";
 
 type PrismaExecutor = Prisma.TransactionClient | typeof prisma;
 
@@ -132,6 +133,7 @@ export async function generateCobrancaAbacatePay(
   contaId: number,
   executor: PrismaExecutor = prisma,
 ): Promise<GeneratedChargeResult> {
+  await assertChargeCreationAllowed(contaId);
   const tenantConfig = await resolveAbacatePayTenantConfig(contaId);
   const abacate = new AbacatePayService(tenantConfig.AbacatePayApiKey!);
   const Uid = gerarIdUnicoComMetaFinal("COB");

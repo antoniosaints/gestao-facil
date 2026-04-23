@@ -7,6 +7,7 @@ import { BodyCobranca } from "../cobrancas";
 import { ParametrosConta, Prisma } from "../../../../generated";
 import { env } from "../../../utils/dotenv";
 import { BodyCobrancaPublico } from "../../../schemas/arena/reservas";
+import { assertChargeCreationAllowed } from "../../../services/financeiro/financeiroPolicyService";
 
 type PrismaExecutor = Prisma.TransactionClient | typeof prisma;
 
@@ -397,6 +398,7 @@ export const generateCobrancaMercadoPago = async (
   parametros: ParametrosConta,
   executor: PrismaExecutor = prisma
 ): Promise<GeneratedChargeResult> => {
+  await assertChargeCreationAllowed(parametros.contaId);
   if (!parametros.MercadoPagoApiKey)
     throw new Error(
       "API Key nao encontrada, adicione a chave do Mercado Pago."
@@ -422,6 +424,7 @@ export const generateCobrancaMercadoPagoPublico = async (
   parametros: ParametrosConta,
   executor: PrismaExecutor = prisma
 ) => {
+  await assertChargeCreationAllowed(parametros.contaId);
   if (!parametros.MercadoPagoApiKey)
     throw new Error(
       "API Key nao encontrada, adicione a chave do Mercado Pago."

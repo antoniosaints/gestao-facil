@@ -10,9 +10,56 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters, type FinanceiroStatusFiltro, type FinanceiroTipoFiltro } from "./queryFilters";
 import { criarLancamentoFinanceiro } from "../../services/financeiro/lancamentoService";
 import { endOfDay, startOfDay } from "date-fns";
+import { assertTransferAllowed } from "../../services/financeiro/financeiroPolicyService";
+import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 
 const AJUSTE_SALDO_CATEGORIA = "Ajuste de saldo da conta";
 const TRANSFERENCIA_ENTRE_CONTAS_CATEGORIA = "Transferência entre contas";
+
+async function calcularSaldosAtuaisContas(contaId: number, contaFinanceiraIds: number[]) {
+    if (!contaFinanceiraIds.length) {
+        return new Map<number, number>();
+    }
+
+    const parcelasPagas = await prisma.parcelaFinanceiro.findMany({
+        where: {
+            contaFinanceira: { in: contaFinanceiraIds },
+            pago: true,
+            OR: [
+                { dataPagamento: null },
+                { dataPagamento: { lte: endOfDay(new Date()) } },
+            ],
+            lancamento: {
+                contaId,
+            },
+        },
+        select: {
+            contaFinanceira: true,
+            valor: true,
+            valorPago: true,
+            lancamento: {
+                select: {
+                    tipo: true,
+                },
+            },
+        },
+    });
+
+    const saldoPorConta = new Map<number, Decimal>();
+
+    for (const parcela of parcelasPagas) {
+        if (!parcela.contaFinanceira) continue;
+
+        const atual = saldoPorConta.get(parcela.contaFinanceira) ?? new Decimal(0);
+        const valor = new Decimal(parcela.valorPago ?? parcela.valor ?? 0);
+        saldoPorConta.set(
+            parcela.contaFinanceira,
+            parcela.lancamento.tipo === "RECEITA" ? atual.plus(valor) : atual.minus(valor),
+        );
+    }
+
+    return new Map(Array.from(saldoPorConta.entries()).map(([key, value]) => [key, value.toNumber()]));
+}
 
 export const listContasFinanceiro = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -33,7 +80,23 @@ export const listContasFinanceiro = async (req: Request, res: Response): Promise
             },
         });
 
-        return ResponseHandler(res, "Contas listadas com sucesso!", contas, 200);
+        const saldoPorConta = await calcularSaldosAtuaisContas(contaId, contas.map((conta) => conta.id));
+
+        return ResponseHandler(
+            res,
+            "Contas listadas com sucesso!",
+            contas.map((conta) => {
+                const saldoInicial = decimalToNumber(conta.saldoInicial);
+                const variacao = saldoPorConta.get(conta.id) ?? 0;
+
+                return {
+                    ...conta,
+                    saldoInicial,
+                    saldoAtual: saldoInicial + variacao,
+                };
+            }),
+            200,
+        );
     } catch (error) {
         handleError(res, error);
     }
@@ -73,6 +136,10 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
             });
         }
 
+        sendFinanceiroUpdated(contaId, {
+            reason: req.body.id ? "conta-financeira-atualizada" : "conta-financeira-criada",
+        });
+
         return ResponseHandler(res, "Conta salva com sucesso!", null, 200);
     } catch (error) {
         handleError(res, error);
@@ -89,6 +156,7 @@ export const deleteContaFinanceiro = async (req: Request, res: Response): Promis
                 contaId,
             },
         });
+        sendFinanceiroUpdated(contaId, { reason: "conta-financeira-deletada", contaFinanceiraId: Number(id) });
         return ResponseHandler(res, "Conta deletada com sucesso!", null, 200);
     } catch (error) {
         handleError(res, error);
@@ -449,6 +517,7 @@ export const getContaFinanceiroSaldoAtual = async (req: Request, res: Response):
 export const previewTransferirContaFinanceira = async (req: Request, res: Response): Promise<any> => {
     try {
         const { contaId } = getCustomRequest(req).customData;
+        await assertTransferAllowed(contaId);
         const contaOrigemId = Number(req.body?.contaOrigemId);
 
         if (!contaOrigemId || Number.isNaN(contaOrigemId)) {
@@ -515,6 +584,8 @@ export const ajustarSaldoContaFinanceira = async (req: Request, res: Response): 
                 },
             });
 
+            sendFinanceiroUpdated(contaId, { reason: "saldo-conta-ajustado", contaFinanceiraId, modo });
+
             return ResponseHandler(res, "Saldo ajustado internamente com sucesso.", {
                 modo,
                 contaFinanceiraId,
@@ -551,6 +622,8 @@ export const ajustarSaldoContaFinanceira = async (req: Request, res: Response): 
             };
         });
 
+        sendFinanceiroUpdated(contaId, { reason: "saldo-conta-ajustado", contaFinanceiraId, modo, lancamentoId: resultado.lancamentoId });
+
         return ResponseHandler(res, "Saldo ajustado com lançamento financeiro com sucesso.", {
             modo,
             contaFinanceiraId,
@@ -567,6 +640,7 @@ export const ajustarSaldoContaFinanceira = async (req: Request, res: Response): 
 export const transferirContaFinanceira = async (req: Request, res: Response): Promise<any> => {
     try {
         const { contaId } = getCustomRequest(req).customData;
+        await assertTransferAllowed(contaId);
         const contaOrigemId = Number(req.body?.contaOrigemId);
         const contaDestinoId = Number(req.body?.contaDestinoId);
         const modo = normalizeTransferMode(req.body?.modo);
@@ -648,6 +722,8 @@ export const transferirContaFinanceira = async (req: Request, res: Response): Pr
                 };
             });
 
+            sendFinanceiroUpdated(contaId, { reason: "transferencia-entre-contas", modo, contaOrigemId, contaDestinoId });
+
             return ResponseHandler(res, "Transferência registrada no financeiro com sucesso.", {
                 modo,
                 ...resultado,
@@ -705,6 +781,8 @@ export const transferirContaFinanceira = async (req: Request, res: Response): Pr
             };
         });
 
+        sendFinanceiroUpdated(contaId, { reason: "transferencia-entre-contas", modo, contaOrigemId, contaDestinoId });
+
         return ResponseHandler(res, "Lançamentos transferidos de conta com sucesso.", {
             modo,
             parcelasAtualizadas: parcelasFiltradas.length,
@@ -742,8 +820,9 @@ export const tableContasFinanceiro = async (req: Request, res: Response): Promis
             ];
         }
 
-        const orderBy: Prisma.ContasFinanceiroOrderByWithRelationInput[] = [];
+        const total = await prisma.contasFinanceiro.count({ where });
 
+        const orderBy: Prisma.ContasFinanceiroOrderByWithRelationInput[] = [];
         switch (sortBy) {
             case "id":
                 orderBy.push({ id: order });
@@ -758,11 +837,11 @@ export const tableContasFinanceiro = async (req: Request, res: Response): Promis
                 orderBy.push({ nome: order });
                 break;
         }
-
         orderBy.push({ id: "asc" });
 
-        const total = await prisma.contasFinanceiro.count({ where });
-        const data = await prisma.contasFinanceiro.findMany({
+        const shouldSortBySaldoAtual = sortBy === "saldoAtual";
+
+        const contasBase = await prisma.contasFinanceiro.findMany({
             where,
             select: {
                 id: true,
@@ -770,10 +849,39 @@ export const tableContasFinanceiro = async (req: Request, res: Response): Promis
                 nome: true,
                 saldoInicial: true,
             },
-            orderBy,
-            skip: (page - 1) * pageSize,
-            take: pageSize,
+            orderBy: shouldSortBySaldoAtual ? [{ nome: "asc" }, { id: "asc" }] : orderBy,
+            ...(shouldSortBySaldoAtual
+                ? {}
+                : {
+                    skip: (page - 1) * pageSize,
+                    take: pageSize,
+                }),
         });
+
+        const saldoPorConta = await calcularSaldosAtuaisContas(contaId, contasBase.map((conta) => conta.id));
+
+        const contasComSaldo = contasBase.map((conta) => {
+            const saldoInicial = decimalToNumber(conta.saldoInicial);
+            const variacao = saldoPorConta.get(conta.id) ?? 0;
+
+            return {
+                ...conta,
+                saldoInicial,
+                saldoAtual: saldoInicial + variacao,
+            };
+        });
+
+        const orderedData = shouldSortBySaldoAtual
+            ? [...contasComSaldo].sort((a, b) => {
+                const diff = Number(a.saldoAtual) - Number(b.saldoAtual);
+                if (diff === 0) return a.id - b.id;
+                return order === "desc" ? -diff : diff;
+            })
+            : contasComSaldo;
+
+        const data = shouldSortBySaldoAtual
+            ? orderedData.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+            : orderedData;
 
         return res.json({
             data,

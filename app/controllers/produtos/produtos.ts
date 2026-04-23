@@ -8,8 +8,8 @@ import {
   ProdutoSchema,
   ReposicaoEstoqueSchema,
 } from "../../schemas/produtos";
-import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { emailScheduleService } from "../../services/emailScheduleQueueService";
+import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { mapperErrorSchema } from "../../mappers/schemasErros";
 import { ResponseHandler } from "../../utils/response";
@@ -270,7 +270,8 @@ export const deleteProduto = async (
       subject: "Produto deletado",
       text: `O produto ${produto.nome} foi deletado.`,
     });
-    await enqueuePushNotification(
+    await enqueuePushNotificationByPreference(
+      "PRODUTO_ALTERADO",
       {
         title: "Produto deletado",
         body: `O produto ${produto.nome} foi deletado.`,
@@ -400,7 +401,8 @@ export const saveProduto = async (
         });
       });
 
-      await enqueuePushNotification(
+      await enqueuePushNotificationByPreference(
+        "PRODUTO_ALTERADO",
         {
           title: "Atualização de produto",
           body: `O produto ${produto.nome} foi atualizado.`,
@@ -465,7 +467,8 @@ export const saveProduto = async (
       });
     });
 
-    await enqueuePushNotification(
+    await enqueuePushNotificationByPreference(
+      "PRODUTO_ALTERADO",
       {
         title: "Cadastro de produto",
         body: `O produto ${data.nome} foi cadastrado no sistema.`,
@@ -634,7 +637,8 @@ export const reposicaoProduto = async (
       return { movimentacao, produto };
     });
 
-    await enqueuePushNotification(
+    await enqueuePushNotificationByPreference(
+      "PRODUTO_ALTERADO",
       {
         title: "Reposição de produto",
         body: `A variante ${entrada.produto.nome} / ${entrada.produto.nomeVariante} foi reposta com: ${data.quantidade} ${entrada.produto.unidade}.`,

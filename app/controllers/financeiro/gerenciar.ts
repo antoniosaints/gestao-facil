@@ -15,6 +15,8 @@ import {
   type EscopoAtualizacaoParcela,
 } from "../../services/financeiro/lancamentoService";
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
+import { assertFutureSettlementAllowed } from "../../services/financeiro/financeiroPolicyService";
+import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -95,6 +97,7 @@ export const updateParcela = async (req: Request, res: Response): Promise<any> =
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-atualizada" });
 
     return ResponseHandler(res, "Parcela atualizada", {
       parcelaId: parcela.id,
@@ -590,6 +593,8 @@ export const updateLancamentoBasico = async (
       });
     });
 
+    sendFinanceiroUpdated(customData.contaId, { reason: "lancamento-atualizado" });
+
     return ResponseHandler(res, "Lançamento atualizado com sucesso.", {
       id: Number(id),
       atualizacaoRestrita: true,
@@ -609,6 +614,8 @@ export const criarLancamento = async (
     const lancamentoTx = await prisma.$transaction(async (tx) => {
       return criarLancamentoFinanceiro(tx, customData.contaId, req.body);
     });
+
+    sendFinanceiroUpdated(customData.contaId, { reason: "lancamento-criado", lancamentoId: lancamentoTx.id });
 
     return res.status(201).json({
       message: "Lançamento criado com sucesso",
@@ -646,6 +653,8 @@ export const pagarParcela = async (
       return res.status(400).json({ message: "Parcela já está paga." });
     }
 
+    await assertFutureSettlementAllowed(customData.contaId, [req.body.dataPagamento]);
+
     await prisma.parcelaFinanceiro.update({
       where: { id: parcelaId },
       data: {
@@ -658,6 +667,7 @@ export const pagarParcela = async (
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-paga", parcelaId });
 
     return res.json({ message: "Parcela paga com sucesso." });
   } catch (error: any) {
@@ -704,6 +714,7 @@ export const pagarMultiplasParcelas = async (
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcelas-pagas-em-lote", total: parcelasPermitidas.length });
 
     return res.json({ message: "Parcelas pagas com sucesso." });
   } catch (error: any) {
@@ -747,6 +758,7 @@ export const estornarParcela = async (
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-estornada", parcelaId });
 
     return res.json({ message: "Pagamento estornado com sucesso." });
   } catch (error) {
@@ -876,6 +888,8 @@ export const deletarLancamento = async (
     await prisma.lancamentoFinanceiro.deleteMany({
       where: { id, contaId: customData.contaId },
     });
+
+    sendFinanceiroUpdated(customData.contaId, { reason: "lancamento-deletado", lancamentoId: id });
 
     return res.json({ message: "Lançamento deletado com sucesso." });
   } catch (error) {

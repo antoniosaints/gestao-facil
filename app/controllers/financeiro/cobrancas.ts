@@ -10,6 +10,7 @@ import {
 } from "./cobrancas/managerCobranca";
 import { BodyCobrancaPublicoSchema } from "../../schemas/arena/reservas";
 import { handleError } from "../../utils/handleError";
+import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 export interface BodyCobranca {
   type: "PIX" | "BOLETO" | "LINK";
   value: number;
@@ -51,6 +52,7 @@ export const generateCobranca = async (
         });
 
       const resp = await generateCobrancaMercadoPago(req.body, parametros);
+      sendFinanceiroUpdated(customData.contaId, { reason: "cobranca-gerada", gateway });
       return res.status(200).json({
         message: resp.paymentLink || "Cobranca gerada com sucesso.",
         data: resp,
@@ -59,6 +61,7 @@ export const generateCobranca = async (
 
     if (gateway === "abacatepay") {
       const resp = await generateCobrancaAbacatePay(req.body, customData.contaId);
+      sendFinanceiroUpdated(customData.contaId, { reason: "cobranca-gerada", gateway });
       return res.status(200).json({
         message: resp.paymentLink || "Cobranca gerada com sucesso.",
         data: resp,

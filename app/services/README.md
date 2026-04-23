@@ -11,7 +11,7 @@
 - Importação em lote de produtos.
 - Importação em lote de lançamentos financeiros por CSV.
 - Cache Redis.
-- Integrações S3/R2.
+- Integrações S3/R2 e storage público com fallback local.
 - Serviços específicos de `arena`.
 - Builders utilitários como `prismaDatatables.ts`.
 
@@ -26,4 +26,6 @@
 ## Regras
 - Criar service quando a lógica for compartilhada, operacional ou ligada a integração externa.
 - Não forçar extrações artificiais só para obedecer uma arquitetura que o projeto não usa por completo.
+- Quando houver side effects externos, preferir mantê-los concentrados aqui.
+rquitetura que o projeto não usa por completo.
 - Quando houver side effects externos, preferir mantê-los concentrados aqui.

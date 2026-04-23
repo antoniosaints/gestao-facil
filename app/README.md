@@ -16,6 +16,7 @@
 - `routers/`: roteamento da API.
 - `schemas/`: schemas de validação.
 - `services/`: serviços especializados e integrações.
+- Uploads públicos e leitura de arquivos renderizáveis ficam centralizados em `services/uploads/fileStorageService.ts`, com fallback local e suporte a S3/R2 compatível.
 - `types/`: tipos adicionais.
 - `utils/`: infraestrutura comum.
 - `workers/`: processos assíncronos.
@@ -30,4 +31,6 @@
 - Não documentar ou implementar essa pasta como se fosse arquitetura em camadas rígidas.
 - Ao editar, seguir o domínio existente antes de criar uma nova convenção.
 - Nos relatórios, dashboards e resumos legados do financeiro, preferir agregações a partir de `ParcelaFinanceiro` com `Decimal.js`, usando `vencimento`/`dataPagamento` como datas operacionais e deixando `LancamentoFinanceiro` como cabeçalho do agrupamento. Evitar dashboards transversais baseados apenas em `dataLancamento` quando o gráfico pretende refletir comportamento mensal real do caixa.
-- No financeiro operacional, edições posteriores do lançamento devem ser restritas a metadados seguros (descrição, categoria, conta, cliente/fornecedor e forma de pagamento padrão), enquanto detalhes completos de conta financeira devem nascer de endpoints dedicados com filtros, resumo consolidado, transferência entre contas e ajuste manual de saldo com ou sem reflexo nas listagens financeiras.
+- No financeiro operacional, edições posteriores do lançamento devem ser restritas a metadados seguros (descrição, categoria, conta, cliente/fornecedor e forma de pagamento padrão), enquanto detalhes completos de conta financeira devem nascer de endpoints dedicados com filtros, resumo consolidado, saldo atual calculado a partir das parcelas pagas, transferência entre contas e ajuste manual de saldo com ou sem reflexo nas listagens financeiras.
+- Caches Redis ligados à sessão/autenticação ficam espalhados por conta e usuário (`infoconta`, `minhaconexao`, `assinaturaconta`); mutações de conta, usuário, mensalidade SaaS e faturas precisam sincronizar esses caches e sinalizar o frontend por socket.
+- Preferências operacionais da conta, como flags do financeiro e switches de eventos de notificação, devem ser lidas em serviços centrais antes de permitir uma ação ou enfileirar push.

@@ -16,6 +16,7 @@ import { atualizarStatusLancamentos } from "../financeiro/hooks";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { recalculateComandaStatus } from "../vendas/comandas";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
+import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 
 type WebhookResource = {
   id?: string;
@@ -380,6 +381,10 @@ async function handleTenantWebhook(args: {
       },
     });
     await atualizarStatusLancamentos(cobranca.contaId);
+    sendFinanceiroUpdated(cobranca.contaId, {
+      reason: "cobranca-liquidada-webhook",
+      parcelaId: cobranca.lancamentoId,
+    });
   }
 
   if (cobranca.reservaId) {

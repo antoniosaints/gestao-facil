@@ -20,6 +20,7 @@ import {
   releaseStoreModuleCharge,
 } from "../../services/contas/storeModulesService";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
+import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 
 function extractChargeUidFromExternalReference(externalReference?: string | null) {
   if (!externalReference) return null;
@@ -277,6 +278,10 @@ export async function webhookMercadoPagoCobrancas(
         },
       });
       await atualizarStatusLancamentos(cobranca.contaId);
+      sendFinanceiroUpdated(cobranca.contaId, {
+        reason: "cobranca-liquidada-webhook",
+        parcelaId: cobranca.lancamentoId,
+      });
     }
     if (cobranca.reservaId && statusNovo === "EFETIVADO") {
       const pagamentoReserva = await prisma.arenaAgendamentos.update({

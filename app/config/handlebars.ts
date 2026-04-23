@@ -1,17 +1,12 @@
 import { ConfigOptions } from "express-handlebars/types";
+import { formatCurrencyBR } from "../helpers/formatters";
 
 export const configOptions: ConfigOptions = {
   extname: "hbs",
   defaultLayout: false,
   helpers: {
     or: (a: any, b: any) => a || b,
-    formatMoney: (valor: number) => {
-      return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-        minimumFractionDigits: 2,
-      }).format(valor);
-    },
+    formatMoney: (valor: number) => formatCurrencyBR(valor),
     ifEquals: (a: any, b: any, opt: any) => {
       return a === b ? opt.fn(this) : opt.inverse(this);
     },

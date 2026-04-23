@@ -7,6 +7,8 @@ import { updateParametrosContaSchema } from "../../schemas/contas";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { ensureTenantAbacatePayWebhook } from "../../services/financeiro/abacatePayWebhookService";
+import { syncAuthenticatedSessionCaches } from "../../services/session/accountSessionCacheService";
+import { sendSessionUpdated } from "../../hooks/contas/socket";
 
 export const saveParametros = async (
   req: Request,
@@ -37,6 +39,11 @@ export const saveParametros = async (
         eventoSangria: body.data.eventoSangria,
         emailAvisos: body.data.emailAvisos,
         eventoVendaConcluida: body.data.eventoVendaConcluida,
+        eventoProdutoAlterado: body.data.eventoProdutoAlterado,
+        permitirLancamentoRetroativo: body.data.permitirLancamentoRetroativo,
+        permitirEfetivacaoFutura: body.data.permitirEfetivacaoFutura,
+        permitirTransferenciaContaFinanceira: body.data.permitirTransferenciaContaFinanceira,
+        permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
@@ -54,6 +61,11 @@ export const saveParametros = async (
         eventoEstoqueBaixo: body.data.eventoEstoqueBaixo,
         eventoSangria: body.data.eventoSangria,
         eventoVendaConcluida: body.data.eventoVendaConcluida,
+        eventoProdutoAlterado: body.data.eventoProdutoAlterado,
+        permitirLancamentoRetroativo: body.data.permitirLancamentoRetroativo,
+        permitirEfetivacaoFutura: body.data.permitirEfetivacaoFutura,
+        permitirTransferenciaContaFinanceira: body.data.permitirTransferenciaContaFinanceira,
+        permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
@@ -83,6 +95,12 @@ export const saveParametros = async (
         abacatePayWebhookStatus = "sync-failed";
       }
     }
+
+    await syncAuthenticatedSessionCaches(customData.contaId, customData.userId);
+    sendSessionUpdated(customData.contaId, {
+      reason: "parametros-conta-atualizados",
+      contaId: customData.contaId,
+    });
 
     return ResponseHandler(res, "Parametros salvos com sucesso!", {
       ...parametros,

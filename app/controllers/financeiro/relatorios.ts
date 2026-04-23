@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { Request, Response } from "express";
 import PDFDocument from "pdfkit";
 import { prisma } from "../../utils/prisma";
@@ -12,6 +11,7 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
+import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 import { formatCurrency } from "../../utils/formatters";
 
 type DREGroupedItem = {
@@ -58,9 +58,8 @@ function getParcelaPagoValue(parcela: { valor?: Decimal.Value | null; valorPago?
     : getDecimalValue(parcela.valor);
 }
 
-function getDreLogoPath(profile?: string | null) {
-  const profilePath = `./public/${profile || ""}`;
-  return fs.existsSync(profilePath) ? profilePath : "./public/imgs/logo.png";
+async function getDreLogoPath(profile?: string | null) {
+  return resolveRenderableImageSource(profile);
 }
 
 function serializeGroupedMap(map: Map<string, Decimal>) {
@@ -126,7 +125,7 @@ async function buildDrePayload(contaId: number, inicio: Date, fim: Date): Promis
   };
 }
 
-function drawDrePdfHeader(
+async function drawDrePdfHeader(
   doc: any,
   conta: {
     nome: string;
@@ -138,7 +137,7 @@ function drawDrePdfHeader(
   fim: Date,
   modelo: string
 ) {
-  doc.image(getDreLogoPath(conta?.profile), 40, 36, {
+  doc.image(await getDreLogoPath(conta?.profile), 40, 36, {
     fit: [58, 58],
   });
 
@@ -466,7 +465,7 @@ export const getDRELancamentosPDF = async (
     doc.moveDown(0.5);
   };
 
-  drawDrePdfHeader(doc, conta, periodo.inicio, periodo.fim, "Modelo 01");
+  await drawDrePdfHeader(doc, conta, periodo.inicio, periodo.fim, "Modelo 01");
 
   // Desenhar tabelas
   if (dre.receitas.length > 0) {
@@ -688,7 +687,7 @@ export const getDRELancamentosPDFV2 = async (
   const finalTableWidth = Math.min(totalTableWidth, availableWidth);
   const startX = doc.page.margins.left + (availableWidth - finalTableWidth) / 2;
 
-  drawDrePdfHeader(doc, conta, periodo.inicio, periodo.fim, "Modelo 02");
+  await drawDrePdfHeader(doc, conta, periodo.inicio, periodo.fim, "Modelo 02");
 
   // Cabeçalho da tabela única
   let currentX = startX;

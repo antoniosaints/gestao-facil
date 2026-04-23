@@ -163,6 +163,7 @@ npm run seed
 ```
 
 O repositório agora inclui a migration `prisma/migrations/20260419110000_assinaturas_modulo_inicial`, que cria o domínio recorrente de planos, assinaturas, ciclos e comodatos.
+Também foi adicionada a migration `prisma/migrations/20260422213000_financeiro_flags_sessao_notificacoes`, que estende `ParametrosConta` com flags globais do financeiro e novas preferências de notificação.
 
 ### 4. Subir a API
 
@@ -178,7 +179,19 @@ npm run notification:dev
 npm run cron:dev
 ```
 
-## Build e produção
+## Uploads e visualização de arquivos
+
+O backend agora centraliza uploads públicos em `app/services/uploads/fileStorageService.ts`.
+
+Padrão atual:
+
+- `POST /api/uploads/profile` usa o mesmo service e salva a referência retornada em `Contas.profile`;
+- `POST /api/uploads/cloud/r2` usa o mesmo service para uploads públicos genéricos;
+- se não houver configuração `R2_*`, o arquivo fica local em `public/uploads/...`;
+- se houver configuração `R2_*`, o arquivo é publicado no storage remoto e a referência pública passa a ser baseada em `R2_ENDPOINT`;
+- quando `R2_ENDPOINT` for um domínio customizado de leitura, use `R2_API_ENDPOINT` para o SDK continuar enviando/removendo arquivos;
+- renderização no frontend deve tratar a referência como caminho relativo local **ou** URL absoluta remota;
+- relatórios PDF, certificados e outros consumidores server-side não devem montar `./public/...` manualmente: devem usar o service de storage para resolver buffer/caminho renderizável.
 
 ### Build
 
@@ -230,6 +243,24 @@ pm2 start ecosystem.config.js
 - O módulo de ordens de serviço agora expõe faturamento da OS, estorno operacional do faturamento, geração de cobrança vinculada à ordem, bloqueio de exclusão quando existirem cobranças ativas ou status faturado e bloqueio de edição quando a OS já estiver faturada.
 - No módulo de produtos, há endpoints que respondem tanto na visão de produto base quanto na visão de variante, dependendo do caso de uso da interface.
 - O mesmo domínio também mantém exportações separadas para catálogo/estoque, movimentações de variante, vendas por produto e lucro por produto, com filtros opcionais de período.
+
+## Domínios principais encontrados no código
+
+- autenticação;
+- administração e assinantes;
+- contas e parâmetros;
+- clientes;
+- produtos e estoque;
+- vendas e comandas;
+- financeiro;
+- serviços e ordens de serviço;
+- assinaturas da conta, assinaturas recorrentes de clientes e integrações com gateways;
+- arena;
+- impressão;
+- notificações;
+- IA/Gemini;
+- integrações com gateways.
+ros opcionais de período.
 
 ## Domínios principais encontrados no código
 

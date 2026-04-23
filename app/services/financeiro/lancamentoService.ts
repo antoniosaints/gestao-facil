@@ -5,6 +5,7 @@ import type { Prisma, PrismaClient } from '../../../generated/client'
 import { gerarIdUnicoComMetaFinal } from '../../helpers/generateUUID'
 import { enqueuePushNotification } from '../pushNotificationQueueService'
 import { formatCurrency } from '../../utils/formatters'
+import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from './financeiroPolicyService'
 
 export type TipoLancamentoModo = 'AVISTA' | 'PARCELADO'
 export type PeriodoParcelamento = 'MENSAL' | 'SEMANAL' | 'DIARIO' | 'QUINZENAL' | 'PERSONALIZADO'
@@ -318,6 +319,20 @@ export async function criarLancamentoFinanceiro(
     periodoParcelamento,
     intervaloDiasPersonalizado,
   } = calcularValoresLancamento(payload)
+
+  await assertLancamentoDateAllowed(contaId, payload.dataLancamento)
+
+  if (hasEfetivadoTotal) {
+    const datasEfetivadas = valoresParcelas.map((_, index) =>
+      calcularProximoVencimento(payload.dataLancamento, index, periodoParcelamento, intervaloDiasPersonalizado),
+    )
+
+    if (valorEntradaDecimal.gt(0) && payload.dataEntrada) {
+      datasEfetivadas.push(startOfDay(new Date(payload.dataEntrada)))
+    }
+
+    await assertFutureSettlementAllowed(contaId, datasEfetivadas)
+  }
 
   const novoLancamento = await db.lancamentoFinanceiro.create({
     data: {

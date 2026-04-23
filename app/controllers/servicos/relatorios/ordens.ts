@@ -1,6 +1,5 @@
 import PDFDocument from "pdfkit";
 import { Response } from "express";
-import fs from "fs";
 import {
   ClientesFornecedores,
   Contas,
@@ -10,6 +9,7 @@ import {
   Usuarios,
 } from "../../../../generated";
 import { gerarQrCodeBuffer, QrCodePix } from "../../../services/qrcodeGenerator";
+import { resolveRenderableImageSource } from "../../../services/uploads/fileStorageService";
 import { formatCurrencyBR } from "../../../helpers/formatters";
 import { addDays } from "date-fns";
 
@@ -42,18 +42,8 @@ export async function gerarPdfOrdemServico(
   doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
   doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
-  // Cabeçalho com logo e título
-  if (ordem.Empresa.profile) {
-    const fileExists = fs.existsSync(`./public/${ordem.Empresa.profile}`);
-    doc.image(
-      fileExists
-        ? `./public/${ordem.Empresa.profile}`
-        : "./public/imgs/logo.png",
-      50,
-      40,
-      { width: 80 }
-    );
-  }
+  const logoSource = await resolveRenderableImageSource(ordem.Empresa.profile);
+  doc.image(logoSource, 50, 40, { width: 80 });
   doc.fontSize(18).font("Helvetica-Bold").text("Ordem de Serviço", 150, 50);
   doc
     .fontSize(12)

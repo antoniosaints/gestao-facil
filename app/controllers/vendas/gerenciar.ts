@@ -5,7 +5,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { efetivarVendaSchema, vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
-import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
+import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
 import { addHours, eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
@@ -743,7 +743,8 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       return venda;
     });
 
-    await enqueuePushNotification(
+    await enqueuePushNotificationByPreference(
+      "VENDA_CONCLUIDA",
       {
         title: "Opa! Nova venda.",
         body: `Uma nova venda no valor de ${formatCurrency(

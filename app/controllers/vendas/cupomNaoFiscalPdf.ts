@@ -5,7 +5,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { formatarValorMonetario } from "../../utils/formatters";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import fs from "node:fs";
+import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 
 export const gerarCupomPdf = async (
   req: Request,
@@ -28,16 +28,16 @@ export const gerarCupomPdf = async (
         PagamentoVendas: true,
       },
     });
-  
+
     if (!venda) {
       return res.status(404).json({ message: "Venda não encontrada" });
     }
-  
+
     const doc = new PDFDocument({
       size: [250, 600],
       margin: 10,
     });
-  
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -46,7 +46,7 @@ export const gerarCupomPdf = async (
     doc.pipe(res);
     doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
     doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
-  
+
     // Cabeçalho
     doc.fontSize(14).font("Roboto-Bold").text(conta.nome, {
       align: "center",
@@ -66,15 +66,15 @@ export const gerarCupomPdf = async (
       .text(conta.telefone || "N/A", {
         align: "center",
       });
-  
+
     doc.moveDown(0.5);
     doc.text("_".repeat(63), { align: "center" });
-  
-    const fileExists = fs.existsSync(`./public/${conta.profile}`);
-    doc.image( fileExists ? `./public/${conta.profile}` : "./public/imgs/logo.png", 15, 10, {
+
+    const logoSource = await resolveRenderableImageSource(conta.profile);
+    doc.image(logoSource, 15, 10, {
       fit: [40, 40],
     });
-  
+
     doc
       .moveDown(0.3)
       .font("Roboto")
@@ -84,15 +84,15 @@ export const gerarCupomPdf = async (
       .text(`Cliente: ${venda.cliente?.nome || "N/A"}`)
       .text(`Vendedor: ${venda.vendedor?.nome || "N/A"}`)
       .text(`Garantia: ${venda.garantia ? `${venda.garantia} dias` : "N/A"}`);
-  
+
     doc.moveDown(0.5);
-  
+
     doc
       .fontSize(9)
       .font("Roboto-Bold")
       .text("Itens da Venda:", { underline: true });
     doc.moveDown(0.2);
-  
+
     venda.ItensVendas.forEach((item: any) => {
       const total = new Decimal(item.valor).times(item.quantidade);
       doc
@@ -105,14 +105,14 @@ export const gerarCupomPdf = async (
         .text(`${formatarValorMonetario(total)}`, { align: "right" });
       doc.moveDown(0.3);
     });
-  
+
     doc
       .text(`Desconto:`, { continued: false })
       .text(`1x ${formatarValorMonetario(venda.desconto)}`, { continued: true })
       .text(`( - ${formatarValorMonetario(venda.desconto)})`, { align: "right" });
-  
+
     doc.moveDown(0.3);
-  
+
     doc.text("_".repeat(63), { align: "center" });
     // Totais
     doc
@@ -122,7 +122,7 @@ export const gerarCupomPdf = async (
       .text(`TOTAL: ${formatarValorMonetario(venda.valor)}`, {
         align: "center",
       });
-  
+
     // Pagamento
     if (venda.PagamentoVendas) {
       doc
@@ -133,7 +133,7 @@ export const gerarCupomPdf = async (
           align: "center",
         });
     }
-  
+
     // Rodapé
     doc
       .moveDown(1)
@@ -147,7 +147,7 @@ export const gerarCupomPdf = async (
       .fontSize(8)
       .text("Cupom não fiscal", { align: "center" })
       .text("Obrigado pela preferência!", { align: "center" });
-  
+
     doc.text("-".repeat(80), { align: "center" });
     doc.end();
   }catch (error) {

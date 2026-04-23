@@ -6,6 +6,7 @@ import {
   reconcileStoreModulesAfterPayment,
   releaseStoreModuleCharge,
 } from "../../services/contas/storeModulesService";
+import { clearCacheAccount } from "../administracao/contas";
 
 async function getModuleCharge(paymentId: string) {
   return prisma.cobrancasFinanceiras.findFirst({
@@ -88,6 +89,8 @@ export async function handleSubscriptionCreated(data: any) {
 
   if (!conta) return;
 
+  await clearCacheAccount(conta.id);
+
   await enqueuePushNotification(
     {
       title: "Assinatura criada",
@@ -114,6 +117,8 @@ export async function handleSubscriptionCancelled(data: any) {
 
   if (!contaCanceledSubs) return;
 
+  await clearCacheAccount(contaCanceledSubs.id);
+
   await enqueuePushNotification(
     {
       title: "Assinatura cancelada",
@@ -139,6 +144,8 @@ export async function handleSubscriptionDeleted(data: any) {
   });
 
   if (!contaDeletedSubs) return;
+
+  await clearCacheAccount(contaDeletedSubs.id);
 
   await enqueuePushNotification(
     {
@@ -171,6 +178,8 @@ export async function handlePaymentCreated(data: any) {
     },
   });
 
+  await clearCacheAccount(contaCreated.id);
+
   await enqueuePushNotification(
     {
       title: "Nova fatura criada",
@@ -194,6 +203,8 @@ export async function handlePaymentDeleted(data: any) {
   await prisma.faturasContas.delete({
     where: { asaasPaymentId: data.payment.id },
   });
+
+  await clearCacheAccount(conta.id);
 
   await enqueuePushNotification(
     {
@@ -230,6 +241,8 @@ export async function handlePaymentOverdue(data: any) {
       vencimento: subDays(new Date(), 1), // força vencimento para ontem
     },
   });
+
+  await clearCacheAccount(fatura.contaId);
 
   await enqueuePushNotification(
     {

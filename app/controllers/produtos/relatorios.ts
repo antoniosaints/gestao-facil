@@ -6,8 +6,8 @@ import { formatarValorMonetario } from "../../utils/formatters";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { generateBarcodesStream } from "../../services/barcodeService";
+import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 import { ResponseHandler } from "../../utils/response";
-import fs from "node:fs";
 
 type ReportTargetType = "BASE" | "VARIANTE";
 type ReportMetric = {
@@ -51,9 +51,8 @@ function getContaId(req: Request) {
   return Number(getCustomRequest(req).customData.contaId);
 }
 
-function getLogoPath(profile?: string | null) {
-  const profilePath = `./public/${profile || ""}`;
-  return fs.existsSync(profilePath) ? profilePath : "./public/imgs/logo.png";
+async function getLogoPath(profile?: string | null) {
+  return resolveRenderableImageSource(profile);
 }
 
 function getVariantName(nomeVariante?: string | null) {
@@ -91,7 +90,7 @@ function ensurePageSpace(doc: PDFKit.PDFDocument, heightNeeded = 40) {
   doc.y = doc.page.margins.top;
 }
 
-function drawHeader(
+async function drawHeader(
   doc: PDFKit.PDFDocument,
   conta: {
     nome: string;
@@ -112,7 +111,7 @@ function drawHeader(
   const imageHeight = 72;
   const textLeft = marginLeft + imageWidth + 20;
 
-  doc.image(getLogoPath(conta.profile), marginLeft, marginTop, {
+  doc.image(await getLogoPath(conta.profile), marginLeft, marginTop, {
     fit: [imageWidth, imageHeight],
   });
 
@@ -407,7 +406,7 @@ async function buildSalesReportData(params: {
   } satisfies ProductSalesReportData;
 }
 
-function renderCatalogReport(
+async function renderCatalogReport(
   doc: PDFKit.PDFDocument,
   params: {
     conta: {
@@ -431,7 +430,7 @@ function renderCatalogReport(
     periodo: string;
   }
 ) {
-  drawHeader(doc, params.conta, {
+  await drawHeader(doc, params.conta, {
     title: `Relatório de catálogo e estoque - ${params.conta.nome}`,
     subtitleLines: [
       `E-mail: ${params.conta.email || "Não informado"}`,
@@ -503,7 +502,7 @@ function renderCatalogReport(
   });
 }
 
-function renderSalesOrProfitReport(
+async function renderSalesOrProfitReport(
   doc: PDFKit.PDFDocument,
   params: {
     conta: {
@@ -521,7 +520,7 @@ function renderSalesOrProfitReport(
   const title =
     params.mode === "lucro" ? "Relatório de lucro por produto" : "Relatório de vendas por produto";
 
-  drawHeader(doc, params.conta, {
+  await drawHeader(doc, params.conta, {
     title,
     subtitleLines: [
       `Produto base: ${params.report.produtoBase}`,
@@ -715,7 +714,7 @@ export const relatorioProdutos = async (
   doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
   doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
-  renderCatalogReport(doc, {
+  await renderCatalogReport(doc, {
     conta,
     products: produtos,
     periodo: getPeriodLabel(inicio, fim, "Todos os cadastros"),
@@ -873,7 +872,7 @@ export const relatorioLucroProduto = async (
     doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
     doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
-    renderSalesOrProfitReport(doc, {
+    await renderSalesOrProfitReport(doc, {
       conta,
       report,
       mode: "lucro",
@@ -970,7 +969,7 @@ export const relatorioProdutoMovimentacoes = async (
   doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
   doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
-  drawHeader(doc, conta, {
+  await drawHeader(doc, conta, {
     title: "Relatório de movimentações da variante",
     subtitleLines: [
       `Produto base: ${produtoBase}`,

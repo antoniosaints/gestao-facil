@@ -7,11 +7,13 @@ import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { hasPermission } from "../../helpers/userPermission";
 import { redisConnecion } from "../../utils/redis";
+import { getUserSessionCacheKey, refreshUserSessionCache } from "../../services/session/accountSessionCacheService";
+import { sendSessionUpdated } from "../../hooks/contas/socket";
 
 export const getMinhaConexao = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
-    const cacheKey = `minhaconexao:${customData.userId}:${customData.contaId}`;
+    const cacheKey = getUserSessionCacheKey(customData.userId, customData.contaId);
     const cached = await redisConnecion.get(cacheKey);
 
     if (cached) {
@@ -90,6 +92,12 @@ export const toggleModeGerencial = async (req: Request, res: Response): Promise<
         gerencialMode: !usuario.gerencialMode,
       },
     });
+    await refreshUserSessionCache(customData.contaId, customData.userId);
+    sendSessionUpdated(customData.contaId, {
+      reason: "modo-gerencial-atualizado",
+      contaId: customData.contaId,
+      userId: customData.userId,
+    });
     return res.json({ status: "success" });
   } else {
     return res
@@ -133,6 +141,12 @@ export const deleteUsuario = async (
         id: Number(req.params.id),
         contaId: customData.contaId,
       },
+    });
+    await redisConnecion.del(getUserSessionCacheKey(Number(req.params.id), customData.contaId));
+    sendSessionUpdated(customData.contaId, {
+      reason: "usuario-removido",
+      contaId: customData.contaId,
+      userId: Number(req.params.id),
     });
     return ResponseHandler(res, "Usuário deletado com sucesso!");
   } catch (error) {
@@ -263,6 +277,13 @@ export const saveUsuario = async (
       });
     }
 
+    await refreshUserSessionCache(customData.contaId, data.id);
+    sendSessionUpdated(customData.contaId, {
+      reason: hasId ? "usuario-atualizado" : "usuario-criado",
+      contaId: customData.contaId,
+      userId: data.id,
+    });
+
     ResponseHandler(
       res,
       req.body.id
@@ -292,6 +313,12 @@ export const updatePerfil = async (req: Request, res: Response): Promise<any> =>
         endereco,
         profile,
       },
+    });
+    await refreshUserSessionCache(contaId, Number(userId));
+    sendSessionUpdated(contaId, {
+      reason: "perfil-atualizado",
+      contaId,
+      userId: Number(userId),
     });
     return ResponseHandler(res, "Perfil atualizado com sucesso", data, 200);
   } catch (error) {

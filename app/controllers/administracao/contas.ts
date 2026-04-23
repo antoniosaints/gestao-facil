@@ -1,15 +1,21 @@
 import { Request, Response } from "express";
-import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { prisma } from "../../utils/prisma";
-import { ResponseHandler } from "../../utils/response";
 import Decimal from "decimal.js";
-import { handleError } from "../../utils/handleError";
 import { isBefore } from "date-fns";
+import { sendSessionUpdated } from "../../hooks/contas/socket";
+import { formatDateToPtBR } from "../../helpers/formatters";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { syncContaSessionCaches } from "../../services/session/accountSessionCacheService";
+import { handleError } from "../../utils/handleError";
 import { redisConnecion } from "../../utils/redis";
+import { ResponseHandler } from "../../utils/response";
+import { prisma } from "../../utils/prisma";
 
 export const clearCacheAccount = async (contaId: number) => {
-    await redisConnecion.del(`assinaturaconta:conta${contaId}`);
-    await redisConnecion.del(`infoconta:conta${contaId}`);
+    await syncContaSessionCaches(contaId, { refreshUsers: true });
+    sendSessionUpdated(contaId, {
+        reason: "cache-conta-sincronizado",
+        contaId,
+    });
 }
 
 function isStoreModuleCharge(observacao?: string | null) {
@@ -20,14 +26,6 @@ function isStoreModuleCharge(observacao?: string | null) {
         "Liberacao proporcional do app",
         "Primeira mensalidade do app",
     ].some((pattern) => observacao.includes(pattern));
-}
-
-function formatDatePtBR(date: Date) {
-    return date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    });
 }
 
 function normalizeChargeStatus(status: string) {
@@ -55,7 +53,7 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
                     orderBy: {
                         id: "desc",
                     },
-                    take: 10
+                    take: 10,
                 },
             },
         });
@@ -76,7 +74,7 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
 
         const faturasMensalidade = conta.FaturasContas.map((fatura) => ({
             asaasPaymentId: fatura.asaasPaymentId,
-            vencimento: formatDatePtBR(fatura.vencimento),
+            vencimento: formatDateToPtBR(fatura.vencimento),
             valor: fatura.valor,
             status: fatura.status,
             linkPagamento: fatura.urlPagamento,
@@ -94,7 +92,7 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
 
                 return {
                     asaasPaymentId: cobranca.idCobranca,
-                    vencimento: formatDatePtBR(cobranca.dataVencimento),
+                    vencimento: formatDateToPtBR(cobranca.dataVencimento),
                     valor: new Decimal(cobranca.valor).toNumber(),
                     status,
                     linkPagamento: cobranca.externalLink,
@@ -123,7 +121,7 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
             valor: conta.valor ? `R$ ${new Decimal(conta.valor).toFixed(2).replace('.', ',')}` : "R$ 0,00",
             faturas: faturasCombinadas,
             diasParaVencer: (conta.vencimento.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-            proximoVencimento: formatDatePtBR(conta.vencimento),
+            proximoVencimento: formatDateToPtBR(conta.vencimento),
             valorTotal: faturasCombinadas.reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
             valorPendente: faturasCombinadas.filter((fatura) => fatura.status === "PENDENTE").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),
             valorPago: faturasCombinadas.filter((fatura) => fatura.status === "PAGO").reduce((acc, val) => acc.plus(val.valor), new Decimal(0)),

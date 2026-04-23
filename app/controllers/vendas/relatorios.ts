@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { Request, Response } from "express";
 import PDFDocument from "pdfkit";
 import Decimal from "decimal.js";
@@ -7,6 +6,7 @@ import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { formatCurrency } from "../../utils/formatters";
 import { hasPermission } from "../../helpers/userPermission";
+import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 
 type TotaisStatus = {
   quantidade: number;
@@ -456,18 +456,10 @@ export async function getResumoVendasPDF(
     doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
     doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
-    const filePath = `./public/${conta.profile || "imgs/logo.png"}`;
-    const fileExists = fs.existsSync(filePath);
-
-    if (fileExists) {
-      doc.image(filePath, 40, 36, {
-        fit: [58, 58],
-      });
-    } else {
-      doc.image("./public/imgs/logo.png", 40, 36, {
-        fit: [58, 58],
-      });
-    }
+    const logoSource = await resolveRenderableImageSource(conta.profile);
+    doc.image(logoSource, 40, 36, {
+      fit: [58, 58],
+    });
 
     doc
       .font("Roboto-Bold")
