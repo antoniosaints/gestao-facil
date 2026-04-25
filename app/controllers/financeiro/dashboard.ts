@@ -43,7 +43,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
       return res.status(400).json({ message: "Informe um período válido." });
     }
 
-    const [contasFinanceiras, parcelasBrutas] = await Promise.all([
+    const [contasFinanceiras, parcelasBrutas, assinaturasPagarBrutas] = await Promise.all([
       prisma.contasFinanceiro.findMany({
         where: {
           contaId,
@@ -88,6 +88,35 @@ export const getDashboardFinanceiroVisaoGeral = async (
           },
         },
         orderBy: [{ vencimento: "asc" }, { id: "asc" }],
+      }),
+      prisma.assinaturaPagar.findMany({
+        where: {
+          contaId,
+          status: "ATIVA",
+          proximoVencimento: { not: null },
+          ...(filters.contaFinanceiraId ? { contaFinanceiraId: filters.contaFinanceiraId } : {}),
+          ...(filters.categoriaId ? { categoriaId: filters.categoriaId } : {}),
+          ...(filters.search
+            ? {
+                OR: [
+                  { nomeServico: { contains: filters.search } },
+                  { Uid: { contains: filters.search } },
+                  { observacoes: { contains: filters.search } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          Uid: true,
+          nomeServico: true,
+          valor: true,
+          proximoVencimento: true,
+          status: true,
+          icone: true,
+          corDestaque: true,
+        },
+        orderBy: [{ proximoVencimento: "asc" }, { nomeServico: "asc" }],
       }),
     ]);
 
@@ -308,6 +337,34 @@ export const getDashboardFinanceiroVisaoGeral = async (
       };
     });
 
+    const assinaturasPagar = assinaturasPagarBrutas.map((item) => ({
+      id: item.id,
+      Uid: item.Uid,
+      nomeServico: item.nomeServico,
+      valor: decimalToNumber(item.valor),
+      proximoVencimento: item.proximoVencimento as Date,
+      status: item.status,
+      icone: item.icone,
+      corDestaque: item.corDestaque,
+      atrasada: item.proximoVencimento ? startOfDay(item.proximoVencimento) < hoje : false,
+    }));
+
+    const assinaturasPagarPeriodo = assinaturasPagar.filter((item) =>
+      isBetween(item.proximoVencimento, filters.inicio!, filters.fim!),
+    );
+
+    const assinaturasPagarAtrasadas = assinaturasPagar
+      .filter((item) => item.atrasada)
+      .sort((a, b) => a.proximoVencimento.getTime() - b.proximoVencimento.getTime())
+      .slice(0, 5);
+
+    const assinaturasPagarProximas = assinaturasPagar
+      .filter((item) => !item.atrasada)
+      .sort((a, b) => a.proximoVencimento.getTime() - b.proximoVencimento.getTime())
+      .slice(0, 5);
+
+    const totalAssinaturasPagarPeriodo = assinaturasPagarPeriodo.reduce((acc, item) => acc + item.valor, 0);
+
     return res.json({
       data: {
         periodo: {
@@ -339,6 +396,11 @@ export const getDashboardFinanceiroVisaoGeral = async (
           status: statusChart,
         },
         contas: contasResumo,
+        assinaturasPagar: {
+          totalPrevistoPeriodo: totalAssinaturasPagarPeriodo,
+          proximas: assinaturasPagarProximas,
+          vencidas: assinaturasPagarAtrasadas,
+        },
       },
     });
   } catch (error) {

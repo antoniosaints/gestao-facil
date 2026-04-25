@@ -13,6 +13,16 @@ import { tableCobrancas } from "../../controllers/financeiro/table_cobrancas";
 import { ListagemMobileCobrancas } from "../../controllers/financeiro/mobile_cobrancas";
 import { getDashboardFinanceiroVisaoGeral } from "../../controllers/financeiro/dashboard";
 import { getCsvBaseLancamentos, postImportarLancamentos } from "../../controllers/financeiro/lote/uploadcsv";
+import {
+  deleteAssinaturaPagar,
+  gerarFinanceiroAssinaturaPagar,
+  getAssinaturaPagarDetalhe,
+  getAssinaturasPagar,
+  getAssinaturasPagarMobile,
+  getAssinaturasPagarTable,
+  saveAssinaturaPagar,
+  updateAssinaturaPagarStatus,
+} from "../../controllers/financeiro/assinaturasPagar";
 import multer from "multer";
 
 const routerLancamentos = Router();
@@ -38,6 +48,14 @@ routerLancamentos.get("/contas/:id/saldo-atual", authenticateJWT, getContaFinanc
 routerLancamentos.post("/contas/transferir/preview", authenticateJWT, previewTransferirContaFinanceira);
 routerLancamentos.post("/contas/transferir", authenticateJWT, transferirContaFinanceira);
 routerLancamentos.post("/contas/ajustar-saldo", authenticateJWT, ajustarSaldoContaFinanceira);
+routerLancamentos.get("/assinaturas-pagar", authenticateJWT, getAssinaturasPagar);
+routerLancamentos.get("/assinaturas-pagar/tabela", authenticateJWT, getAssinaturasPagarTable);
+routerLancamentos.get("/assinaturas-pagar/mobile", authenticateJWT, getAssinaturasPagarMobile);
+routerLancamentos.get("/assinaturas-pagar/:id", authenticateJWT, getAssinaturaPagarDetalhe);
+routerLancamentos.post("/assinaturas-pagar", authenticateJWT, saveAssinaturaPagar);
+routerLancamentos.post("/assinaturas-pagar/:id/status", authenticateJWT, updateAssinaturaPagarStatus);
+routerLancamentos.post("/assinaturas-pagar/:id/gerar-financeiro", authenticateJWT, gerarFinanceiroAssinaturaPagar);
+routerLancamentos.delete("/assinaturas-pagar/:id", authenticateJWT, deleteAssinaturaPagar);
 routerLancamentos.get("/dashboard/visao-geral", authenticateJWT, getDashboardFinanceiroVisaoGeral);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);

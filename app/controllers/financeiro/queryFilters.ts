@@ -4,6 +4,7 @@ import type { Prisma } from "../../../generated";
 
 export type FinanceiroStatusFiltro = "TODOS" | "PAGO" | "PENDENTE" | "ATRASADO";
 export type FinanceiroTipoFiltro = "TODOS" | "RECEITA" | "DESPESA";
+export type FinanceiroOrigemFiltro = "TODOS" | "ASSINATURA_PAGAR";
 
 export type FinanceiroQueryFilters = {
   contaFinanceiraId?: number;
@@ -11,6 +12,7 @@ export type FinanceiroQueryFilters = {
   clienteId?: number;
   tipo: FinanceiroTipoFiltro;
   status: FinanceiroStatusFiltro;
+  origem: FinanceiroOrigemFiltro;
   search?: string;
   inicio?: Date;
   fim?: Date;
@@ -40,6 +42,11 @@ function parseStatus(value: unknown): FinanceiroStatusFiltro {
   return "TODOS";
 }
 
+function parseOrigem(value: unknown): FinanceiroOrigemFiltro {
+  if (value === "ASSINATURA_PAGAR") return value;
+  return "TODOS";
+}
+
 function parseDateValue(value: unknown): Date | undefined {
   if (typeof value !== "string" || !value.trim()) return undefined;
 
@@ -64,6 +71,7 @@ export function parseFinanceiroFilters(
     clienteId: parseOptionalNumber(req.query.clienteId),
     tipo: parseTipo(req.query.tipo),
     status: parseStatus(req.query.status),
+    origem: parseOrigem(req.query.origem),
     search: parseOptionalString(req.query.search),
     inicio: inicio
       ? startOfDay(inicio)
@@ -80,7 +88,7 @@ export function parseFinanceiroFilters(
 
 export function buildParcelaFinanceiroWhere(
   contaId: number,
-  filters: Pick<FinanceiroQueryFilters, "contaFinanceiraId" | "categoriaId" | "clienteId" | "tipo" | "search">
+  filters: Pick<FinanceiroQueryFilters, "contaFinanceiraId" | "categoriaId" | "clienteId" | "tipo" | "search"> & { origem?: FinanceiroOrigemFiltro }
 ): Prisma.ParcelaFinanceiroWhereInput {
   const where: Prisma.ParcelaFinanceiroWhereInput = {
     lancamento: {
@@ -104,6 +112,10 @@ export function buildParcelaFinanceiroWhere(
 
   if (filters.tipo !== "TODOS") {
     lancamentoWhere.tipo = filters.tipo;
+  }
+
+  if (filters.origem && filters.origem !== "TODOS") {
+    lancamentoWhere.origemSistema = filters.origem;
   }
 
   if (filters.search) {

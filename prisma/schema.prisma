@@ -102,6 +102,7 @@ model Contas {
   assinaturas              Assinatura[]
   planosAssinatura         PlanoAssinatura[]
   assinaturasClientes      AssinaturaCliente[]
+  assinaturasPagar         AssinaturaPagar[]
   notaFiscals              NotaFiscal[]
   arenaQuadras             ArenaQuadras[]
   comandaVendas            ComandaVenda[]
@@ -123,23 +124,23 @@ model ModulosAdicionais {
 }
 
 model ModuloOnConta {
-  id                        Int               @id @default(autoincrement())
-  vencimento                DateTime          @default(now())
-  valorAdicional            Decimal           @default(0) @db.Decimal(10, 2)
-  status                    StatusModuloConta @default(ATIVO)
-  ativoDesde                DateTime          @default(now())
-  solicitadoCancelamentoEm  DateTime?
-  canceladoEm               DateTime?
-  tipoCobrancaAtual         TipoCobrancaModuloConta?
-  valorCobrancaAtual        Decimal?          @db.Decimal(10, 2)
-  cobrancaAtualId           Int?              @unique
-  CobrancaAtual             CobrancasFinanceiras? @relation("ModuloCobrancaAtual", fields: [cobrancaAtualId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  moduloId                  Int
-  Modulos                   ModulosAdicionais @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  contaId                   Int
-  Contas                    Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
+  id                       Int                      @id @default(autoincrement())
+  vencimento               DateTime                 @default(now())
+  valorAdicional           Decimal                  @default(0) @db.Decimal(10, 2)
+  status                   StatusModuloConta        @default(ATIVO)
+  ativoDesde               DateTime                 @default(now())
+  solicitadoCancelamentoEm DateTime?
+  canceladoEm              DateTime?
+  tipoCobrancaAtual        TipoCobrancaModuloConta?
+  valorCobrancaAtual       Decimal?                 @db.Decimal(10, 2)
+  cobrancaAtualId          Int?                     @unique
+  CobrancaAtual            CobrancasFinanceiras?    @relation("ModuloCobrancaAtual", fields: [cobrancaAtualId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  moduloId                 Int
+  Modulos                  ModulosAdicionais        @relation(fields: [moduloId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  contaId                  Int
+  Contas                   Contas                   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
 
   @@unique([moduloId, contaId], map: "ModuloOnConta_moduloId_contaId_key")
 }
@@ -157,36 +158,36 @@ enum TipoCobrancaModuloConta {
 }
 
 model ParametrosConta {
-  id                             Int      @id @default(autoincrement())
-  contaId                        Int      @unique
-  Contas                         Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  MercadoPagoApiKey              String?
-  AbacatePayApiKey               String?
-  AbacatePaySecret               String?
-  gatewayRecebimentoSaas         String?
-  WhatsappAPIToken               String?
-  WhatsappAPISession             String?
-  WhatsappAPINumber              String?
-  AsaasApiKey                    String?
-  AsaasApiSecret                 String?
-  MercadoPagoEnv                 String?
-  AsaasEnv                       String?
-  emailAvisos                    String?
-  eventoVendaConcluida           Boolean? @default(true)
-  eventoSangria                  Boolean? @default(false)
-  eventoEstoqueBaixo             Boolean? @default(true)
-  eventoProdutoAlterado          Boolean? @default(true)
-  permitirLancamentoRetroativo   Boolean? @default(true)
-  permitirEfetivacaoFutura       Boolean? @default(true)
+  id                                   Int      @id @default(autoincrement())
+  contaId                              Int      @unique
+  Contas                               Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  MercadoPagoApiKey                    String?
+  AbacatePayApiKey                     String?
+  AbacatePaySecret                     String?
+  gatewayRecebimentoSaas               String?
+  WhatsappAPIToken                     String?
+  WhatsappAPISession                   String?
+  WhatsappAPINumber                    String?
+  AsaasApiKey                          String?
+  AsaasApiSecret                       String?
+  MercadoPagoEnv                       String?
+  AsaasEnv                             String?
+  emailAvisos                          String?
+  eventoVendaConcluida                 Boolean? @default(true)
+  eventoSangria                        Boolean? @default(false)
+  eventoEstoqueBaixo                   Boolean? @default(true)
+  eventoProdutoAlterado                Boolean? @default(true)
+  permitirLancamentoRetroativo         Boolean? @default(true)
+  permitirEfetivacaoFutura             Boolean? @default(true)
   permitirTransferenciaContaFinanceira Boolean? @default(true)
-  permitirCriacaoCobranca        Boolean? @default(true)
-  linkPublicoAtivo               Boolean? @default(false)
-  cadastrosPermitidosLinkPublico Int?     @default(1)
-  chavePix                       String?
-  corPrimaria                    String?
-  corSecundaria                  String?
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @updatedAt
+  permitirCriacaoCobranca              Boolean? @default(true)
+  linkPublicoAtivo                     Boolean? @default(false)
+  cadastrosPermitidosLinkPublico       Int?     @default(1)
+  chavePix                             String?
+  corPrimaria                          String?
+  corSecundaria                        String?
+  createdAt                            DateTime @default(now())
+  updatedAt                            DateTime @updatedAt
 }
 
 model Usuarios {
@@ -362,60 +363,60 @@ model ProdutoCategoria {
 }
 
 model ProdutoBase {
-  id              Int               @id @default(autoincrement())
-  contaId         Int
-  Contas          Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  categoriaId     Int?
-  Categoria       ProdutoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  Uid             String            @default("PB_000")
-  nome            String
-  descricao       String?
-  status          Status            @default(ATIVO)
-  ncm             String?
-  cest            String?
-  cfop            String?
-  origem          Int?
-  aliquotaIcms    Decimal?          @db.Decimal(5, 2)
-  aliquotaIpi     Decimal?          @db.Decimal(5, 2)
-  aliquotaPis     Decimal?          @db.Decimal(5, 2)
-  aliquotaCofins  Decimal?          @db.Decimal(5, 2)
-  codigoProduto   String?
-  issAliquota     Decimal?          @db.Decimal(5, 2)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  variantes       Produto[]
+  id             Int               @id @default(autoincrement())
+  contaId        Int
+  Contas         Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  categoriaId    Int?
+  Categoria      ProdutoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Uid            String            @default("PB_000")
+  nome           String
+  descricao      String?
+  status         Status            @default(ATIVO)
+  ncm            String?
+  cest           String?
+  cfop           String?
+  origem         Int?
+  aliquotaIcms   Decimal?          @db.Decimal(5, 2)
+  aliquotaIpi    Decimal?          @db.Decimal(5, 2)
+  aliquotaPis    Decimal?          @db.Decimal(5, 2)
+  aliquotaCofins Decimal?          @db.Decimal(5, 2)
+  codigoProduto  String?
+  issAliquota    Decimal?          @db.Decimal(5, 2)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  variantes      Produto[]
 
   @@index([contaId, nome])
   @@index([categoriaId])
 }
 
 model Servicos {
-  id                 Int                  @id @default(autoincrement())
-  contaId            Int
-  Contas             Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                String               @default("SER_000")
-  nome               String
-  preco              Decimal              @db.Decimal(10, 2)
-  status             Boolean              @default(true)
-  descricao          String?
-  ncm                String?
-  cest               String?
-  cfop               String?
-  origem             Int?
-  aliquotaIcms       Decimal?             @db.Decimal(5, 2)
-  aliquotaIpi        Decimal?             @db.Decimal(5, 2)
-  aliquotaPis        Decimal?             @db.Decimal(5, 2)
-  aliquotaCofins     Decimal?             @db.Decimal(5, 2)
-  codigoProduto      String?
-  issAliquota        Decimal?             @db.Decimal(5, 2)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  Assinatura         Assinatura[]
-  assinaturaItens    AssinaturaItem[]
+  id                   Int                   @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                  String                @default("SER_000")
+  nome                 String
+  preco                Decimal               @db.Decimal(10, 2)
+  status               Boolean               @default(true)
+  descricao            String?
+  ncm                  String?
+  cest                 String?
+  cfop                 String?
+  origem               Int?
+  aliquotaIcms         Decimal?              @db.Decimal(5, 2)
+  aliquotaIpi          Decimal?              @db.Decimal(5, 2)
+  aliquotaPis          Decimal?              @db.Decimal(5, 2)
+  aliquotaCofins       Decimal?              @db.Decimal(5, 2)
+  codigoProduto        String?
+  issAliquota          Decimal?              @db.Decimal(5, 2)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  Assinatura           Assinatura[]
+  assinaturaItens      AssinaturaItem[]
   planoAssinaturaItens PlanoAssinaturaItem[]
-  ItensOrdensServico ItensOrdensServico[]
-  itensVendas        ItensVendas[]
-  ComandaItens       ComandaItem[]
+  ItensOrdensServico   ItensOrdensServico[]
+  itensVendas          ItensVendas[]
+  ComandaItens         ComandaItem[]
 }
 
 model NotaFiscal {
@@ -571,6 +572,20 @@ enum StatusAssinaturaCliente {
   ENCERRADA
 }
 
+enum PeriodicidadeAssinaturaPagar {
+  SEMANAL
+  QUINZENAL
+  MENSAL
+  ANUAL
+  PERSONALIZADO
+}
+
+enum StatusAssinaturaPagar {
+  ATIVA
+  INATIVA
+  CANCELADA
+}
+
 enum ModoValorAssinatura {
   MANUAL
   DINAMICO
@@ -598,23 +613,23 @@ enum StatusCicloAssinatura {
 }
 
 model PlanoAssinatura {
-  id                 Int                     @id @default(autoincrement())
-  contaId            Int
-  Conta              Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                String                  @default("PLA_000")
-  nome               String
-  descricao          String?                 @db.Text
-  status             StatusPlanoAssinatura   @default(ATIVO)
+  id                  Int                     @id @default(autoincrement())
+  contaId             Int
+  Conta               Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                 String                  @default("PLA_000")
+  nome                String
+  descricao           String?                 @db.Text
+  status              StatusPlanoAssinatura   @default(ATIVO)
   periodicidadePadrao PeriodicidadeAssinatura @default(MENSAL)
   intervaloDiasPadrao Int?
-  valorBase          Decimal                 @default(0) @db.Decimal(10, 2)
-  modoValorPadrao    ModoValorAssinatura     @default(DINAMICO)
-  gatewayPadrao      String?
-  tipoCobrancaPadrao String?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  itens              PlanoAssinaturaItem[]
-  assinaturas        AssinaturaCliente[]
+  valorBase           Decimal                 @default(0) @db.Decimal(10, 2)
+  modoValorPadrao     ModoValorAssinatura     @default(DINAMICO)
+  gatewayPadrao       String?
+  tipoCobrancaPadrao  String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  itens               PlanoAssinaturaItem[]
+  assinaturas         AssinaturaCliente[]
 
   @@unique([contaId, nome])
 }
@@ -638,104 +653,145 @@ model PlanoAssinaturaItem {
 }
 
 model AssinaturaCliente {
-  id                        Int                       @id @default(autoincrement())
-  contaId                   Int
-  Conta                     Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                       String                    @default("ASC_000")
-  clienteId                 Int
-  cliente                   ClientesFornecedores      @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  planoId                   Int?
-  plano                     PlanoAssinatura?          @relation(fields: [planoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  nomeContrato              String
-  status                    StatusAssinaturaCliente   @default(ATIVA)
-  modoValor                 ModoValorAssinatura       @default(DINAMICO)
-  valorManual               Decimal?                  @db.Decimal(10, 2)
-  periodicidade             PeriodicidadeAssinatura   @default(MENSAL)
+  id                         Int                     @id @default(autoincrement())
+  contaId                    Int
+  Conta                      Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                        String                  @default("ASC_000")
+  clienteId                  Int
+  cliente                    ClientesFornecedores    @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  planoId                    Int?
+  plano                      PlanoAssinatura?        @relation(fields: [planoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  nomeContrato               String
+  status                     StatusAssinaturaCliente @default(ATIVA)
+  modoValor                  ModoValorAssinatura     @default(DINAMICO)
+  valorManual                Decimal?                @db.Decimal(10, 2)
+  periodicidade              PeriodicidadeAssinatura @default(MENSAL)
   intervaloDiasPersonalizado Int?
-  inicio                    DateTime
-  fim                       DateTime?
-  recorrenciaIndefinida     Boolean                   @default(true)
-  proximaCobranca           DateTime
-  cobrancaAutomatica        Boolean                   @default(false)
-  gateway                   String?
-  tipoCobranca              String?
-  gerarLancamentoFinanceiro Boolean                   @default(false)
-  observacoes               String?                   @db.Text
-  createdAt                 DateTime                  @default(now())
-  updatedAt                 DateTime                  @updatedAt
-  itens                     AssinaturaItem[]
-  ciclos                    AssinaturaCiclo[]
-  historico                 AssinaturaHistorico[]
+  inicio                     DateTime
+  fim                        DateTime?
+  recorrenciaIndefinida      Boolean                 @default(true)
+  proximaCobranca            DateTime
+  cobrancaAutomatica         Boolean                 @default(false)
+  gateway                    String?
+  tipoCobranca               String?
+  gerarLancamentoFinanceiro  Boolean                 @default(false)
+  observacoes                String?                 @db.Text
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+  itens                      AssinaturaItem[]
+  ciclos                     AssinaturaCiclo[]
+  historico                  AssinaturaHistorico[]
 }
 
 model AssinaturaItem {
-  id                Int                @id @default(autoincrement())
+  id                Int                  @id @default(autoincrement())
   assinaturaId      Int
-  assinatura        AssinaturaCliente  @relation(fields: [assinaturaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assinatura        AssinaturaCliente    @relation(fields: [assinaturaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tipoItem          TipoItemAssinatura
   servicoId         Int?
-  servico           Servicos?          @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  servico           Servicos?            @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   produtoId         Int?
-  produto           Produto?           @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  produto           Produto?             @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   descricaoSnapshot String
-  quantidade        Int                @default(1)
-  valorUnitario     Decimal            @default(0) @db.Decimal(10, 2)
-  cobrar            Boolean            @default(true)
-  comodato          Boolean            @default(false)
-  ativo             Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  quantidade        Int                  @default(1)
+  valorUnitario     Decimal              @default(0) @db.Decimal(10, 2)
+  cobrar            Boolean              @default(true)
+  comodato          Boolean              @default(false)
+  ativo             Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
   comodatos         AssinaturaComodato[]
 }
 
 model AssinaturaComodato {
-  id                    Int                       @id @default(autoincrement())
+  id                    Int                      @id @default(autoincrement())
   assinaturaItemId      Int
-  assinaturaItem        AssinaturaItem            @relation(fields: [assinaturaItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assinaturaItem        AssinaturaItem           @relation(fields: [assinaturaItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   produtoId             Int
-  produto               Produto                   @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  quantidade            Int                       @default(1)
+  produto               Produto                  @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  quantidade            Int                      @default(1)
   identificacao         String?
-  status                StatusComodatoAssinatura  @default(EM_USO)
-  dataEntrega           DateTime                  @default(now())
+  status                StatusComodatoAssinatura @default(EM_USO)
+  dataEntrega           DateTime                 @default(now())
   dataPrevistaDevolucao DateTime?
   dataDevolucao         DateTime?
-  observacoes           String?                   @db.Text
-  createdAt             DateTime                  @default(now())
-  updatedAt             DateTime                  @updatedAt
+  observacoes           String?                  @db.Text
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 }
 
 model AssinaturaCiclo {
-  id                    Int                    @id @default(autoincrement())
-  assinaturaId          Int
-  assinatura            AssinaturaCliente      @relation(fields: [assinaturaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  referencia            String
-  inicioPeriodo         DateTime
-  fimPeriodo            DateTime
-  valorCalculado        Decimal                @default(0) @db.Decimal(10, 2)
-  valorCobrado          Decimal                @default(0) @db.Decimal(10, 2)
-  status                StatusCicloAssinatura  @default(PENDENTE)
-  cobrancaFinanceiraId  Int?
-  cobrancaFinanceira    CobrancasFinanceiras?  @relation(fields: [cobrancaFinanceiraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id                     Int                   @id @default(autoincrement())
+  assinaturaId           Int
+  assinatura             AssinaturaCliente     @relation(fields: [assinaturaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  referencia             String
+  inicioPeriodo          DateTime
+  fimPeriodo             DateTime
+  valorCalculado         Decimal               @default(0) @db.Decimal(10, 2)
+  valorCobrado           Decimal               @default(0) @db.Decimal(10, 2)
+  status                 StatusCicloAssinatura @default(PENDENTE)
+  cobrancaFinanceiraId   Int?
+  cobrancaFinanceira     CobrancasFinanceiras? @relation(fields: [cobrancaFinanceiraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   lancamentoFinanceiroId Int?
-  lancamentoFinanceiro  LancamentoFinanceiro?  @relation(fields: [lancamentoFinanceiroId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  gatewayUsado          String?
-  tipoCobrancaUsado     String?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  lancamentoFinanceiro   LancamentoFinanceiro? @relation(fields: [lancamentoFinanceiroId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  gatewayUsado           String?
+  tipoCobrancaUsado      String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   @@unique([assinaturaId, referencia])
 }
 
 model AssinaturaHistorico {
-  id          Int               @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   assinaturaId Int
-  assinatura  AssinaturaCliente @relation(fields: [assinaturaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  evento      String
-  payloadJson String?           @db.Text
-  usuarioId   Int?
-  Autor       Usuarios?         @relation(fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  createdAt   DateTime          @default(now())
+  assinatura   AssinaturaCliente @relation(fields: [assinaturaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  evento       String
+  payloadJson  String?           @db.Text
+  usuarioId    Int?
+  Autor        Usuarios?         @relation(fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt    DateTime          @default(now())
+}
+
+model AssinaturaPagar {
+  id                         Int                          @id @default(autoincrement())
+  contaId                    Int
+  Conta                      Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                        String                       @default("ASP_000")
+  nomeServico                String
+  valor                      Decimal                      @db.Decimal(10, 2)
+  periodicidade              PeriodicidadeAssinaturaPagar @default(MENSAL)
+  intervaloDiasPersonalizado Int?
+  inicio                     DateTime
+  fim                        DateTime?
+  proximoVencimento          DateTime?
+  status                     StatusAssinaturaPagar        @default(ATIVA)
+  gerarFinanceiro            Boolean                      @default(false)
+  gerarAutomatico            Boolean                      @default(false)
+  contaFinanceiraId          Int?
+  contaFinanceira            ContasFinanceiro?            @relation(fields: [contaFinanceiraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  categoriaId                Int?
+  categoria                  CategoriaFinanceiro?         @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  formaPagamento             MetodoPagamento?
+  icone                      String?
+  corDestaque                String?
+  observacoes                String?                      @db.Text
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  links                      AssinaturaPagarLink[]
+  lancamentos                LancamentoFinanceiro[]
+
+  @@index([contaId, status, proximoVencimento])
+}
+
+model AssinaturaPagarLink {
+  id                Int             @id @default(autoincrement())
+  assinaturaPagarId Int
+  assinaturaPagar   AssinaturaPagar @relation(fields: [assinaturaPagarId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  titulo            String
+  url               String          @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
 
 enum StatusVenda {
@@ -828,6 +884,7 @@ model ContasFinanceiro {
   nome              String
   saldoInicial      Decimal                @default(0)
   lancamentos       LancamentoFinanceiro[]
+  assinaturasPagar  AssinaturaPagar[]
   createdAt         DateTime               @default(now())
   ParcelaFinanceiro ParcelaFinanceiro[]
 }
@@ -841,6 +898,7 @@ model CategoriaFinanceiro {
   parentId            Int?
   Parent              CategoriaFinanceiro?   @relation("Subcategorias", fields: [parentId], references: [id])
   lancamentos         LancamentoFinanceiro[]
+  assinaturasPagar    AssinaturaPagar[]
   createdAt           DateTime               @default(now())
   CategoriaFinanceiro CategoriaFinanceiro[]  @relation("Subcategorias")
 }
@@ -872,32 +930,38 @@ model CobrancasFinanceiras {
 }
 
 model LancamentoFinanceiro {
-  id                 Int                       @id @default(autoincrement())
-  contaId            Int
-  Contas             Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                String                    @default("FIN_000")
-  descricao          String
-  valorTotal         Decimal                   @default(0) // total com desconto incluído
-  valorBruto         Decimal                   @default(0)
-  valorEntrada       Decimal                   @default(0)
-  desconto           Decimal                   @default(0)
-  tipo               TipoLancamentoFinanceiro
-  formaPagamento     MetodoPagamento
-  status             StatusPagamentoFinanceiro
-  recorrente         Boolean                   @default(false)
-  dataLancamento     DateTime
-  dataEntrada        DateTime?
-  clienteId          Int?
-  cliente            ClientesFornecedores?     @relation(fields: [clienteId], references: [id])
-  categoriaId        Int
-  categoria          CategoriaFinanceiro       @relation(fields: [categoriaId], references: [id])
-  vendaId            Int?
-  venda              Vendas?                   @relation(fields: [vendaId], references: [id], onDelete: Restrict)
-  parcelas           ParcelaFinanceiro[]
-  assinaturaCiclos   AssinaturaCiclo[]
-  createdAt          DateTime                  @default(now())
-  ContasFinanceiro   ContasFinanceiro?         @relation(fields: [contasFinanceiroId], references: [id])
-  contasFinanceiroId Int?
+  id                    Int                        @id @default(autoincrement())
+  contaId               Int
+  Contas                Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                   String                     @default("FIN_000")
+  descricao             String
+  valorTotal            Decimal                    @default(0) // total com desconto incluído
+  valorBruto            Decimal                    @default(0)
+  valorEntrada          Decimal                    @default(0)
+  desconto              Decimal                    @default(0)
+  tipo                  TipoLancamentoFinanceiro
+  formaPagamento        MetodoPagamento
+  status                StatusPagamentoFinanceiro
+  recorrente            Boolean                    @default(false)
+  origemSistema         OrigemLancamentoFinanceiro @default(MANUAL)
+  referenciaRecorrencia String?
+  dataLancamento        DateTime
+  dataEntrada           DateTime?
+  clienteId             Int?
+  cliente               ClientesFornecedores?      @relation(fields: [clienteId], references: [id])
+  categoriaId           Int
+  categoria             CategoriaFinanceiro        @relation(fields: [categoriaId], references: [id])
+  vendaId               Int?
+  venda                 Vendas?                    @relation(fields: [vendaId], references: [id], onDelete: Restrict)
+  assinaturaPagarId     Int?
+  assinaturaPagar       AssinaturaPagar?           @relation(fields: [assinaturaPagarId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  parcelas              ParcelaFinanceiro[]
+  assinaturaCiclos      AssinaturaCiclo[]
+  createdAt             DateTime                   @default(now())
+  ContasFinanceiro      ContasFinanceiro?          @relation(fields: [contasFinanceiroId], references: [id])
+  contasFinanceiroId    Int?
+
+  @@unique([assinaturaPagarId, referenciaRecorrencia])
 }
 
 model ParcelaFinanceiro {
@@ -930,6 +994,11 @@ enum StatusPagamentoFinanceiro {
   PAGO
   ATRASADO
   PARCIAL
+}
+
+enum OrigemLancamentoFinanceiro {
+  MANUAL
+  ASSINATURA_PAGAR
 }
 
 model ArenaQuadras {
@@ -1044,21 +1113,21 @@ model ComandaVenda {
 }
 
 model ComandaItem {
-  id         Int              @id @default(autoincrement())
+  id         Int             @id @default(autoincrement())
   comandaId  Int
-  Comanda    ComandaVenda     @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  Comanda    ComandaVenda    @relation(fields: [comandaId], references: [id], onDelete: Cascade)
   itemName   String
   tipo       TipoItemComanda
   produtoId  Int?
-  produto    Produto?         @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  produto    Produto?        @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   servicoId  Int?
-  servico    Servicos?        @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  servico    Servicos?       @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   quantidade Int
-  valor      Decimal          @db.Decimal(10, 2)
+  valor      Decimal         @db.Decimal(10, 2)
   vendaId    Int?
-  venda      Vendas?          @relation(fields: [vendaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  venda      Vendas?         @relation(fields: [vendaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 }
 
 model ComandaPagamento {

@@ -50,6 +50,10 @@ function buildLancamentoWhere(
     where.status = filters.status
   }
 
+  if (filters.origem && filters.origem !== 'TODOS') {
+    where.origemSistema = filters.origem
+  }
+
   if (filters.contaFinanceiraId) {
     where.contasFinanceiroId = filters.contaFinanceiraId
   }
@@ -77,6 +81,7 @@ function buildLancamentoWhere(
       { categoria: { nome: { contains: filters.search } } },
       { cliente: { nome: { contains: filters.search } } },
       { ContasFinanceiro: { nome: { contains: filters.search } } },
+      { assinaturaPagar: { nomeServico: { contains: filters.search } } },
     ]
   }
 
@@ -106,7 +111,15 @@ export const tableFinanceiro = async (
     prisma.lancamentoFinanceiro.count({ where }),
     prisma.lancamentoFinanceiro.findMany({
       where,
-      include: { parcelas: true, categoria: true, cliente: true, ContasFinanceiro: true },
+      include: {
+        parcelas: true,
+        categoria: true,
+        cliente: true,
+        ContasFinanceiro: true,
+        assinaturaPagar: {
+          select: { id: true, nomeServico: true, icone: true, corDestaque: true },
+        },
+      },
       orderBy: { [sortBy]: order },
       skip: (page - 1) * pageSize,
       take: pageSize,

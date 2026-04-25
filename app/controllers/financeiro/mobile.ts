@@ -18,6 +18,10 @@ function buildLancamentoWhere(
     where.status = filters.status
   }
 
+  if (filters.origem && filters.origem !== 'TODOS') {
+    where.origemSistema = filters.origem
+  }
+
   if (filters.contaFinanceiraId) {
     where.contasFinanceiroId = filters.contaFinanceiraId
   }
@@ -44,6 +48,7 @@ function buildLancamentoWhere(
       { categoria: { nome: { contains: filters.search } } },
       { cliente: { nome: { contains: filters.search } } },
       { ContasFinanceiro: { nome: { contains: filters.search } } },
+      { assinaturaPagar: { nomeServico: { contains: filters.search } } },
     ]
   }
 
@@ -72,6 +77,9 @@ export const ListagemMobileLancamentos = async (req: Request, res: Response): Pr
           categoria: true,
           cliente: true,
           ContasFinanceiro: true,
+          assinaturaPagar: {
+            select: { id: true, nomeServico: true, icone: true, corDestaque: true },
+          },
         },
       }),
       prisma.lancamentoFinanceiro.count({ where }),

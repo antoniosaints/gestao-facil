@@ -16,6 +16,7 @@ import {
 } from "../../services/financeiro/lancamentoService";
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
 import { assertFutureSettlementAllowed } from "../../services/financeiro/financeiroPolicyService";
+import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
@@ -449,6 +450,15 @@ export const getLacamento = async (
         categoria: true,
         cliente: true,
         ContasFinanceiro: true,
+        assinaturaPagar: {
+          select: {
+            id: true,
+            Uid: true,
+            nomeServico: true,
+            icone: true,
+            corDestaque: true,
+          },
+        },
         parcelas: {
           include: {
             CobrancasFinanceiras: true,
@@ -655,19 +665,42 @@ export const pagarParcela = async (
 
     await assertFutureSettlementAllowed(customData.contaId, [req.body.dataPagamento]);
 
-    await prisma.parcelaFinanceiro.update({
-      where: { id: parcelaId },
-      data: {
-        pago: true,
-        valorPago: parcela.valor,
-        formaPagamento: req.body.metodoPagamento,
-        dataPagamento: startOfDay(new Date(req.body.dataPagamento)),
-        contaFinanceira: req.body.contaPagamento,
-      },
+    const pagamentoResult = await prisma.$transaction(async (tx) => {
+      await tx.parcelaFinanceiro.update({
+        where: { id: parcelaId },
+        data: {
+          pago: true,
+          valorPago: parcela.valor,
+          formaPagamento: req.body.metodoPagamento,
+          dataPagamento: startOfDay(new Date(req.body.dataPagamento)),
+          contaFinanceira: req.body.contaPagamento,
+        },
+      });
+
+      const parcelaAtualizada = await tx.parcelaFinanceiro.findUnique({
+        where: { id: parcelaId },
+        select: { lancamentoId: true },
+      });
+
+      const automacao = parcelaAtualizada
+        ? await processarPosPagamentoAssinaturaPagar(tx, parcelaAtualizada.lancamentoId)
+        : null;
+
+      return {
+        lancamentoId: parcelaAtualizada?.lancamentoId || null,
+        automacao,
+      };
     });
 
     await atualizarStatusLancamentos(customData.contaId);
-    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-paga", parcelaId });
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-paga", parcelaId, lancamentoId: pagamentoResult.lancamentoId });
+
+    if (pagamentoResult.automacao?.generated && pagamentoResult.automacao.lancamentoId) {
+      sendFinanceiroUpdated(customData.contaId, {
+        reason: "assinatura-pagar-proximo-lancamento-gerado",
+        lancamentoId: pagamentoResult.automacao.lancamentoId,
+      });
+    }
 
     return res.json({ message: "Parcela paga com sucesso." });
   } catch (error: any) {
@@ -697,7 +730,7 @@ export const pagarMultiplasParcelas = async (
           contaId: customData.contaId,
         },
       },
-      select: { id: true },
+      select: { id: true, lancamentoId: true },
     });
 
     if (!parcelasPermitidas.length) {
@@ -712,6 +745,13 @@ export const pagarMultiplasParcelas = async (
         dataPagamento: startOfDay(new Date()),
       },
     });
+
+    const lancamentosAfetados = [...new Set(parcelasPermitidas.map((item) => item.lancamentoId))];
+    for (const lancamentoId of lancamentosAfetados) {
+      await prisma.$transaction(async (tx) => {
+        await processarPosPagamentoAssinaturaPagar(tx, lancamentoId);
+      });
+    }
 
     await atualizarStatusLancamentos(customData.contaId);
     sendFinanceiroUpdated(customData.contaId, { reason: "parcelas-pagas-em-lote", total: parcelasPermitidas.length });

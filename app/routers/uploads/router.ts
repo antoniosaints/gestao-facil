@@ -168,5 +168,78 @@ routerUploads.post(
   },
 );
 
+routerUploads.post(
+  "/subscriptions-pay/:id/icon",
+  authenticateJWT,
+  async (req: Request, res: Response): Promise<any> => {
+    const customData = getCustomRequest(req).customData;
+    const assinaturaId = Number(req.params.id);
+
+    if (!Number.isInteger(assinaturaId) || assinaturaId <= 0) {
+      return res.status(400).json({ message: "Assinatura a pagar inválida." });
+    }
+
+    upload.single("serviceIcon")(req, res, async (err) => {
+      if (err instanceof MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res
+            .status(400)
+            .json({ message: "Tamanho do arquivo excedeu o limite de 5MB." });
+        }
+      } else if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Arquivo não enviado." });
+      }
+
+      const assinatura = await prisma.assinaturaPagar.findFirst({
+        where: {
+          id: assinaturaId,
+          contaId: customData.contaId,
+        },
+        select: { icone: true },
+      });
+
+      if (!assinatura) {
+        return res.status(404).json({ message: "Assinatura a pagar não encontrada." });
+      }
+
+      if (assinatura.icone) {
+        await deleteStoredFile(assinatura.icone);
+      }
+
+      const ext = path.extname(req.file.originalname).toLowerCase() || ".jpg";
+      const fileName = `subscription-pay-${assinaturaId}${ext}`;
+      const key = buildScopedUploadKey(
+        customData.contaId,
+        `financeiro/assinaturas-pagar/assinatura_${assinaturaId}`,
+        fileName,
+      );
+
+      const file = await uploadPublicFile({
+        key,
+        body: req.file.buffer,
+        contentType: req.file.mimetype,
+        cacheControl: "public, max-age=3600",
+      });
+
+      await prisma.assinaturaPagar.update({
+        where: { id: assinaturaId },
+        data: { icone: file.reference },
+      });
+
+      return res.json({
+        message: "Ícone da assinatura enviado com sucesso.",
+        path: file.reference,
+        publicUrl: file.url,
+        key: file.key,
+        driver: file.driver,
+      });
+    });
+  },
+);
+
 routerUploads.use("/cloud", authenticateJWT, routerUploadArquivos);
 export default routerUploads;
