@@ -53,6 +53,8 @@ export const getDashboardFinanceiroVisaoGeral = async (
           id: true,
           nome: true,
           saldoInicial: true,
+          icone: true,
+          corDestaque: true,
         },
         orderBy: { nome: "asc" },
       }),
@@ -329,6 +331,8 @@ export const getDashboardFinanceiroVisaoGeral = async (
       return {
         contaId: conta.id,
         conta: conta.nome,
+        icone: conta.icone,
+        corDestaque: conta.corDestaque,
         saldoInicial: saldoInicialConta,
         saldoAtual,
         saldoPrevisto,

@@ -12,9 +12,21 @@ import { criarLancamentoFinanceiro } from "../../services/financeiro/lancamentoS
 import { endOfDay, startOfDay } from "date-fns";
 import { assertTransferAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { deleteStoredFile } from "../../services/uploads/fileStorageService";
 
 const AJUSTE_SALDO_CATEGORIA = "Ajuste de saldo da conta";
 const TRANSFERENCIA_ENTRE_CONTAS_CATEGORIA = "Transferência entre contas";
+
+function normalizeColor(value?: string | null) {
+    if (!value) return null;
+
+    const normalized = String(value).trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+        return null;
+    }
+
+    return normalized.toUpperCase();
+}
 
 async function calcularSaldosAtuaisContas(contaId: number, contaFinanceiraIds: number[]) {
     if (!contaFinanceiraIds.length) {
@@ -73,6 +85,8 @@ export const listContasFinanceiro = async (req: Request, res: Response): Promise
                 id: true,
                 Uid: true,
                 nome: true,
+                icone: true,
+                corDestaque: true,
                 saldoInicial: true,
             },
             orderBy: {
@@ -114,33 +128,84 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
             return ResponseHandler(res, "Nome da conta obrigatorio!", null, 400);
         }
 
+        const dataPayload = {
+            nome: String(req.body.nome).trim(),
+            saldoInicial: new Decimal(req.body.saldoInicial || 0),
+            corDestaque: normalizeColor(req.body.corDestaque),
+        };
+
+        const removeIcon = Boolean(req.body.removeIcon);
+        let saved: { id: number; Uid: string; nome: string; icone: string | null; corDestaque: string | null; saldoInicial: Decimal };
+
         if (req.body.id) {
-            await prisma.contasFinanceiro.update({
+            const contaAtual = await prisma.contasFinanceiro.findFirst({
                 where: {
                     id: Number(req.body.id),
-                    contaId
+                    contaId,
+                },
+                select: {
+                    id: true,
+                    Uid: true,
+                    nome: true,
+                    icone: true,
+                    corDestaque: true,
+                    saldoInicial: true,
+                },
+            });
+
+            if (!contaAtual) {
+                return ResponseHandler(res, "Conta financeira não encontrada!", null, 404);
+            }
+
+            if (removeIcon && contaAtual.icone) {
+                await deleteStoredFile(contaAtual.icone);
+            }
+
+            saved = await prisma.contasFinanceiro.update({
+                where: {
+                    id: Number(req.body.id),
+                    contaId,
                 },
                 data: {
-                    nome: req.body.nome,
-                    saldoInicial: new Decimal(req.body.saldoInicial || 0),
+                    ...dataPayload,
+                    ...(removeIcon ? { icone: null } : {}),
+                },
+                select: {
+                    id: true,
+                    Uid: true,
+                    nome: true,
+                    icone: true,
+                    corDestaque: true,
+                    saldoInicial: true,
                 },
             });
         } else {
-            await prisma.contasFinanceiro.create({
+            saved = await prisma.contasFinanceiro.create({
                 data: {
                     contaId,
                     Uid: gerarIdUnicoComMetaFinal('CON'),
-                    nome: req.body.nome,
-                    saldoInicial: new Decimal(req.body.saldoInicial || 0),
+                    ...dataPayload,
+                },
+                select: {
+                    id: true,
+                    Uid: true,
+                    nome: true,
+                    icone: true,
+                    corDestaque: true,
+                    saldoInicial: true,
                 },
             });
         }
 
         sendFinanceiroUpdated(contaId, {
             reason: req.body.id ? "conta-financeira-atualizada" : "conta-financeira-criada",
+            contaFinanceiraId: saved.id,
         });
 
-        return ResponseHandler(res, "Conta salva com sucesso!", null, 200);
+        return ResponseHandler(res, "Conta salva com sucesso!", {
+            ...saved,
+            saldoInicial: decimalToNumber(saved.saldoInicial),
+        }, 200);
     } catch (error) {
         handleError(res, error);
     }
@@ -184,6 +249,8 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
                 id: true,
                 Uid: true,
                 nome: true,
+                icone: true,
+                corDestaque: true,
                 saldoInicial: true,
             },
         });
@@ -847,6 +914,8 @@ export const tableContasFinanceiro = async (req: Request, res: Response): Promis
                 id: true,
                 Uid: true,
                 nome: true,
+                icone: true,
+                corDestaque: true,
                 saldoInicial: true,
             },
             orderBy: shouldSortBySaldoAtual ? [{ nome: "asc" }, { id: "asc" }] : orderBy,

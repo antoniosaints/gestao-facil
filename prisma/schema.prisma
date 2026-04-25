@@ -882,10 +882,13 @@ model ContasFinanceiro {
   Contas            Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   Uid               String                 @default("CON_000")
   nome              String
+  icone             String?
+  corDestaque       String?
   saldoInicial      Decimal                @default(0)
   lancamentos       LancamentoFinanceiro[]
   assinaturasPagar  AssinaturaPagar[]
   createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   ParcelaFinanceiro ParcelaFinanceiro[]
 }
 

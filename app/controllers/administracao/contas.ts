@@ -9,6 +9,7 @@ import { handleError } from "../../utils/handleError";
 import { redisConnecion } from "../../utils/redis";
 import { ResponseHandler } from "../../utils/response";
 import { prisma } from "../../utils/prisma";
+import { isStoreModuleCharge } from "../../services/financeiro/chargeVisibilityService";
 
 export const clearCacheAccount = async (contaId: number) => {
     await syncContaSessionCaches(contaId, { refreshUsers: true });
@@ -16,16 +17,6 @@ export const clearCacheAccount = async (contaId: number) => {
         reason: "cache-conta-sincronizado",
         contaId,
     });
-}
-
-function isStoreModuleCharge(observacao?: string | null) {
-    if (!observacao) return false;
-
-    return [
-        "App Store",
-        "Liberacao proporcional do app",
-        "Primeira mensalidade do app",
-    ].some((pattern) => observacao.includes(pattern));
 }
 
 function normalizeChargeStatus(status: string) {

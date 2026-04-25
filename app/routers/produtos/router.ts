@@ -32,6 +32,7 @@ import {
 import multer from "multer";
 import {
   select2CategoriasProduto,
+  select2FiltrosProdutos,
   select2Produtos,
 } from "../../controllers/produtos/hooks";
 import {
@@ -61,6 +62,7 @@ routerProdutos.get(
 );
 
 routerProdutos.get("/select2", authenticateJWT, select2Produtos);
+routerProdutos.get("/filtros/select2", authenticateJWT, select2FiltrosProdutos);
 routerProdutos.get(
   "/categorias/select2",
   authenticateJWT,

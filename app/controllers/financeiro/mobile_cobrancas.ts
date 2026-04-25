@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { Prisma } from "../../../generated";
+import { buildOperationalChargeWhere } from "../../services/financeiro/chargeVisibilityService";
 
 export const ListagemMobileCobrancas = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
@@ -14,7 +15,9 @@ export const ListagemMobileCobrancas = async (req: Request, res: Response): Prom
   try {
     const model = prisma.cobrancasFinanceiras;
 
-    const where: Prisma.CobrancasFinanceirasWhereInput = { contaId: customData.contaId };
+    const where: Prisma.CobrancasFinanceirasWhereInput = buildOperationalChargeWhere(
+      customData.contaId,
+    );
     if (search) {
       where.OR = [
         { gateway: { contains: search } },

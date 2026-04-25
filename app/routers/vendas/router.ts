@@ -17,10 +17,12 @@ import { ListagemMobileVendas } from "../../controllers/vendas/mobile";
 import { ResumoVendasController } from "../../controllers/vendas/resumo";
 import { getFaturamentoDiario, getFaturamentoMensal, getPorMetodoPagamento, getPorStatusVenda, getTopProdutos } from "../../controllers/vendas/graficos";
 import { addItemComanda, checkoutComanda, deleteComanda, getComanda, listComandas, removeItemComanda, saveComanda } from "../../controllers/vendas/comandas";
+import { select2FiltrosVendas } from "../../controllers/vendas/hooks";
 
 const routerVendas = Router();
 
 routerVendas.get("/", authenticateJWT, tableVendas);
+routerVendas.get("/filtros/select2", authenticateJWT, select2FiltrosVendas);
 routerVendas.get("/mobile/data", authenticateJWT, ListagemMobileVendas);
 routerVendas.get("/comandas", authenticateJWT, listComandas);
 routerVendas.get("/comandas/:id", authenticateJWT, getComanda);

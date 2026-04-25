@@ -3,6 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { Prisma } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { isAccountOverdue } from "../../routers/web";
+import { buildOperationalChargeWhere } from "../../services/financeiro/chargeVisibilityService";
 
 export const tableCobrancas = async (
   req: Request,
@@ -22,9 +23,9 @@ export const tableCobrancas = async (
         const sortBy = (req.query.sortBy as string) || "dataVencimento";
         const order = req.query.order || "asc";
       
-        const where: Prisma.CobrancasFinanceirasWhereInput = {
-          contaId: customData.contaId,
-        };
+        const where: Prisma.CobrancasFinanceirasWhereInput = buildOperationalChargeWhere(
+          customData.contaId,
+        );
       
         if (search) {
           where.OR = [

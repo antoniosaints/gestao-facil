@@ -11,6 +11,10 @@ import {
 import { BodyCobrancaPublicoSchema } from "../../schemas/arena/reservas";
 import { handleError } from "../../utils/handleError";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import {
+  assertOperationalCharge,
+  buildOperationalChargeWhere,
+} from "../../services/financeiro/chargeVisibilityService";
 export interface BodyCobranca {
   type: "PIX" | "BOLETO" | "LINK";
   value: number;
@@ -112,9 +116,7 @@ export const getCobrancas = async (
   try {
     const customData = getCustomRequest(req).customData;
     const cobrancas = await prisma.cobrancasFinanceiras.findMany({
-      where: {
-        contaId: customData.contaId,
-      },
+      where: buildOperationalChargeWhere(customData.contaId),
     });
     return res.status(200).json(cobrancas);
   } catch (error: any) {
@@ -144,10 +146,19 @@ export const cancelarCobranca = async (
 
     const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
       where: { id: Number(cobrancaId) },
+      include: {
+        moduloOnContaAtual: true,
+      },
     });
 
     if (!cobranca)
       return res.status(400).json({ message: "Cobranca nao encontrada." });
+
+    try {
+      assertOperationalCharge(cobranca);
+    } catch (error: any) {
+      return res.status(403).json({ message: error.message });
+    }
 
     if (cobranca.status === "CANCELADO")
       return res.status(400).json({ message: "Cobranca ja cancelada." });
@@ -186,10 +197,19 @@ export const estornarCobranca = async (
 
     const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
       where: { id: Number(cobrancaId) },
+      include: {
+        moduloOnContaAtual: true,
+      },
     });
 
     if (!cobranca)
       return res.status(400).json({ message: "Cobranca nao encontrada." });
+
+    try {
+      assertOperationalCharge(cobranca);
+    } catch (error: any) {
+      return res.status(403).json({ message: error.message });
+    }
 
     if (cobranca.status === "ESTORNADO")
       return res.status(400).json({ message: "Cobranca ja estornada." });
@@ -217,9 +237,17 @@ export const deletarCobranca = async (
     const customData = getCustomRequest(req).customData;
     const cobranca = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
       where: { id: Number(id), contaId: customData.contaId },
+      include: {
+        moduloOnContaAtual: true,
+      },
     });
     if (!cobranca)
       return res.status(400).json({ message: "Cobranca nao encontrada." });
+    try {
+      assertOperationalCharge(cobranca);
+    } catch (error: any) {
+      return res.status(403).json({ message: error.message });
+    }
     if (!["CANCELADO", "ESTORNADO"].includes(cobranca.status))
       return res
         .status(400)
@@ -258,6 +286,21 @@ export const cancelarMercadoPagoPagamento = async (
       throw new Error(
         "API Key nao encontrada, adicione a chave do Mercado Pago."
       );
+
+    const cobranca = await prisma.cobrancasFinanceiras.findUnique({
+      where: { id: Number(cobrancaId), contaId: customData.contaId },
+      include: {
+        moduloOnContaAtual: true,
+      },
+    });
+
+    if (cobranca) {
+      try {
+        assertOperationalCharge(cobranca);
+      } catch (error: any) {
+        return res.status(403).json({ message: error.message });
+      }
+    }
 
     const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
     const cancelamento = await mp.payment.cancel({

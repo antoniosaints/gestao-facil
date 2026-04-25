@@ -241,5 +241,78 @@ routerUploads.post(
   },
 );
 
+routerUploads.post(
+  "/financial-accounts/:id/icon",
+  authenticateJWT,
+  async (req: Request, res: Response): Promise<any> => {
+    const customData = getCustomRequest(req).customData;
+    const contaFinanceiraId = Number(req.params.id);
+
+    if (!Number.isInteger(contaFinanceiraId) || contaFinanceiraId <= 0) {
+      return res.status(400).json({ message: "Conta financeira inválida." });
+    }
+
+    upload.single("accountIcon")(req, res, async (err) => {
+      if (err instanceof MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res
+            .status(400)
+            .json({ message: "Tamanho do arquivo excedeu o limite de 5MB." });
+        }
+      } else if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Arquivo não enviado." });
+      }
+
+      const contaFinanceira = await prisma.contasFinanceiro.findFirst({
+        where: {
+          id: contaFinanceiraId,
+          contaId: customData.contaId,
+        },
+        select: { icone: true },
+      });
+
+      if (!contaFinanceira) {
+        return res.status(404).json({ message: "Conta financeira não encontrada." });
+      }
+
+      if (contaFinanceira.icone) {
+        await deleteStoredFile(contaFinanceira.icone);
+      }
+
+      const ext = path.extname(req.file.originalname).toLowerCase() || ".jpg";
+      const fileName = `financial-account-${contaFinanceiraId}${ext}`;
+      const key = buildScopedUploadKey(
+        customData.contaId,
+        `financeiro/contas/conta_${contaFinanceiraId}`,
+        fileName,
+      );
+
+      const file = await uploadPublicFile({
+        key,
+        body: req.file.buffer,
+        contentType: req.file.mimetype,
+        cacheControl: "public, max-age=3600",
+      });
+
+      await prisma.contasFinanceiro.update({
+        where: { id: contaFinanceiraId },
+        data: { icone: file.reference },
+      });
+
+      return res.json({
+        message: "Ícone da conta enviado com sucesso.",
+        path: file.reference,
+        publicUrl: file.url,
+        key: file.key,
+        driver: file.driver,
+      });
+    });
+  },
+);
+
 routerUploads.use("/cloud", authenticateJWT, routerUploadArquivos);
 export default routerUploads;

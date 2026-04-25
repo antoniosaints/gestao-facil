@@ -3,6 +3,27 @@ import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 
+const PRODUCT_FILTER_OPTIONS = {
+  status: [
+    { id: "ATIVO", label: "Ativo" },
+    { id: "INATIVO", label: "Inativo" },
+    { id: "BLOQUEADO", label: "Bloqueado" },
+  ],
+  estoqueBaixo: [
+    { id: "SIM", label: "Somente estoque baixo" },
+    { id: "NAO", label: "Sem estoque baixo" },
+  ],
+  maisVendas: [{ id: "SIM", label: "Mais vendas" }],
+} as const;
+
+function resolveProductFilterKind(value: unknown) {
+  if (value === "status" || value === "estoqueBaixo" || value === "maisVendas") {
+    return value;
+  }
+
+  return null;
+}
+
 export const select2Produtos = async (
   req: Request,
   res: Response
@@ -112,6 +133,35 @@ export const select2Produtos = async (
         };
       }),
     });
+  } catch (error) {
+    return res.json({ results: [] });
+  }
+};
+
+export const select2FiltrosProdutos = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const kind = resolveProductFilterKind(req.query.kind);
+    if (!kind) {
+      return res.json({ results: [] });
+    }
+
+    const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+    const id = typeof req.query.id === "string" ? req.query.id : null;
+    const options = PRODUCT_FILTER_OPTIONS[kind];
+
+    if (id) {
+      const match = options.find((item) => item.id === id);
+      return res.json({ results: match ? [match] : [] });
+    }
+
+    const results = search
+      ? options.filter((item) => item.label.toLowerCase().includes(search))
+      : options;
+
+    return res.json({ results });
   } catch (error) {
     return res.json({ results: [] });
   }

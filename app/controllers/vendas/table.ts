@@ -53,11 +53,65 @@ export const tableVendas = async (req: Request, res: Response) => {
   if (req.query.status) {
     where.status = req.query.status as StatusVenda;
   }
-  if (req.query['periodo[inicio]'] && req.query['periodo[fim]']) {
+
+  const clienteId = Number(req.query.clienteId);
+  if (Number.isInteger(clienteId) && clienteId > 0) {
+    where.clienteId = clienteId;
+  }
+
+  const vendedorId = Number(req.query.vendedorId);
+  if (Number.isInteger(vendedorId) && vendedorId > 0) {
+    where.vendedorId = vendedorId;
+  }
+
+  const advancedFilters: Prisma.VendasWhereInput[] = [];
+
+  const produtoId = Number(req.query.produtoId);
+  if (Number.isInteger(produtoId) && produtoId > 0) {
+    advancedFilters.push({
+      ItensVendas: {
+        some: {
+          produtoId,
+        },
+      },
+    });
+  }
+
+  const servicoId = Number(req.query.servicoId);
+  if (Number.isInteger(servicoId) && servicoId > 0) {
+    advancedFilters.push({
+      ItensVendas: {
+        some: {
+          servicoId,
+        },
+      },
+    });
+  }
+
+  if (req.query.desconto === "COM_DESCONTO") {
+    advancedFilters.push({
+      desconto: { gt: 0 } as any,
+    });
+  }
+
+  if (req.query.desconto === "SEM_DESCONTO") {
+    advancedFilters.push({
+      OR: [{ desconto: { equals: 0 } as any }, { desconto: null }],
+    });
+  }
+
+  if (advancedFilters.length) {
+    where.AND = [...(where.AND || []), ...advancedFilters];
+  }
+
+  const periodoInicio = (req.query["periodo[inicio]"] || req.query.inicio) as string | undefined;
+  const periodoFim = (req.query["periodo[fim]"] || req.query.fim) as string | undefined;
+
+  if (periodoInicio && periodoFim) {
     where.data = {
-      gte: new Date(req.query['periodo[inicio]'] as string),
-      lte: new Date(req.query['periodo[fim]'] as string),
-    }
+      gte: new Date(periodoInicio),
+      lte: new Date(periodoFim),
+    };
   }
 
   const total = await prisma.vendas.count({ where });
