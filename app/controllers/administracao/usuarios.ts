@@ -326,6 +326,61 @@ export const updatePerfil = async (req: Request, res: Response): Promise<any> =>
   }
 }
 
+export const updateSenha = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { contaId, userId } = getCustomRequest(req).customData;
+    const { senhaAtual, novaSenha, confirmarSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha || !confirmarSenha) {
+      return ResponseHandler(res, "Preencha a senha atual, a nova senha e a confirmação.", null, 400);
+    }
+
+    if (novaSenha.length < 6) {
+      return ResponseHandler(res, "A nova senha deve ter pelo menos 6 caracteres.", null, 400);
+    }
+
+    if (novaSenha !== confirmarSenha) {
+      return ResponseHandler(res, "A nova senha e a confirmação não conferem.", null, 400);
+    }
+
+    if (senhaAtual === novaSenha) {
+      return ResponseHandler(res, "A nova senha precisa ser diferente da senha atual.", null, 400);
+    }
+
+    const usuario = await prisma.usuarios.findUniqueOrThrow({
+      where: {
+        id: Number(userId),
+        contaId,
+      },
+    });
+
+    if (usuario.senha !== senhaAtual) {
+      return ResponseHandler(res, "A senha atual informada está incorreta.", null, 400);
+    }
+
+    await prisma.usuarios.update({
+      where: {
+        id: Number(userId),
+        contaId,
+      },
+      data: {
+        senha: novaSenha,
+      },
+    });
+
+    await refreshUserSessionCache(contaId, Number(userId));
+    sendSessionUpdated(contaId, {
+      reason: "senha-atualizada",
+      contaId,
+      userId: Number(userId),
+    });
+
+    return ResponseHandler(res, "Senha atualizada com sucesso.", null, 200);
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
 export const getUsuario = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const { id } = req.params;

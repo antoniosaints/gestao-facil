@@ -16,7 +16,7 @@
 - `routers/`: roteamento da API.
 - `schemas/`: schemas de validação.
 - `services/`: serviços especializados e integrações.
-- Uploads públicos e leitura de arquivos renderizáveis ficam centralizados em `services/uploads/fileStorageService.ts`, com fallback local e suporte a S3/R2 compatível.
+- Uploads públicos e leitura de arquivos renderizáveis ficam centralizados em `services/uploads/fileStorageService.ts`, com fallback local e suporte a S3/R2 compatível; fotos da conta e avatar de usuário devem reutilizar esse serviço via `routers/uploads`.
 - `types/`: tipos adicionais.
 - `utils/`: infraestrutura comum.
 - `workers/`: processos assíncronos.
