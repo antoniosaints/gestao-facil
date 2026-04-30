@@ -55,7 +55,8 @@ O schema Prisma é grande e multi-tenant por `contaId`. Os domínios mais fortes
 - serviços, ordens de serviço e assinaturas;
 - financeiro, cobranças e parcelas;
 - arena, quadras, reservas e comandas;
-- notificações push e integrações.
+- notificações push e integrações;
+- atendimento WhatsApp via W-API, com instâncias, contatos, conversas, mensagens e eventos de webhook isolados por `contaId`.
 
 No domínio de produtos, o backend trabalha com duas visões complementares:
 - `ProdutoBase`, que representa o cadastro principal e agrega variantes;
@@ -84,5 +85,7 @@ No domínio de produtos, o backend trabalha com duas visões complementares:
 - O mesmo domínio também centraliza regras reutilizáveis de parcelamento (periodicidade mensal/semanal/diária/quinzenal/personalizada), atualização em cascata por escopo de parcela e importação em lote por CSV.
 - As flags operacionais salvas em `ParametrosConta` devem ser tratadas como contrato global do financeiro: criação retroativa, efetivação futura, transferências entre contas e geração de cobrança precisam ser validadas no backend, inclusive quando o fluxo for disparado por vendas, OS, recorrência ou webhooks.
 - Sempre que dados do usuário autenticado, da conta ou da assinatura SaaS forem alterados, sincronize os caches Redis usados pela sessão (`infoconta`, `minhaconexao`, `assinaturaconta`) e emita um evento de Socket.IO para que o frontend reflita o estado novo sem depender de refresh manual.
+- Tokens e segredos de webhooks do WhatsApp ficam no backend em `WhatsAppInstancia`; endpoints autenticados nunca devem retornar o token bruto, e o webhook público deve validar `webhookSecret` antes de aceitar qualquer payload da W-API.
+- Webhooks de WhatsApp devem ser idempotentes por instância/evento, persistir payload bruto em `WhatsAppWebhookEvento`, emitir Socket.IO apenas para `conta:<contaId>` e nunca depender exclusivamente de polling para atualizar a inbox.
 - Antes de remover algo de `views` ou `public`, confirmar se a rota ou fluxo legado ainda está em uso.
 ainda está em uso.

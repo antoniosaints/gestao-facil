@@ -22,6 +22,7 @@
 - responde com `ResponseHandler`, `res.json` ou `handleError`.
 
 ## Importante
+- No domínio `whatsapp`, os controllers validam permissão por nível, deixam o token bruto restrito ao backend e delegam a orquestração pesada ao service de WhatsApp para manter idempotência, isolamento por conta, prévia/sincronização de webhooks da W-API e emissão de Socket.IO.
 - Nem todo controller delega para um service.
 - Em muitos fluxos, o controller é dono da orquestração e acessa Prisma diretamente.
 - Isso é parte do padrão atual e a documentação deve refletir esse comportamento real.

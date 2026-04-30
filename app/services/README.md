@@ -12,6 +12,7 @@
 - Importação em lote de lançamentos financeiros por CSV.
 - Cache Redis.
 - Integrações S3/R2 e storage público com fallback local.
+- Integração W-API/WhatsApp, incluindo cliente HTTP, gestão de instâncias, prévia/sincronização de webhooks por callback, envio de mensagens e processamento idempotente de webhooks.
 - Serviços específicos de `arena`.
 - Builders utilitários como `prismaDatatables.ts`.
 

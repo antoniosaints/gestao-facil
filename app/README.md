@@ -13,9 +13,9 @@
 - `mappers/`: tradução de erros e formatos.
 - `middlewares/`: autenticação e filtros transversais.
 - `queues/`: definição das filas BullMQ.
-- `routers/`: roteamento da API.
+- `routers/`: roteamento da API, incluindo `/api/whatsapp` para instâncias, conversas, mensagens, prévia/sincronização de webhooks W-API e recebimento público de webhooks.
 - `schemas/`: schemas de validação.
-- `services/`: serviços especializados e integrações.
+- `services/`: serviços especializados e integrações, incluindo `services/whatsapp` para cliente W-API, inbox e processamento idempotente de webhooks.
 - Uploads públicos e leitura de arquivos renderizáveis ficam centralizados em `services/uploads/fileStorageService.ts`, com fallback local e suporte a S3/R2 compatível; fotos da conta e avatar de usuário devem reutilizar esse serviço via `routers/uploads`.
 - `types/`: tipos adicionais.
 - `utils/`: infraestrutura comum.
@@ -34,6 +34,7 @@
 - No financeiro operacional, edições posteriores do lançamento devem ser restritas a metadados seguros (descrição, categoria, conta, cliente/fornecedor e forma de pagamento padrão), enquanto detalhes completos de conta financeira devem nascer de endpoints dedicados com filtros, resumo consolidado, saldo atual calculado a partir das parcelas pagas, transferência entre contas e ajuste manual de saldo com ou sem reflexo nas listagens financeiras.
 - Despesas recorrentes do domínio `assinaturas-pagar` devem ficar separadas do módulo `assinaturas` já existente: o vínculo com `LancamentoFinanceiro` precisa usar origem explícita (`ASSINATURA_PAGAR`), referência de ciclo para idempotência e geração do próximo lançamento apenas após baixa confirmada do atual.
 - Caches Redis ligados à sessão/autenticação ficam espalhados por conta e usuário (`infoconta`, `minhaconexao`, `assinaturaconta`); mutações de conta, usuário, mensalidade SaaS e faturas precisam sincronizar esses caches e sinalizar o frontend por socket.
+- Webhooks do WhatsApp entram por `POST /api/whatsapp/webhooks/:instanceId`, sem JWT, mas exigem o segredo gerado por instância em query/header; depois disso todo dado salvo ou emitido por socket deve usar a `contaId` resolvida pela instância. A UI usa `GET/POST /api/whatsapp/instances/:id/webhooks` para conferir as URLs baseadas em `BASE_URL` antes de enviá-las à W-API.
 - Preferências operacionais da conta, como flags do financeiro e switches de eventos de notificação, devem ser lidas em serviços centrais antes de permitir uma ação ou enfileirar push.
 - No domínio `financeiro/cobrancas`, a listagem operacional do tenant deve excluir cobranças internas da mensalidade/App Store; essas cobranças pertencem ao contexto de assinatura da conta e não podem reaparecer como cobrança de recebimento comum nem aceitar cancelamento/estorno/exclusão pelos endpoints operacionais.
 - Metadados visuais de contas financeiras (cor e ícone) devem reaproveitar o mesmo pipeline de upload público já usado por avatar de conta/usuário e `assinaturas-pagar`, evitando storage paralelo e mantendo fallback visual no frontend.

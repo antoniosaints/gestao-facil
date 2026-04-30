@@ -11,7 +11,7 @@ API principal do sistema, workers assíncronos, integrações externas e partes 
 - Socket.IO
 - JWT
 - Express Handlebars
-- Web Push, email, Mercado Pago, AbacatePay, Asaas, Gemini e armazenamento S3/R2 compatível
+- Web Push, email, Mercado Pago, AbacatePay, Asaas, Gemini, W-API/WhatsApp e armazenamento S3/R2 compatível
 
 ## Estrutura principal
 
@@ -139,6 +139,7 @@ Variáveis opcionais usadas quando a plataforma habilita mensalidade SaaS via Ab
 
 - `ABACATEPAY_API_KEY`
 - `ABACATEPAY_WEBHOOK_SECRET`
+- `WHATSAPP_WAPI_BASE_URL` — base URL externa da W-API. Quando ausente, o cadastro e o inbox continuam acessíveis, mas ações que chamam QR Code, pairing code, status, device, webhooks e envio externo retornam erro operacional.
 
 > Importante: nem todas as variáveis exigidas pelo validador estão listadas no `env.example`. Se surgir erro de inicialização, consulte `app/utils/dotenv.ts`.
 
@@ -164,6 +165,7 @@ npm run seed
 
 O repositório agora inclui a migration `prisma/migrations/20260419110000_assinaturas_modulo_inicial`, que cria o domínio recorrente de planos, assinaturas, ciclos e comodatos.
 Também foi adicionada a migration `prisma/migrations/20260422213000_financeiro_flags_sessao_notificacoes`, que estende `ParametrosConta` com flags globais do financeiro e novas preferências de notificação.
+A migration `prisma/migrations/20260430011000_whatsapp_atendimento` cria a base multi-tenant do atendimento WhatsApp (`WhatsAppInstancia`, `WhatsAppContato`, `WhatsAppConversa`, `WhatsAppMensagem` e `WhatsAppWebhookEvento`).
 
 ### 4. Subir a API
 
@@ -229,6 +231,10 @@ pm2 start ecosystem.config.js
 - `views/` e `public/` ainda atendem fluxos ativos.
 - `generated/` é gerado pelo Prisma e não deve ser editado manualmente.
 - O schema Prisma é grande e multi-tenant via `contaId`.
+- O backend agora expõe um domínio dedicado `/api/whatsapp`, separado dos parâmetros legados de conta, para atendimento por conversa via W-API. As rotas autenticadas gerenciam instâncias, status, QR Code/pairing code, device, restart/disconnect, prévia e sincronização de webhooks na W-API, inbox, mensagens, vínculo com cliente, leitura e status da conversa; a rota pública `POST /api/whatsapp/webhooks/:instanceId` valida o segredo gerado por instância antes de persistir eventos.
+- O processamento de webhooks do WhatsApp grava eventos em `WhatsAppWebhookEvento` com chave idempotente, localiza a conta pela instância, cria/atualiza contato e conversa por telefone, persiste mensagens sem duplicar `externalMessageId` e emite eventos Socket.IO `whatsapp:instancia:updated`, `whatsapp:conversa:updated` e `whatsapp:mensagem:created` para a sala `conta:<contaId>`.
+- Tokens da W-API ficam em `WhatsAppInstancia.token` e não são retornados pela API de listagem/detalhe; o frontend recebe apenas `tokenConfigurado`.
+- A configuração de webhooks do WhatsApp tem contrato próprio: `GET /api/whatsapp/instances/:id/webhooks` retorna as URLs preenchidas com `BASE_URL`, `instanceId`, segredo da instância e evento; `POST /api/whatsapp/instances/:id/webhooks` envia os seis callbacks da coleção W-API (`connected`, `disconnected`, `delivery`, `received`, `status`, `presence`) e retorna resultado por callback para feedback operacional.
 - O backend agora expõe um domínio dedicado `/api/assinaturas`, separado das rotas `/api/contas/assinatura`: as rotas antigas continuam cobrindo a assinatura da própria conta do ERP, enquanto o novo domínio gerencia planos recorrentes de clientes, contratos, ciclos/cobranças, histórico e comodatos.
 - Esse mesmo domínio passou a expor endpoints dedicados para listagem tabular e mobile de contratos e planos, mantendo busca, paginação e ordenação compatíveis com o padrão `DataTable` do frontend.
 - O fluxo recorrente agora cobre exclusão controlada de planos e assinaturas, geração de cobrança no gateway por ciclo, cancelamento e estorno para PIX/boleto, exclusão segura da cobrança vinculada ao ciclo com exceção operacional para links de pagamento e reajuste com cancelamento da cobrança pendente anterior + recriação automática da nova cobrança.
@@ -255,6 +261,7 @@ pm2 start ecosystem.config.js
 - financeiro;
 - serviços e ordens de serviço;
 - assinaturas da conta, assinaturas recorrentes de clientes e integrações com gateways;
+- atendimento WhatsApp via W-API;
 - arena;
 - impressão;
 - notificações;

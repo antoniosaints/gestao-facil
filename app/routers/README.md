@@ -8,6 +8,7 @@
 - `default.ts` concentra rotas transversais como login, renovação de token, webhooks e push.
 
 ## Domínios atuais
+- `whatsapp`
 - `contas`
 - `clientes`
 - `produtos`
@@ -30,6 +31,7 @@
   - mobile;
   - estatísticas;
   - ações auxiliares.
+- No domínio `whatsapp`, o router separa o webhook público `POST /api/whatsapp/webhooks/:instanceId` das rotas privadas protegidas por JWT para instâncias, conversas e mensagens. A sincronização com a W-API usa endpoints privados dedicados `GET/POST /api/whatsapp/instances/:id/webhooks`, antes da rota genérica de ações da instância.
 - No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança, importação/exportação CSV do financeiro, edição rápida de metadados do lançamento, detalhe de contas financeiras, transferência entre contas, ajuste manual de saldo da conta e o subdomínio `assinaturas-pagar` com CRUD, geração manual de lançamento recorrente e listagens desktop/mobile.
 
 ## Regras

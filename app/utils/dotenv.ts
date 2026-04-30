@@ -55,6 +55,7 @@ const envSchema = z
     }),
     ABACATEPAY_API_KEY: z.string().optional(),
     ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
+    WHATSAPP_WAPI_BASE_URL: optionalEnvUrl.default("https://api.w-api.app"),
     EMAIL_PASSWORD: z.string({
       required_error: "EMAIL_PASSWORD é obrigatório",
     }),

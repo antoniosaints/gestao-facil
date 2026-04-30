@@ -107,6 +107,11 @@ model Contas {
   arenaQuadras             ArenaQuadras[]
   comandaVendas            ComandaVenda[]
   moduloOnContas           ModuloOnConta[]
+  WhatsAppInstancia        WhatsAppInstancia[]
+  WhatsAppContato          WhatsAppContato[]
+  WhatsAppConversa         WhatsAppConversa[]
+  WhatsAppMensagem         WhatsAppMensagem[]
+  WhatsAppWebhookEvento    WhatsAppWebhookEvento[]
 }
 
 model ModulosAdicionais {
@@ -214,6 +219,7 @@ model Usuarios {
   MensagensInteracoesOrdemServico MensagensInteracoesOrdemServico[]
   AssinaturaHistorico             AssinaturaHistorico[]
   OrdensServico                   OrdensServico[]
+  WhatsAppConversasAtendidas      WhatsAppConversa[]       @relation("WhatsAppAtendente")
 }
 
 enum PermissaoUsuario {
@@ -263,6 +269,8 @@ model ClientesFornecedores {
   OrdensServico        OrdensServico[]
   arenaAgendamentos    ArenaAgendamentos[]
   comandaVendas        ComandaVenda[]
+  WhatsAppContatos     WhatsAppContato[]
+  WhatsAppConversas    WhatsAppConversa[]
 }
 
 enum TipoMovimentacao {
@@ -1142,4 +1150,162 @@ model ComandaPagamento {
   dataPagamento  DateTime        @default(now())
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+}
+enum WhatsAppInstanciaStatus {
+  PENDENTE
+  CONECTADA
+  DESCONECTADA
+  CONECTANDO
+  ERRO
+}
+
+enum WhatsAppConversaStatus {
+  ABERTA
+  PENDENTE
+  FINALIZADA
+}
+
+enum WhatsAppMensagemDirecao {
+  ENTRADA
+  SAIDA
+}
+
+enum WhatsAppMensagemTipo {
+  TEXTO
+  IMAGEM
+  AUDIO
+  VIDEO
+  DOCUMENTO
+  STICKER
+  LINK
+  LOCALIZACAO
+  CONTATO
+  OUTRO
+}
+
+enum WhatsAppMensagemStatus {
+  PENDENTE
+  ENVIADA
+  ENTREGUE
+  LIDA
+  ERRO
+  RECEBIDA
+}
+
+model WhatsAppInstancia {
+  id              Int                     @id @default(autoincrement())
+  contaId         Int
+  Conta           Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome            String
+  instanceId      String                  @unique
+  token           String                  @db.Text
+  webhookSecret   String                  @unique
+  status          WhatsAppInstanciaStatus @default(PENDENTE)
+  numeroConectado String?
+  devicePayload   String?                 @db.Text
+  ultimoErro      String?                 @db.Text
+  ativo           Boolean                 @default(true)
+  lastSyncAt      DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  conversas       WhatsAppConversa[]
+  mensagens       WhatsAppMensagem[]
+  webhookEventos  WhatsAppWebhookEvento[]
+
+  @@unique([contaId, instanceId])
+  @@index([contaId, status])
+}
+
+model WhatsAppContato {
+  id              Int                    @id @default(autoincrement())
+  contaId         Int
+  Conta           Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  telefone        String
+  nome            String?
+  foto            String?                @db.Text
+  clienteId       Int?
+  Cliente         ClientesFornecedores?  @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  dadosAuxiliares String?                @db.Text
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  conversas       WhatsAppConversa[]
+
+  @@unique([contaId, telefone])
+  @@index([contaId, clienteId])
+}
+
+model WhatsAppConversa {
+  id                Int                    @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId       Int
+  Instancia         WhatsAppInstancia      @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  contatoId         Int
+  Contato           WhatsAppContato        @relation(fields: [contatoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  clienteId         Int?
+  Cliente           ClientesFornecedores?  @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  telefone          String
+  status            WhatsAppConversaStatus @default(ABERTA)
+  atendenteId       Int?
+  Atendente         Usuarios?              @relation("WhatsAppAtendente", fields: [atendenteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  setor             String?
+  fila              String?
+  canal             String                 @default("whatsapp")
+  ultimaMensagem    String?                @db.Text
+  ultimaInteracaoEm DateTime?
+  naoLidas          Int                    @default(0)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  mensagens         WhatsAppMensagem[]
+
+  @@unique([contaId, instanciaId, telefone])
+  @@index([contaId, status, ultimaInteracaoEm])
+  @@index([contaId, atendenteId])
+  @@index([contaId, clienteId])
+}
+
+model WhatsAppMensagem {
+  id                Int                    @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  conversaId        Int
+  Conversa          WhatsAppConversa       @relation(fields: [conversaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId       Int
+  Instancia         WhatsAppInstancia      @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  direcao           WhatsAppMensagemDirecao
+  tipo              WhatsAppMensagemTipo   @default(TEXTO)
+  externalMessageId String
+  conteudo          String?                @db.Text
+  mediaUrl          String?                @db.Text
+  mediaMimeType     String?
+  fileName          String?
+  rawPayload        String?                @db.LongText
+  statusEnvio       WhatsAppMensagemStatus @default(PENDENTE)
+  erroEnvio         String?                @db.Text
+  enviadoEm         DateTime?
+  lidoEm            DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@unique([contaId, instanciaId, externalMessageId])
+  @@index([contaId, conversaId, createdAt])
+  @@index([contaId, statusEnvio])
+}
+
+model WhatsAppWebhookEvento {
+  id           Int               @id @default(autoincrement())
+  contaId      Int
+  Conta        Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId  Int
+  Instancia    WhatsAppInstancia @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  eventId      String
+  tipo         String
+  payload      String            @db.LongText
+  processado   Boolean           @default(false)
+  erro         String?           @db.Text
+  createdAt    DateTime          @default(now())
+  processedAt  DateTime?
+
+  @@unique([instanciaId, eventId])
+  @@index([contaId, tipo, createdAt])
 }
