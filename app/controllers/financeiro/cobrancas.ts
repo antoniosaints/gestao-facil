@@ -15,6 +15,10 @@ import {
   assertOperationalCharge,
   buildOperationalChargeWhere,
 } from "../../services/financeiro/chargeVisibilityService";
+import {
+  canDeleteOperationalCharge,
+  getOperationalChargeDeleteBlockedMessage,
+} from "../../services/financeiro/chargeDeletionPolicy";
 export interface BodyCobranca {
   type: "PIX" | "BOLETO" | "LINK";
   value: number;
@@ -243,17 +247,28 @@ export const deletarCobranca = async (
     });
     if (!cobranca)
       return res.status(400).json({ message: "Cobranca nao encontrada." });
+
+    const usuario = await prisma.usuarios.findUniqueOrThrow({
+      where: {
+        id: customData.userId,
+        contaId: customData.contaId,
+      },
+      select: {
+        permissao: true,
+      },
+    });
+    const isRoot = usuario.permissao === "root";
+
     try {
       assertOperationalCharge(cobranca);
     } catch (error: any) {
       return res.status(403).json({ message: error.message });
     }
-    if (!["CANCELADO", "ESTORNADO"].includes(cobranca.status))
+    if (!canDeleteOperationalCharge(cobranca.status, isRoot))
       return res
         .status(400)
         .json({
-          message:
-            "A Cobrança só pode ser deletada no status (CANCELADO, ESTORNADO).",
+          message: getOperationalChargeDeleteBlockedMessage(isRoot),
         });
     await prisma.cobrancasFinanceiras.delete({
       where: { id: cobranca.id, contaId: customData.contaId },
