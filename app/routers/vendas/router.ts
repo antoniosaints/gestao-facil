@@ -18,6 +18,20 @@ import { ResumoVendasController } from "../../controllers/vendas/resumo";
 import { getFaturamentoDiario, getFaturamentoMensal, getPorMetodoPagamento, getPorStatusVenda, getTopProdutos } from "../../controllers/vendas/graficos";
 import { addItemComanda, checkoutComanda, deleteComanda, getComanda, listComandas, removeItemComanda, saveComanda } from "../../controllers/vendas/comandas";
 import { select2FiltrosVendas } from "../../controllers/vendas/hooks";
+import {
+  abrirCaixa,
+  buscarCaixa,
+  buscarPdv,
+  criarPdv,
+  entrarCaixa,
+  fecharCaixa,
+  finalizarVendaPdv,
+  gerarCaixaPdf,
+  getContextoCaixa,
+  movimentarCaixa,
+  relatorioCaixa,
+  resumoCaixa,
+} from "../../controllers/vendas/caixas";
 
 const routerVendas = Router();
 
@@ -41,6 +55,21 @@ routerVendas.get("/cupom/:id", authenticateJWT, gerarCupomNaoFiscal);
 routerVendas.get("/cupom-pdf/:id", authenticateJWT, gerarCupomPdf);
 routerVendas.post("/efetivar/:id", authenticateJWT, efetivarVenda);
 routerVendas.get("/estornar/:id", authenticateJWT, estornarVenda);
+
+// PDV / Caixas
+routerVendas.get("/pdv/contexto", authenticateJWT, getContextoCaixa);
+routerVendas.post("/pdv/finalizarVenda", authenticateJWT, finalizarVendaPdv);
+routerVendas.post("/pdv/abrirCaixa", authenticateJWT, abrirCaixa);
+routerVendas.post("/pdv/entrarCaixa", authenticateJWT, entrarCaixa);
+routerVendas.post("/pdv/movimentarCaixa", authenticateJWT, movimentarCaixa);
+routerVendas.put("/pdv/fecharCaixa", authenticateJWT, fecharCaixa);
+routerVendas.post("/pdv/criarPdv", authenticateJWT, criarPdv);
+routerVendas.get("/pdv/buscarPdv", authenticateJWT, buscarPdv);
+routerVendas.get("/pdv/buscarCaixa", authenticateJWT, buscarCaixa);
+routerVendas.get("/pdv/resumoCaixa", authenticateJWT, resumoCaixa);
+routerVendas.get("/pdv/relatorio", authenticateJWT, relatorioCaixa);
+routerVendas.get("/pdv/caixa/:id/pdf", authenticateJWT, gerarCaixaPdf);
+
 routerVendas.get("/:id", authenticateJWT, getVenda);
 routerVendas.delete("/:id", authenticateJWT, deleteVenda);
 

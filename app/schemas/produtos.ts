@@ -142,6 +142,12 @@ export const ProdutoSchema = z.object({
   controlaEstoque: parseBoolean("controlaEstoque", true).optional().nullable(),
 });
 
+export const DescarteEstoqueSchema = z.object({
+  produtoId: parseInteger("produtoId", true, 1),
+  quantidade: parseInteger("quantidade", true, 1),
+  motivo: parseOptionalText("motivo"),
+});
+
 export const ProdutoCategoriaSchema = z.object({
   id: parseInteger("id").optional(),
   nome: parseRequiredText("nome", 2),

@@ -9,6 +9,7 @@ import {
 } from "../../controllers/produtos/relatorios";
 import { tableProdutos } from "../../controllers/produtos/table";
 import {
+  descarteProduto,
   deleteCategoriaProduto,
   deleteProduto,
   deleteProdutoVariante,
@@ -91,6 +92,7 @@ routerProdutos.post("/variantes", authenticateJWT, saveProdutoVariante);
 routerProdutos.post("/categorias", authenticateJWT, saveCategoriaProduto);
 routerProdutos.get("/", authenticateJWT, tableProdutos);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
+routerProdutos.post("/descarte", authenticateJWT, descarteProduto);
 routerProdutos.post(
   "/importar/csv",
   authenticateJWT,
