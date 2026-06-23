@@ -4,6 +4,12 @@ import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } from "./wApiClient";
 import {
+  buildDeletedWhatsAppInstanceId,
+  buildWApiPaymentPayload,
+  canRemoveWhatsAppInstance,
+  mapWApiPaymentStatus,
+} from "./whatsappPolicy";
+import {
   sendWhatsAppConversationUpdated,
   sendWhatsAppInstanceUpdated,
   sendWhatsAppMessageCreated,
@@ -26,6 +32,10 @@ export interface UpdateInstanceInput {
   instanceId?: string;
   token?: string | null;
   ativo?: boolean;
+}
+
+export interface CreateInstancePaymentInput {
+  webhookPaymentUrl?: string | null;
 }
 
 export interface SendMessageInput {
@@ -64,11 +74,18 @@ function hashPayload(payload: unknown) {
 
 function publicInstance(instance: any) {
   if (!instance) return instance;
-  const { token: _token, webhookSecret: _webhookSecret, ...rest } = instance;
+  const { token: _token, webhookSecret: _webhookSecret, pagamentos, ...rest } = instance;
   return {
     ...rest,
     tokenConfigurado: Boolean(instance.token),
+    ...(Array.isArray(pagamentos) ? { pagamentos: pagamentos.map(publicPayment) } : {}),
   };
+}
+
+function publicPayment(payment: any) {
+  if (!payment) return payment;
+  const { rawPayload: _rawPayload, ...rest } = payment;
+  return rest;
 }
 
 function mapStatusFromPayload(payload: any): WhatsAppInstanciaStatus {
@@ -219,12 +236,52 @@ function buildWebhookPreview(instanceId: string, secret: string) {
   };
 }
 
+function buildPaymentWebhookUrl(instanceId: string, secret: string) {
+  const base = env.BASE_URL.replace(/\/$/, "");
+  return `${base}/api/whatsapp/payments/webhooks/${encodeURIComponent(instanceId)}?secret=${encodeURIComponent(secret)}`;
+}
+
+async function getContaEmail(contaId: number) {
+  const conta = await prisma.contas.findUnique({
+    where: { id: contaId },
+    select: { email: true },
+  });
+
+  if (!conta?.email) {
+    throw new Error("E-mail da conta nao encontrado para gerar pagamento WhatsApp");
+  }
+
+  return conta.email;
+}
+
+function extractPaymentIdentifier(payload: any, key: "paymentId" | "sessionId") {
+  const value =
+    payload?.[key] ||
+    payload?.data?.[key] ||
+    payload?.payment?.[key] ||
+    payload?.subscription?.[key];
+
+  return value === undefined || value === null ? null : String(value);
+}
+
+function assertWApiPaymentCreated(result: any, fallbackMessage: string) {
+  if (result?.error === true || result?.data?.error === true) {
+    throw new Error(result?.message || result?.data?.message || fallbackMessage);
+  }
+}
+
 export const whatsAppService = {
   normalizePhone,
 
   async listInstances(contaId: number) {
     const instances = await prisma.whatsAppInstancia.findMany({
-      where: { contaId },
+      where: { contaId, ativo: true },
+      include: {
+        pagamentos: {
+          orderBy: { createdAt: "desc" },
+          take: 8,
+        },
+      },
       orderBy: [{ ativo: "desc" }, { updatedAt: "desc" }],
     });
     return instances.map(publicInstance);
@@ -256,6 +313,29 @@ export const whatsAppService = {
     const instance = await prisma.whatsAppInstancia.update({ where: { id }, data });
     sendWhatsAppInstanceUpdated(contaId, publicInstance(instance));
     return publicInstance(instance);
+  },
+
+  async removeInstance(contaId: number, id: number) {
+    const instance = await getInstanceById(contaId, id);
+
+    if (!canRemoveWhatsAppInstance(instance)) {
+      throw new Error("Desconecte a instancia antes de excluir.");
+    }
+
+    const updated = await prisma.whatsAppInstancia.update({
+      where: { id },
+      data: {
+        ativo: false,
+        status: WhatsAppInstanciaStatus.DESCONECTADA,
+        instanceId: buildDeletedWhatsAppInstanceId(instance.instanceId, id),
+        token: "",
+        ultimoErro: null,
+        lastSyncAt: new Date(),
+      },
+    });
+
+    sendWhatsAppInstanceUpdated(contaId, publicInstance(updated));
+    return publicInstance(updated);
   },
 
   async getInstance(contaId: number, id: number) {
@@ -331,6 +411,126 @@ export const whatsAppService = {
     const updated = await prisma.whatsAppInstancia.update({ where: { id }, data });
     sendWhatsAppInstanceUpdated(contaId, publicInstance(updated));
     return { result, instance: publicInstance(updated) };
+  },
+
+  async createPixPayment(
+    contaId: number,
+    id: number,
+    input: CreateInstancePaymentInput = {}
+  ) {
+    const instance = await getInstanceById(contaId, id);
+    const payerEmail = await getContaEmail(contaId);
+    const webhookPaymentUrl =
+      input.webhookPaymentUrl || buildPaymentWebhookUrl(instance.instanceId, instance.webhookSecret);
+    const payload = buildWApiPaymentPayload(payerEmail, webhookPaymentUrl);
+    const result = await new WApiClient(instance.instanceId, instance.token).createPixPayment(payload);
+    assertWApiPaymentCreated(result, "Falha ao gerar cobranca PIX na W-API");
+    const status = mapWApiPaymentStatus(result);
+
+    const payment = await prisma.whatsAppInstanciaPagamento.create({
+      data: {
+        contaId,
+        instanciaId: instance.id,
+        metodo: "PIX",
+        status,
+        payerEmail,
+        webhookPaymentUrl,
+        paymentId: extractPaymentIdentifier(result, "paymentId"),
+        qrCodeBase64: result?.qrCodeBase64 || result?.data?.qrCodeBase64 || null,
+        qrCodeCopyPaste: result?.qrCodeCopyPaste || result?.data?.qrCodeCopyPaste || null,
+        ticketUrl: result?.ticketUrl || result?.data?.ticketUrl || null,
+        rawPayload: safeJson(result),
+        pagoEm: status === "PAGO" ? new Date() : null,
+      },
+    });
+
+    return publicPayment(payment);
+  },
+
+  async createCardSubscription(
+    contaId: number,
+    id: number,
+    input: CreateInstancePaymentInput = {}
+  ) {
+    const instance = await getInstanceById(contaId, id);
+    const payerEmail = await getContaEmail(contaId);
+    const webhookPaymentUrl =
+      input.webhookPaymentUrl || buildPaymentWebhookUrl(instance.instanceId, instance.webhookSecret);
+    const payload = buildWApiPaymentPayload(payerEmail, webhookPaymentUrl);
+    const result = await new WApiClient(instance.instanceId, instance.token).createCardSubscription(payload);
+    assertWApiPaymentCreated(result, "Falha ao gerar checkout de cartao na W-API");
+    const status = mapWApiPaymentStatus(result);
+
+    const payment = await prisma.whatsAppInstanciaPagamento.create({
+      data: {
+        contaId,
+        instanciaId: instance.id,
+        metodo: "CARTAO",
+        status,
+        payerEmail,
+        webhookPaymentUrl,
+        sessionId: extractPaymentIdentifier(result, "sessionId"),
+        checkoutUrl: result?.checkoutUrl || result?.data?.checkoutUrl || null,
+        rawPayload: safeJson(result),
+        pagoEm: status === "PAGO" ? new Date() : null,
+      },
+    });
+
+    return publicPayment(payment);
+  },
+
+  async processPaymentWebhook(
+    instanceId: string,
+    receivedSecret: string | undefined,
+    payload: any
+  ) {
+    const instance = await prisma.whatsAppInstancia.findUnique({ where: { instanceId } });
+    if (!instance) {
+      const error = new Error("Instancia de pagamento WhatsApp invalida");
+      (error as any).statusCode = 404;
+      throw error;
+    }
+
+    if (!receivedSecret || receivedSecret !== instance.webhookSecret) {
+      const error = new Error("Assinatura de webhook de pagamento invalida");
+      (error as any).statusCode = 403;
+      throw error;
+    }
+
+    const paymentId = extractPaymentIdentifier(payload, "paymentId");
+    const sessionId = extractPaymentIdentifier(payload, "sessionId");
+    const status = mapWApiPaymentStatus(payload);
+    const identifiers = [
+      ...(paymentId ? [{ paymentId }] : []),
+      ...(sessionId ? [{ sessionId }] : []),
+    ];
+
+    const payment = await prisma.whatsAppInstanciaPagamento.findFirst({
+      where: {
+        contaId: instance.contaId,
+        instanciaId: instance.id,
+        ...(identifiers.length ? { OR: identifiers } : { status: "PENDENTE" }),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!payment) {
+      return { updated: false, status };
+    }
+
+    const updated = await prisma.whatsAppInstanciaPagamento.update({
+      where: { id: payment.id },
+      data: {
+        status,
+        paymentId: paymentId || payment.paymentId,
+        sessionId: sessionId || payment.sessionId,
+        rawPayload: safeJson(payload),
+        pagoEm: status === "PAGO" ? new Date() : payment.pagoEm,
+      },
+    });
+
+    sendWhatsAppInstanceUpdated(instance.contaId, publicInstance(instance));
+    return { updated: true, payment: publicPayment(updated), status };
   },
 
   async listConversations(contaId: number, filters: ConversationFilters) {

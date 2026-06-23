@@ -34,6 +34,10 @@ const configureWebhooksSchema = z.object({
   webhookUrls: webhookUrlsSchema.optional(),
 });
 
+const paymentRequestSchema = z.object({
+  webhookPaymentUrl: z.string().url().optional().nullable(),
+});
+
 const sendMessageSchema = z.object({
   tipo: z.enum(["text", "image", "audio", "video", "document"]).default("text"),
   conteudo: z.string().optional(),
@@ -102,6 +106,17 @@ export const updateInstance = async (req: Request, res: Response): Promise<any> 
   }
 };
 
+export const removeInstance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const instance = await whatsAppService.removeInstance(customData.contaId, Number(req.params.id));
+    ResponseHandler(res, "Instancia removida", instance);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const getInstanceWebhooks = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 5);
@@ -139,6 +154,30 @@ export const instanceAction = async (req: Request, res: Response): Promise<any> 
     if (!allowed.includes(action)) return ResponseHandler(res, "Ação inválida para instância", null, 400);
     const result = await whatsAppService.callInstanceAction(customData.contaId, Number(req.params.id), action, req.body?.phone);
     ResponseHandler(res, "Ação executada", result);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const createPixPayment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const data = paymentRequestSchema.parse(req.body || {});
+    const payment = await whatsAppService.createPixPayment(customData.contaId, Number(req.params.id), data);
+    ResponseHandler(res, "Cobranca PIX gerada", payment, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const createCardSubscription = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const data = paymentRequestSchema.parse(req.body || {});
+    const payment = await whatsAppService.createCardSubscription(customData.contaId, Number(req.params.id), data);
+    ResponseHandler(res, "Checkout de cartao gerado", payment, 201);
   } catch (error) {
     handleError(res, error);
   }
@@ -213,6 +252,20 @@ export const receiveWebhook = async (req: Request, res: Response): Promise<any> 
     const kind = (req.query.event || req.body?.event || req.body?.type || "generic") as WhatsAppWebhookKind;
     const result = await whatsAppService.processWebhook(req.params.instanceId, secret, kind, req.body);
     ResponseHandler(res, result.duplicated ? "Webhook já processado" : "Webhook processado", { duplicated: result.duplicated });
+  } catch (error: any) {
+    const statusCode = error?.statusCode || 500;
+    if (statusCode === 403 || statusCode === 404) {
+      return ResponseHandler(res, error.message, null, statusCode);
+    }
+    handleError(res, error);
+  }
+};
+
+export const receivePaymentWebhook = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const secret = (req.query.secret || req.headers["x-whatsapp-webhook-secret"] || req.headers["x-webhook-secret"]) as string | undefined;
+    const result = await whatsAppService.processPaymentWebhook(req.params.instanceId, secret, req.body);
+    ResponseHandler(res, result.updated ? "Pagamento WhatsApp atualizado" : "Pagamento WhatsApp recebido sem vinculo", result);
   } catch (error: any) {
     const statusCode = error?.statusCode || 500;
     if (statusCode === 403 || statusCode === 404) {

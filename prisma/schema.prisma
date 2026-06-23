@@ -112,6 +112,7 @@ model Contas {
   WhatsAppConversa         WhatsAppConversa[]
   WhatsAppMensagem         WhatsAppMensagem[]
   WhatsAppWebhookEvento    WhatsAppWebhookEvento[]
+  WhatsAppInstanciaPagamento WhatsAppInstanciaPagamento[]
   PdvPonto                 PdvPonto[]
   CaixaSessao              CaixaSessao[]
 }
@@ -1297,6 +1298,18 @@ enum WhatsAppMensagemStatus {
   RECEBIDA
 }
 
+enum WhatsAppPagamentoMetodo {
+  PIX
+  CARTAO
+}
+
+enum WhatsAppPagamentoStatus {
+  PENDENTE
+  PAGO
+  FALHOU
+  CANCELADO
+}
+
 model WhatsAppInstancia {
   id              Int                     @id @default(autoincrement())
   contaId         Int
@@ -1316,9 +1329,36 @@ model WhatsAppInstancia {
   conversas       WhatsAppConversa[]
   mensagens       WhatsAppMensagem[]
   webhookEventos  WhatsAppWebhookEvento[]
+  pagamentos      WhatsAppInstanciaPagamento[]
 
   @@unique([contaId, instanceId])
   @@index([contaId, status])
+}
+
+model WhatsAppInstanciaPagamento {
+  id                Int                     @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId       Int
+  Instancia         WhatsAppInstancia       @relation(fields: [instanciaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  metodo            WhatsAppPagamentoMetodo
+  status            WhatsAppPagamentoStatus @default(PENDENTE)
+  payerEmail        String
+  webhookPaymentUrl String?                 @db.Text
+  paymentId         String?
+  sessionId         String?
+  qrCodeBase64      String?                 @db.LongText
+  qrCodeCopyPaste   String?                 @db.LongText
+  ticketUrl         String?                 @db.Text
+  checkoutUrl       String?                 @db.Text
+  rawPayload        String?                 @db.LongText
+  pagoEm            DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([contaId, instanciaId, status, createdAt], map: "wa_pagto_conta_inst_status_created_idx")
+  @@index([paymentId], map: "wa_pagto_payment_id_idx")
+  @@index([sessionId], map: "wa_pagto_session_id_idx")
 }
 
 model WhatsAppContato {

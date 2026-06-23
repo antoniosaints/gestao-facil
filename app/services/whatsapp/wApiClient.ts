@@ -25,6 +25,11 @@ export interface WApiSendMessageInput {
   messageId: string;
 }
 
+export interface WApiPaymentInput {
+  payerEmail: string;
+  webhookPaymentUrl?: string;
+}
+
 export class WApiClient {
   private readonly http: AxiosInstance;
   private readonly instanceId: string;
@@ -176,5 +181,21 @@ export class WApiClient {
 
   readMessage(phone: string, messageId: string) {
     return this.request({ method: "POST", url: "/v1/message/read-message", data: { phone, messageId } });
+  }
+
+  createPixPayment(input: WApiPaymentInput) {
+    return this.request({
+      method: "POST",
+      url: "/v1/payment/pix/create",
+      data: input,
+    });
+  }
+
+  createCardSubscription(input: WApiPaymentInput) {
+    return this.request({
+      method: "POST",
+      url: "/v1/payment/card/subscribe",
+      data: input,
+    });
   }
 }
