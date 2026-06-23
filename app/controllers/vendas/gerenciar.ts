@@ -14,12 +14,82 @@ import { z } from "zod";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { recalculateComandaStatus } from "./comandas";
 import { cancelarCobrancaMercadoPago } from "../financeiro/cobrancas/managerCobranca";
+import {
+  getCaixaMovimentoVendaCleanupWhere,
+  getSaldoAdjustmentForDeletedSaleMovements,
+} from "../../services/vendas/caixaService";
 
 function buildProdutoItemName(produto: {
   nome: string;
   nomeVariante?: string | null;
 }) {
   return `${produto.nome} / ${produto.nomeVariante || "Padrão"}`;
+}
+
+async function deleteCaixaMovimentosByVenda(
+  tx: any,
+  contaId: number,
+  vendaId: number
+) {
+  const where = getCaixaMovimentoVendaCleanupWhere(contaId, vendaId);
+  const movimentos = await tx.caixaMovimento.findMany({
+    where,
+    select: {
+      caixaId: true,
+      tipo: true,
+      metodoPagamento: true,
+      valor: true,
+    },
+  });
+
+  const adjustmentsByCaixa = movimentos.reduce(
+    (acc: Map<number, Decimal>, movimento: any) => {
+      const adjustment = getSaldoAdjustmentForDeletedSaleMovements([movimento]);
+
+      if (!adjustment.isZero()) {
+        acc.set(
+          movimento.caixaId,
+          (acc.get(movimento.caixaId) || new Decimal(0)).plus(adjustment)
+        );
+      }
+
+      return acc;
+    },
+    new Map<number, Decimal>()
+  );
+
+  for (const [caixaId, adjustment] of adjustmentsByCaixa) {
+    const caixa = await tx.caixaSessao.findFirst({
+      where: {
+        id: caixaId,
+        contaId,
+      },
+      select: {
+        saldoEsperado: true,
+        saldoContado: true,
+      },
+    });
+
+    if (!caixa) continue;
+
+    const saldoEsperado = new Decimal(caixa.saldoEsperado).plus(adjustment);
+    await tx.caixaSessao.update({
+      where: {
+        id: caixaId,
+      },
+      data: {
+        saldoEsperado,
+        diferenca:
+          caixa.saldoContado === null || caixa.saldoContado === undefined
+            ? undefined
+            : new Decimal(caixa.saldoContado).minus(saldoEsperado),
+      },
+    });
+  }
+
+  await tx.caixaMovimento.deleteMany({
+    where,
+  });
 }
 
 export const efetivarVenda = async (
@@ -356,6 +426,12 @@ export const deleteVenda = async (
           },
         });
 
+        await deleteCaixaMovimentosByVenda(
+          tx,
+          customData.contaId,
+          isEfetivada.id
+        );
+
         const venda = await tx.vendas.delete({
           where: {
             id: Number(req.params.id),
@@ -395,6 +471,12 @@ export const deleteVenda = async (
           },
         });
       }
+
+      await deleteCaixaMovimentosByVenda(
+        tx,
+        customData.contaId,
+        isEfetivada.id
+      );
 
       const venda = await tx.vendas.delete({
         where: {

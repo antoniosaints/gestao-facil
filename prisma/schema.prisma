@@ -112,6 +112,8 @@ model Contas {
   WhatsAppConversa         WhatsAppConversa[]
   WhatsAppMensagem         WhatsAppMensagem[]
   WhatsAppWebhookEvento    WhatsAppWebhookEvento[]
+  PdvPonto                 PdvPonto[]
+  CaixaSessao              CaixaSessao[]
 }
 
 model ModulosAdicionais {
@@ -219,7 +221,11 @@ model Usuarios {
   MensagensInteracoesOrdemServico MensagensInteracoesOrdemServico[]
   AssinaturaHistorico             AssinaturaHistorico[]
   OrdensServico                   OrdensServico[]
-  WhatsAppConversasAtendidas      WhatsAppConversa[]       @relation("WhatsAppAtendente")
+  WhatsAppConversasAtendidas      WhatsAppConversa[]                 @relation("WhatsAppAtendente")
+  caixasAbertos                   CaixaSessao[]                      @relation("CaixaAbertoPor")
+  caixasFechados                  CaixaSessao[]                      @relation("CaixaFechadoPor")
+  caixaOperadores                 CaixaOperador[]
+  caixaMovimentos                 CaixaMovimento[]
 }
 
 enum PermissaoUsuario {
@@ -811,6 +817,21 @@ enum StatusVenda {
   CANCELADO
 }
 
+enum CaixaStatus {
+  ABERTO
+  FECHADO
+  CANCELADO
+}
+
+enum CaixaMovimentoTipo {
+  ABERTURA
+  VENDA
+  SANGRIA
+  REFORCO
+  ESTORNO
+  FECHAMENTO
+}
+
 model Vendas {
   id                   Int                    @id @default(autoincrement())
   contaId              Int
@@ -829,6 +850,8 @@ model Vendas {
   desconto             Decimal                @default(0) @db.Decimal(10, 2)
   comandaId            Int?
   comanda              ComandaVenda?          @relation(fields: [comandaId], references: [id])
+  caixaId              Int?
+  caixa                CaixaSessao?           @relation(fields: [caixaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   ItensVendas          ItensVendas[]
@@ -837,6 +860,9 @@ model Vendas {
   LancamentoFinanceiro LancamentoFinanceiro[]
   CobrancasFinanceiras CobrancasFinanceiras[]
   ComandaItens         ComandaItem[]
+  CaixaMovimento       CaixaMovimento[]
+
+  @@index([caixaId])
 }
 
 model ItensVendas {
@@ -882,6 +908,85 @@ model PagamentoVendas {
   valor   Decimal         @db.Decimal(10, 2)
   data    DateTime?
   status  StatusPagamento @default(PENDENTE)
+}
+
+model PdvPonto {
+  id          Int           @id @default(autoincrement())
+  contaId     Int
+  Contas      Contas        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome        String
+  localizacao String?
+  descricao   String?
+  status      Status        @default(ATIVO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  caixas      CaixaSessao[]
+
+  @@index([contaId, status])
+}
+
+model CaixaSessao {
+  id                   Int              @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pdvId                Int?
+  pdv                  PdvPonto?        @relation(fields: [pdvId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  codigo               String           @default("CAI_000")
+  status               CaixaStatus      @default(ABERTO)
+  abertoPorId          Int
+  abertoPor            Usuarios         @relation("CaixaAbertoPor", fields: [abertoPorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fechadoPorId         Int?
+  fechadoPor           Usuarios?        @relation("CaixaFechadoPor", fields: [fechadoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  abertoEm             DateTime         @default(now())
+  fechadoEm            DateTime?
+  saldoInicial         Decimal          @default(0) @db.Decimal(10, 2)
+  saldoEsperado        Decimal          @default(0) @db.Decimal(10, 2)
+  saldoContado         Decimal?         @db.Decimal(10, 2)
+  diferenca            Decimal?         @db.Decimal(10, 2)
+  observacaoAbertura   String?          @db.Text
+  observacaoFechamento String?          @db.Text
+  operadores           CaixaOperador[]
+  movimentos           CaixaMovimento[]
+  vendas               Vendas[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([contaId, status, abertoEm])
+  @@index([abertoPorId, status])
+}
+
+model CaixaOperador {
+  id        Int         @id @default(autoincrement())
+  contaId   Int
+  caixaId   Int
+  caixa     CaixaSessao @relation(fields: [caixaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  usuarioId Int
+  usuario   Usuarios    @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ativo     Boolean     @default(true)
+  entrouEm  DateTime    @default(now())
+  saiuEm    DateTime?
+
+  @@index([contaId, usuarioId, ativo])
+  @@index([caixaId, ativo])
+}
+
+model CaixaMovimento {
+  id              Int                 @id @default(autoincrement())
+  contaId         Int
+  caixaId         Int
+  caixa           CaixaSessao         @relation(fields: [caixaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  usuarioId       Int
+  usuario         Usuarios            @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vendaId         Int?
+  venda           Vendas?             @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tipo            CaixaMovimentoTipo
+  metodoPagamento MetodoPagamento?
+  valor           Decimal             @db.Decimal(10, 2)
+  descricao       String?             @db.Text
+  createdAt       DateTime            @default(now())
+
+  @@index([contaId, caixaId, tipo])
+  @@index([vendaId])
 }
 
 model ContasFinanceiro {

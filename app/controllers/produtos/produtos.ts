@@ -4,6 +4,7 @@ import { Prisma, Status } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { handleError } from "../../utils/handleError";
 import {
+  DescarteEstoqueSchema,
   ProdutoCategoriaSchema,
   ProdutoSchema,
   ReposicaoEstoqueSchema,
@@ -15,6 +16,10 @@ import { mapperErrorSchema } from "../../mappers/schemasErros";
 import { ResponseHandler } from "../../utils/response";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { z } from "zod";
+import {
+  canDiscardProdutoStock,
+  getProdutoDescarteUpdate,
+} from "../../services/produtos/estoqueService";
 
 const produtoVarianteSchema = ProdutoSchema.partial({ nome: true }).extend({
   produtoBaseId: z.number({
@@ -654,6 +659,89 @@ export const reposicaoProduto = async (
         Produto: entrada.produto,
       },
       201
+    );
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const descarteProduto = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const parsedDescarte = DescarteEstoqueSchema.safeParse(req.body);
+  if (!parsedDescarte.success) {
+    return handleError(res, parsedDescarte.error);
+  }
+
+  const data = parsedDescarte.data;
+
+  try {
+    const produto = await prisma.$transaction(async (tx) => {
+      const produtoExistente = await tx.produto.findFirst({
+        where: {
+          contaId: customData.contaId,
+          id: data.produtoId,
+        },
+        select: {
+          id: true,
+          nome: true,
+          nomeVariante: true,
+          estoque: true,
+          unidade: true,
+          controlaEstoque: true,
+        },
+      });
+
+      if (!produtoExistente) {
+        throw new Error("Produto nao encontrado.");
+      }
+
+      if (produtoExistente.controlaEstoque === false) {
+        throw new Error("Produto nao controla estoque.");
+      }
+
+      if (!canDiscardProdutoStock(produtoExistente.estoque, data.quantidade)) {
+        throw new Error(
+          `Estoque insuficiente para descarte. Disponivel: ${produtoExistente.estoque}.`
+        );
+      }
+
+      return tx.produto.update({
+        where: {
+          id: data.produtoId,
+          contaId: customData.contaId,
+        },
+        data: getProdutoDescarteUpdate(data.quantidade),
+        select: {
+          id: true,
+          nome: true,
+          nomeVariante: true,
+          estoque: true,
+          unidade: true,
+        },
+      });
+    });
+
+    await enqueuePushNotificationByPreference(
+      "PRODUTO_ALTERADO",
+      {
+        title: "Descarte de produto",
+        body: `A variante ${produto.nome} / ${produto.nomeVariante || "Padrao"} teve ${data.quantidade} ${produto.unidade || "un"} descartado(s).`,
+      },
+      customData.contaId
+    );
+
+    return ResponseHandler(
+      res,
+      "Descarte registrado com sucesso",
+      {
+        produto,
+        quantidade: data.quantidade,
+        motivo: data.motivo || null,
+      },
+      200
     );
   } catch (error) {
     handleError(res, error);
