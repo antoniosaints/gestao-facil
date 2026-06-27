@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import Decimal from "decimal.js";
+
+import {
+  buildComandaPdfFilename,
+  calculateComandaTotal,
+  canChangeComandaItems,
+  canConfigureComandas,
+  canFaturarComanda,
+  canFaturarComandaComFinanceiro,
+  createComandaUid,
+  getItemSubtotal,
+  getProdutoStockDeltaForQuantityEdit,
+  requiresStockReturnDecision,
+} from "./comandaPolicy";
+
+describe("comandaPolicy", () => {
+  it("generates a six-character uppercase alphanumeric public uid", () => {
+    const uid = createComandaUid();
+    assert.match(uid, /^[A-Z0-9]{6}$/);
+  });
+
+  it("calculates item subtotal and comanda total with Decimal precision", () => {
+    assert.equal(getItemSubtotal(12.5, 3).toNumber(), 37.5);
+    const total = calculateComandaTotal([
+      { valorUnitarioSnapshot: new Decimal("10.10"), quantidade: new Decimal("2") },
+      { valorUnitarioSnapshot: new Decimal("5.05"), quantidade: new Decimal("3") },
+    ]);
+    assert.equal(total.toNumber(), 35.35);
+  });
+
+  it("allows item changes only while the comanda is open", () => {
+    assert.equal(canChangeComandaItems("ABERTA"), true);
+    assert.equal(canChangeComandaItems("PENDENTE"), false);
+    assert.equal(canChangeComandaItems("FATURADA"), false);
+    assert.equal(canChangeComandaItems("CANCELADA"), false);
+  });
+
+  it("requires a stock-return decision only for debited product items", () => {
+    assert.equal(requiresStockReturnDecision({ origemTipo: "PRODUTO", estoqueDebitado: true }), true);
+    assert.equal(requiresStockReturnDecision({ origemTipo: "PRODUTO", estoqueDebitado: false }), false);
+    assert.equal(requiresStockReturnDecision({ origemTipo: "SERVICO", estoqueDebitado: false }), false);
+    assert.equal(requiresStockReturnDecision({ origemTipo: "AVULSO", estoqueDebitado: false }), false);
+  });
+
+  it("calculates product stock delta when editing quantity", () => {
+    assert.deepEqual(getProdutoStockDeltaForQuantityEdit(2, 5), { action: "DEBITAR", quantidade: 3 });
+    assert.deepEqual(getProdutoStockDeltaForQuantityEdit(5, 2), { action: "REDUZIR", quantidade: 3 });
+    assert.deepEqual(getProdutoStockDeltaForQuantityEdit(4, 4), { action: "NENHUM", quantidade: 0 });
+  });
+
+  it("maps permission levels for operational and finance actions", () => {
+    assert.equal(canFaturarComanda(2), true);
+    assert.equal(canFaturarComanda(1), false);
+    assert.equal(canFaturarComandaComFinanceiro(3), true);
+    assert.equal(canFaturarComandaComFinanceiro(2), false);
+    assert.equal(canConfigureComandas(5), true);
+    assert.equal(canConfigureComandas(4), false);
+  });
+
+  it("builds a stable pdf filename from the public uid", () => {
+    assert.equal(buildComandaPdfFilename("A7K2P9"), "comanda-A7K2P9.pdf");
+    assert.equal(buildComandaPdfFilename("A7/K2 P9"), "comanda-A7-K2-P9.pdf");
+  });
+});
