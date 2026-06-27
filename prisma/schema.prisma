@@ -106,6 +106,8 @@ model Contas {
   notaFiscals              NotaFiscal[]
   arenaQuadras             ArenaQuadras[]
   comandaVendas            ComandaVenda[]
+  comandasOperacao         ComandaOperacao[]
+  comandasOperacaoConfiguracao ComandaOperacaoConfiguracao?
   moduloOnContas           ModuloOnConta[]
   WhatsAppInstancia        WhatsAppInstancia[]
   WhatsAppContato          WhatsAppContato[]
@@ -1257,6 +1259,110 @@ model ComandaPagamento {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
+
+enum ComandaOperacaoStatus {
+  ABERTA
+  PENDENTE
+  FATURADA
+  CANCELADA
+}
+
+enum ComandaOperacaoOrigemTipo {
+  PRODUTO
+  SERVICO
+  AVULSO
+}
+
+enum ComandaOperacaoPagamentoMetodo {
+  PIX
+  DINHEIRO
+  CARTAO
+  BOLETO
+  PROMISSORIA
+}
+
+model ComandaOperacao {
+  id           Int                        @id @default(autoincrement())
+  Uid          String                     @db.VarChar(6)
+  contaId      Int
+  Conta        Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status       ComandaOperacaoStatus      @default(ABERTA)
+  total        Decimal                    @default(0) @db.Decimal(10, 2)
+  observacao   String?                    @db.Text
+  abertura     DateTime                   @default(now())
+  fechamento   DateTime?
+  faturamento  DateTime?
+  cancelamento DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  itens        ComandaOperacaoItem[]
+  pagamentos   ComandaOperacaoPagamento[]
+  historicos   ComandaOperacaoHistorico[]
+
+  @@unique([contaId, Uid])
+  @@index([contaId, status, abertura])
+}
+
+model ComandaOperacaoItem {
+  id                    Int                       @id @default(autoincrement())
+  comandaId             Int
+  Comanda               ComandaOperacao           @relation(fields: [comandaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  origemTipo            ComandaOperacaoOrigemTipo
+  origemId              String?                   @db.VarChar(64)
+  nomeSnapshot          String
+  valorUnitarioSnapshot Decimal                   @db.Decimal(10, 2)
+  quantidade            Decimal                   @db.Decimal(10, 3)
+  subtotal              Decimal                   @db.Decimal(10, 2)
+  estoqueDebitado       Boolean                   @default(false)
+  quantidadeDebitada    Decimal                   @default(0) @db.Decimal(10, 3)
+  estoqueDevolvido      Boolean                   @default(false)
+  quantidadeDevolvida   Decimal                   @default(0) @db.Decimal(10, 3)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@index([comandaId])
+  @@index([origemTipo, origemId])
+}
+
+model ComandaOperacaoPagamento {
+  id                             Int                            @id @default(autoincrement())
+  comandaId                      Int
+  Comanda                        ComandaOperacao                @relation(fields: [comandaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  metodo                         ComandaOperacaoPagamentoMetodo
+  valor                          Decimal                        @db.Decimal(10, 2)
+  dataPagamento                  DateTime                       @default(now())
+  lancarFinanceiro               Boolean                        @default(false)
+  financeiroLancamentoIdSnapshot Int?
+  contaFinanceiraIdSnapshot      Int?
+  categoriaFinanceiraIdSnapshot  Int?
+  createdAt                      DateTime                       @default(now())
+  updatedAt                      DateTime                       @updatedAt
+
+  @@index([comandaId])
+}
+
+model ComandaOperacaoHistorico {
+  id          Int             @id @default(autoincrement())
+  comandaId   Int
+  Comanda     ComandaOperacao @relation(fields: [comandaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  evento      String
+  payloadJson String?         @db.Text
+  usuarioId   Int?
+  createdAt   DateTime        @default(now())
+
+  @@index([comandaId, createdAt])
+}
+
+model ComandaOperacaoConfiguracao {
+  id                          Int      @id @default(autoincrement())
+  contaId                     Int      @unique
+  Conta                       Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  contaFinanceiraIdPadrao     Int?
+  categoriaFinanceiraIdPadrao Int?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+}
+
 enum WhatsAppInstanciaStatus {
   PENDENTE
   CONECTADA
