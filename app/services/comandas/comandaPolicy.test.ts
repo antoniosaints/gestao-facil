@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import {
   buildComandaPdfFilename,
   calculateComandaTotal,
+  calculateComandaPaymentTotal,
   canChangeComandaItems,
   canConfigureComandas,
   canFaturarComanda,
@@ -12,6 +13,7 @@ import {
   createComandaUid,
   getItemSubtotal,
   getProdutoStockDeltaForQuantityEdit,
+  getStatusAfterPayment,
   requiresStockReturnDecision,
 } from "./comandaPolicy";
 
@@ -62,5 +64,40 @@ describe("comandaPolicy", () => {
   it("builds a stable pdf filename from the public uid", () => {
     assert.equal(buildComandaPdfFilename("A7K2P9"), "comanda-A7K2P9.pdf");
     assert.equal(buildComandaPdfFilename("A7/K2 P9"), "comanda-A7-K2-P9.pdf");
+  });
+
+  it("calculates payment total only for selected unpaid items", () => {
+    const items = [
+      { id: 1, subtotal: new Decimal(20), pagamentoId: null },
+      { id: 2, subtotal: new Decimal("15.50"), pagamentoId: null },
+      { id: 3, subtotal: new Decimal(99), pagamentoId: 10 },
+    ];
+
+    assert.equal(calculateComandaPaymentTotal(items, [1, 2]).toString(), "35.5");
+    assert.throws(
+      () => calculateComandaPaymentTotal(items, [3]),
+      /Item 3 ja foi faturado/
+    );
+    assert.throws(
+      () => calculateComandaPaymentTotal(items, [999]),
+      /Item 999 nao pertence a comanda/
+    );
+  });
+
+  it("keeps the comanda pending until every item is paid", () => {
+    assert.equal(
+      getStatusAfterPayment([
+        { id: 1, pagamentoId: 50 },
+        { id: 2, pagamentoId: null },
+      ]),
+      "PENDENTE"
+    );
+    assert.equal(
+      getStatusAfterPayment([
+        { id: 1, pagamentoId: 50 },
+        { id: 2, pagamentoId: 51 },
+      ]),
+      "FATURADA"
+    );
   });
 });

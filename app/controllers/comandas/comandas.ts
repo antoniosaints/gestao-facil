@@ -12,6 +12,7 @@ import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import {
   buildComandaPdfFilename,
   calculateComandaTotal,
+  calculateComandaPaymentTotal,
   canChangeComandaItems,
   canConfigureComandas,
   canFaturarComanda,
@@ -19,6 +20,7 @@ import {
   createComandaUid,
   getItemSubtotal,
   getProdutoStockDeltaForQuantityEdit,
+  getStatusAfterPayment,
   getUsuarioPermissionLevel,
   requiresStockReturnDecision,
   type ComandaOperacaoStatus,
@@ -44,6 +46,7 @@ const comandaItemInputSchema = z.object({
 });
 
 const createComandaSchema = z.object({
+  clienteId: z.coerce.number().int().positive().optional().nullable(),
   observacao: z.string().trim().optional().nullable(),
   itens: z
     .array(comandaItemInputSchema)
@@ -82,6 +85,7 @@ const updateItemSchema = comandaItemInputSchema.extend({
 const faturarSchema = z.object({
   metodo: pagamentoMetodoSchema,
   dataPagamento: z.string().min(1, "Informe a data de pagamento."),
+  itemIds: z.array(z.coerce.number().int().positive()).optional(),
   lancarFinanceiro: z.boolean().default(false),
   contaFinanceiraId: z.coerce.number().int().positive().optional().nullable(),
   categoriaFinanceiraId: z.coerce.number().int().positive().optional().nullable(),
@@ -344,6 +348,35 @@ async function validateFinanceDefaults(params: {
   }
 }
 
+async function resolveClienteSnapshot(
+  executor: PrismaExecutor,
+  params: {
+    contaId: number;
+    clienteId?: number | null;
+  }
+) {
+  if (!params.clienteId) {
+    return { clienteId: null, clienteNomeSnapshot: null };
+  }
+
+  const cliente = await executor.clientesFornecedores.findFirst({
+    where: {
+      id: params.clienteId,
+      contaId: params.contaId,
+    },
+    select: { id: true, nome: true },
+  });
+
+  if (!cliente) {
+    throw new Error("Cliente invalido para esta conta.");
+  }
+
+  return {
+    clienteId: cliente.id,
+    clienteNomeSnapshot: cliente.nome,
+  };
+}
+
 export async function getComandaConfiguracao(
   req: Request,
   res: Response
@@ -435,6 +468,7 @@ export async function listComandas(req: Request, res: Response): Promise<any> {
             OR: [
               { Uid: { contains: search } },
               { observacao: { contains: search } },
+              { clienteNomeSnapshot: { contains: search } },
               { itens: { some: { nomeSnapshot: { contains: search } } } },
             ],
           }
@@ -493,10 +527,16 @@ export async function createComanda(req: Request, res: Response): Promise<any> {
 
     const response = await prisma.$transaction(async (tx) => {
       const Uid = await createUniqueComandaUid(tx, customData.contaId);
+      const clienteSnapshot = await resolveClienteSnapshot(tx, {
+        contaId: customData.contaId,
+        clienteId: parsed.data.clienteId,
+      });
       const comanda = await tx.comandaOperacao.create({
         data: {
           Uid,
           contaId: customData.contaId,
+          clienteId: clienteSnapshot.clienteId,
+          clienteNomeSnapshot: clienteSnapshot.clienteNomeSnapshot,
           observacao: parsed.data.observacao || null,
           status: "ABERTA",
         },
@@ -894,14 +934,20 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
         throw new Error("So e possivel faturar comandas pendentes.");
       }
 
-      const total = calculateComandaTotal(comanda.itens);
+      const itemIds =
+        parsed.data.itemIds && parsed.data.itemIds.length
+          ? Array.from(new Set(parsed.data.itemIds))
+          : comanda.itens
+              .filter((item) => !item.pagamentoId)
+              .map((item) => item.id);
+      const total = calculateComandaPaymentTotal(comanda.itens, itemIds);
       let financeiroLancamentoIdSnapshot: number | null = null;
       if (parsed.data.lancarFinanceiro) {
         const lancamentoTx = await criarLancamentoFinanceiro(
           tx,
           customData.contaId,
           {
-            descricao: `Comanda ${comanda.Uid}`,
+            descricao: `Comanda ${comanda.Uid} - ${itemIds.length} item(ns)`,
             valorTotal: total.toNumber(),
             tipoLancamentoModo: "AVISTA",
             lancamentoEfetivado: true,
@@ -931,17 +977,43 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
         },
       });
 
+      const itensFaturados = await tx.comandaOperacaoItem.updateMany({
+        where: {
+          comandaId,
+          id: { in: itemIds },
+          pagamentoId: null,
+        },
+        data: { pagamentoId: pagamento.id },
+      });
+      if (itensFaturados.count !== itemIds.length) {
+        throw new Error(
+          "Um ou mais itens selecionados ja foram faturados. Atualize a comanda e tente novamente."
+        );
+      }
+
+      const itensAtualizados = comanda.itens.map((item) =>
+        itemIds.includes(item.id)
+          ? { ...item, pagamentoId: pagamento.id }
+          : item
+      );
+      const nextStatus = getStatusAfterPayment(itensAtualizados);
       const updated = await tx.comandaOperacao.update({
         where: { id: comandaId },
-        data: { status: "FATURADA", faturamento: dataPagamento, total },
+        data: {
+          status: nextStatus,
+          faturamento: nextStatus === "FATURADA" ? dataPagamento : null,
+          total: calculateComandaTotal(comanda.itens),
+        },
         include: { itens: true, pagamentos: true, historicos: true },
       });
       await addHistorico(tx, {
         comandaId,
-        evento: "FATURADA",
+        evento: nextStatus === "FATURADA" ? "FATURADA" : "PAGAMENTO_PARCIAL",
         usuarioId: customData.userId,
         payload: {
           pagamentoId: pagamento.id,
+          itemIds,
+          total: total.toNumber(),
           lancarFinanceiro: parsed.data.lancarFinanceiro,
           financeiroLancamentoIdSnapshot,
         },
@@ -981,6 +1053,11 @@ export async function cancelarComanda(req: Request, res: Response): Promise<any>
       }
       if (comanda.status === "CANCELADA") {
         throw new Error("Comanda ja esta cancelada.");
+      }
+      if (comanda.itens.some((item) => item.pagamentoId)) {
+        throw new Error(
+          "Comanda com itens faturados nao pode ser cancelada por este fluxo."
+        );
       }
 
       const itensProduto = comanda.itens.filter((item) =>

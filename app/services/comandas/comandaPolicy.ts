@@ -41,6 +41,45 @@ export function calculateComandaTotal(
     .toDecimalPlaces(2);
 }
 
+export function calculateComandaPaymentTotal(
+  items: Array<{
+    id: number;
+    subtotal: Decimal.Value;
+    pagamentoId?: number | null;
+  }>,
+  itemIds: number[]
+) {
+  const uniqueItemIds = Array.from(new Set(itemIds));
+
+  if (!uniqueItemIds.length) {
+    throw new Error("Selecione ao menos um item para faturar.");
+  }
+
+  const selectedItems = uniqueItemIds.map((itemId) => {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item) {
+      throw new Error(`Item ${itemId} nao pertence a comanda.`);
+    }
+    if (item.pagamentoId) {
+      throw new Error(`Item ${itemId} ja foi faturado.`);
+    }
+    return item;
+  });
+
+  return selectedItems
+    .reduce((total, item) => total.plus(new Decimal(item.subtotal)), new Decimal(0))
+    .toDecimalPlaces(2);
+}
+
+export function getStatusAfterPayment(
+  items: Array<{
+    id: number;
+    pagamentoId?: number | null;
+  }>
+): ComandaOperacaoStatus {
+  return items.every((item) => item.pagamentoId) ? "FATURADA" : "PENDENTE";
+}
+
 export function canChangeComandaItems(status: ComandaOperacaoStatus) {
   return status === "ABERTA";
 }
