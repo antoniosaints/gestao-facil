@@ -29,9 +29,9 @@ export const createWhatsAppNotificationWorker = () => {
   return worker;
 };
 
-const worker = createWhatsAppNotificationWorker();
+export const workerWhatsapp = createWhatsAppNotificationWorker();
 process.on("SIGINT", async () => {
   console.log("Encerrando o worker de notificacoes WhatsApp...");
-  await worker.close();
+  await workerWhatsapp.close();
   process.exit(0);
 });

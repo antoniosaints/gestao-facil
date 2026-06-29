@@ -8,6 +8,7 @@ import { configOptions } from "./config/handlebars";
 import { initSocket } from "./utils/socket";
 import { env } from "./utils/dotenv";
 import { routerPrinter } from "./routers/impressao/router";
+import "./workers/whatsappNotificationWorker";
 
 const app = express();
 const server = http.createServer(app);
@@ -34,7 +35,6 @@ app.use(
 );
 
 app.use(RouterMain);
-
 initSocket(server);
 
 server.listen(env.PORT, () => console.log(`Servidor rodando na porta ${env.PORT} 🎯🚀`));
