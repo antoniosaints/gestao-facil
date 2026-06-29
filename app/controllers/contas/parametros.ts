@@ -9,6 +9,10 @@ import { enqueuePushNotification } from "../../services/pushNotificationQueueSer
 import { ensureTenantAbacatePayWebhook } from "../../services/financeiro/abacatePayWebhookService";
 import { syncAuthenticatedSessionCaches } from "../../services/session/accountSessionCacheService";
 import { sendSessionUpdated } from "../../hooks/contas/socket";
+import {
+  canManageMenuVisibility,
+  normalizeVisibleMenuKeys,
+} from "../../services/contas/menuVisibilityPolicy";
 
 export const saveParametros = async (
   req: Request,
@@ -24,6 +28,33 @@ export const saveParametros = async (
         message: body.error.issues[0].message,
         data: null,
       });
+    }
+
+    const isUpdatingMenuVisibility = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "menusVisiveis"
+    );
+    const menusVisiveis = normalizeVisibleMenuKeys(body.data.menusVisiveis);
+
+    if (isUpdatingMenuVisibility) {
+      const usuario = await prisma.usuarios.findFirst({
+        where: {
+          id: customData.userId,
+          contaId: customData.contaId,
+        },
+        select: {
+          permissao: true,
+        },
+      });
+
+      if (!canManageMenuVisibility(usuario?.permissao)) {
+        return ResponseHandler(
+          res,
+          "Apenas o usuario root pode alterar a exibicao dos menus.",
+          null,
+          403
+        );
+      }
     }
 
     const parametros = await prisma.parametrosConta.upsert({
@@ -52,6 +83,7 @@ export const saveParametros = async (
         WhatsappAPISession: body.data.WhatsappAPISession,
         WhatsappAPINumber: body.data.WhatsappAPINumber,
         chavePix: body.data.chavePix,
+        ...(isUpdatingMenuVisibility ? { menusVisiveis } : {}),
       },
       update: {
         AsaasApiKey: body.data.AsaasApiKey,
@@ -74,6 +106,7 @@ export const saveParametros = async (
         WhatsappAPISession: body.data.WhatsappAPISession,
         WhatsappAPINumber: body.data.WhatsappAPINumber,
         chavePix: body.data.chavePix,
+        ...(isUpdatingMenuVisibility ? { menusVisiveis } : {}),
       },
     });
 

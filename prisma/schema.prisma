@@ -194,6 +194,7 @@ model ParametrosConta {
   linkPublicoAtivo                     Boolean? @default(false)
   cadastrosPermitidosLinkPublico       Int?     @default(1)
   chavePix                             String?
+  menusVisiveis                        Json?
   corPrimaria                          String?
   corSecundaria                        String?
   createdAt                            DateTime @default(now())
