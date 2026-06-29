@@ -14,6 +14,7 @@ import {
   receivePaymentWebhook,
   receiveWebhook,
   removeInstance,
+  removePayment,
   sendMessage,
   updateConversation,
   updateInstance,
@@ -33,6 +34,7 @@ routerWhatsapp.get("/instances/:id/webhooks", getInstanceWebhooks);
 routerWhatsapp.post("/instances/:id/webhooks", configureInstanceWebhooks);
 routerWhatsapp.post("/instances/:id/payments/pix", createPixPayment);
 routerWhatsapp.post("/instances/:id/payments/card-subscription", createCardSubscription);
+routerWhatsapp.delete("/instances/:id/payments/:paymentId", removePayment);
 routerWhatsapp.post("/instances/:id/:action", instanceAction);
 
 routerWhatsapp.get("/conversas", listConversations);

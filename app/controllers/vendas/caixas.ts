@@ -8,9 +8,11 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
+import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 import {
   buildCaixaPdfFilename,
   CaixaMovementType,
+  canDeleteCaixa,
   canUserEnterCaixa,
   getMovementSignedValue,
   shouldReportCaixaMovimento,
@@ -26,6 +28,7 @@ import {
 } from "../../schemas/caixas";
 import { handleError } from "../../utils/handleError";
 import { formatCurrency } from "../../utils/formatters";
+import { hasPermission } from "../../helpers/userPermission";
 import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 
@@ -355,6 +358,15 @@ export async function abrirCaixa(req: Request, res: Response) {
       return includeCaixa(tx, customData.contaId, created.id);
     });
 
+    await enqueueWhatsAppNotificationByPreference(
+      "CAIXA_ABERTO",
+      {
+        title: "Caixa aberto",
+        body: `Caixa ${caixa.codigo} aberto com saldo inicial de ${formatCurrency(caixa.saldoInicial)}.`,
+      },
+      customData.contaId
+    );
+
     ResponseHandler(res, "Caixa aberto com sucesso", formatCaixa(caixa));
   } catch (error) {
     handleError(res, error);
@@ -531,6 +543,15 @@ export async function fecharCaixa(req: Request, res: Response) {
 
       return includeCaixa(tx, customData.contaId, current.id);
     });
+
+    await enqueueWhatsAppNotificationByPreference(
+      "CAIXA_FECHADO",
+      {
+        title: "Caixa fechado",
+        body: `Caixa ${caixa.codigo} fechado com saldo contado de ${formatCurrency(caixa.saldoContado || 0)}.`,
+      },
+      customData.contaId
+    );
 
     ResponseHandler(res, "Caixa fechado com sucesso", formatCaixa(caixa));
   } catch (error) {
@@ -1056,6 +1077,53 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
   }
 }
 
+export async function deletarCaixa(req: Request, res: Response) {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const caixaId = Number(req.params.id);
+
+    if (!caixaId) {
+      throw new Error("Informe o caixa.");
+    }
+
+    const isAdmin = await hasPermission(customData, 4);
+    const caixa = await prisma.caixaSessao.findFirstOrThrow({
+      where: {
+        id: caixaId,
+        contaId: customData.contaId,
+      },
+      include: {
+        _count: {
+          select: {
+            vendas: true,
+          },
+        },
+      },
+    });
+
+    if (!canDeleteCaixa({ isAdmin, linkedSalesCount: caixa._count.vendas })) {
+      return ResponseHandler(
+        res,
+        isAdmin
+          ? "Nao e possivel apagar caixa com venda vinculada."
+          : "Apenas administradores podem apagar caixas.",
+        null,
+        403
+      );
+    }
+
+    await prisma.caixaSessao.delete({
+      where: {
+        id: caixa.id,
+      },
+    });
+
+    ResponseHandler(res, "Caixa apagado com sucesso", formatCaixa(caixa));
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
 export async function relatorioCaixa(req: Request, res: Response) {
   try {
     const customData = getCustomRequest(req).customData;
@@ -1387,6 +1455,15 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         body: `Uma nova venda no valor de ${formatCurrency(
           resultado.valor
         )} foi realizada`,
+      },
+      customData.contaId
+    );
+
+    await enqueueWhatsAppNotificationByPreference(
+      "NOVA_VENDA",
+      {
+        title: "Nova venda",
+        body: `Venda PDV ${resultado.Uid} no valor de ${formatCurrency(resultado.valor)}.`,
       },
       customData.contaId
     );

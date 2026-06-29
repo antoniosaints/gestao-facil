@@ -83,3 +83,10 @@ export function buildCaixaPdfFilename(codigo: string) {
   const safeCodigo = codigo.replace(/[^\w.-]+/g, "-");
   return `caixa-${safeCodigo}.pdf`;
 }
+
+export function canDeleteCaixa(input: {
+  isAdmin: boolean;
+  linkedSalesCount: number;
+}) {
+  return input.isAdmin && input.linkedSalesCount === 0;
+}

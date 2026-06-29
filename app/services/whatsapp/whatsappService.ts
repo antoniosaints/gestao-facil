@@ -6,7 +6,7 @@ import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } 
 import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
-  canRemoveWhatsAppInstance,
+  canDeleteWhatsAppPayment,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 import {
@@ -318,10 +318,6 @@ export const whatsAppService = {
   async removeInstance(contaId: number, id: number) {
     const instance = await getInstanceById(contaId, id);
 
-    if (!canRemoveWhatsAppInstance(instance)) {
-      throw new Error("Desconecte a instancia antes de excluir.");
-    }
-
     const updated = await prisma.whatsAppInstancia.update({
       where: { id },
       data: {
@@ -336,6 +332,35 @@ export const whatsAppService = {
 
     sendWhatsAppInstanceUpdated(contaId, publicInstance(updated));
     return publicInstance(updated);
+  },
+
+  async removePayment(contaId: number, instanceId: number, paymentId: number) {
+    await getInstanceById(contaId, instanceId);
+    const payment = await prisma.whatsAppInstanciaPagamento.findFirst({
+      where: {
+        id: paymentId,
+        contaId,
+        instanciaId: instanceId,
+      },
+    });
+
+    if (!payment) {
+      throw new Error("Pagamento WhatsApp nao encontrado para esta instancia.");
+    }
+
+    if (!canDeleteWhatsAppPayment(payment)) {
+      throw new Error("Apenas pagamentos pendentes podem ser apagados.");
+    }
+
+    const deleted = await prisma.whatsAppInstanciaPagamento.delete({
+      where: {
+        id: payment.id,
+      },
+    });
+
+    const instance = await getInstanceById(contaId, instanceId);
+    sendWhatsAppInstanceUpdated(contaId, publicInstance(instance));
+    return publicPayment(deleted);
   },
 
   async getInstance(contaId: number, id: number) {

@@ -6,6 +6,7 @@ import { efetivarVendaSchema, vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
+import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 import { addHours, eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
@@ -832,6 +833,17 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         body: `Uma nova venda no valor de ${formatCurrency(
           valorTotal.minus(descontoTotal)
         )} foi realizada`,
+      },
+      customData.contaId
+    );
+
+    await enqueueWhatsAppNotificationByPreference(
+      "NOVA_VENDA",
+      {
+        title: "Nova venda",
+        body: `Venda ${resultado.Uid} no valor de ${formatCurrency(
+          valorTotal.minus(descontoTotal)
+        )}.`,
       },
       customData.contaId
     );

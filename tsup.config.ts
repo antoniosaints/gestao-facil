@@ -5,6 +5,7 @@ export default defineConfig({
     'app/server.ts',
     'app/workers/sendEmailWorker.ts',
     'app/workers/pushNotificationWorker.ts',
+    'app/workers/whatsappNotificationWorker.ts',
     'app/workers/cronJobsWorker.ts',
   ],
   format: ['cjs'],

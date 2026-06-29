@@ -6,6 +6,7 @@
 ## Processos atuais
 - `sendEmailWorker.ts`: consome a fila de email.
 - `pushNotificationWorker.ts`: consome a fila de push.
+- `whatsappNotificationWorker.ts`: consome a fila de notificações administrativas por WhatsApp.
 - `cronJobsWorker.ts`: dispara rotinas recorrentes.
 - `cron/recurrencyFinanceWorker.ts`: agenda e processa a geração automática de ciclos/cobranças recorrentes de assinaturas a cada 5 minutos.
 - `cron/`: implementações auxiliares de tarefas agendadas.

@@ -4,15 +4,23 @@ import { describe, it } from "node:test";
 import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
+  canDeleteWhatsAppPayment,
   canRemoveWhatsAppInstance,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 
 describe("whatsappPolicy", () => {
-  it("allows removing only disconnected instances", () => {
+  it("allows removing instances without requiring previous disconnect", () => {
     assert.equal(canRemoveWhatsAppInstance({ status: "DESCONECTADA" }), true);
-    assert.equal(canRemoveWhatsAppInstance({ status: "CONECTADA" }), false);
-    assert.equal(canRemoveWhatsAppInstance({ status: "CONECTANDO" }), false);
+    assert.equal(canRemoveWhatsAppInstance({ status: "CONECTADA" }), true);
+    assert.equal(canRemoveWhatsAppInstance({ status: "CONECTANDO" }), true);
+  });
+
+  it("allows deleting only pending WhatsApp payments", () => {
+    assert.equal(canDeleteWhatsAppPayment({ status: "PENDENTE" }), true);
+    assert.equal(canDeleteWhatsAppPayment({ status: "PAGO" }), false);
+    assert.equal(canDeleteWhatsAppPayment({ status: "FALHOU" }), false);
+    assert.equal(canDeleteWhatsAppPayment({ status: "CANCELADO" }), false);
   });
 
   it("builds W-API payment payload with account email and optional webhook", () => {

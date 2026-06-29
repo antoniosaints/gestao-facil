@@ -14,7 +14,13 @@ export type WhatsAppPaymentStatus =
 export function canRemoveWhatsAppInstance(instance: {
   status: WhatsAppInstanceRemovalStatus;
 }) {
-  return instance.status === "DESCONECTADA";
+  return Boolean(instance.status);
+}
+
+export function canDeleteWhatsAppPayment(payment: {
+  status: WhatsAppPaymentStatus;
+}) {
+  return payment.status === "PENDENTE";
 }
 
 export function buildWApiPaymentPayload(

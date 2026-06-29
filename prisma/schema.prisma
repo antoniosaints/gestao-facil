@@ -195,6 +195,15 @@ model ParametrosConta {
   cadastrosPermitidosLinkPublico       Int?     @default(1)
   chavePix                             String?
   menusVisiveis                        Json?
+  whatsappNotificacoesAtivo            Boolean? @default(false)
+  whatsappNotificacoesInstanciaId      Int?
+  whatsappEventoNovaVenda              Boolean? @default(true)
+  whatsappEventoNovaOs                 Boolean? @default(true)
+  whatsappEventoNovoLancamento         Boolean? @default(true)
+  whatsappEventoNovoCliente            Boolean? @default(true)
+  whatsappEventoComandaFaturada        Boolean? @default(true)
+  whatsappEventoCaixaAberto            Boolean? @default(true)
+  whatsappEventoCaixaFechado           Boolean? @default(true)
   corPrimaria                          String?
   corSecundaria                        String?
   createdAt                            DateTime @default(now())

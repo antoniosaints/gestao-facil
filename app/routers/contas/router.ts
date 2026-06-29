@@ -21,6 +21,7 @@ import {
 } from "../../controllers/contas/store";
 import {
   gerenciarLinkPublicoCliente,
+  getWhatsappNotificationInstances,
     getDetalhePublico,
   getParametros,
   saveParametros,
@@ -54,6 +55,7 @@ routerContas.get("/infos", authenticateJWT, dadosConta);
 routerContas.get("/detalhes", authenticateJWT, infosConta);
 routerContas.post("/parametros", authenticateJWT, saveParametros);
 routerContas.get("/parametros", authenticateJWT, getParametros);
+routerContas.get("/parametros/whatsapp-instancias", authenticateJWT, getWhatsappNotificationInstances);
 routerContas.post("/parametros/linkpublico", authenticateJWT, gerenciarLinkPublicoCliente);
 routerContas.get("/store/modulos", authenticateJWT, listStoreModules);
 routerContas.post("/store/modulos/:id/ativar", authenticateJWT, activateStoreModule);

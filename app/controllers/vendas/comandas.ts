@@ -9,6 +9,8 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { generateCobrancaMercadoPago } from "../financeiro/mercadoPago/gerarCobranca";
 import type { BodyCobranca } from "../financeiro/cobrancas";
 import { Prisma, StatusComanda } from "../../../generated";
+import { formatCurrency } from "../../utils/formatters";
+import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -926,6 +928,15 @@ export async function checkoutComanda(
         paymentLink,
       };
     });
+
+    await enqueueWhatsAppNotificationByPreference(
+      "COMANDA_FATURADA",
+      {
+        title: "Comanda faturada",
+        body: `Comanda #${comandaId} faturada no valor de ${formatCurrency(data.valor)}.`,
+      },
+      customData.contaId
+    );
 
     return ResponseHandler(res, "Checkout da comanda realizado com sucesso.", response);
   } catch (error) {

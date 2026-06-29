@@ -23,6 +23,7 @@ import {
   buscarCaixa,
   buscarPdv,
   criarPdv,
+  deletarCaixa,
   entrarCaixa,
   fecharCaixa,
   finalizarVendaPdv,
@@ -69,6 +70,7 @@ routerVendas.get("/pdv/buscarCaixa", authenticateJWT, buscarCaixa);
 routerVendas.get("/pdv/resumoCaixa", authenticateJWT, resumoCaixa);
 routerVendas.get("/pdv/relatorio", authenticateJWT, relatorioCaixa);
 routerVendas.get("/pdv/caixa/:id/pdf", authenticateJWT, gerarCaixaPdf);
+routerVendas.delete("/pdv/caixa/:id", authenticateJWT, deletarCaixa);
 
 routerVendas.get("/:id", authenticateJWT, getVenda);
 routerVendas.delete("/:id", authenticateJWT, deleteVenda);

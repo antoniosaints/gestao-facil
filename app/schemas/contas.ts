@@ -132,6 +132,27 @@ export const updateParametrosContaSchema = z.object(
       )
       .optional()
       .nullable(),
+    whatsappNotificacoesAtivo: z
+      .boolean({
+        invalid_type_error: "O campo whatsappNotificacoesAtivo deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
+    whatsappNotificacoesInstanciaId: z
+      .number({
+        invalid_type_error: "O campo whatsappNotificacoesInstanciaId deve ser um numero",
+      })
+      .int("O campo whatsappNotificacoesInstanciaId deve ser um numero inteiro")
+      .positive("Selecione uma instancia de WhatsApp valida")
+      .optional()
+      .nullable(),
+    whatsappEventoNovaVenda: z.boolean().optional().nullable(),
+    whatsappEventoNovaOs: z.boolean().optional().nullable(),
+    whatsappEventoNovoLancamento: z.boolean().optional().nullable(),
+    whatsappEventoNovoCliente: z.boolean().optional().nullable(),
+    whatsappEventoComandaFaturada: z.boolean().optional().nullable(),
+    whatsappEventoCaixaAberto: z.boolean().optional().nullable(),
+    whatsappEventoCaixaFechado: z.boolean().optional().nullable(),
   },
   {
     required_error: "Informe os parâmetros da conta",

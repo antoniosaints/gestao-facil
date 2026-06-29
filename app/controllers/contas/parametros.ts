@@ -13,6 +13,22 @@ import {
   canManageMenuVisibility,
   normalizeVisibleMenuKeys,
 } from "../../services/contas/menuVisibilityPolicy";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import { hasPermission } from "../../helpers/userPermission";
+import { canConfigureWhatsAppNotifications } from "../../services/notifications/whatsappNotificationPolicy";
+import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+
+const WHATSAPP_NOTIFICATION_PARAM_FIELDS = [
+  "whatsappNotificacoesAtivo",
+  "whatsappNotificacoesInstanciaId",
+  "whatsappEventoNovaVenda",
+  "whatsappEventoNovaOs",
+  "whatsappEventoNovoLancamento",
+  "whatsappEventoNovoCliente",
+  "whatsappEventoComandaFaturada",
+  "whatsappEventoCaixaAberto",
+  "whatsappEventoCaixaFechado",
+] as const;
 
 export const saveParametros = async (
   req: Request,
@@ -34,6 +50,9 @@ export const saveParametros = async (
       req.body,
       "menusVisiveis"
     );
+    const isUpdatingWhatsAppNotifications = WHATSAPP_NOTIFICATION_PARAM_FIELDS.some((field) =>
+      Object.prototype.hasOwnProperty.call(req.body, field)
+    );
     const menusVisiveis = normalizeVisibleMenuKeys(body.data.menusVisiveis);
 
     if (isUpdatingMenuVisibility) {
@@ -54,6 +73,44 @@ export const saveParametros = async (
           null,
           403
         );
+      }
+    }
+
+    if (isUpdatingWhatsAppNotifications) {
+      const isAdmin = await hasPermission(customData, 4);
+      if (!isAdmin) {
+        return ResponseHandler(
+          res,
+          "Apenas administradores podem alterar notificacoes por WhatsApp.",
+          null,
+          403
+        );
+      }
+
+      const [moduleActive, selectedInstance] = await Promise.all([
+        contaHasActiveModule(customData.contaId, "whatsapp"),
+        body.data.whatsappNotificacoesInstanciaId
+          ? prisma.whatsAppInstancia.findFirst({
+              where: {
+                id: body.data.whatsappNotificacoesInstanciaId,
+                contaId: customData.contaId,
+                ativo: true,
+              },
+              select: {
+                id: true,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
+
+      const validation = canConfigureWhatsAppNotifications({
+        enabled: Boolean(body.data.whatsappNotificacoesAtivo),
+        moduleActive,
+        hasInstance: Boolean(selectedInstance),
+      });
+
+      if (!validation.ok) {
+        return ResponseHandler(res, validation.reason, null, 400);
       }
     }
 
@@ -83,6 +140,15 @@ export const saveParametros = async (
         WhatsappAPISession: body.data.WhatsappAPISession,
         WhatsappAPINumber: body.data.WhatsappAPINumber,
         chavePix: body.data.chavePix,
+        whatsappNotificacoesAtivo: body.data.whatsappNotificacoesAtivo,
+        whatsappNotificacoesInstanciaId: body.data.whatsappNotificacoesInstanciaId,
+        whatsappEventoNovaVenda: body.data.whatsappEventoNovaVenda,
+        whatsappEventoNovaOs: body.data.whatsappEventoNovaOs,
+        whatsappEventoNovoLancamento: body.data.whatsappEventoNovoLancamento,
+        whatsappEventoNovoCliente: body.data.whatsappEventoNovoCliente,
+        whatsappEventoComandaFaturada: body.data.whatsappEventoComandaFaturada,
+        whatsappEventoCaixaAberto: body.data.whatsappEventoCaixaAberto,
+        whatsappEventoCaixaFechado: body.data.whatsappEventoCaixaFechado,
         ...(isUpdatingMenuVisibility ? { menusVisiveis } : {}),
       },
       update: {
@@ -106,6 +172,15 @@ export const saveParametros = async (
         WhatsappAPISession: body.data.WhatsappAPISession,
         WhatsappAPINumber: body.data.WhatsappAPINumber,
         chavePix: body.data.chavePix,
+        whatsappNotificacoesAtivo: body.data.whatsappNotificacoesAtivo,
+        whatsappNotificacoesInstanciaId: body.data.whatsappNotificacoesInstanciaId,
+        whatsappEventoNovaVenda: body.data.whatsappEventoNovaVenda,
+        whatsappEventoNovaOs: body.data.whatsappEventoNovaOs,
+        whatsappEventoNovoLancamento: body.data.whatsappEventoNovoLancamento,
+        whatsappEventoNovoCliente: body.data.whatsappEventoNovoCliente,
+        whatsappEventoComandaFaturada: body.data.whatsappEventoComandaFaturada,
+        whatsappEventoCaixaAberto: body.data.whatsappEventoCaixaAberto,
+        whatsappEventoCaixaFechado: body.data.whatsappEventoCaixaFechado,
         ...(isUpdatingMenuVisibility ? { menusVisiveis } : {}),
       },
     });
@@ -162,6 +237,56 @@ export const getParametros = async (
     handleError(res, err);
   }
 };
+
+export const getWhatsappNotificationInstances = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const isAdmin = await hasPermission(customData, 4);
+    if (!isAdmin) {
+      return ResponseHandler(
+        res,
+        "Apenas administradores podem configurar notificacoes por WhatsApp.",
+        null,
+        403
+      );
+    }
+
+    const moduleActive = await contaHasActiveModule(customData.contaId, "whatsapp");
+    if (!moduleActive) {
+      return ResponseHandler(res, "Modulo WhatsApp inativo.", []);
+    }
+
+    const instances = await prisma.whatsAppInstancia.findMany({
+      where: {
+        contaId: customData.contaId,
+        ativo: true,
+      },
+      select: {
+        id: true,
+        nome: true,
+        instanceId: true,
+        status: true,
+        numeroConectado: true,
+        ativo: true,
+        lastSyncAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return ResponseHandler(res, "Instancias WhatsApp encontradas.", instances);
+  } catch (err: any) {
+    console.log(err);
+    handleError(res, err);
+  }
+};
+
 export const getDetalhePublico = async (
   req: Request,
   res: Response
@@ -304,6 +429,15 @@ export const savePublicoCliente = async (
       },
       Number(body.contaId),
       true
+    );
+
+    await enqueueWhatsAppNotificationByPreference(
+      "NOVO_CLIENTE",
+      {
+        title: "Novo cliente",
+        body: `O cliente ${cliente.nome} se cadastrou via link publico.`,
+      },
+      Number(body.contaId)
     );
 
     return ResponseHandler(res, "Seu cadastro foi realizado com sucesso!", {

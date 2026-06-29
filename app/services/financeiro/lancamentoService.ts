@@ -4,6 +4,7 @@ import { addDays, startOfDay } from 'date-fns'
 import type { Prisma, PrismaClient } from '../../../generated/client'
 import { gerarIdUnicoComMetaFinal } from '../../helpers/generateUUID'
 import { enqueuePushNotification } from '../pushNotificationQueueService'
+import { enqueueWhatsAppNotificationByPreference } from '../notifications/whatsappNotificationQueueService'
 import { formatCurrency } from '../../utils/formatters'
 import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from './financeiroPolicyService'
 
@@ -403,6 +404,15 @@ export async function criarLancamentoFinanceiro(
       {
         title: 'Lançamento criado.',
         body: `${tipo}: ${descricao}, no valor de ${formatCurrency(valorTotalDecimal)}`,
+      },
+      contaId,
+    )
+
+    await enqueueWhatsAppNotificationByPreference(
+      'NOVO_LANCAMENTO',
+      {
+        title: 'Novo lançamento',
+        body: `${tipo}: ${descricao}, no valor de ${formatCurrency(valorTotalDecimal)}.`,
       },
       contaId,
     )

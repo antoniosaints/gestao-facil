@@ -183,6 +183,21 @@ export const createCardSubscription = async (req: Request, res: Response): Promi
   }
 };
 
+export const removePayment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const payment = await whatsAppService.removePayment(
+      customData.contaId,
+      Number(req.params.id),
+      Number(req.params.paymentId)
+    );
+    ResponseHandler(res, "Pagamento pendente removido", payment);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const listConversations = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 1);

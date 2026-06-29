@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
+import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
@@ -307,6 +308,15 @@ export const saveOrdemServico = async (
       {
         title: "Nova OS aberta.",
         body: `Uma nova OS foi aberta no status ${data.status}.`,
+      },
+      customData.contaId
+    );
+
+    await enqueueWhatsAppNotificationByPreference(
+      "NOVA_OS",
+      {
+        title: "Nova OS",
+        body: `OS ${resultado.ordemCriada.Uid} aberta no status ${data.status}.`,
       },
       customData.contaId
     );

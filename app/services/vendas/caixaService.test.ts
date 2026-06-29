@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import {
   buildCaixaPdfFilename,
   calculateCaixaSaldoEsperado,
+  canDeleteCaixa,
   canUserEnterCaixa,
   getCaixaMovimentoVendaCleanupWhere,
   getMovementSignedValue,
@@ -84,5 +85,11 @@ describe("caixaService", () => {
 
   it("builds a stable caixa pdf filename", () => {
     assert.equal(buildCaixaPdfFilename("CAI_123/ABC"), "caixa-CAI_123-ABC.pdf");
+  });
+
+  it("allows deleting caixas only for admins when there are no linked sales", () => {
+    assert.equal(canDeleteCaixa({ isAdmin: true, linkedSalesCount: 0 }), true);
+    assert.equal(canDeleteCaixa({ isAdmin: false, linkedSalesCount: 0 }), false);
+    assert.equal(canDeleteCaixa({ isAdmin: true, linkedSalesCount: 1 }), false);
   });
 });

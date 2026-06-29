@@ -5,6 +5,7 @@ import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { ClientesFornecedores } from "../../../generated";
+import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 
 export const getCliente = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -88,6 +89,14 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     Uid: gerarIdUnicoComMetaFinal("CLI"),
                 }
             });
+            await enqueueWhatsAppNotificationByPreference(
+                "NOVO_CLIENTE",
+                {
+                    title: "Novo cliente",
+                    body: `Cliente ${cliente.nome} cadastrado no sistema.`,
+                },
+                customData.contaId
+            );
             ResponseHandler(res, "Cliente criado", cliente);
         }
     } catch (err: any) {
