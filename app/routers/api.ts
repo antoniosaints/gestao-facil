@@ -14,6 +14,7 @@ import { routerAdminMain } from "./administracao/router";
 import { routerArena } from "./arena/router";
 import { routerAssinaturas } from "./assinaturas/router";
 import { routerWhatsapp } from "./whatsapp/router";
+import { routerComandas } from "./comandas/router";
 import { callChatGemini } from "../controllers/inteligence/gemini";
 import { authenticateJWT } from "../middlewares/auth";
 
@@ -34,6 +35,7 @@ RouterMain.use("/api/admin", routerAdminMain);
 RouterMain.use("/api/arenas", routerArena);
 RouterMain.use("/api/assinaturas", routerAssinaturas);
 RouterMain.use("/api/whatsapp", routerWhatsapp);
+RouterMain.use("/api/comandas", routerComandas);
 RouterMain.post("/api/gemini/chat", authenticateJWT, callChatGemini);
 
 export { RouterMain };

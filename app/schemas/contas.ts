@@ -121,6 +121,17 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    menusVisiveis: z
+      .array(
+        z.string({
+          invalid_type_error: "Os menus visiveis devem conter apenas textos",
+        }),
+        {
+          invalid_type_error: "O campo menusVisiveis deve ser uma lista de textos",
+        }
+      )
+      .optional()
+      .nullable(),
   },
   {
     required_error: "Informe os parâmetros da conta",
