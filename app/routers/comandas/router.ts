@@ -8,6 +8,7 @@ import {
   faturarComanda,
   fecharComanda,
   gerarComandaComprovante,
+  gerarComandaComprovantePos,
   getComanda,
   getComandaConfiguracao,
   listComandas,
@@ -33,5 +34,6 @@ routerComandas.post("/:id/fechar", fecharComanda);
 routerComandas.post("/:id/faturar", faturarComanda);
 routerComandas.post("/:id/cancelar", cancelarComanda);
 routerComandas.get("/:id/comprovante", gerarComandaComprovante);
+routerComandas.get("/:id/comprovante-pos", gerarComandaComprovantePos);
 
 export { routerComandas };

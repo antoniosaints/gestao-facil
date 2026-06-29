@@ -9,8 +9,12 @@ import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { criarLancamentoFinanceiro } from "../../services/financeiro/lancamentoService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 import {
+  buildComandaPosFilename,
+  buildComandaPosReceipt,
   buildComandaPdfFilename,
+  calculateComandaReceiptHeight,
   calculateComandaTotal,
   calculateComandaPaymentTotal,
   canChangeComandaItems,
@@ -19,6 +23,9 @@ import {
   canFaturarComanda,
   canFaturarComandaComFinanceiro,
   createComandaUid,
+  COMANDA_RECEIPT_80MM_WIDTH_POINTS,
+  formatComandaReceiptCurrency,
+  formatComandaReceiptDateTime,
   getItemSubtotal,
   getProdutoStockDeltaForQuantityEdit,
   resolveComandaPaymentItemIds,
@@ -139,13 +146,6 @@ function mapMetodoFinanceiro(metodo: z.infer<typeof pagamentoMetodoSchema>) {
   if (metodo === "CARTAO") return "CREDITO" as const;
   if (metodo === "PROMISSORIA") return "BOLETO" as const;
   return metodo;
-}
-
-function formatDecimalCurrency(value: Decimal.Value) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(new Decimal(value).toNumber());
 }
 
 async function getPermissionLevel(contaId: number, userId: number) {
@@ -1183,15 +1183,24 @@ export async function gerarComandaComprovante(
 ): Promise<any> {
   try {
     const customData = getCustomRequest(req).customData;
+    const conta = await prisma.contas.findUniqueOrThrow({
+      where: { id: customData.contaId },
+    });
     const comanda = await prisma.comandaOperacao.findFirstOrThrow({
       where: { id: Number(req.params.id), contaId: customData.contaId },
       include: {
         itens: { orderBy: { id: "asc" } },
-        pagamentos: { orderBy: { dataPagamento: "desc" }, take: 1 },
+        pagamentos: { orderBy: { dataPagamento: "desc" } },
       },
     });
 
-    const doc = new PDFDocument({ size: "A4", margin: 42 });
+    const doc = new PDFDocument({
+      size: [
+        COMANDA_RECEIPT_80MM_WIDTH_POINTS,
+        calculateComandaReceiptHeight(comanda.itens.length, comanda.pagamentos.length),
+      ],
+      margin: 10,
+    });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -1199,62 +1208,193 @@ export async function gerarComandaComprovante(
     );
     doc.pipe(res);
 
-    doc.fontSize(16).text(`Comanda ${comanda.Uid}`, { align: "center" });
-    doc.moveDown();
-    doc.fontSize(10).text(`Status: ${comanda.status}`);
-    doc.text(`Abertura: ${new Date(comanda.abertura).toLocaleString("pt-BR")}`);
+    doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
+    doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
+    doc.font("Roboto");
+
+    const contentWidth = COMANDA_RECEIPT_80MM_WIDTH_POINTS - 20;
+    const drawSeparator = () => {
+      doc
+        .moveDown(0.25)
+        .font("Roboto")
+        .fontSize(7)
+        .text("-".repeat(48), { align: "center", width: contentWidth })
+        .moveDown(0.25);
+    };
+    const drawPair = (label: string, value: string, bold = false) => {
+      doc
+        .font(bold ? "Roboto-Bold" : "Roboto")
+        .fontSize(bold ? 9 : 8)
+        .text(label, { continued: true, width: contentWidth * 0.55 })
+        .text(value, { align: "right", width: contentWidth * 0.45 });
+    };
+
+    const logoSource = await resolveRenderableImageSource(conta.profile);
+    if (logoSource) {
+      doc.image(logoSource, (COMANDA_RECEIPT_80MM_WIDTH_POINTS - 46) / 2, doc.y, {
+        fit: [46, 46],
+      });
+      doc.moveDown(3.4);
+    }
+
+    doc
+      .font("Roboto-Bold")
+      .fontSize(12)
+      .text(conta.nome, { align: "center", width: contentWidth });
+    doc
+      .font("Roboto")
+      .fontSize(7)
+      .text(conta.email || "", { align: "center", width: contentWidth })
+      .text(conta.documento || "Sem documento", {
+        align: "center",
+        width: contentWidth,
+      })
+      .text(conta.telefone || "Sem telefone", {
+        align: "center",
+        width: contentWidth,
+      });
+
+    drawSeparator();
+
+    doc
+      .font("Roboto-Bold")
+      .fontSize(10)
+      .text("COMPROVANTE DE COMANDA", { align: "center", width: contentWidth });
+    doc
+      .font("Roboto")
+      .fontSize(8)
+      .text(`Comanda: ${comanda.Uid}`, { width: contentWidth })
+      .text(`Status: ${comanda.status}`, { width: contentWidth })
+      .text(`Abertura: ${formatComandaReceiptDateTime(comanda.abertura) || "-"}`, {
+        width: contentWidth,
+      });
+
     if (comanda.fechamento) {
       doc.text(
-        `Fechamento: ${new Date(comanda.fechamento).toLocaleString("pt-BR")}`
+        `Fechamento: ${formatComandaReceiptDateTime(comanda.fechamento) || "-"}`,
+        { width: contentWidth }
       );
     }
     if (comanda.faturamento) {
       doc.text(
-        `Faturamento: ${new Date(comanda.faturamento).toLocaleString("pt-BR")}`
+        `Faturamento: ${formatComandaReceiptDateTime(comanda.faturamento) || "-"}`,
+        { width: contentWidth }
       );
     }
     if (comanda.cancelamento) {
       doc.text(
-        `Cancelamento: ${new Date(comanda.cancelamento).toLocaleString("pt-BR")}`
+        `Cancelamento: ${formatComandaReceiptDateTime(comanda.cancelamento) || "-"}`,
+        { width: contentWidth }
       );
     }
-    doc.moveDown();
-    doc.fontSize(12).text("Itens", { underline: true });
-    doc.moveDown(0.5);
+    doc.text(`Cliente: ${comanda.clienteNomeSnapshot || "Nao informado"}`, {
+      width: contentWidth,
+    });
+
+    drawSeparator();
+
+    doc.font("Roboto-Bold").fontSize(8).text("ITENS", { width: contentWidth });
+    doc.moveDown(0.2);
 
     for (const item of comanda.itens) {
       doc
-        .fontSize(10)
+        .font("Roboto-Bold")
+        .fontSize(8)
+        .text(item.nomeSnapshot.substring(0, 42), { width: contentWidth });
+      doc
+        .font("Roboto")
+        .fontSize(8)
         .text(
-          `${item.origemTipo} - ${item.nomeSnapshot} | Qtd: ${new Decimal(
-            item.quantidade
-          ).toString()} | Unit.: ${formatDecimalCurrency(
+          `${new Decimal(item.quantidade).toString()} x ${formatComandaReceiptCurrency(
             item.valorUnitarioSnapshot
-          )} | Subtotal: ${formatDecimalCurrency(item.subtotal)}`
+          )}`,
+          { continued: true, width: contentWidth * 0.55 }
+        )
+        .text(formatComandaReceiptCurrency(item.subtotal), {
+          align: "right",
+          width: contentWidth * 0.45,
+        });
+      if (item.pagamentoId) {
+        doc.fontSize(7).text("Item faturado", { width: contentWidth });
+      }
+      doc.moveDown(0.25);
+    }
+
+    drawSeparator();
+
+    const totalPago = comanda.pagamentos
+      .reduce((total, pagamento) => total.plus(pagamento.valor), new Decimal(0))
+      .toDecimalPlaces(2);
+    const totalAberto = new Decimal(comanda.total).minus(totalPago).toDecimalPlaces(2);
+
+    drawPair("Total", formatComandaReceiptCurrency(comanda.total), true);
+    drawPair("Pago", formatComandaReceiptCurrency(totalPago));
+    drawPair("Em aberto", formatComandaReceiptCurrency(totalAberto), true);
+
+    if (comanda.pagamentos.length) {
+      drawSeparator();
+      doc.font("Roboto-Bold").fontSize(8).text("PAGAMENTOS", {
+        width: contentWidth,
+      });
+      for (const pagamento of comanda.pagamentos) {
+        drawPair(
+          `${pagamento.metodo} ${formatComandaReceiptDateTime(
+            pagamento.dataPagamento
+          ) || ""}`.trim(),
+          formatComandaReceiptCurrency(pagamento.valor)
         );
+      }
     }
 
-    doc.moveDown();
-    doc.fontSize(12).text(`Total: ${formatDecimalCurrency(comanda.total)}`, {
-      align: "right",
-    });
-
-    const pagamento = comanda.pagamentos[0];
-    if (pagamento) {
-      doc.moveDown();
-      doc.fontSize(12).text("Pagamento", { underline: true });
-      doc.fontSize(10).text(`Metodo: ${pagamento.metodo}`);
-      doc.text(
-        `Data: ${new Date(pagamento.dataPagamento).toLocaleString("pt-BR")}`
-      );
-      doc.text(
-        pagamento.lancarFinanceiro
-          ? "Lancamento financeiro: sim"
-          : "Lancamento financeiro: nao"
-      );
+    if (comanda.observacao) {
+      drawSeparator();
+      doc
+        .font("Roboto")
+        .fontSize(7)
+        .text(`Obs: ${comanda.observacao}`, { width: contentWidth });
     }
+
+    drawSeparator();
+    doc
+      .font("Roboto")
+      .fontSize(8)
+      .text("Cupom nao fiscal", { align: "center", width: contentWidth })
+      .text("Obrigado pela preferencia!", {
+        align: "center",
+        width: contentWidth,
+      });
 
     doc.end();
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+export async function gerarComandaComprovantePos(
+  req: Request,
+  res: Response
+): Promise<any> {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const conta = await prisma.contas.findUniqueOrThrow({
+      where: { id: customData.contaId },
+    });
+    const comanda = await prisma.comandaOperacao.findFirstOrThrow({
+      where: { id: Number(req.params.id), contaId: customData.contaId },
+      include: {
+        itens: { orderBy: { id: "asc" } },
+        pagamentos: { orderBy: { dataPagamento: "desc" } },
+      },
+    });
+
+    const cupom = buildComandaPosReceipt(conta, comanda);
+
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename=${buildComandaPosFilename(comanda.Uid)}`
+    );
+    return res.send(cupom);
   } catch (error) {
     handleError(res, error);
   }
