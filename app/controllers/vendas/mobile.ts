@@ -51,6 +51,11 @@ export const ListagemMobileVendas = async (
       where.vendedorId = vendedorId;
     }
 
+    const caixaId = Number(req.query.caixaId);
+    if (Number.isInteger(caixaId) && caixaId > 0) {
+      where.caixaId = caixaId;
+    }
+
     const produtoId = Number(req.query.produtoId);
     if (Number.isInteger(produtoId) && produtoId > 0) {
       advancedFilters.push({

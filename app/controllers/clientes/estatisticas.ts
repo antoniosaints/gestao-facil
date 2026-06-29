@@ -14,7 +14,7 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
         // Verificar se cliente existe
         const cliente = await prisma.clientesFornecedores.findUnique({
             where: { id: clienteId, contaId: contaId },
-            select: { id: true, nome: true, tipo: true }
+            select: { id: true, nome: true, tipo: true, status: true, telefone: true, whastapp: true }
         });
 
         if (!cliente) {

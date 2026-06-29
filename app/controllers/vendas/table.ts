@@ -64,6 +64,11 @@ export const tableVendas = async (req: Request, res: Response) => {
     where.vendedorId = vendedorId;
   }
 
+  const caixaId = Number(req.query.caixaId);
+  if (Number.isInteger(caixaId) && caixaId > 0) {
+    where.caixaId = caixaId;
+  }
+
   const advancedFilters: Prisma.VendasWhereInput[] = [];
 
   const produtoId = Number(req.query.produtoId);
