@@ -4,6 +4,7 @@ import {
   addComandaItens,
   cancelarComanda,
   createComanda,
+  deleteComanda,
   faturarComanda,
   fecharComanda,
   gerarComandaComprovante,
@@ -24,6 +25,7 @@ routerComandas.get("/configuracao", getComandaConfiguracao);
 routerComandas.post("/configuracao", saveComandaConfiguracao);
 routerComandas.post("/", createComanda);
 routerComandas.get("/:id", getComanda);
+routerComandas.delete("/:id", deleteComanda);
 routerComandas.post("/:id/itens", addComandaItens);
 routerComandas.put("/:id/itens/:itemId", updateComandaItem);
 routerComandas.delete("/:id/itens/:itemId", removeComandaItem);

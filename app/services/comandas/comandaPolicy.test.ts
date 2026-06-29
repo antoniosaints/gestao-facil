@@ -7,12 +7,14 @@ import {
   calculateComandaTotal,
   calculateComandaPaymentTotal,
   canChangeComandaItems,
+  canDeleteComanda,
   canConfigureComandas,
   canFaturarComanda,
   canFaturarComandaComFinanceiro,
   createComandaUid,
   getItemSubtotal,
   getProdutoStockDeltaForQuantityEdit,
+  resolveComandaPaymentItemIds,
   getStatusAfterPayment,
   requiresStockReturnDecision,
 } from "./comandaPolicy";
@@ -59,6 +61,9 @@ describe("comandaPolicy", () => {
     assert.equal(canFaturarComandaComFinanceiro(2), false);
     assert.equal(canConfigureComandas(5), true);
     assert.equal(canConfigureComandas(4), false);
+    assert.equal(canDeleteComanda(5), true);
+    assert.equal(canDeleteComanda(4), true);
+    assert.equal(canDeleteComanda(3), false);
   });
 
   it("builds a stable pdf filename from the public uid", () => {
@@ -81,6 +86,18 @@ describe("comandaPolicy", () => {
     assert.throws(
       () => calculateComandaPaymentTotal(items, [999]),
       /Item 999 nao pertence a comanda/
+    );
+  });
+
+  it("requires explicit selected items before billing", () => {
+    assert.deepEqual(resolveComandaPaymentItemIds([2, 1, 2]), [2, 1]);
+    assert.throws(
+      () => resolveComandaPaymentItemIds(undefined),
+      /Selecione ao menos um item para faturar/
+    );
+    assert.throws(
+      () => resolveComandaPaymentItemIds([]),
+      /Selecione ao menos um item para faturar/
     );
   });
 

@@ -14,12 +14,14 @@ import {
   calculateComandaTotal,
   calculateComandaPaymentTotal,
   canChangeComandaItems,
+  canDeleteComanda,
   canConfigureComandas,
   canFaturarComanda,
   canFaturarComandaComFinanceiro,
   createComandaUid,
   getItemSubtotal,
   getProdutoStockDeltaForQuantityEdit,
+  resolveComandaPaymentItemIds,
   getStatusAfterPayment,
   getUsuarioPermissionLevel,
   requiresStockReturnDecision,
@@ -94,6 +96,10 @@ const faturarSchema = z.object({
 const cancelarSchema = z.object({
   devolverEstoque: z.boolean().optional(),
   observacao: z.string().trim().optional().nullable(),
+});
+
+const deleteComandaSchema = z.object({
+  devolverEstoque: z.boolean().optional(),
 });
 
 function parseDate(value: string) {
@@ -800,10 +806,20 @@ export async function removeComandaItem(
     if (!parsed.success) return handleError(res, parsed.error);
 
     const response = await prisma.$transaction(async (tx) => {
-      await assertComandaAberta(tx, comandaId, customData.contaId);
+      const comanda = await tx.comandaOperacao.findFirstOrThrow({
+        where: { id: comandaId, contaId: customData.contaId },
+        include: { itens: true },
+      });
+      const canForceDelete = canDeleteComanda(level);
+      if (!canForceDelete && !canChangeComandaItems(comanda.status)) {
+        throw new Error("So e possivel alterar itens em comandas abertas.");
+      }
       const item = await tx.comandaOperacaoItem.findFirstOrThrow({
         where: { id: itemId, comandaId },
       });
+      if (item.pagamentoId && !canForceDelete) {
+        throw new Error("Somente usuarios admin podem remover itens faturados.");
+      }
 
       if (
         requiresStockReturnDecision(item) &&
@@ -843,6 +859,59 @@ export async function removeComandaItem(
     });
 
     return ResponseHandler(res, "Item removido com sucesso.", response);
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+export async function deleteComanda(req: Request, res: Response): Promise<any> {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const level = await getPermissionLevel(customData.contaId, customData.userId);
+    assertPermission(
+      canDeleteComanda(level),
+      "Somente usuarios admin podem excluir comandas."
+    );
+    const comandaId = Number(req.params.id);
+    const parsed = deleteComandaSchema.safeParse(req.body || {});
+    if (!parsed.success) return handleError(res, parsed.error);
+
+    const response = await prisma.$transaction(async (tx) => {
+      const comanda = await tx.comandaOperacao.findFirstOrThrow({
+        where: { id: comandaId, contaId: customData.contaId },
+        include: { itens: true },
+      });
+      const itensProduto = comanda.itens.filter((item) =>
+        requiresStockReturnDecision(item)
+      );
+      if (itensProduto.length && parsed.data.devolverEstoque === undefined) {
+        throw new Error("Informe se deseja devolver os produtos ao estoque.");
+      }
+
+      if (parsed.data.devolverEstoque) {
+        for (const item of itensProduto) {
+          if (!item.origemId) continue;
+          const restante = new Decimal(item.quantidadeDebitada).minus(
+            item.quantidadeDevolvida
+          );
+          await devolverEstoqueProduto(tx, {
+            contaId: customData.contaId,
+            produtoId: Number(item.origemId),
+            quantidade: restante,
+          });
+        }
+      }
+
+      await tx.comandaOperacao.delete({ where: { id: comanda.id } });
+
+      return {
+        id: comanda.id,
+        Uid: comanda.Uid,
+        devolverEstoque: parsed.data.devolverEstoque,
+      };
+    });
+
+    return ResponseHandler(res, "Comanda excluida com sucesso.", response);
   } catch (error) {
     handleError(res, error);
   }
@@ -934,12 +1003,7 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
         throw new Error("So e possivel faturar comandas pendentes.");
       }
 
-      const itemIds =
-        parsed.data.itemIds && parsed.data.itemIds.length
-          ? Array.from(new Set(parsed.data.itemIds))
-          : comanda.itens
-              .filter((item) => !item.pagamentoId)
-              .map((item) => item.id);
+      const itemIds = resolveComandaPaymentItemIds(parsed.data.itemIds);
       const total = calculateComandaPaymentTotal(comanda.itens, itemIds);
       let financeiroLancamentoIdSnapshot: number | null = null;
       if (parsed.data.lancarFinanceiro) {

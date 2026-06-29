@@ -71,6 +71,16 @@ export function calculateComandaPaymentTotal(
     .toDecimalPlaces(2);
 }
 
+export function resolveComandaPaymentItemIds(itemIds?: number[] | null) {
+  const uniqueItemIds = Array.from(new Set(itemIds || []));
+
+  if (!uniqueItemIds.length) {
+    throw new Error("Selecione ao menos um item para faturar.");
+  }
+
+  return uniqueItemIds;
+}
+
 export function getStatusAfterPayment(
   items: Array<{
     id: number;
@@ -113,6 +123,10 @@ export function canFaturarComandaComFinanceiro(levelPermission: number) {
 
 export function canConfigureComandas(levelPermission: number) {
   return levelPermission >= 5;
+}
+
+export function canDeleteComanda(levelPermission: number) {
+  return levelPermission >= 4;
 }
 
 export function buildComandaPdfFilename(uid: string) {
