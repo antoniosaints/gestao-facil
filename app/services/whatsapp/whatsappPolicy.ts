@@ -5,6 +5,8 @@ export type WhatsAppInstanceRemovalStatus =
   | "CONECTANDO"
   | "ERRO";
 
+export type WhatsAppInstanceStatus = WhatsAppInstanceRemovalStatus;
+
 export type WhatsAppPaymentStatus =
   | "PENDENTE"
   | "PAGO"
@@ -52,6 +54,48 @@ export function mapWApiPaymentStatus(payload: any): WhatsAppPaymentStatus {
 
   if (["cancel", "canceled", "cancelled", "cancelado"].some((term) => status.includes(term))) {
     return "CANCELADO";
+  }
+
+  return "PENDENTE";
+}
+
+export function mapWApiInstanceStatusFromPayload(payload: any): WhatsAppInstanceStatus {
+  const connected =
+    payload?.connected ??
+    payload?.result?.connected ??
+    payload?.data?.connected ??
+    payload?.instance?.connected ??
+    payload?.connection?.connected;
+
+  if (typeof connected === "boolean") {
+    return connected ? "CONECTADA" : "DESCONECTADA";
+  }
+
+  const status = String(
+    payload?.status ||
+      payload?.state ||
+      payload?.connection ||
+      payload?.result?.status ||
+      payload?.result?.state ||
+      payload?.data?.status ||
+      payload?.data?.state ||
+      ""
+  ).toLowerCase();
+
+  if (["open", "connected", "conectado", "online", "success"].some((term) => status.includes(term))) {
+    return "CONECTADA";
+  }
+
+  if (["connecting", "qrcode", "pairing", "loading"].some((term) => status.includes(term))) {
+    return "CONECTANDO";
+  }
+
+  if (["close", "closed", "disconnected", "desconectado", "offline"].some((term) => status.includes(term))) {
+    return "DESCONECTADA";
+  }
+
+  if (["error", "erro", "failed"].some((term) => status.includes(term))) {
+    return "ERRO";
   }
 
   return "PENDENTE";

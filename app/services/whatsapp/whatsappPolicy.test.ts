@@ -6,6 +6,7 @@ import {
   buildWApiPaymentPayload,
   canDeleteWhatsAppPayment,
   canRemoveWhatsAppInstance,
+  mapWApiInstanceStatusFromPayload,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 
@@ -43,6 +44,13 @@ describe("whatsappPolicy", () => {
     assert.equal(mapWApiPaymentStatus({ status: "failed" }), "FALHOU");
     assert.equal(mapWApiPaymentStatus({ status: "canceled" }), "CANCELADO");
     assert.equal(mapWApiPaymentStatus({ status: "waiting" }), "PENDENTE");
+  });
+
+  it("maps W-API boolean connection status into local instance status", () => {
+    assert.equal(mapWApiInstanceStatusFromPayload({ connected: true }), "CONECTADA");
+    assert.equal(mapWApiInstanceStatusFromPayload({ connected: false }), "DESCONECTADA");
+    assert.equal(mapWApiInstanceStatusFromPayload({ result: { connected: true } }), "CONECTADA");
+    assert.equal(mapWApiInstanceStatusFromPayload({ data: { connected: false } }), "DESCONECTADA");
   });
 
   it("builds a deleted instance id that frees the original external id", () => {

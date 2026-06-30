@@ -7,6 +7,7 @@ import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
   canDeleteWhatsAppPayment,
+  mapWApiInstanceStatusFromPayload,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 import {
@@ -86,26 +87,6 @@ function publicPayment(payment: any) {
   if (!payment) return payment;
   const { rawPayload: _rawPayload, ...rest } = payment;
   return rest;
-}
-
-function mapStatusFromPayload(payload: any): WhatsAppInstanciaStatus {
-  const text = String(
-    payload?.status || payload?.state || payload?.connection || payload?.data?.status || payload?.data?.state || "",
-  ).toLowerCase();
-
-  if (["open", "connected", "conectado", "online", "success"].some((term) => text.includes(term))) {
-    return WhatsAppInstanciaStatus.CONECTADA;
-  }
-  if (["connecting", "qrcode", "pairing", "loading"].some((term) => text.includes(term))) {
-    return WhatsAppInstanciaStatus.CONECTANDO;
-  }
-  if (["close", "closed", "disconnected", "desconectado", "offline"].some((term) => text.includes(term))) {
-    return WhatsAppInstanciaStatus.DESCONECTADA;
-  }
-  if (["error", "erro", "failed"].some((term) => text.includes(term))) {
-    return WhatsAppInstanciaStatus.ERRO;
-  }
-  return WhatsAppInstanciaStatus.PENDENTE;
 }
 
 function mapMessageStatus(payload: any): WhatsAppMensagemStatus {
@@ -426,7 +407,7 @@ export const whatsAppService = {
     };
 
     if (["status", "device", "qrCode", "pairingCode", "restart", "disconnect"].includes(action)) {
-      data.status = action === "disconnect" ? WhatsAppInstanciaStatus.DESCONECTADA : mapStatusFromPayload(result);
+      data.status = action === "disconnect" ? WhatsAppInstanciaStatus.DESCONECTADA : mapWApiInstanceStatusFromPayload(result);
       if (action === "device") {
         data.devicePayload = safeJson(result);
         data.numeroConectado = normalizePhone(result?.phone || result?.number || result?.data?.phone || result?.data?.number) || instance.numeroConectado;
@@ -785,7 +766,7 @@ export const whatsAppService = {
 
     try {
       if (["connected", "disconnected", "status", "presence"].includes(tipo)) {
-        const status = tipo === "connected" ? WhatsAppInstanciaStatus.CONECTADA : tipo === "disconnected" ? WhatsAppInstanciaStatus.DESCONECTADA : mapStatusFromPayload(payload);
+        const status = tipo === "connected" ? WhatsAppInstanciaStatus.CONECTADA : tipo === "disconnected" ? WhatsAppInstanciaStatus.DESCONECTADA : mapWApiInstanceStatusFromPayload(payload);
         const updatedInstance = await prisma.whatsAppInstancia.update({
           where: { id: instance.id },
           data: { status, lastSyncAt: new Date(), ultimoErro: null },

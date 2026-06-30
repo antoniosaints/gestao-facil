@@ -94,7 +94,7 @@ export async function enqueueWhatsAppNotificationByPreference(
         contaId,
         status: "ATIVO",
         permissao: {
-          in: ["root", "admin", "gerente"],
+          in: ["root", "admin"],
         },
       },
       select: {

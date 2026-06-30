@@ -361,8 +361,8 @@ export async function abrirCaixa(req: Request, res: Response) {
     await enqueueWhatsAppNotificationByPreference(
       "CAIXA_ABERTO",
       {
-        title: "Caixa aberto",
-        body: `Caixa ${caixa.codigo} aberto com saldo inicial de ${formatCurrency(caixa.saldoInicial)}.`,
+        title: "🏷️Caixa aberto.",
+        body: `Caixa _*${caixa.codigo}*_ aberto com saldo inicial de *${formatCurrency(caixa.saldoInicial)}*.`,
       },
       customData.contaId
     );
@@ -547,8 +547,8 @@ export async function fecharCaixa(req: Request, res: Response) {
     await enqueueWhatsAppNotificationByPreference(
       "CAIXA_FECHADO",
       {
-        title: "Caixa fechado",
-        body: `Caixa ${caixa.codigo} fechado com saldo contado de ${formatCurrency(caixa.saldoContado || 0)}.`,
+        title: "🔒Caixa fechado.",
+        body: `Caixa _*${caixa.codigo}*_ fechado com saldo contado de *${formatCurrency(caixa.saldoContado || 0)}*.`,
       },
       customData.contaId
     );
@@ -1462,8 +1462,8 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
     await enqueueWhatsAppNotificationByPreference(
       "NOVA_VENDA",
       {
-        title: "Nova venda",
-        body: `Venda PDV ${resultado.Uid} no valor de ${formatCurrency(resultado.valor)}.`,
+        title: "🏷️Nova venda.",
+        body: `Venda PDV _*${resultado.Uid}*_ no valor de *${formatCurrency(resultado.valor)}*.`,
       },
       customData.contaId
     );

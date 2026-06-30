@@ -92,8 +92,8 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
             await enqueueWhatsAppNotificationByPreference(
                 "NOVO_CLIENTE",
                 {
-                    title: "Novo cliente",
-                    body: `Cliente ${cliente.nome} cadastrado no sistema.`,
+                    title: "🎉Novo cliente.",
+                    body: `Cliente *${cliente.nome}* cadastrado no sistema, acesse o app/web para mais detalhes.`,
                 },
                 customData.contaId
             );

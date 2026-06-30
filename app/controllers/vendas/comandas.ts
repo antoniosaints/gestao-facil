@@ -932,8 +932,8 @@ export async function checkoutComanda(
     await enqueueWhatsAppNotificationByPreference(
       "COMANDA_FATURADA",
       {
-        title: "Comanda faturada",
-        body: `Comanda #${comandaId} faturada no valor de ${formatCurrency(data.valor)}.`,
+        title: "💵Comanda faturada.",
+        body: `Comanda _*#${comandaId}*_ faturada no valor de *${formatCurrency(data.valor)}*.`,
       },
       customData.contaId
     );

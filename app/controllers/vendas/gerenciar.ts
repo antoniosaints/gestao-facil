@@ -840,10 +840,10 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     await enqueueWhatsAppNotificationByPreference(
       "NOVA_VENDA",
       {
-        title: "Nova venda",
-        body: `Venda ${resultado.Uid} no valor de ${formatCurrency(
+        title: "🏷️Nova venda.",
+        body: `Venda _*${resultado.Uid}*_ no valor de *${formatCurrency(
           valorTotal.minus(descontoTotal)
-        )}.`,
+        )}*.`,
       },
       customData.contaId
     );

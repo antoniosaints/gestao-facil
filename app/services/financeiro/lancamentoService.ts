@@ -345,7 +345,7 @@ export async function criarLancamentoFinanceiro(
       valorBruto: valorBrutoTotal,
       desconto: descontoDecimal,
       tipo,
-      formaPagamento,
+      formaPagamento: formaPagamento as any,
       status: hasEfetivadoTotal ? 'PAGO' : status || 'PENDENTE',
       clienteId: Number(clienteId) || null,
       categoriaId: Number(categoriaId),
@@ -366,7 +366,7 @@ export async function criarLancamentoFinanceiro(
         pago: true,
         valorPago: valorEntradaDecimal,
         dataPagamento: startOfDay(new Date(dataEntrada)),
-        formaPagamento,
+        formaPagamento: formaPagamento as any,
         lancamentoId: novoLancamento.id,
         contaFinanceira: Number(contasFinanceiroId) || null,
       },
@@ -389,7 +389,7 @@ export async function criarLancamentoFinanceiro(
           valor: valorParcela,
           pago: hasEfetivadoTotal,
           valorPago: hasEfetivadoTotal ? valorParcela : null,
-          formaPagamento: hasEfetivadoTotal ? formaPagamento : null,
+          formaPagamento: hasEfetivadoTotal ? formaPagamento as any : null,
           dataPagamento: hasEfetivadoTotal ? vencimento : null,
           vencimento,
           lancamentoId: novoLancamento.id,
@@ -411,8 +411,8 @@ export async function criarLancamentoFinanceiro(
     await enqueueWhatsAppNotificationByPreference(
       'NOVO_LANCAMENTO',
       {
-        title: 'Novo lançamento',
-        body: `${tipo}: ${descricao}, no valor de ${formatCurrency(valorTotalDecimal)}.`,
+        title: '💵Novo lançamento.',
+        body: `_*${tipo}: ${descricao}*_, no valor de *${formatCurrency(valorTotalDecimal)}*.`,
       },
       contaId,
     )

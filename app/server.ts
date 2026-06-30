@@ -3,8 +3,6 @@ import path from "path";
 import http from "http";
 import cors from "cors";
 import { RouterMain } from "./routers/api";
-import { engine } from "express-handlebars";
-import { configOptions } from "./config/handlebars";
 import { initSocket } from "./utils/socket";
 import { env } from "./utils/dotenv";
 import { routerPrinter } from "./routers/impressao/router";
@@ -12,9 +10,6 @@ import "./workers/whatsappNotificationWorker";
 
 const app = express();
 const server = http.createServer(app);
-
-app.engine("hbs", engine(configOptions));
-app.set("view engine", "hbs");
 
 app.use(
   cors({

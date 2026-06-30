@@ -149,7 +149,7 @@ export const saveParametros = async (
         whatsappEventoComandaFaturada: body.data.whatsappEventoComandaFaturada,
         whatsappEventoCaixaAberto: body.data.whatsappEventoCaixaAberto,
         whatsappEventoCaixaFechado: body.data.whatsappEventoCaixaFechado,
-        ...(isUpdatingMenuVisibility ? { menusVisiveis } : {}),
+        ...(isUpdatingMenuVisibility ? { menusVisiveis } : {} as any),
       },
       update: {
         AsaasApiKey: body.data.AsaasApiKey,
@@ -181,7 +181,7 @@ export const saveParametros = async (
         whatsappEventoComandaFaturada: body.data.whatsappEventoComandaFaturada,
         whatsappEventoCaixaAberto: body.data.whatsappEventoCaixaAberto,
         whatsappEventoCaixaFechado: body.data.whatsappEventoCaixaFechado,
-        ...(isUpdatingMenuVisibility ? { menusVisiveis } : {}),
+        ...(isUpdatingMenuVisibility ? { menusVisiveis } : {} as any),
       },
     });
 
@@ -434,8 +434,8 @@ export const savePublicoCliente = async (
     await enqueueWhatsAppNotificationByPreference(
       "NOVO_CLIENTE",
       {
-        title: "Novo cliente",
-        body: `O cliente ${cliente.nome} se cadastrou via link publico.`,
+        title: "🎉Novo cliente.",
+        body: `O cliente *${cliente.nome}* se cadastrou via link publico, acesse o sistema para mais detalhes.`,
       },
       Number(body.contaId)
     );

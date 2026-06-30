@@ -315,8 +315,8 @@ export const saveOrdemServico = async (
     await enqueueWhatsAppNotificationByPreference(
       "NOVA_OS",
       {
-        title: "Nova OS",
-        body: `OS ${resultado.ordemCriada.Uid} aberta no status ${data.status}.`,
+        title: "🛠️Ordem de serviço aberta.",
+        body: `Ordem *#${resultado.ordemCriada.Uid}* aberta no status _${data.status}_.`,
       },
       customData.contaId
     );

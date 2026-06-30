@@ -58,23 +58,23 @@ function getVendaUid(value?: string | null) {
 }
 
 export function buildClienteWhatsappMessage(input: ClienteWhatsappMessageInput) {
-  const greeting = `Ola, ${getClienteName(input.clienteNome)}!`;
+  const greeting = `Olá, ${getClienteName(input.clienteNome)}!`;
 
   if (input.tipo === "MENSAGEM") {
-    return `${greeting}\n\n${input.mensagem.trim()}`;
+    return `${input.mensagem.trim()}`;
   }
 
   if (input.tipo === "COBRANCA") {
     const vencimento = formatDate(input.vencimento);
     const dueText = vencimento ? ` com vencimento em ${vencimento}` : "";
     const linkText = input.linkPagamento ? `\n\nLink para pagamento: ${input.linkPagamento}` : "";
-    return `${greeting}\n\nLembrete de cobranca ${input.cobrancaUid || "pendente"} no valor de ${formatCurrency(input.valor)}${dueText}.${linkText}`;
+    return `${greeting}\nLembrete de cobranca ${input.cobrancaUid || "pendente"} no valor de *${formatCurrency(input.valor)}${dueText}.${linkText}*`;
   }
 
   if (input.tipo === "ORCAMENTO_VENDA") {
-    return `${greeting}\n\nSegue o orcamento da venda ${getVendaUid(input.vendaUid)} no valor de ${formatCurrency(input.valor)}.`;
+    return `${greeting}\nSegue o orcamento da venda *${getVendaUid(input.vendaUid)}* no valor de *${formatCurrency(input.valor)}*.`;
   }
 
   const paymentText = input.formaPagamento ? `\nForma de pagamento: ${input.formaPagamento}.` : "";
-  return `${greeting}\n\nSegue o comprovante da venda ${getVendaUid(input.vendaUid)} no valor de ${formatCurrency(input.valor)}.${paymentText}`;
+  return `${greeting}\nSegue o comprovante da venda *${getVendaUid(input.vendaUid)}* no valor de *${formatCurrency(input.valor)}.${paymentText}*`;
 }
