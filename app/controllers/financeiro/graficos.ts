@@ -29,7 +29,6 @@ export const graficoByCategoria = async (
         },
         select: {
           tipo: true,
-          valorTotal: true,
           parcelas: true,
         },
       },
@@ -262,7 +261,11 @@ export const graficoDespesasPorCategoria = async (
           tipo: "DESPESA",
           dataLancamento: { gte: inicio, lte: fim },
         },
-        select: { valorTotal: true },
+        select: {
+          parcelas: {
+            select: { valor: true },
+          },
+        },
       },
     },
   });
@@ -271,7 +274,10 @@ export const graficoDespesasPorCategoria = async (
   const valores: number[] = [];
 
   for (const cat of categorias) {
-    const total = cat.lancamentos.reduce((s, l) => s + Number(l.valorTotal), 0);
+    const total = cat.lancamentos.reduce(
+      (s, l) => s + l.parcelas.reduce((parcelasTotal, parcela) => parcelasTotal + Number(parcela.valor), 0),
+      0,
+    );
     if (total > 0) {
       labels.push(cat.nome);
       valores.push(total);

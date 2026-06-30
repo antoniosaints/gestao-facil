@@ -100,44 +100,40 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
         }, 0);
 
         // 4. Financeiro
-        // Receitas (Recebido)
-        const lancamentosReceita = await prisma.lancamentoFinanceiro.findMany({
+        const parcelasFinanceiras = await prisma.parcelaFinanceiro.findMany({
             where: {
-                clienteId: clienteId,
-                contaId: contaId,
-                tipo: 'RECEITA',
-                status: 'PAGO'
+                lancamento: {
+                    clienteId: clienteId,
+                    contaId: contaId,
+                }
+            },
+            select: {
+                valor: true,
+                valorPago: true,
+                pago: true,
+                lancamento: {
+                    select: {
+                        tipo: true,
+                    }
+                }
             }
         });
-        const totalRecebido = lancamentosReceita.reduce((acc, l) => acc + Number(l.valorTotal), 0);
 
-        // Despesas (Pago ao fornecedor)
-        const lancamentosDespesa = await prisma.lancamentoFinanceiro.findMany({
-             where: {
-                clienteId: clienteId,
-                contaId: contaId,
-                tipo: 'DESPESA',
-                status: 'PAGO'
-            }
-        });
-        const totalPago = lancamentosDespesa.reduce((acc, l) => acc + Number(l.valorTotal), 0);
+        const totalRecebido = parcelasFinanceiras
+            .filter(p => p.pago && p.lancamento.tipo === 'RECEITA')
+            .reduce((acc, p) => acc + Number(p.valorPago ?? p.valor), 0);
 
-        // Pendente (A Receber ou A Pagar)
-        const lancamentosPendente = await prisma.lancamentoFinanceiro.findMany({
-            where: {
-                clienteId: clienteId,
-                contaId: contaId,
-                status: { in: ['PENDENTE', 'ATRASADO', 'PARCIAL'] }
-            }
-        });
-        
-        const totalPendenteReceber = lancamentosPendente
-            .filter(l => l.tipo === 'RECEITA')
-            .reduce((acc, l) => acc + Number(l.valorTotal), 0);
-            
-        const totalPendentePagar = lancamentosPendente
-            .filter(l => l.tipo === 'DESPESA')
-            .reduce((acc, l) => acc + Number(l.valorTotal), 0);
+        const totalPago = parcelasFinanceiras
+            .filter(p => p.pago && p.lancamento.tipo === 'DESPESA')
+            .reduce((acc, p) => acc + Number(p.valorPago ?? p.valor), 0);
+
+        const totalPendenteReceber = parcelasFinanceiras
+            .filter(p => !p.pago && p.lancamento.tipo === 'RECEITA')
+            .reduce((acc, p) => acc + Number(p.valor), 0);
+
+        const totalPendentePagar = parcelasFinanceiras
+            .filter(p => !p.pago && p.lancamento.tipo === 'DESPESA')
+            .reduce((acc, p) => acc + Number(p.valor), 0);
 
 
         return ResponseHandler(res, "Estatísticas recuperadas com sucesso", {

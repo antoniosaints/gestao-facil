@@ -22,6 +22,13 @@ describe("menuVisibilityPolicy", () => {
     );
   });
 
+  it("keeps the goals menu key when it is selected", () => {
+    assert.deepEqual(
+      normalizeVisibleMenuKeys(["dashboard", "metas", "configuracoes"]),
+      ["dashboard", "metas", "configuracoes"]
+    );
+  });
+
   it("keeps root recovery menus selected even when omitted from the payload", () => {
     const normalized = normalizeVisibleMenuKeys(["dashboard"]);
 

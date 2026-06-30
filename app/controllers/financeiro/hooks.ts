@@ -3,6 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { Prisma, StatusPagamentoFinanceiro } from "../../../generated";
 import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { resolveLancamentoStatusFromParcelas, sumParcelasFinanceiras } from "../../services/financeiro/parcelaFinanceiraPolicy";
 
 export const atualizarStatusLancamentos = async (idConta: number) => {
   const hoje = dayjs().startOf("day").toDate();
@@ -14,28 +15,18 @@ export const atualizarStatusLancamentos = async (idConta: number) => {
   });
 
   for (const lancamento of lancamentos) {
-    const totalParcelas = lancamento.parcelas.length;
-    const parcelasPagas = lancamento.parcelas.filter((p) => p.pago).length;
-    const parcelasVencidas = lancamento.parcelas.filter(
-      (p) => !p.pago && dayjs(p.vencimento).isBefore(hoje)
-    ).length;
+    const novoStatus = resolveLancamentoStatusFromParcelas(lancamento.parcelas, hoje) as StatusPagamentoFinanceiro;
+    const totalParcelas = sumParcelasFinanceiras(lancamento.parcelas);
 
-    let novoStatus: StatusPagamentoFinanceiro;
-
-    if (parcelasPagas === totalParcelas) {
-      novoStatus = "PAGO";
-    } else if (parcelasPagas > 0 && parcelasPagas < totalParcelas) {
-      novoStatus = "PARCIAL";
-    } else if (parcelasVencidas > 0) {
-      novoStatus = "ATRASADO";
-    } else {
-      novoStatus = "PENDENTE";
-    }
-
-    if (lancamento.status !== novoStatus) {
+    if (lancamento.status !== novoStatus || !new Prisma.Decimal(lancamento.valorTotal).equals(totalParcelas)) {
       await prisma.lancamentoFinanceiro.update({
         where: { id: lancamento.id },
-        data: { status: novoStatus },
+        data: {
+          status: novoStatus,
+          valorTotal: totalParcelas,
+          valorBruto: totalParcelas,
+          recorrente: lancamento.parcelas.filter((parcela) => parcela.numero !== 0).length > 1,
+        },
       });
     }
   }

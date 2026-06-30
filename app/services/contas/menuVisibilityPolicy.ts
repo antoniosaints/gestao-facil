@@ -2,6 +2,7 @@ import type { PermissaoUsuario } from "../../../generated/client";
 
 export const MAIN_VISIBLE_MENU_KEYS = [
   "dashboard",
+  "metas",
   "vendas",
   "comandas",
   "financeiro",

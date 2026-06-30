@@ -18,6 +18,8 @@ import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matches
 import { assertFutureSettlementAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
+import { canDeleteParcelaFinanceira } from "../../services/financeiro/parcelaFinanceiraPolicy";
 
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -109,6 +111,176 @@ export const updateParcela = async (req: Request, res: Response): Promise<any> =
     handleError(res, error);
   }
 }
+
+const formasPagamentoValidas = [
+  "DINHEIRO",
+  "DEBITO",
+  "CREDITO",
+  "BOLETO",
+  "DEPOSITO",
+  "TRANSFERENCIA",
+  "CHEQUE",
+  "PIX",
+];
+
+export const adicionarParcela = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const lancamentoId = Number(req.params.id);
+    const valor = new Decimal(req.body?.valor || 0);
+    const vencimento = req.body?.vencimento ? startOfDay(new Date(req.body.vencimento)) : null;
+    const descricao = typeof req.body?.descricao === "string" && req.body.descricao.trim()
+      ? req.body.descricao.trim()
+      : null;
+    const contaFinanceira = req.body?.contaFinanceira === null || req.body?.contaFinanceira === undefined || req.body?.contaFinanceira === ""
+      ? null
+      : Number(req.body.contaFinanceira);
+    const formaPagamento = typeof req.body?.formaPagamento === "string" && req.body.formaPagamento.trim()
+      ? req.body.formaPagamento.trim().toUpperCase()
+      : null;
+
+    if (!Number.isInteger(lancamentoId) || lancamentoId <= 0) {
+      return res.status(400).json({ message: "Informe um lanÃ§amento vÃ¡lido." });
+    }
+
+    if (valor.lte(0)) {
+      return res.status(400).json({ message: "Informe um valor vÃ¡lido para a parcela." });
+    }
+
+    if (!vencimento || Number.isNaN(vencimento.getTime())) {
+      return res.status(400).json({ message: "Informe uma data de vencimento vÃ¡lida." });
+    }
+
+    if (contaFinanceira !== null && Number.isNaN(contaFinanceira)) {
+      return res.status(400).json({ message: "Informe uma conta financeira vÃ¡lida." });
+    }
+
+    if (formaPagamento && !formasPagamentoValidas.includes(formaPagamento)) {
+      return res.status(400).json({ message: "Informe uma forma de pagamento vÃ¡lida." });
+    }
+
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: { id: lancamentoId, contaId: customData.contaId },
+      select: {
+        id: true,
+        contasFinanceiroId: true,
+        vendaId: true,
+        parcelas: {
+          select: { numero: true },
+          orderBy: { numero: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!lancamento) {
+      return res.status(404).json({ message: "LanÃ§amento nÃ£o encontrado." });
+    }
+
+    if (lancamento.vendaId) {
+      return res.status(400).json({ message: "LanÃ§amentos automÃ¡ticos de venda nÃ£o permitem alterar parcelas manualmente." });
+    }
+
+    const contaFinanceiraId = contaFinanceira ?? lancamento.contasFinanceiroId ?? null;
+    if (contaFinanceiraId) {
+      const conta = await prisma.contasFinanceiro.findFirst({
+        where: { id: contaFinanceiraId, contaId: customData.contaId },
+        select: { id: true },
+      });
+
+      if (!conta) {
+        return res.status(400).json({ message: "Conta financeira invÃ¡lida para esta conta." });
+      }
+    }
+
+    const parcela = await prisma.parcelaFinanceiro.create({
+      data: {
+        Uid: gerarIdUnicoComMetaFinal("PAR"),
+        numero: Math.max(0, ...(lancamento.parcelas.map((item) => item.numero))) + 1,
+        descricao,
+        valor,
+        vencimento,
+        pago: false,
+        formaPagamento: formaPagamento as any,
+        lancamentoId,
+        contaFinanceira: contaFinanceiraId,
+      },
+    });
+
+    await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-adicionada", parcelaId: parcela.id, lancamentoId });
+
+    return ResponseHandler(res, "Parcela adicionada com sucesso.", parcela, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const deletarParcela = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const parcelaId = Number(req.params.id);
+
+    if (!Number.isInteger(parcelaId) || parcelaId <= 0) {
+      return res.status(400).json({ message: "Informe uma parcela vÃ¡lida." });
+    }
+
+    const parcela = await prisma.parcelaFinanceiro.findFirst({
+      where: {
+        id: parcelaId,
+        lancamento: {
+          contaId: customData.contaId,
+        },
+      },
+      select: {
+        id: true,
+        pago: true,
+        lancamentoId: true,
+        lancamento: {
+          select: {
+            vendaId: true,
+            parcelas: {
+              select: { id: true },
+            },
+          },
+        },
+        CobrancasFinanceiras: {
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!parcela) {
+      return res.status(404).json({ message: "Parcela nÃ£o encontrada." });
+    }
+
+    if (parcela.lancamento.vendaId) {
+      return res.status(400).json({ message: "LanÃ§amentos automÃ¡ticos de venda nÃ£o permitem alterar parcelas manualmente." });
+    }
+
+    if (!canDeleteParcelaFinanceira(parcela)) {
+      return res.status(400).json({ message: "Apenas parcelas pendentes podem ser excluÃ­das." });
+    }
+
+    if (parcela.lancamento.parcelas.length <= 1) {
+      return res.status(400).json({ message: "O lanÃ§amento deve manter ao menos uma parcela." });
+    }
+
+    if (parcela.CobrancasFinanceiras.length > 0) {
+      return res.status(400).json({ message: "Remova ou cancele a cobranÃ§a vinculada antes de excluir esta parcela." });
+    }
+
+    await prisma.parcelaFinanceiro.delete({ where: { id: parcela.id } });
+
+    await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-excluida", parcelaId: parcela.id, lancamentoId: parcela.lancamentoId });
+
+    return ResponseHandler(res, "Parcela excluÃ­da com sucesso.", { id: parcela.id, lancamentoId: parcela.lancamentoId });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 
 export const getLancamentosMensal = async (
   req: Request,
