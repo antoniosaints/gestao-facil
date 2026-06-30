@@ -7,6 +7,7 @@ import { enqueuePushNotification } from '../pushNotificationQueueService'
 import { enqueueWhatsAppNotificationByPreference } from '../notifications/whatsappNotificationQueueService'
 import { formatCurrency } from '../../utils/formatters'
 import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from './financeiroPolicyService'
+import { canEnableClientDueNotification } from './financialDueNotificationPolicy'
 
 export type TipoLancamentoModo = 'AVISTA' | 'PARCELADO'
 export type PeriodoParcelamento = 'MENSAL' | 'SEMANAL' | 'DIARIO' | 'QUINZENAL' | 'PERSONALIZADO'
@@ -47,6 +48,7 @@ export type LancamentoFinanceiroPayload = {
   intervaloDiasPersonalizado?: number | string | null
   modoValorParcelamento?: ModoValorParcelamento
   notificarVencimento?: boolean
+  notificarClienteVencimento?: boolean
 }
 
 type DbClient = Prisma.TransactionClient | PrismaClient
@@ -222,6 +224,10 @@ export function validarPayloadLancamento(payload: LancamentoFinanceiroPayload) {
   if (tipoLancamentoModo === 'PARCELADO' && modoValorParcelamento === 'FIXO_PARCELA' && desconto.gt(0)) {
     throw new Error('Desconto não é compatível com o modo de valor fixo por parcela.')
   }
+
+  if (payload.notificarClienteVencimento && !canEnableClientDueNotification(payload)) {
+    throw new Error('A notificação ao cliente só pode ser ativada em receitas com cliente vinculado.')
+  }
 }
 
 export function calcularValoresLancamento(
@@ -349,6 +355,7 @@ export async function criarLancamentoFinanceiro(
       formaPagamento: formaPagamento as any,
       status: hasEfetivadoTotal ? 'PAGO' : status || 'PENDENTE',
       notificarVencimento: Boolean(payload.notificarVencimento),
+      notificarClienteVencimento: canEnableClientDueNotification(payload),
       clienteId: Number(clienteId) || null,
       categoriaId: Number(categoriaId),
       contaId,

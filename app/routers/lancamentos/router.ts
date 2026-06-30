@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { adicionarParcela, criarLancamento, deletarLancamento, deletarParcela, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
+import { adicionarParcela, criarLancamento, deletarLancamento, deletarParcela, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
@@ -62,6 +62,7 @@ routerLancamentos.post("/assinaturas-pagar/:id/gerar-financeiro", authenticateJW
 routerLancamentos.delete("/assinaturas-pagar/:id", authenticateJWT, deleteAssinaturaPagar);
 routerLancamentos.get("/dashboard/visao-geral", authenticateJWT, getDashboardFinanceiroVisaoGeral);
 routerLancamentos.post("/:id/notificacao-vencimento", authenticateJWT, updateLancamentoNotificacaoVencimento);
+routerLancamentos.post("/:id/notificacao-cliente-vencimento", authenticateJWT, updateLancamentoNotificacaoClienteVencimento);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos

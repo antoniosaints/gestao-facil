@@ -20,6 +20,7 @@ import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { canDeleteParcelaFinanceira } from "../../services/financeiro/parcelaFinanceiraPolicy";
+import { canEnableClientDueNotification } from "../../services/financeiro/financialDueNotificationPolicy";
 
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -704,6 +705,8 @@ export const updateLancamentoBasico = async (
       },
       select: {
         id: true,
+        tipo: true,
+        notificarClienteVencimento: true,
       },
     });
 
@@ -760,6 +763,11 @@ export const updateLancamentoBasico = async (
           contasFinanceiroId,
           clienteId,
           formaPagamento: formaPagamento as any,
+          notificarClienteVencimento: canEnableClientDueNotification({
+            tipo: lancamento.tipo,
+            clienteId,
+            notificarClienteVencimento: lancamento.notificarClienteVencimento,
+          }),
         },
       });
 
@@ -845,6 +853,59 @@ export const updateLancamentoNotificacaoVencimento = async (
     return ResponseHandler(
       res,
       ativo ? "Notificação de vencimento ativada." : "Notificação de vencimento desativada.",
+      updated,
+    );
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const updateLancamentoNotificacaoClienteVencimento = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+    const ativo = Boolean(req.body?.ativo);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: { id: true, tipo: true, clienteId: true },
+    });
+
+    if (!lancamento) {
+      return res.status(404).json({ message: "Lançamento não encontrado." });
+    }
+
+    if (ativo && !canEnableClientDueNotification({
+      tipo: lancamento.tipo,
+      clienteId: lancamento.clienteId,
+      notificarClienteVencimento: true,
+    })) {
+      return res.status(400).json({
+        message: "A cobrança ao cliente só pode ser ativada em receitas com cliente vinculado.",
+      });
+    }
+
+    const updated = await prisma.lancamentoFinanceiro.update({
+      where: { id },
+      data: { notificarClienteVencimento: ativo },
+      select: { id: true, notificarClienteVencimento: true },
+    });
+
+    sendFinanceiroUpdated(customData.contaId, {
+      reason: "lancamento-notificacao-cliente-vencimento-atualizada",
+      lancamentoId: id,
+    });
+
+    return ResponseHandler(
+      res,
+      ativo ? "Cobrança automática ao cliente ativada." : "Cobrança automática ao cliente desativada.",
       updated,
     );
   } catch (error) {

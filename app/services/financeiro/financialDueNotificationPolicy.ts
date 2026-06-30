@@ -1,7 +1,11 @@
 import { differenceInCalendarDays, startOfDay } from "date-fns";
 
 export type FinancialDueNotificationMilestone = "D3" | "D1" | "D0" | "D1_APOS";
-export type FinancialDueNotificationSourceType = "LANCAMENTO_PARCELA" | "ASSINATURA_PAGAR";
+export type FinancialDueNotificationSourceType =
+  | "LANCAMENTO_PARCELA"
+  | "CLIENTE_LANCAMENTO_PARCELA"
+  | "ASSINATURA_PAGAR";
+export type ClientDueNotificationChannel = "WHATSAPP" | "EMAIL" | "SMS";
 
 const MILESTONE_BY_DAY_DIFF: Record<number, FinancialDueNotificationMilestone> = {
   3: "D3",
@@ -33,6 +37,22 @@ export function selectFinancialDueNotificationRecipients(
       id: user.id,
       nome: user.nome || "Usuario",
     }));
+}
+
+export function canEnableClientDueNotification(input: {
+  tipo?: string | null;
+  clienteId?: number | string | null;
+  notificarClienteVencimento?: boolean | null;
+}) {
+  return (
+    input.tipo === "RECEITA" &&
+    Boolean(input.notificarClienteVencimento) &&
+    Boolean(Number(input.clienteId))
+  );
+}
+
+export function selectClientDueNotificationChannels(): ClientDueNotificationChannel[] {
+  return ["WHATSAPP"];
 }
 
 export function getFinancialDueMilestoneLabel(milestone: FinancialDueNotificationMilestone) {

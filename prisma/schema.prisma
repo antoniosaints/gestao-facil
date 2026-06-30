@@ -53,72 +53,72 @@ enum GatewayConta {
 }
 
 model Contas {
-  id                       Int                    @id @default(autoincrement())
-  nome                     String
-  valor                    Decimal                @db.Decimal(10, 2)
-  valorBasePlano           Decimal                @default(70) @db.Decimal(10, 2)
-  data                     DateTime
-  profile                  String?                @default("imgs/logo.png")
-  status                   Status                 @default(ATIVO)
-  vencimento               DateTime               @default(now())
-  tipo                     String?
-  documento                String?
-  ie                       String?
-  im                       String?
-  regimeTributario         Int                    @default(0)
-  regimeTributarioEspecial Int                    @default(0)
-  ambiente                 String                 @default("homologacao")
-  certificadoPath          String?
-  chaveAcesso              String?
-  funcionarios             Int                    @default(0)
-  categoria                String?
-  gateway                  GatewayConta           @default(mercadopago)
-  email                    String
-  telefone                 String?
-  endereco                 String?
-  nomeFantasia             String?
-  cep                      String?
-  emailAvisos              String?
-  asaasCustomerId          String
-  asaasSubscriptionId      String?
-  dicasNovidades           Boolean?               @default(false)
-  createdAt                DateTime               @default(now())
-  updatedAt                DateTime               @updatedAt
-  Produto                  Produto[]
-  ProdutoBase              ProdutoBase[]
-  ProdutoCategoria         ProdutoCategoria[]
-  Clientes                 ClientesFornecedores[]
-  Vendas                   Vendas[]
-  MovimentacoesEstoque     MovimentacoesEstoque[]
-  Usuarios                 Usuarios[]
-  FaturasContas            FaturasContas[]
-  ContasFinanceiro         ContasFinanceiro[]
-  CategoriaFinanceiro      CategoriaFinanceiro[]
-  LancamentoFinanceiro     LancamentoFinanceiro[]
-  Servicos                 Servicos[]
-  OrdensServico            OrdensServico[]
-  ParametrosConta          ParametrosConta[]
-  CobrancasFinanceiras     CobrancasFinanceiras[]
-  assinaturas              Assinatura[]
-  planosAssinatura         PlanoAssinatura[]
-  assinaturasClientes      AssinaturaCliente[]
-  assinaturasPagar         AssinaturaPagar[]
-  notaFiscals              NotaFiscal[]
-  arenaQuadras             ArenaQuadras[]
-  comandaVendas            ComandaVenda[]
-  comandasOperacao         ComandaOperacao[]
-  comandasOperacaoConfiguracao ComandaOperacaoConfiguracao?
-  moduloOnContas           ModuloOnConta[]
-  WhatsAppInstancia        WhatsAppInstancia[]
-  WhatsAppContato          WhatsAppContato[]
-  WhatsAppConversa         WhatsAppConversa[]
-  WhatsAppMensagem         WhatsAppMensagem[]
-  WhatsAppWebhookEvento    WhatsAppWebhookEvento[]
-  WhatsAppInstanciaPagamento WhatsAppInstanciaPagamento[]
+  id                              Int                               @id @default(autoincrement())
+  nome                            String
+  valor                           Decimal                           @db.Decimal(10, 2)
+  valorBasePlano                  Decimal                           @default(70) @db.Decimal(10, 2)
+  data                            DateTime
+  profile                         String?                           @default("imgs/logo.png")
+  status                          Status                            @default(ATIVO)
+  vencimento                      DateTime                          @default(now())
+  tipo                            String?
+  documento                       String?
+  ie                              String?
+  im                              String?
+  regimeTributario                Int                               @default(0)
+  regimeTributarioEspecial        Int                               @default(0)
+  ambiente                        String                            @default("homologacao")
+  certificadoPath                 String?
+  chaveAcesso                     String?
+  funcionarios                    Int                               @default(0)
+  categoria                       String?
+  gateway                         GatewayConta                      @default(mercadopago)
+  email                           String
+  telefone                        String?
+  endereco                        String?
+  nomeFantasia                    String?
+  cep                             String?
+  emailAvisos                     String?
+  asaasCustomerId                 String
+  asaasSubscriptionId             String?
+  dicasNovidades                  Boolean?                          @default(false)
+  createdAt                       DateTime                          @default(now())
+  updatedAt                       DateTime                          @updatedAt
+  Produto                         Produto[]
+  ProdutoBase                     ProdutoBase[]
+  ProdutoCategoria                ProdutoCategoria[]
+  Clientes                        ClientesFornecedores[]
+  Vendas                          Vendas[]
+  MovimentacoesEstoque            MovimentacoesEstoque[]
+  Usuarios                        Usuarios[]
+  FaturasContas                   FaturasContas[]
+  ContasFinanceiro                ContasFinanceiro[]
+  CategoriaFinanceiro             CategoriaFinanceiro[]
+  LancamentoFinanceiro            LancamentoFinanceiro[]
+  Servicos                        Servicos[]
+  OrdensServico                   OrdensServico[]
+  ParametrosConta                 ParametrosConta[]
+  CobrancasFinanceiras            CobrancasFinanceiras[]
+  assinaturas                     Assinatura[]
+  planosAssinatura                PlanoAssinatura[]
+  assinaturasClientes             AssinaturaCliente[]
+  assinaturasPagar                AssinaturaPagar[]
+  notaFiscals                     NotaFiscal[]
+  arenaQuadras                    ArenaQuadras[]
+  comandaVendas                   ComandaVenda[]
+  comandasOperacao                ComandaOperacao[]
+  comandasOperacaoConfiguracao    ComandaOperacaoConfiguracao?
+  moduloOnContas                  ModuloOnConta[]
+  WhatsAppInstancia               WhatsAppInstancia[]
+  WhatsAppContato                 WhatsAppContato[]
+  WhatsAppConversa                WhatsAppConversa[]
+  WhatsAppMensagem                WhatsAppMensagem[]
+  WhatsAppWebhookEvento           WhatsAppWebhookEvento[]
+  WhatsAppInstanciaPagamento      WhatsAppInstanciaPagamento[]
   NotificacaoVencimentoFinanceiro NotificacaoVencimentoFinanceiro[]
-  metas                    Meta[]
-  PdvPonto                 PdvPonto[]
-  CaixaSessao              CaixaSessao[]
+  metas                           Meta[]
+  PdvPonto                        PdvPonto[]
+  CaixaSessao                     CaixaSessao[]
 }
 
 model ModulosAdicionais {
@@ -170,21 +170,21 @@ enum TipoCobrancaModuloConta {
 }
 
 model Meta {
-  id             Int                     @id @default(autoincrement())
+  id             Int                       @id @default(autoincrement())
   contaId        Int
-  Contas         Contas                  @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Contas         Contas                    @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   nome           String
   descricao      String?
   tipo           TipoMeta
-  metrica        MetricaMeta             @default(VALOR)
-  periodicidade  PeriodicidadeMeta       @default(MENSAL)
-  valorAlvo      Decimal                 @db.Decimal(12, 2)
+  metrica        MetricaMeta               @default(VALOR)
+  periodicidade  PeriodicidadeMeta         @default(MENSAL)
+  valorAlvo      Decimal                   @db.Decimal(12, 2)
   dataInicio     DateTime
   dataFim        DateTime?
   financeiroTipo TipoLancamentoFinanceiro?
-  ativo          Boolean                 @default(true)
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
+  ativo          Boolean                   @default(true)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
   @@index([contaId, tipo, ativo])
   @@index([contaId, periodicidade, dataInicio])
@@ -209,47 +209,47 @@ enum PeriodicidadeMeta {
 }
 
 model ParametrosConta {
-  id                                   Int      @id @default(autoincrement())
-  contaId                              Int      @unique
-  Contas                               Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  MercadoPagoApiKey                    String?
-  AbacatePayApiKey                     String?
-  AbacatePaySecret                     String?
-  gatewayRecebimentoSaas               String?
-  WhatsappAPIToken                     String?
-  WhatsappAPISession                   String?
-  WhatsappAPINumber                    String?
-  AsaasApiKey                          String?
-  AsaasApiSecret                       String?
-  MercadoPagoEnv                       String?
-  AsaasEnv                             String?
-  emailAvisos                          String?
-  eventoVendaConcluida                 Boolean? @default(true)
-  eventoSangria                        Boolean? @default(false)
-  eventoEstoqueBaixo                   Boolean? @default(true)
-  eventoProdutoAlterado                Boolean? @default(true)
-  permitirLancamentoRetroativo         Boolean? @default(true)
-  permitirEfetivacaoFutura             Boolean? @default(true)
-  permitirTransferenciaContaFinanceira Boolean? @default(true)
-  permitirCriacaoCobranca              Boolean? @default(true)
-  linkPublicoAtivo                     Boolean? @default(false)
-  cadastrosPermitidosLinkPublico       Int?     @default(1)
-  chavePix                             String?
-  menusVisiveis                        Json?
-  whatsappNotificacoesAtivo            Boolean? @default(false)
-  whatsappNotificacoesInstanciaId      Int?
-  whatsappEventoNovaVenda              Boolean? @default(true)
-  whatsappEventoNovaOs                 Boolean? @default(true)
-  whatsappEventoNovoLancamento         Boolean? @default(true)
-  whatsappEventoNovoCliente            Boolean? @default(true)
-  whatsappEventoComandaFaturada        Boolean? @default(true)
-  whatsappEventoCaixaAberto            Boolean? @default(true)
-  whatsappEventoCaixaFechado           Boolean? @default(true)
+  id                                     Int      @id @default(autoincrement())
+  contaId                                Int      @unique
+  Contas                                 Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  MercadoPagoApiKey                      String?
+  AbacatePayApiKey                       String?
+  AbacatePaySecret                       String?
+  gatewayRecebimentoSaas                 String?
+  WhatsappAPIToken                       String?
+  WhatsappAPISession                     String?
+  WhatsappAPINumber                      String?
+  AsaasApiKey                            String?
+  AsaasApiSecret                         String?
+  MercadoPagoEnv                         String?
+  AsaasEnv                               String?
+  emailAvisos                            String?
+  eventoVendaConcluida                   Boolean? @default(true)
+  eventoSangria                          Boolean? @default(false)
+  eventoEstoqueBaixo                     Boolean? @default(true)
+  eventoProdutoAlterado                  Boolean? @default(true)
+  permitirLancamentoRetroativo           Boolean? @default(true)
+  permitirEfetivacaoFutura               Boolean? @default(true)
+  permitirTransferenciaContaFinanceira   Boolean? @default(true)
+  permitirCriacaoCobranca                Boolean? @default(true)
+  linkPublicoAtivo                       Boolean? @default(false)
+  cadastrosPermitidosLinkPublico         Int?     @default(1)
+  chavePix                               String?
+  menusVisiveis                          Json?
+  whatsappNotificacoesAtivo              Boolean? @default(false)
+  whatsappNotificacoesInstanciaId        Int?
+  whatsappEventoNovaVenda                Boolean? @default(true)
+  whatsappEventoNovaOs                   Boolean? @default(true)
+  whatsappEventoNovoLancamento           Boolean? @default(true)
+  whatsappEventoNovoCliente              Boolean? @default(true)
+  whatsappEventoComandaFaturada          Boolean? @default(true)
+  whatsappEventoCaixaAberto              Boolean? @default(true)
+  whatsappEventoCaixaFechado             Boolean? @default(true)
   financeiroVencimentosNotificacoesAtivo Boolean? @default(true)
-  corPrimaria                          String?
-  corSecundaria                        String?
-  createdAt                            DateTime @default(now())
-  updatedAt                            DateTime @updatedAt
+  corPrimaria                            String?
+  corSecundaria                          String?
+  createdAt                              DateTime @default(now())
+  updatedAt                              DateTime @updatedAt
 }
 
 model Usuarios {
@@ -276,9 +276,9 @@ model Usuarios {
   MensagensInteracoesOrdemServico MensagensInteracoesOrdemServico[]
   AssinaturaHistorico             AssinaturaHistorico[]
   OrdensServico                   OrdensServico[]
-  WhatsAppConversasAtendidas      WhatsAppConversa[]                 @relation("WhatsAppAtendente")
-  caixasAbertos                   CaixaSessao[]                      @relation("CaixaAbertoPor")
-  caixasFechados                  CaixaSessao[]                      @relation("CaixaFechadoPor")
+  WhatsAppConversasAtendidas      WhatsAppConversa[]                @relation("WhatsAppAtendente")
+  caixasAbertos                   CaixaSessao[]                     @relation("CaixaAbertoPor")
+  caixasFechados                  CaixaSessao[]                     @relation("CaixaFechadoPor")
   caixaOperadores                 CaixaOperador[]
   caixaMovimentos                 CaixaMovimento[]
 }
@@ -1027,19 +1027,19 @@ model CaixaOperador {
 }
 
 model CaixaMovimento {
-  id              Int                 @id @default(autoincrement())
+  id              Int                @id @default(autoincrement())
   contaId         Int
   caixaId         Int
-  caixa           CaixaSessao         @relation(fields: [caixaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  caixa           CaixaSessao        @relation(fields: [caixaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   usuarioId       Int
-  usuario         Usuarios            @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  usuario         Usuarios           @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   vendaId         Int?
-  venda           Vendas?             @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  venda           Vendas?            @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tipo            CaixaMovimentoTipo
   metodoPagamento MetodoPagamento?
-  valor           Decimal             @db.Decimal(10, 2)
-  descricao       String?             @db.Text
-  createdAt       DateTime            @default(now())
+  valor           Decimal            @db.Decimal(10, 2)
+  descricao       String?            @db.Text
+  createdAt       DateTime           @default(now())
 
   @@index([contaId, caixaId, tipo])
   @@index([vendaId])
@@ -1102,37 +1102,38 @@ model CobrancasFinanceiras {
 }
 
 model LancamentoFinanceiro {
-  id                    Int                        @id @default(autoincrement())
-  contaId               Int
-  Contas                Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                   String                     @default("FIN_000")
-  descricao             String
-  valorTotal            Decimal                    @default(0) // total com desconto incluído
-  valorBruto            Decimal                    @default(0)
-  valorEntrada          Decimal                    @default(0)
-  desconto              Decimal                    @default(0)
-  tipo                  TipoLancamentoFinanceiro
-  formaPagamento        MetodoPagamento
-  status                StatusPagamentoFinanceiro
-  recorrente            Boolean                    @default(false)
-  notificarVencimento   Boolean                    @default(false)
-  origemSistema         OrigemLancamentoFinanceiro @default(MANUAL)
-  referenciaRecorrencia String?
-  dataLancamento        DateTime
-  dataEntrada           DateTime?
-  clienteId             Int?
-  cliente               ClientesFornecedores?      @relation(fields: [clienteId], references: [id])
-  categoriaId           Int
-  categoria             CategoriaFinanceiro        @relation(fields: [categoriaId], references: [id])
-  vendaId               Int?
-  venda                 Vendas?                    @relation(fields: [vendaId], references: [id], onDelete: Restrict)
-  assinaturaPagarId     Int?
-  assinaturaPagar       AssinaturaPagar?           @relation(fields: [assinaturaPagarId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  parcelas              ParcelaFinanceiro[]
-  assinaturaCiclos      AssinaturaCiclo[]
-  createdAt             DateTime                   @default(now())
-  ContasFinanceiro      ContasFinanceiro?          @relation(fields: [contasFinanceiroId], references: [id])
-  contasFinanceiroId    Int?
+  id                         Int                        @id @default(autoincrement())
+  contaId                    Int
+  Contas                     Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                        String                     @default("FIN_000")
+  descricao                  String
+  valorTotal                 Decimal                    @default(0) // total com desconto incluído
+  valorBruto                 Decimal                    @default(0)
+  valorEntrada               Decimal                    @default(0)
+  desconto                   Decimal                    @default(0)
+  tipo                       TipoLancamentoFinanceiro
+  formaPagamento             MetodoPagamento
+  status                     StatusPagamentoFinanceiro
+  recorrente                 Boolean                    @default(false)
+  notificarVencimento        Boolean                    @default(false)
+  notificarClienteVencimento Boolean                    @default(false)
+  origemSistema              OrigemLancamentoFinanceiro @default(MANUAL)
+  referenciaRecorrencia      String?
+  dataLancamento             DateTime
+  dataEntrada                DateTime?
+  clienteId                  Int?
+  cliente                    ClientesFornecedores?      @relation(fields: [clienteId], references: [id])
+  categoriaId                Int
+  categoria                  CategoriaFinanceiro        @relation(fields: [categoriaId], references: [id])
+  vendaId                    Int?
+  venda                      Vendas?                    @relation(fields: [vendaId], references: [id], onDelete: Restrict)
+  assinaturaPagarId          Int?
+  assinaturaPagar            AssinaturaPagar?           @relation(fields: [assinaturaPagarId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  parcelas                   ParcelaFinanceiro[]
+  assinaturaCiclos           AssinaturaCiclo[]
+  createdAt                  DateTime                   @default(now())
+  ContasFinanceiro           ContasFinanceiro?          @relation(fields: [contasFinanceiroId], references: [id])
+  contasFinanceiroId         Int?
 
   @@unique([assinaturaPagarId, referenciaRecorrencia])
 }
@@ -1176,6 +1177,7 @@ enum OrigemLancamentoFinanceiro {
 
 enum TipoOrigemNotificacaoVencimentoFinanceiro {
   LANCAMENTO_PARCELA
+  CLIENTE_LANCAMENTO_PARCELA
   ASSINATURA_PAGAR
 }
 
@@ -1186,6 +1188,12 @@ enum MarcoNotificacaoVencimentoFinanceiro {
   D1_APOS
 }
 
+enum CanalNotificacaoVencimentoFinanceiro {
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
 model NotificacaoVencimentoFinanceiro {
   id             Int                                       @id @default(autoincrement())
   contaId        Int
@@ -1193,11 +1201,12 @@ model NotificacaoVencimentoFinanceiro {
   origemTipo     TipoOrigemNotificacaoVencimentoFinanceiro
   origemId       Int
   marco          MarcoNotificacaoVencimentoFinanceiro
+  canal          CanalNotificacaoVencimentoFinanceiro      @default(WHATSAPP)
   dataReferencia DateTime
   sentAt         DateTime                                  @default(now())
   createdAt      DateTime                                  @default(now())
 
-  @@unique([origemTipo, origemId, marco, dataReferencia], map: "notif_venc_fin_unique")
+  @@unique([origemTipo, origemId, marco, canal, dataReferencia], map: "notif_venc_fin_unique")
   @@index([contaId, sentAt], map: "notif_venc_fin_conta_sent_idx")
 }
 
@@ -1363,24 +1372,24 @@ enum ComandaOperacaoPagamentoMetodo {
 }
 
 model ComandaOperacao {
-  id           Int                        @id @default(autoincrement())
-  Uid          String                     @db.VarChar(6)
-  contaId      Int
-  Conta        Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  clienteId    Int?
+  id                  Int                        @id @default(autoincrement())
+  Uid                 String                     @db.VarChar(6)
+  contaId             Int
+  Conta               Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  clienteId           Int?
   clienteNomeSnapshot String?
-  status       ComandaOperacaoStatus      @default(ABERTA)
-  total        Decimal                    @default(0) @db.Decimal(10, 2)
-  observacao   String?                    @db.Text
-  abertura     DateTime                   @default(now())
-  fechamento   DateTime?
-  faturamento  DateTime?
-  cancelamento DateTime?
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
-  itens        ComandaOperacaoItem[]
-  pagamentos   ComandaOperacaoPagamento[]
-  historicos   ComandaOperacaoHistorico[]
+  status              ComandaOperacaoStatus      @default(ABERTA)
+  total               Decimal                    @default(0) @db.Decimal(10, 2)
+  observacao          String?                    @db.Text
+  abertura            DateTime                   @default(now())
+  fechamento          DateTime?
+  faturamento         DateTime?
+  cancelamento        DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  itens               ComandaOperacaoItem[]
+  pagamentos          ComandaOperacaoPagamento[]
+  historicos          ComandaOperacaoHistorico[]
 
   @@unique([contaId, Uid])
   @@index([contaId, status, abertura])
@@ -1504,21 +1513,21 @@ enum WhatsAppPagamentoStatus {
 }
 
 model WhatsAppInstancia {
-  id              Int                     @id @default(autoincrement())
+  id              Int                          @id @default(autoincrement())
   contaId         Int
-  Conta           Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Conta           Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   nome            String
-  instanceId      String                  @unique
-  token           String                  @db.Text
-  webhookSecret   String                  @unique
-  status          WhatsAppInstanciaStatus @default(PENDENTE)
+  instanceId      String                       @unique
+  token           String                       @db.Text
+  webhookSecret   String                       @unique
+  status          WhatsAppInstanciaStatus      @default(PENDENTE)
   numeroConectado String?
-  devicePayload   String?                 @db.Text
-  ultimoErro      String?                 @db.Text
-  ativo           Boolean                 @default(true)
+  devicePayload   String?                      @db.Text
+  ultimoErro      String?                      @db.Text
+  ativo           Boolean                      @default(true)
   lastSyncAt      DateTime?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
   conversas       WhatsAppConversa[]
   mensagens       WhatsAppMensagem[]
   webhookEventos  WhatsAppWebhookEvento[]
@@ -1555,17 +1564,17 @@ model WhatsAppInstanciaPagamento {
 }
 
 model WhatsAppContato {
-  id              Int                    @id @default(autoincrement())
+  id              Int                   @id @default(autoincrement())
   contaId         Int
-  Conta           Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Conta           Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   telefone        String
   nome            String?
-  foto            String?                @db.Text
+  foto            String?               @db.Text
   clienteId       Int?
-  Cliente         ClientesFornecedores?  @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  dadosAuxiliares String?                @db.Text
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  Cliente         ClientesFornecedores? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  dadosAuxiliares String?               @db.Text
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   conversas       WhatsAppConversa[]
 
   @@unique([contaId, telefone])
@@ -1603,27 +1612,27 @@ model WhatsAppConversa {
 }
 
 model WhatsAppMensagem {
-  id                Int                    @id @default(autoincrement())
+  id                Int                     @id @default(autoincrement())
   contaId           Int
-  Conta             Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Conta             Contas                  @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   conversaId        Int
-  Conversa          WhatsAppConversa       @relation(fields: [conversaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Conversa          WhatsAppConversa        @relation(fields: [conversaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   instanciaId       Int
-  Instancia         WhatsAppInstancia      @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Instancia         WhatsAppInstancia       @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   direcao           WhatsAppMensagemDirecao
-  tipo              WhatsAppMensagemTipo   @default(TEXTO)
+  tipo              WhatsAppMensagemTipo    @default(TEXTO)
   externalMessageId String
-  conteudo          String?                @db.Text
-  mediaUrl          String?                @db.Text
+  conteudo          String?                 @db.Text
+  mediaUrl          String?                 @db.Text
   mediaMimeType     String?
   fileName          String?
-  rawPayload        String?                @db.LongText
-  statusEnvio       WhatsAppMensagemStatus @default(PENDENTE)
-  erroEnvio         String?                @db.Text
+  rawPayload        String?                 @db.LongText
+  statusEnvio       WhatsAppMensagemStatus  @default(PENDENTE)
+  erroEnvio         String?                 @db.Text
   enviadoEm         DateTime?
   lidoEm            DateTime?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   @@unique([contaId, instanciaId, externalMessageId])
   @@index([contaId, conversaId, createdAt])
@@ -1631,18 +1640,18 @@ model WhatsAppMensagem {
 }
 
 model WhatsAppWebhookEvento {
-  id           Int               @id @default(autoincrement())
-  contaId      Int
-  Conta        Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  instanciaId  Int
-  Instancia    WhatsAppInstancia @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  eventId      String
-  tipo         String
-  payload      String            @db.LongText
-  processado   Boolean           @default(false)
-  erro         String?           @db.Text
-  createdAt    DateTime          @default(now())
-  processedAt  DateTime?
+  id          Int               @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId Int
+  Instancia   WhatsAppInstancia @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  eventId     String
+  tipo        String
+  payload     String            @db.LongText
+  processado  Boolean           @default(false)
+  erro        String?           @db.Text
+  createdAt   DateTime          @default(now())
+  processedAt DateTime?
 
   @@unique([instanciaId, eventId])
   @@index([contaId, tipo, createdAt])

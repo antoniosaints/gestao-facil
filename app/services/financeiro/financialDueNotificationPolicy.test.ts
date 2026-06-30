@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  canEnableClientDueNotification,
   getFinancialDueMilestone,
+  selectClientDueNotificationChannels,
   selectFinancialDueNotificationRecipients,
 } from "./financialDueNotificationPolicy";
 
@@ -29,5 +31,38 @@ describe("financialDueNotificationPolicy", () => {
       { id: 1, nome: "Root" },
       { id: 2, nome: "Admin" },
     ]);
+  });
+
+  it("allows client due notifications only for receivables linked to a client", () => {
+    assert.equal(
+      canEnableClientDueNotification({
+        tipo: "RECEITA",
+        clienteId: 10,
+        notificarClienteVencimento: true,
+      }),
+      true,
+    );
+
+    assert.equal(
+      canEnableClientDueNotification({
+        tipo: "DESPESA",
+        clienteId: 10,
+        notificarClienteVencimento: true,
+      }),
+      false,
+    );
+
+    assert.equal(
+      canEnableClientDueNotification({
+        tipo: "RECEITA",
+        clienteId: null,
+        notificarClienteVencimento: true,
+      }),
+      false,
+    );
+  });
+
+  it("starts client due notifications with WhatsApp and keeps channel selection extensible", () => {
+    assert.deepEqual(selectClientDueNotificationChannels(), ["WHATSAPP"]);
   });
 });
