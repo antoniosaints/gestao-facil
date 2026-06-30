@@ -46,6 +46,7 @@ export type LancamentoFinanceiroPayload = {
   periodoParcelamento?: PeriodoParcelamento
   intervaloDiasPersonalizado?: number | string | null
   modoValorParcelamento?: ModoValorParcelamento
+  notificarVencimento?: boolean
 }
 
 type DbClient = Prisma.TransactionClient | PrismaClient
@@ -347,6 +348,7 @@ export async function criarLancamentoFinanceiro(
       tipo,
       formaPagamento: formaPagamento as any,
       status: hasEfetivadoTotal ? 'PAGO' : status || 'PENDENTE',
+      notificarVencimento: Boolean(payload.notificarVencimento),
       clienteId: Number(clienteId) || null,
       categoriaId: Number(categoriaId),
       contaId,

@@ -5,7 +5,8 @@ export type WhatsAppNotificationEvent =
   | "NOVO_CLIENTE"
   | "COMANDA_FATURADA"
   | "CAIXA_ABERTO"
-  | "CAIXA_FECHADO";
+  | "CAIXA_FECHADO"
+  | "VENCIMENTO_FINANCEIRO";
 
 export type WhatsAppNotificationEventField =
   | "whatsappEventoNovaVenda"
@@ -14,7 +15,8 @@ export type WhatsAppNotificationEventField =
   | "whatsappEventoNovoCliente"
   | "whatsappEventoComandaFaturada"
   | "whatsappEventoCaixaAberto"
-  | "whatsappEventoCaixaFechado";
+  | "whatsappEventoCaixaFechado"
+  | "financeiroVencimentosNotificacoesAtivo";
 
 export const WHATSAPP_NOTIFICATION_EVENTS: Array<{
   key: WhatsAppNotificationEvent;
@@ -28,9 +30,11 @@ export const WHATSAPP_NOTIFICATION_EVENTS: Array<{
   { key: "COMANDA_FATURADA", field: "whatsappEventoComandaFaturada", label: "Comanda faturada" },
   { key: "CAIXA_ABERTO", field: "whatsappEventoCaixaAberto", label: "Caixa aberto" },
   { key: "CAIXA_FECHADO", field: "whatsappEventoCaixaFechado", label: "Caixa fechado" },
+  { key: "VENCIMENTO_FINANCEIRO", field: "financeiroVencimentosNotificacoesAtivo", label: "Vencimento financeiro" },
 ];
 
 const ADMINISTRATIVE_PERMISSIONS = new Set(["root", "admin", "gerente"]);
+const FINANCIAL_DUE_PERMISSIONS = new Set(["root", "admin"]);
 
 export function getWhatsAppNotificationEventField(event: WhatsAppNotificationEvent) {
   return WHATSAPP_NOTIFICATION_EVENTS.find((item) => item.key === event)!.field;
@@ -94,10 +98,14 @@ export function selectWhatsAppNotificationRecipients(
     telefone?: string | null;
     status?: string | null;
   }>,
+  event?: WhatsAppNotificationEvent,
 ) {
+  const allowedPermissions =
+    event === "VENCIMENTO_FINANCEIRO" ? FINANCIAL_DUE_PERMISSIONS : ADMINISTRATIVE_PERMISSIONS;
+
   return users
     .filter((user) => user.status === "ATIVO")
-    .filter((user) => ADMINISTRATIVE_PERMISSIONS.has(String(user.permissao || "")))
+    .filter((user) => allowedPermissions.has(String(user.permissao || "")))
     .map((user) => ({
       userId: user.id,
       name: user.nome || "Usuario",

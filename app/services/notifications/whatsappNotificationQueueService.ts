@@ -34,6 +34,7 @@ const PARAMETER_SELECT = {
   whatsappEventoComandaFaturada: true,
   whatsappEventoCaixaAberto: true,
   whatsappEventoCaixaFechado: true,
+  financeiroVencimentosNotificacoesAtivo: true,
 } as const;
 
 function buildJobId(input: {
@@ -106,7 +107,7 @@ export async function enqueueWhatsAppNotificationByPreference(
       },
     });
 
-    const recipients = selectWhatsAppNotificationRecipients(users);
+    const recipients = selectWhatsAppNotificationRecipients(users, event);
     if (!recipients.length) {
       return false;
     }

@@ -30,6 +30,7 @@ const assinaturaPagarSchema = z.object({
   status: z.enum(['ATIVA', 'INATIVA', 'CANCELADA']).default('ATIVA'),
   gerarFinanceiro: z.boolean().default(false),
   gerarAutomatico: z.boolean().default(false),
+  notificarVencimento: z.boolean().default(false),
   contaFinanceiraId: z.number().int().positive().nullable().optional(),
   categoriaId: z.number().int().positive().nullable().optional(),
   formaPagamento: z
@@ -136,6 +137,7 @@ function mapAssinaturaPagar(item: any) {
     status: item.status,
     gerarFinanceiro: item.gerarFinanceiro,
     gerarAutomatico: item.gerarAutomatico,
+    notificarVencimento: item.notificarVencimento,
     contaFinanceiraId: item.contaFinanceiraId,
     categoriaId: item.categoriaId,
     formaPagamento: item.formaPagamento,
@@ -444,6 +446,7 @@ export const saveAssinaturaPagar = async (req: Request, res: Response): Promise<
               status: parsed.data.status,
               gerarFinanceiro: parsed.data.gerarFinanceiro,
               gerarAutomatico: parsed.data.gerarAutomatico,
+              notificarVencimento: parsed.data.notificarVencimento,
               contaFinanceiraId: parsed.data.gerarFinanceiro ? parsed.data.contaFinanceiraId || null : null,
               categoriaId: parsed.data.gerarFinanceiro ? parsed.data.categoriaId || null : null,
               formaPagamento: parsed.data.gerarFinanceiro ? parsed.data.formaPagamento || 'PIX' : null,
@@ -468,6 +471,7 @@ export const saveAssinaturaPagar = async (req: Request, res: Response): Promise<
               status: parsed.data.status,
               gerarFinanceiro: parsed.data.gerarFinanceiro,
               gerarAutomatico: parsed.data.gerarAutomatico,
+              notificarVencimento: parsed.data.notificarVencimento,
               contaFinanceiraId: parsed.data.gerarFinanceiro ? parsed.data.contaFinanceiraId || null : null,
               categoriaId: parsed.data.gerarFinanceiro ? parsed.data.categoriaId || null : null,
               formaPagamento: parsed.data.gerarFinanceiro ? parsed.data.formaPagamento || 'PIX' : null,
@@ -589,6 +593,47 @@ export const updateAssinaturaPagarStatus = async (req: Request, res: Response): 
     return res.json({ message: 'Status da assinatura atualizado com sucesso.' })
   } catch (error: any) {
     return res.status(400).json({ message: error?.message || 'Erro ao atualizar o status.' })
+  }
+}
+
+export const updateAssinaturaPagarNotificacaoVencimento = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData
+    await ensureFinancePermission(customData)
+
+    const id = Number(req.params.id)
+    const ativo = Boolean(req.body?.ativo)
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: 'ID inválido.' })
+    }
+
+    const assinatura = await prisma.assinaturaPagar.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: { id: true },
+    })
+
+    if (!assinatura) {
+      return res.status(404).json({ message: 'Assinatura a pagar não encontrada.' })
+    }
+
+    const updated = await prisma.assinaturaPagar.update({
+      where: { id },
+      data: { notificarVencimento: ativo },
+      select: { id: true, notificarVencimento: true },
+    })
+
+    sendFinanceiroUpdated(customData.contaId, {
+      reason: 'assinatura-pagar-notificacao-vencimento-atualizada',
+      assinaturaPagarId: id,
+    })
+
+    return res.json({
+      message: ativo ? 'Notificação de vencimento ativada.' : 'Notificação de vencimento desativada.',
+      data: updated,
+    })
+  } catch (error: any) {
+    return res.status(400).json({ message: error?.message || 'Erro ao atualizar a notificação.' })
   }
 }
 

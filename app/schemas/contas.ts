@@ -153,6 +153,7 @@ export const updateParametrosContaSchema = z.object(
     whatsappEventoComandaFaturada: z.boolean().optional().nullable(),
     whatsappEventoCaixaAberto: z.boolean().optional().nullable(),
     whatsappEventoCaixaFechado: z.boolean().optional().nullable(),
+    financeiroVencimentosNotificacoesAtivo: z.boolean().optional().nullable(),
   },
   {
     required_error: "Informe os parâmetros da conta",

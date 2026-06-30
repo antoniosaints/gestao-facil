@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateParcela } from "../../controllers/financeiro/gerenciar";
+import { criarLancamento, deletarLancamento, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
@@ -21,6 +21,7 @@ import {
   getAssinaturasPagarMobile,
   getAssinaturasPagarTable,
   saveAssinaturaPagar,
+  updateAssinaturaPagarNotificacaoVencimento,
   updateAssinaturaPagarStatus,
 } from "../../controllers/financeiro/assinaturasPagar";
 import multer from "multer";
@@ -54,9 +55,11 @@ routerLancamentos.get("/assinaturas-pagar/mobile", authenticateJWT, getAssinatur
 routerLancamentos.get("/assinaturas-pagar/:id", authenticateJWT, getAssinaturaPagarDetalhe);
 routerLancamentos.post("/assinaturas-pagar", authenticateJWT, saveAssinaturaPagar);
 routerLancamentos.post("/assinaturas-pagar/:id/status", authenticateJWT, updateAssinaturaPagarStatus);
+routerLancamentos.post("/assinaturas-pagar/:id/notificacao-vencimento", authenticateJWT, updateAssinaturaPagarNotificacaoVencimento);
 routerLancamentos.post("/assinaturas-pagar/:id/gerar-financeiro", authenticateJWT, gerarFinanceiroAssinaturaPagar);
 routerLancamentos.delete("/assinaturas-pagar/:id", authenticateJWT, deleteAssinaturaPagar);
 routerLancamentos.get("/dashboard/visao-geral", authenticateJWT, getDashboardFinanceiroVisaoGeral);
+routerLancamentos.post("/:id/notificacao-vencimento", authenticateJWT, updateLancamentoNotificacaoVencimento);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos

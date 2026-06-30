@@ -53,6 +53,7 @@ describe("whatsappNotificationPolicy", () => {
     assert.equal(getWhatsAppNotificationEventField("COMANDA_FATURADA"), "whatsappEventoComandaFaturada");
     assert.equal(getWhatsAppNotificationEventField("CAIXA_ABERTO"), "whatsappEventoCaixaAberto");
     assert.equal(getWhatsAppNotificationEventField("CAIXA_FECHADO"), "whatsappEventoCaixaFechado");
+    assert.equal(getWhatsAppNotificationEventField("VENCIMENTO_FINANCEIRO"), "financeiroVencimentosNotificacoesAtivo");
 
     assert.equal(
       isWhatsAppNotificationEventEnabled(
@@ -91,6 +92,22 @@ describe("whatsappNotificationPolicy", () => {
       { userId: 1, name: "Root", phone: "5545999991111" },
       { userId: 2, name: "Admin", phone: "5545999992222" },
       { userId: 3, name: "Gerente", phone: "5545999993333" },
+    ]);
+  });
+
+  it("selects only admin and root users for financial due notifications", () => {
+    const recipients = selectWhatsAppNotificationRecipients(
+      [
+        { id: 1, nome: "Root", permissao: "root", telefone: "(45) 99999-1111", status: "ATIVO" },
+        { id: 2, nome: "Admin", permissao: "admin", telefone: "5545999992222", status: "ATIVO" },
+        { id: 3, nome: "Gerente", permissao: "gerente", telefone: "45 99999-3333", status: "ATIVO" },
+      ],
+      "VENCIMENTO_FINANCEIRO",
+    );
+
+    assert.deepEqual(recipients, [
+      { userId: 1, name: "Root", phone: "5545999991111" },
+      { userId: 2, name: "Admin", phone: "5545999992222" },
     ]);
   });
 

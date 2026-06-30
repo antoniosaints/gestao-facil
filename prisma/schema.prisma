@@ -115,6 +115,7 @@ model Contas {
   WhatsAppMensagem         WhatsAppMensagem[]
   WhatsAppWebhookEvento    WhatsAppWebhookEvento[]
   WhatsAppInstanciaPagamento WhatsAppInstanciaPagamento[]
+  NotificacaoVencimentoFinanceiro NotificacaoVencimentoFinanceiro[]
   PdvPonto                 PdvPonto[]
   CaixaSessao              CaixaSessao[]
 }
@@ -204,6 +205,7 @@ model ParametrosConta {
   whatsappEventoComandaFaturada        Boolean? @default(true)
   whatsappEventoCaixaAberto            Boolean? @default(true)
   whatsappEventoCaixaFechado           Boolean? @default(true)
+  financeiroVencimentosNotificacoesAtivo Boolean? @default(true)
   corPrimaria                          String?
   corSecundaria                        String?
   createdAt                            DateTime @default(now())
@@ -795,6 +797,7 @@ model AssinaturaPagar {
   status                     StatusAssinaturaPagar        @default(ATIVA)
   gerarFinanceiro            Boolean                      @default(false)
   gerarAutomatico            Boolean                      @default(false)
+  notificarVencimento        Boolean                      @default(false)
   contaFinanceiraId          Int?
   contaFinanceira            ContasFinanceiro?            @relation(fields: [contaFinanceiraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   categoriaId                Int?
@@ -1072,6 +1075,7 @@ model LancamentoFinanceiro {
   formaPagamento        MetodoPagamento
   status                StatusPagamentoFinanceiro
   recorrente            Boolean                    @default(false)
+  notificarVencimento   Boolean                    @default(false)
   origemSistema         OrigemLancamentoFinanceiro @default(MANUAL)
   referenciaRecorrencia String?
   dataLancamento        DateTime
@@ -1128,6 +1132,33 @@ enum StatusPagamentoFinanceiro {
 enum OrigemLancamentoFinanceiro {
   MANUAL
   ASSINATURA_PAGAR
+}
+
+enum TipoOrigemNotificacaoVencimentoFinanceiro {
+  LANCAMENTO_PARCELA
+  ASSINATURA_PAGAR
+}
+
+enum MarcoNotificacaoVencimentoFinanceiro {
+  D3
+  D1
+  D0
+  D1_APOS
+}
+
+model NotificacaoVencimentoFinanceiro {
+  id             Int                                       @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas                                    @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  origemTipo     TipoOrigemNotificacaoVencimentoFinanceiro
+  origemId       Int
+  marco          MarcoNotificacaoVencimentoFinanceiro
+  dataReferencia DateTime
+  sentAt         DateTime                                  @default(now())
+  createdAt      DateTime                                  @default(now())
+
+  @@unique([origemTipo, origemId, marco, dataReferencia], map: "notif_venc_fin_unique")
+  @@index([contaId, sentAt], map: "notif_venc_fin_conta_sent_idx")
 }
 
 model ArenaQuadras {

@@ -7,6 +7,7 @@ import { initSocket } from "./utils/socket";
 import { env } from "./utils/dotenv";
 import { routerPrinter } from "./routers/impressao/router";
 import "./workers/whatsappNotificationWorker";
+import "./workers/cronJobsWorker";
 
 const app = express();
 const server = http.createServer(app);

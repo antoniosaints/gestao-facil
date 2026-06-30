@@ -637,6 +637,49 @@ export const criarLancamento = async (
   }
 };
 
+export const updateLancamentoNotificacaoVencimento = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+    const ativo = Boolean(req.body?.ativo);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: { id: true },
+    });
+
+    if (!lancamento) {
+      return res.status(404).json({ message: "Lançamento não encontrado." });
+    }
+
+    const updated = await prisma.lancamentoFinanceiro.update({
+      where: { id },
+      data: { notificarVencimento: ativo },
+      select: { id: true, notificarVencimento: true },
+    });
+
+    sendFinanceiroUpdated(customData.contaId, {
+      reason: "lancamento-notificacao-vencimento-atualizada",
+      lancamentoId: id,
+    });
+
+    return ResponseHandler(
+      res,
+      ativo ? "Notificação de vencimento ativada." : "Notificação de vencimento desativada.",
+      updated,
+    );
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const pagarParcela = async (
   req: Request,
   res: Response
