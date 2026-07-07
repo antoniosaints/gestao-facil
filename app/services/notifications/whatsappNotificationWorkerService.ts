@@ -3,6 +3,7 @@ import { WhatsAppInstanciaStatus } from "../../../generated";
 import { WApiClient } from "../whatsapp/wApiClient";
 import { prisma } from "../../utils/prisma";
 import { normalizeWhatsAppNotificationPhone } from "./whatsappNotificationPolicy";
+import { notifyAdminsWhatsAppUnavailable } from "./whatsappAvailabilityAlertService";
 import type { WhatsAppNotificationJobData } from "./whatsappNotificationQueueService";
 
 export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJobData) {
@@ -25,6 +26,13 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJo
   });
 
   if (!instance) {
+    console.warn(
+      `[whatsapp-notifications] Instancia ${data.instanceId} indisponivel para conta ${data.contaId} (evento ${data.event})`,
+    );
+    await notifyAdminsWhatsAppUnavailable(
+      data.contaId,
+      "a instância está desconectada ou inativa",
+    );
     return { skipped: true, reason: "instance-unavailable" };
   }
 
@@ -32,11 +40,24 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJo
     .randomBytes(4)
     .toString("hex")}`;
 
-  await new WApiClient(instance.instanceId, instance.token).send("text", {
-    phone,
-    message: data.message,
-    messageId,
-  });
+  try {
+    await new WApiClient(instance.instanceId, instance.token).send("text", {
+      phone,
+      message: data.message,
+      messageId,
+    });
+  } catch (error: any) {
+    console.warn(
+      `[whatsapp-notifications] Falha ao enviar mensagem (conta ${data.contaId}, evento ${data.event})`,
+      error?.response?.data || error?.message || error,
+    );
+    await notifyAdminsWhatsAppUnavailable(
+      data.contaId,
+      "erro ao enviar mensagem pela instância conectada",
+    );
+    // Relanca o erro para o BullMQ aplicar as tentativas com backoff.
+    throw error;
+  }
 
   return { skipped: false, messageId };
 }

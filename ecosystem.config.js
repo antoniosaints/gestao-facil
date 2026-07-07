@@ -18,5 +18,17 @@ module.exports = {
       instances: "max",
       exec_mode: "cluster",
     },
+    {
+      name: "worker-whatsapp-notification",
+      script: "dist/workers/whatsappNotificationWorker.js",
+      instances: 1,
+      exec_mode: "fork",
+    },
+    {
+      name: "worker-cron",
+      script: "dist/workers/cronJobsWorker.js",
+      instances: 1,
+      exec_mode: "fork",
+    },
   ],
 };

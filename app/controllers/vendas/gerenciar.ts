@@ -7,6 +7,7 @@ import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
 import { addHours, eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
@@ -722,6 +723,12 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         data,
         customData
       );
+      await checkLowStockAndNotify(
+        customData.contaId,
+        data.itens
+          .filter((item) => item.tipo === "PRODUTO")
+          .map((item) => item.id)
+      );
       return ResponseHandler(res, "Venda atualizada com sucesso", updated, 200);
     }
 
@@ -846,6 +853,13 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         )}*.`,
       },
       customData.contaId
+    );
+
+    await checkLowStockAndNotify(
+      customData.contaId,
+      data.itens
+        .filter((item) => item.tipo === "PRODUTO")
+        .map((item) => item.id)
     );
 
     return ResponseHandler(res, "Venda criada com sucesso", resultado);

@@ -9,6 +9,7 @@ import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { criarLancamentoFinanceiro } from "../../services/financeiro/lancamentoService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 import {
   buildComandaPosFilename,
@@ -573,6 +574,13 @@ export async function createComanda(req: Request, res: Response): Promise<any> {
       return updated;
     });
 
+    await checkLowStockAndNotify(
+      customData.contaId,
+      parsed.data.itens
+        .filter((item) => item.origemTipo === "PRODUTO" && item.origemId)
+        .map((item) => Number(item.origemId))
+    );
+
     return ResponseHandler(res, "Comanda criada com sucesso.", response, 201);
   } catch (error) {
     handleError(res, error);
@@ -611,6 +619,13 @@ export async function addComandaItens(req: Request, res: Response): Promise<any>
         include: { itens: true, pagamentos: true, historicos: true },
       });
     });
+
+    await checkLowStockAndNotify(
+      customData.contaId,
+      parsed.data.itens
+        .filter((item) => item.origemTipo === "PRODUTO" && item.origemId)
+        .map((item) => Number(item.origemId))
+    );
 
     return ResponseHandler(res, "Itens adicionados com sucesso.", response);
   } catch (error) {

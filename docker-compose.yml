@@ -24,6 +24,28 @@ services:
       - DATABASE_URL=mysql://user:pass@db:3306/seubanco
       - NODE_ENV=production
 
+  worker-whatsapp:
+    build:
+      context: .
+    container_name: whatsapp_notification_worker
+    command: ["node", "dist/workers/whatsappNotificationWorker.js"]
+    depends_on:
+      - redis
+    environment:
+      - DATABASE_URL=mysql://user:pass@db:3306/seubanco
+      - NODE_ENV=production
+
+  worker-cron:
+    build:
+      context: .
+    container_name: cron_jobs_worker
+    command: ["node", "dist/workers/cronJobsWorker.js"]
+    depends_on:
+      - redis
+    environment:
+      - DATABASE_URL=mysql://user:pass@db:3306/seubanco
+      - NODE_ENV=production
+
   redis:
     image: redis:7
     container_name: push_redis

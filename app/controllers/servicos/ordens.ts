@@ -1,6 +1,7 @@
 import Decimal from "decimal.js";
 import { enqueuePushNotification } from "../../services/pushNotificationQueueService";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
@@ -319,6 +320,13 @@ export const saveOrdemServico = async (
         body: `Ordem *#${resultado.ordemCriada.Uid}* aberta no status _${data.status}_.`,
       },
       customData.contaId
+    );
+
+    await checkLowStockAndNotify(
+      customData.contaId,
+      data.itens
+        .filter((item) => item.tipo === "PRODUTO")
+        .map((item) => item.id)
     );
 
     return ResponseHandler(res, "OS criada com sucesso", resultado);

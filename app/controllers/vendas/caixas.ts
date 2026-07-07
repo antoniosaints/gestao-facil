@@ -9,6 +9,7 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
 import {
   buildCaixaPdfFilename,
   CaixaMovementType,
@@ -471,10 +472,128 @@ export async function movimentarCaixa(req: Request, res: Response) {
       return includeCaixa(tx, customData.contaId, current.id);
     });
 
+    if (tipo === "SANGRIA") {
+      await enqueuePushNotificationByPreference(
+        "SANGRIA",
+        {
+          title: "Sangria de caixa.",
+          body: `Sangria de ${formatCurrency(valor.toNumber())} registrada no caixa ${caixa.codigo}.`,
+        },
+        customData.contaId
+      );
+    }
+
     ResponseHandler(res, "Movimentacao registrada", formatCaixa(caixa));
   } catch (error) {
     handleError(res, error);
   }
+}
+
+const CAIXA_MOVIMENTO_WHATSAPP_ICONS: Record<string, string> = {
+  ABERTURA: "🟢",
+  VENDA: "🛒",
+  SANGRIA: "🔻",
+  REFORCO: "🔺",
+  ESTORNO: "↩️",
+  FECHAMENTO: "🔒",
+};
+
+const METODO_PAGAMENTO_WHATSAPP_ICONS: Record<string, string> = {
+  DINHEIRO: "💵",
+  PIX: "📱",
+  CARTAO: "💳",
+  BOLETO: "📄",
+};
+
+const MAX_WHATSAPP_MOVIMENTOS = 60;
+
+function formatWhatsAppDateTime(value: Date | string | null | undefined) {
+  if (!value) return "-";
+  return format(new Date(value), "dd/MM/yyyy HH:mm");
+}
+
+function buildCaixaFechamentoWhatsAppBody(caixa: any) {
+  const movimentos = (caixa.movimentos || []).filter(shouldReportCaixaMovimento);
+  const vendas = caixa.vendas || [];
+
+  const totalVendido = vendas.reduce(
+    (acc: number, venda: any) => acc + decimalToNumber(venda.valor),
+    0
+  );
+
+  const porMetodo = vendas.reduce((acc: Record<string, number>, venda: any) => {
+    const metodo = venda.PagamentoVendas?.metodo || "OUTRO";
+    acc[metodo] = (acc[metodo] || 0) + decimalToNumber(venda.valor);
+    return acc;
+  }, {});
+
+  let totalSangrias = 0;
+  let totalReforcos = 0;
+  movimentos.forEach((movimento: any) => {
+    if (movimento.tipo === "SANGRIA") totalSangrias += decimalToNumber(movimento.valor);
+    if (movimento.tipo === "REFORCO") totalReforcos += decimalToNumber(movimento.valor);
+  });
+
+  const diferenca =
+    caixa.diferenca === null || caixa.diferenca === undefined
+      ? null
+      : decimalToNumber(caixa.diferenca);
+
+  const linhas: string[] = [];
+
+  linhas.push(
+    `Caixa _*${caixa.codigo}*_ fechado por *${caixa.fechadoPor?.nome || "Usuário"}*.`
+  );
+  linhas.push("");
+  linhas.push("📊 *Resumo do caixa*");
+  linhas.push(`🕐 Abertura: ${formatWhatsAppDateTime(caixa.abertoEm)}`);
+  linhas.push(`🕐 Fechamento: ${formatWhatsAppDateTime(caixa.fechadoEm)}`);
+  linhas.push(`💵 Saldo inicial: *${formatCurrency(decimalToNumber(caixa.saldoInicial))}*`);
+  linhas.push(`🛒 Vendas: *${vendas.length}* (${formatCurrency(totalVendido)})`);
+  linhas.push(`🔺 Reforços: ${formatCurrency(totalReforcos)}`);
+  linhas.push(`🔻 Sangrias: ${formatCurrency(totalSangrias)}`);
+  linhas.push(`🎯 Saldo esperado: *${formatCurrency(decimalToNumber(caixa.saldoEsperado))}*`);
+  linhas.push(`💰 Saldo contado: *${formatCurrency(decimalToNumber(caixa.saldoContado))}*`);
+  if (diferenca !== null) {
+    const iconeDiferenca = diferenca === 0 ? "✅" : "⚠️";
+    linhas.push(`${iconeDiferenca} Diferença: *${formatCurrency(diferenca)}*`);
+  }
+
+  const metodos = Object.entries(porMetodo) as Array<[string, number]>;
+  if (metodos.length) {
+    linhas.push("");
+    linhas.push("💳 *Vendas por método*");
+    metodos.forEach(([metodo, valor]) => {
+      const icone = METODO_PAGAMENTO_WHATSAPP_ICONS[metodo] || "🔀";
+      linhas.push(`${icone} ${metodo}: ${formatCurrency(valor)}`);
+    });
+  }
+
+  linhas.push("");
+  linhas.push(`📋 *Movimentações (${movimentos.length})*`);
+  if (!movimentos.length) {
+    linhas.push("Nenhuma movimentação registrada.");
+  } else {
+    movimentos.slice(0, MAX_WHATSAPP_MOVIMENTOS).forEach((movimento: any) => {
+      const icone = CAIXA_MOVIMENTO_WHATSAPP_ICONS[movimento.tipo] || "🔹";
+      const hora = movimento.createdAt
+        ? format(new Date(movimento.createdAt), "dd/MM HH:mm")
+        : "-";
+      const metodo = movimento.metodoPagamento
+        ? ` (${movimento.metodoPagamento})`
+        : "";
+      linhas.push(
+        `${icone} ${hora} ${movimento.tipo}${metodo}: ${formatCurrency(decimalToNumber(movimento.valor))}`
+      );
+    });
+
+    const restantes = movimentos.length - MAX_WHATSAPP_MOVIMENTOS;
+    if (restantes > 0) {
+      linhas.push(`… e mais ${restantes} movimentações (veja o relatório no sistema).`);
+    }
+  }
+
+  return linhas.join("\n");
 }
 
 export async function fecharCaixa(req: Request, res: Response) {
@@ -544,14 +663,45 @@ export async function fecharCaixa(req: Request, res: Response) {
       return includeCaixa(tx, customData.contaId, current.id);
     });
 
-    await enqueueWhatsAppNotificationByPreference(
-      "CAIXA_FECHADO",
-      {
-        title: "🔒Caixa fechado.",
-        body: `Caixa _*${caixa.codigo}*_ fechado com saldo contado de *${formatCurrency(caixa.saldoContado || 0)}*.`,
-      },
-      customData.contaId
-    );
+    try {
+      const caixaDetalhado = await prisma.caixaSessao.findFirst({
+        where: {
+          id: caixa.id,
+          contaId: customData.contaId,
+        },
+        include: {
+          fechadoPor: {
+            select: {
+              nome: true,
+            },
+          },
+          movimentos: {
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
+          vendas: {
+            include: {
+              PagamentoVendas: true,
+            },
+          },
+        },
+      });
+
+      await enqueueWhatsAppNotificationByPreference(
+        "CAIXA_FECHADO",
+        {
+          title: "🔒 Caixa fechado.",
+          body: buildCaixaFechamentoWhatsAppBody(caixaDetalhado || caixa),
+        },
+        customData.contaId
+      );
+    } catch (notificationError) {
+      console.warn(
+        `[caixa] Falha ao enviar resumo de fechamento via WhatsApp (conta ${customData.contaId})`,
+        notificationError
+      );
+    }
 
     ResponseHandler(res, "Caixa fechado com sucesso", formatCaixa(caixa));
   } catch (error) {
@@ -1466,6 +1616,13 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         body: `Venda PDV _*${resultado.Uid}*_ no valor de *${formatCurrency(resultado.valor)}*.`,
       },
       customData.contaId
+    );
+
+    await checkLowStockAndNotify(
+      customData.contaId,
+      data.itens
+        .filter((item) => item.tipo === "PRODUTO")
+        .map((item) => item.id)
     );
 
     sendUpdateTable(customData.contaId, { efetivada: true, pdv: true });

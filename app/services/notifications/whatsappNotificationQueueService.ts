@@ -9,6 +9,7 @@ import {
   selectWhatsAppNotificationRecipients,
   type WhatsAppNotificationEvent,
 } from "./whatsappNotificationPolicy";
+import { notifyAdminsWhatsAppUnavailable } from "./whatsappAvailabilityAlertService";
 
 export interface WhatsAppNotificationPayload {
   title: string;
@@ -87,6 +88,16 @@ export async function enqueueWhatsAppNotificationByPreference(
     });
 
     if (!instance) {
+      // Notificacoes WhatsApp estao ativas, mas a instancia configurada nao
+      // esta conectada: avisa os admins via push (com throttle) em vez de
+      // falhar silenciosamente.
+      console.warn(
+        `[whatsapp-notifications] Evento ${event} nao enviado: instancia indisponivel na conta ${contaId}`,
+      );
+      await notifyAdminsWhatsAppUnavailable(
+        contaId,
+        "a instância configurada está desconectada ou inativa",
+      );
       return false;
     }
 
@@ -95,7 +106,7 @@ export async function enqueueWhatsAppNotificationByPreference(
         contaId,
         status: "ATIVO",
         permissao: {
-          in: ["root", "admin"],
+          in: ["root", "admin", "gerente"],
         },
       },
       select: {
