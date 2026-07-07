@@ -1066,6 +1066,8 @@ export const gerarEtiquetasProduto = async (
 ): Promise<any> => {
   const productId = Number(req.params.id);
   const quantidade = Number(req.query.quantidade) || undefined;
+  const mostrarNome = String(req.query.nome) === "true";
+  const mostrarPreco = String(req.query.preco) === "true";
 
   if (isNaN(productId)) {
     return ResponseHandler(res, "ID inválido", null, 400);
@@ -1078,7 +1080,11 @@ export const gerarEtiquetasProduto = async (
       `inline; filename="barcodes_produto_${productId}.pdf"`
     );
 
-    const pdfStream = await generateBarcodesStream(productId, quantidade);
+    const pdfStream = await generateBarcodesStream(productId, {
+      quantity: quantidade,
+      mostrarNome,
+      mostrarPreco,
+    });
     pdfStream.pipe(res);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
