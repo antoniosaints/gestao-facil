@@ -188,3 +188,94 @@ export async function enqueueWhatsAppNotificationByPreference(
     return false;
   }
 }
+
+/**
+ * Envio manual (reenvio) para uma instancia escolhida pelo usuario.
+ * Nao passa pelas preferencias de evento: o usuario pediu o envio
+ * explicitamente. A instancia precisa estar ativa e conectada.
+ */
+export async function enqueueWhatsAppNotificationToInstance(
+  event: WhatsAppNotificationEvent,
+  payload: WhatsAppNotificationPayload,
+  contaId: number,
+  instanciaId: number,
+) {
+  const instance = await prisma.whatsAppInstancia.findFirst({
+    where: {
+      id: instanciaId,
+      contaId,
+      ativo: true,
+      status: WhatsAppInstanciaStatus.CONECTADA,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!instance) {
+    throw new Error("Instância WhatsApp não encontrada ou desconectada.");
+  }
+
+  const users = await prisma.usuarios.findMany({
+    where: {
+      contaId,
+      status: "ATIVO",
+      permissao: {
+        in: ["root", "admin", "gerente"],
+      },
+    },
+    select: {
+      id: true,
+      nome: true,
+      permissao: true,
+      telefone: true,
+      status: true,
+    },
+  });
+
+  const recipients = selectWhatsAppNotificationRecipients(users, event);
+  if (!recipients.length) {
+    throw new Error("Nenhum destinatário ativo com telefone válido.");
+  }
+
+  const message = buildWhatsAppNotificationText(payload);
+
+  await Promise.all(
+    recipients.map((recipient) =>
+      whatsappNotificationQueue.add(
+        "send",
+        {
+          contaId,
+          event,
+          instanceId: instance.id,
+          userId: recipient.userId,
+          phone: recipient.phone,
+          title: payload.title,
+          body: payload.body,
+          message,
+        } satisfies WhatsAppNotificationJobData,
+        {
+          jobId: buildJobId({
+            contaId,
+            event,
+            userId: recipient.userId,
+            phone: recipient.phone,
+          }),
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 5000,
+          },
+          removeOnComplete: true,
+          removeOnFail: 50,
+        },
+      ),
+    ),
+  );
+
+  console.log(
+    `[whatsapp-notifications] Evento ${event} reenviado manualmente para ${recipients.length} destinatario(s) (conta ${contaId}, instancia ${instanciaId})`,
+  );
+
+  return { recipients: recipients.length };
+}

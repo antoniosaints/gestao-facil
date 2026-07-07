@@ -17,6 +17,10 @@ export type ClienteWhatsappSendInput =
       mensagem: string;
     }
   | {
+      tipo: "LANCAMENTO";
+      lancamentoId: number;
+    }
+  | {
       tipo: "ORCAMENTO_VENDA";
       vendaId: number;
     }
@@ -182,6 +186,53 @@ export async function sendClienteWhatsappMessage(
       valor: Number(cobranca.valor || 0),
       vencimento: cobranca.dataVencimento,
       linkPagamento: cobranca.externalLink,
+    });
+  }
+
+  if (input.tipo === "LANCAMENTO") {
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: {
+        id: input.lancamentoId,
+        contaId,
+        clienteId,
+        tipo: "RECEITA",
+      },
+      include: {
+        parcelas: {
+          where: {
+            pago: false,
+          },
+          orderBy: {
+            numero: "asc",
+          },
+        },
+      },
+    });
+
+    if (!lancamento) {
+      throw new Error("Lançamento de receita não encontrado para este cliente.");
+    }
+
+    if (lancamento.status === "PAGO" || !lancamento.parcelas.length) {
+      throw new Error("Este lançamento não possui parcelas pendentes.");
+    }
+
+    const valorPendente = lancamento.parcelas.reduce(
+      (acc, parcela) => acc + Number(parcela.valor || 0),
+      0,
+    );
+
+    message = buildClienteWhatsappMessage({
+      tipo: "LANCAMENTO",
+      clienteNome: cliente.nome,
+      lancamentoUid: lancamento.Uid,
+      descricao: lancamento.descricao,
+      valorPendente,
+      parcelasPendentes: lancamento.parcelas.map((parcela) => ({
+        numero: parcela.numero,
+        vencimento: parcela.vencimento,
+        valor: Number(parcela.valor || 0),
+      })),
     });
   }
 

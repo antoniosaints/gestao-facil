@@ -18,6 +18,10 @@ const sendClienteWhatsappSchema = z.discriminatedUnion("tipo", [
     mensagem: z.string().trim().min(1, "Informe a mensagem para envio."),
   }),
   z.object({
+    tipo: z.literal("LANCAMENTO"),
+    lancamentoId: z.coerce.number().int().positive(),
+  }),
+  z.object({
     tipo: z.literal("ORCAMENTO_VENDA"),
     vendaId: z.coerce.number().int().positive(),
   }),

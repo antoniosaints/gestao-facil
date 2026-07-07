@@ -8,7 +8,10 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
-import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import {
+  enqueueWhatsAppNotificationByPreference,
+  enqueueWhatsAppNotificationToInstance,
+} from "../../services/notifications/whatsappNotificationQueueService";
 import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
 import {
   buildCaixaPdfFilename,
@@ -704,6 +707,71 @@ export async function fecharCaixa(req: Request, res: Response) {
     }
 
     ResponseHandler(res, "Caixa fechado com sucesso", formatCaixa(caixa));
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+export async function reenviarCaixaWhatsapp(req: Request, res: Response) {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const caixaId = Number(req.params.id);
+    const instanciaId = Number(req.body?.instanciaId);
+
+    if (!caixaId || !instanciaId) {
+      throw new Error("Informe o caixa e a instância WhatsApp.");
+    }
+
+    const isAdmin = await hasPermission(customData, 4);
+    if (!isAdmin) {
+      return ResponseHandler(
+        res,
+        "Apenas administradores podem reenviar o resumo do caixa.",
+        null,
+        403
+      );
+    }
+
+    const caixa = await prisma.caixaSessao.findFirst({
+      where: {
+        id: caixaId,
+        contaId: customData.contaId,
+        status: "FECHADO",
+      },
+      include: {
+        fechadoPor: {
+          select: {
+            nome: true,
+          },
+        },
+        movimentos: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+        vendas: {
+          include: {
+            PagamentoVendas: true,
+          },
+        },
+      },
+    });
+
+    if (!caixa) {
+      return ResponseHandler(res, "Caixa fechado não encontrado.", null, 404);
+    }
+
+    const resultado = await enqueueWhatsAppNotificationToInstance(
+      "CAIXA_FECHADO",
+      {
+        title: "🔒 Caixa fechado (reenvio).",
+        body: buildCaixaFechamentoWhatsAppBody(caixa),
+      },
+      customData.contaId,
+      instanciaId
+    );
+
+    ResponseHandler(res, "Resumo do caixa enviado para a fila do WhatsApp", resultado);
   } catch (error) {
     handleError(res, error);
   }

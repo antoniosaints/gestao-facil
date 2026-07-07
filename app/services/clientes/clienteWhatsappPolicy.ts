@@ -17,6 +17,18 @@ export type ClienteWhatsappMessageInput =
       mensagem: string;
     }
   | {
+      tipo: "LANCAMENTO";
+      clienteNome: string;
+      lancamentoUid?: string | null;
+      descricao: string;
+      valorPendente: number | string;
+      parcelasPendentes: Array<{
+        numero: number;
+        vencimento?: Date | string | null;
+        valor: number | string;
+      }>;
+    }
+  | {
       tipo: "ORCAMENTO_VENDA";
       clienteNome: string;
       vendaUid?: string | null;
@@ -69,6 +81,17 @@ export function buildClienteWhatsappMessage(input: ClienteWhatsappMessageInput) 
     const dueText = vencimento ? ` com vencimento em ${vencimento}` : "";
     const linkText = input.linkPagamento ? `\n\nLink para pagamento: ${input.linkPagamento}` : "";
     return `${greeting}\nLembrete de cobranca ${input.cobrancaUid || "pendente"} no valor de *${formatCurrency(input.valor)}${dueText}.${linkText}*`;
+  }
+
+  if (input.tipo === "LANCAMENTO") {
+    const parcelas = input.parcelasPendentes
+      .map((parcela) => {
+        const vencimento = formatDate(parcela.vencimento);
+        return `• Parcela ${parcela.numero}${vencimento ? ` - vence em ${vencimento}` : ""} - ${formatCurrency(parcela.valor)}`;
+      })
+      .join("\n");
+
+    return `${greeting}\nLembrete de pendência financeira: *${input.descricao.trim() || input.lancamentoUid || "lançamento"}*.\n\nParcelas em aberto:\n${parcelas}\n\nTotal pendente: *${formatCurrency(input.valorPendente)}*`;
   }
 
   if (input.tipo === "ORCAMENTO_VENDA") {

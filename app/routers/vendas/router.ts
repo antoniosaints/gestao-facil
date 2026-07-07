@@ -28,6 +28,7 @@ import {
   fecharCaixa,
   finalizarVendaPdv,
   gerarCaixaPdf,
+  reenviarCaixaWhatsapp,
   getContextoCaixa,
   movimentarCaixa,
   relatorioCaixa,
@@ -70,6 +71,7 @@ routerVendas.get("/pdv/buscarCaixa", authenticateJWT, buscarCaixa);
 routerVendas.get("/pdv/resumoCaixa", authenticateJWT, resumoCaixa);
 routerVendas.get("/pdv/relatorio", authenticateJWT, relatorioCaixa);
 routerVendas.get("/pdv/caixa/:id/pdf", authenticateJWT, gerarCaixaPdf);
+routerVendas.post("/pdv/caixa/:id/whatsapp", authenticateJWT, reenviarCaixaWhatsapp);
 routerVendas.delete("/pdv/caixa/:id", authenticateJWT, deletarCaixa);
 
 routerVendas.get("/:id", authenticateJWT, getVenda);
