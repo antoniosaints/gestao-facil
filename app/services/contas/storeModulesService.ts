@@ -359,8 +359,30 @@ export async function getContaNextRecurringValue(contaId: number) {
   );
 }
 
+let ensureDefaultModulesPromise: Promise<unknown> | null = null;
+
+function ensureDefaultStoreModulesOnce() {
+  if (!ensureDefaultModulesPromise) {
+    ensureDefaultModulesPromise = ensureDefaultStoreModules().catch((error) => {
+      ensureDefaultModulesPromise = null;
+      throw error;
+    });
+  }
+  return ensureDefaultModulesPromise;
+}
+
 export async function contaHasActiveModule(contaId: number, codigo: string) {
-  await ensureDefaultStoreModules();
+  try {
+    // Executa apenas uma vez por processo. Antes rodava 5 upserts a cada
+    // verificacao: em producao (cluster PM2 + requisicoes concorrentes) isso
+    // causava deadlocks no banco e derrubava silenciosamente as notificacoes.
+    await ensureDefaultStoreModulesOnce();
+  } catch (error) {
+    console.warn(
+      "[store-modules] Falha ao garantir modulos padrao (seguindo com a verificacao)",
+      error,
+    );
+  }
 
   const moduleLink = await prisma.moduloOnConta.findFirst({
     where: {

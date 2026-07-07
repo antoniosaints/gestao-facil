@@ -67,11 +67,24 @@ export async function enqueueWhatsAppNotificationByPreference(
     });
 
     if (!parametros || !isWhatsAppNotificationEventEnabled(parametros, event)) {
+      console.log(
+        `[whatsapp-notifications] Evento ${event} ignorado (conta ${contaId}): notificacoes WhatsApp desativadas ou evento desabilitado nas configuracoes`,
+      );
       return false;
     }
 
     const moduleActive = await contaHasActiveModule(contaId, "whatsapp");
-    if (!moduleActive || !parametros.whatsappNotificacoesInstanciaId) {
+    if (!moduleActive) {
+      console.warn(
+        `[whatsapp-notifications] Evento ${event} ignorado (conta ${contaId}): modulo WhatsApp inativo`,
+      );
+      return false;
+    }
+
+    if (!parametros.whatsappNotificacoesInstanciaId) {
+      console.warn(
+        `[whatsapp-notifications] Evento ${event} ignorado (conta ${contaId}): nenhuma instancia configurada nas notificacoes`,
+      );
       return false;
     }
 
@@ -120,6 +133,9 @@ export async function enqueueWhatsAppNotificationByPreference(
 
     const recipients = selectWhatsAppNotificationRecipients(users, event);
     if (!recipients.length) {
+      console.warn(
+        `[whatsapp-notifications] Evento ${event} ignorado (conta ${contaId}): nenhum destinatario ativo com telefone valido`,
+      );
       return false;
     }
 
@@ -156,6 +172,10 @@ export async function enqueueWhatsAppNotificationByPreference(
           },
         ),
       ),
+    );
+
+    console.log(
+      `[whatsapp-notifications] Evento ${event} enfileirado para ${recipients.length} destinatario(s) (conta ${contaId})`,
     );
 
     return true;
