@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
-import { differenceInCalendarDays, isAfter, startOfDay } from "date-fns";
+import { addDays, differenceInCalendarDays, isAfter, startOfDay } from "date-fns";
+import { z } from "zod";
+import { deleteContaCompletely } from "../../services/administracao/deleteContaService";
+import { getConfiguredPlatformGateway } from "../../services/contas/platformGatewayService";
 import { Prisma } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { handleError } from "../../utils/handleError";
@@ -85,6 +88,146 @@ async function ensureAdminAccess(req: Request, res: Response) {
 
   return customData;
 }
+
+const createAssinanteAdminSchema = z.object({
+  conta: z.string().trim().min(2, "Informe o nome da conta."),
+  nomeUsuario: z.string().trim().min(2, "Informe o nome do usuário root."),
+  email: z.string().trim().email("Informe um e-mail válido."),
+  senha: z.string().min(6, "A senha precisa de ao menos 6 caracteres."),
+  telefone: z.string().trim().min(8, "Informe um telefone válido."),
+  tipo: z.string().trim().min(2).default("EMPRESA"),
+  funcionarios: z.coerce.number().int().positive().default(1),
+  valorBasePlano: z.coerce.number().positive().default(70),
+  diasTeste: z.coerce.number().int().min(0).max(365).default(7),
+});
+
+export const createAssinanteAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await ensureAdminAccess(req, res);
+    if (!customData) return;
+
+    const parsed = createAssinanteAdminSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: parsed.error.issues[0].message,
+      });
+    }
+
+    const data = parsed.data;
+
+    const emailExists = await prisma.usuarios.findFirst({
+      where: {
+        email: data.email,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (emailExists) {
+      return res.status(400).json({
+        message: "Já existe um usuário com esse e-mail.",
+      });
+    }
+
+    const platformGateway = await getConfiguredPlatformGateway();
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const conta = await tx.contas.create({
+        data: {
+          nome: data.conta,
+          email: data.email,
+          valor: data.valorBasePlano,
+          valorBasePlano: data.valorBasePlano,
+          asaasCustomerId: "MERCADOPAGO",
+          data: new Date(),
+          funcionarios: data.funcionarios,
+          gateway: platformGateway as any,
+          vencimento: addDays(new Date(), data.diasTeste),
+          categoria: data.tipo,
+          tipo: data.tipo,
+          status: "ATIVO",
+          telefone: data.telefone,
+        },
+      });
+
+      const usuario = await tx.usuarios.create({
+        data: {
+          nome: data.nomeUsuario,
+          email: data.email,
+          senha: data.senha,
+          emailReceiver: true,
+          pushReceiver: true,
+          permissao: "root",
+          status: "ATIVO",
+          contaId: conta.id,
+          telefone: data.telefone,
+        },
+      });
+
+      return { conta, usuario };
+    });
+
+    console.log(
+      `[admin] Conta ${resultado.conta.id} (${resultado.conta.nome}) criada pelo superadmin ${customData.userId}`,
+    );
+
+    return res.status(201).json({
+      message: "Assinante criado com sucesso",
+      data: {
+        contaId: resultado.conta.id,
+        usuarioId: resultado.usuario.id,
+      },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const deleteAssinanteAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await ensureAdminAccess(req, res);
+    if (!customData) return;
+
+    const contaId = Number(req.params.id);
+    if (!contaId) {
+      return res.status(400).json({ message: "Informe a conta a ser removida." });
+    }
+
+    if (contaId === customData.contaId) {
+      return res.status(400).json({
+        message: "Não é possível apagar a própria conta do superadmin.",
+      });
+    }
+
+    const conta = await prisma.contas.findUnique({
+      where: {
+        id: contaId,
+      },
+      select: {
+        id: true,
+        nome: true,
+      },
+    });
+
+    if (!conta) {
+      return res.status(404).json({ message: "Conta não encontrada." });
+    }
+
+    await deleteContaCompletely(contaId);
+    await clearCacheAccount(contaId);
+
+    console.warn(
+      `[admin] Conta ${contaId} (${conta.nome}) APAGADA pelo superadmin ${customData.userId}`,
+    );
+
+    return res.json({
+      message: `Assinante ${conta.nome} apagado com todos os dados vinculados.`,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 
 export const tableAssinantesAdmin = async (req: Request, res: Response): Promise<any> => {
   try {
