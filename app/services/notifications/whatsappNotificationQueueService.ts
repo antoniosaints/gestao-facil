@@ -50,7 +50,8 @@ function buildJobId(input: {
     .digest("hex")
     .slice(0, 12);
 
-  return `wa-notif:${input.contaId}:${input.event}:${input.userId}:${hash}`;
+  // BullMQ (versoes mais recentes) nao permite ":" em jobIds customizados.
+  return `wa-notif-${input.contaId}-${input.event}-${input.userId}-${hash}`;
 }
 
 export async function enqueueWhatsAppNotificationByPreference(
