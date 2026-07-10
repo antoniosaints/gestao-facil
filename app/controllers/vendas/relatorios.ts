@@ -42,6 +42,7 @@ type ResumoRelatorioVendas = {
     estornado: Decimal;
   };
   financeiro: {
+    quantidade: number;
     receitas: Decimal;
     despesas: Decimal;
     resultadoLiquido: Decimal;
@@ -84,53 +85,46 @@ async function buildResumoRelatorioVendas(
   inicio: Date,
   fim: Date,
 ): Promise<ResumoRelatorioVendas> {
-  const [vendas, lancamentos] = await Promise.all([
-    prisma.vendas.findMany({
-      where: {
-        contaId,
-        data: {
-          gte: inicio,
-          lte: fim,
+  // O relatório é focado em registros de vendas: cobranças e lançamentos
+  // financeiros são considerados apenas quando estão vinculados a uma venda.
+  const vendas = await prisma.vendas.findMany({
+    where: {
+      contaId,
+      data: {
+        gte: inicio,
+        lte: fim,
+      },
+    },
+    include: {
+      cliente: {
+        select: {
+          id: true,
         },
       },
-      include: {
-        cliente: {
-          select: {
-            id: true,
-          },
-        },
-        ItensVendas: {
-          include: {
-            produto: {
-              select: {
-                precoCompra: true,
-                custoMedioProducao: true,
-              },
+      ItensVendas: {
+        include: {
+          produto: {
+            select: {
+              precoCompra: true,
+              custoMedioProducao: true,
             },
           },
         },
-        CobrancasFinanceiras: {
-          select: {
-            status: true,
-            valor: true,
-          },
+      },
+      CobrancasFinanceiras: {
+        select: {
+          status: true,
+          valor: true,
         },
       },
-    }),
-    prisma.lancamentoFinanceiro.findMany({
-      where: {
-        contaId,
-        dataLancamento: {
-          gte: inicio,
-          lte: fim,
+      LancamentoFinanceiro: {
+        select: {
+          valorTotal: true,
+          tipo: true,
         },
       },
-      select: {
-        valorTotal: true,
-        tipo: true,
-      },
-    }),
-  ]);
+    },
+  });
 
   const resumo: ResumoRelatorioVendas = {
     periodo: { inicio, fim },
@@ -158,6 +152,7 @@ async function buildResumoRelatorioVendas(
       estornado: new Decimal(0),
     },
     financeiro: {
+      quantidade: 0,
       receitas: new Decimal(0),
       despesas: new Decimal(0),
       resultadoLiquido: new Decimal(0),
@@ -233,6 +228,18 @@ async function buildResumoRelatorioVendas(
         resumo.cobrancas.estornado = resumo.cobrancas.estornado.plus(valorCobranca);
       }
     }
+
+    // Financeiro considerando apenas lançamentos vinculados a esta venda
+    for (const lancamento of venda.LancamentoFinanceiro) {
+      const valorLancamento = new Decimal(lancamento.valorTotal || 0);
+      resumo.financeiro.quantidade += 1;
+
+      if (lancamento.tipo === "RECEITA") {
+        resumo.financeiro.receitas = resumo.financeiro.receitas.plus(valorLancamento);
+      } else {
+        resumo.financeiro.despesas = resumo.financeiro.despesas.plus(valorLancamento);
+      }
+    }
   }
 
   resumo.totais.clientesAtendidos = clientesIds.size;
@@ -243,17 +250,6 @@ async function buildResumoRelatorioVendas(
   resumo.totais.margemBrutaPercentual = resumo.totais.valorVendas.gt(0)
     ? resumo.totais.lucroBrutoEstimado.div(resumo.totais.valorVendas).mul(100)
     : new Decimal(0);
-
-  for (const lancamento of lancamentos) {
-    const valorLancamento = new Decimal(lancamento.valorTotal || 0);
-
-    if (lancamento.tipo === "RECEITA") {
-      resumo.financeiro.receitas = resumo.financeiro.receitas.plus(valorLancamento);
-      continue;
-    }
-
-    resumo.financeiro.despesas = resumo.financeiro.despesas.plus(valorLancamento);
-  }
 
   resumo.financeiro.resultadoLiquido = resumo.financeiro.receitas.minus(
     resumo.financeiro.despesas,
@@ -571,24 +567,27 @@ export async function getResumoVendasPDF(
     drawInfoLine(doc, "Cancelado", formatDecimalCurrency(resumo.cobrancas.cancelado), "#B91C1C");
     drawInfoLine(doc, "Estornado", formatDecimalCurrency(resumo.cobrancas.estornado), "#7C3AED");
 
-    drawSectionTitle(doc, "Visão financeira do período");
-    drawInfoLine(doc, "Receitas lançadas", formatDecimalCurrency(resumo.financeiro.receitas), "#15803D");
-    drawInfoLine(doc, "Despesas lançadas", formatDecimalCurrency(resumo.financeiro.despesas), "#B91C1C");
-    drawInfoLine(
-      doc,
-      "Resultado líquido",
-      formatDecimalCurrency(resumo.financeiro.resultadoLiquido),
-      resumo.financeiro.resultadoLiquido.isNegative() ? "#B91C1C" : "#15803D",
-    );
-    drawInfoLine(doc, "Lucro líquido", formatDecimalCurrency(resumo.financeiro.lucroLiquido), "#15803D");
-    drawInfoLine(doc, "Prejuízo", formatDecimalCurrency(resumo.financeiro.prejuizo), "#B91C1C");
+    if (resumo.financeiro.quantidade > 0) {
+      drawSectionTitle(doc, "Financeiro vinculado às vendas");
+      drawInfoLine(doc, "Lançamentos vinculados", `${resumo.financeiro.quantidade}`);
+      drawInfoLine(doc, "Receitas das vendas", formatDecimalCurrency(resumo.financeiro.receitas), "#15803D");
+      drawInfoLine(doc, "Despesas das vendas", formatDecimalCurrency(resumo.financeiro.despesas), "#B91C1C");
+      drawInfoLine(
+        doc,
+        "Resultado líquido",
+        formatDecimalCurrency(resumo.financeiro.resultadoLiquido),
+        resumo.financeiro.resultadoLiquido.isNegative() ? "#B91C1C" : "#15803D",
+      );
+      drawInfoLine(doc, "Lucro líquido", formatDecimalCurrency(resumo.financeiro.lucroLiquido), "#15803D");
+      drawInfoLine(doc, "Prejuízo", formatDecimalCurrency(resumo.financeiro.prejuizo), "#B91C1C");
+    }
 
     doc
       .font("Roboto")
       .fontSize(8)
       .fillColor("#6B7280")
       .text(
-        "Observação: o lucro bruto estimado considera o custo dos produtos cadastrados nas vendas. O resultado líquido considera os lançamentos financeiros do período informado.",
+        "Observação: relatório focado nos registros de vendas do período. O lucro bruto estimado considera o custo dos produtos das vendas; cobranças e lançamentos financeiros exibidos são apenas os vinculados às vendas.",
         40,
         doc.y + 18,
         {
