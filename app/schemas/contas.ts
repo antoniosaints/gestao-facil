@@ -132,6 +132,23 @@ export const updateParametrosContaSchema = z.object(
       )
       .optional()
       .nullable(),
+    modeloPdv: z
+      .enum(["BASICO", "PRO"], {
+        invalid_type_error: "O modelo do PDV deve ser BASICO ou PRO",
+      })
+      .optional()
+      .nullable(),
+    temaPersonalizado: z
+      .object({
+        primariaLight: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor primaria clara invalida"),
+        primariaDark: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor primaria escura invalida"),
+        sidebarLight: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor da sidebar clara invalida"),
+        sidebarDark: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor da sidebar escura invalida"),
+        fundoLight: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de fundo clara invalida"),
+        fundoDark: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de fundo escura invalida"),
+      })
+      .optional()
+      .nullable(),
     whatsappNotificacoesAtivo: z
       .boolean({
         invalid_type_error: "O campo whatsappNotificacoesAtivo deve ser um booleano",

@@ -1,0 +1,2 @@
+ALTER TABLE `ParametrosConta`
+    ADD COLUMN `modeloPdv` VARCHAR(191) NULL DEFAULT 'BASICO';

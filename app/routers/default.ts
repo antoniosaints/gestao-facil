@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { checkAuth, login, renewToken, verify } from "../controllers/auth/login";
+import { checkAuth, login, renewToken, verify, verificarSenha } from "../controllers/auth/login";
 import { authenticateJWT } from "../middlewares/auth";
 import { resumoDashboard } from "../controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "../controllers/asaas/webhook";
@@ -26,6 +26,7 @@ routerDefault.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
 routerDefault.get("/api/auth/check", authenticateJWT, checkAuth);
 routerDefault.get("/api/auth/verify", authenticateJWT, verify);
 routerDefault.get("/api/auth/renew", authenticateJWT, renewToken);
+routerDefault.post("/api/auth/senha", authenticateJWT, verificarSenha);
 
 // Rotas webhook
 routerDefault.post("/asaas/webhook", webhookAsaasCheck);

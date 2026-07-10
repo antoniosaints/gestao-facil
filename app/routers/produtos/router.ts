@@ -14,6 +14,7 @@ import {
   deleteProduto,
   deleteProdutoVariante,
   getCategoriasProduto,
+  gerarSkuProduto,
   getProduto,
   getProdutos,
   getProdutoVariante,
@@ -72,6 +73,7 @@ routerProdutos.get(
 routerProdutos.get("/categorias", authenticateJWT, getCategoriasProduto);
 routerProdutos.get("/mobile/data", authenticateJWT, ListagemMobileProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
+routerProdutos.get("/gerar-sku", authenticateJWT, gerarSkuProduto);
 routerProdutos.get("/download/csv", authenticateJWT, getCsvBase);
 
 routerProdutos.get(

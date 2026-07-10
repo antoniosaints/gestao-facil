@@ -63,6 +63,53 @@ export const login = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+export const verificarSenha = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    if (!customData?.userId) {
+      return res.status(401).json({
+        status: 401,
+        message: "Sessão inválida",
+        data: null,
+      });
+    }
+
+    const senha = req.body?.senha;
+    if (!senha || typeof senha !== "string") {
+      return res.status(400).json({
+        status: 400,
+        message: "Informe a senha para continuar",
+        data: null,
+      });
+    }
+
+    const usuario = await prisma.usuarios.findFirst({
+      where: {
+        id: customData.userId,
+        contaId: customData.contaId,
+        senha,
+      },
+      select: { id: true },
+    });
+
+    if (!usuario) {
+      return res.status(401).json({
+        status: 401,
+        message: "Senha incorreta",
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      status: 200,
+      message: "Senha válida",
+      data: { valid: true },
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const checkAuth = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   try {
