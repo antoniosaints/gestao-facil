@@ -28,6 +28,10 @@ import {
 } from "../../controllers/produtos/produtos";
 import { ListagemMobileProdutos } from "../../controllers/produtos/mobile";
 import {
+  resumoMovimentacoes,
+  tableMovimentacoes,
+} from "../../controllers/produtos/movimentacoes";
+import {
   getCsvBase,
   postImportarProdutos,
 } from "../../controllers/produtos/lote/uploadcsv";
@@ -76,6 +80,8 @@ routerProdutos.get("/mobile/data", authenticateJWT, ListagemMobileProdutos);
 routerProdutos.get("/lista/geral", authenticateJWT, getProdutos);
 routerProdutos.get("/gerar-sku", authenticateJWT, gerarSkuProduto);
 routerProdutos.get("/download/csv", authenticateJWT, getCsvBase);
+routerProdutos.get("/movimentacoes/resumo", authenticateJWT, resumoMovimentacoes);
+routerProdutos.get("/movimentacoes", authenticateJWT, tableMovimentacoes);
 
 routerProdutos.get(
   "/variantes/:id/resumo",
