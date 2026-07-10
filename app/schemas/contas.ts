@@ -146,6 +146,8 @@ export const updateParametrosContaSchema = z.object(
         sidebarDark: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor da sidebar escura invalida"),
         fundoLight: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de fundo clara invalida"),
         fundoDark: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de fundo escura invalida"),
+        radius: z.string().max(12).optional().nullable(),
+        fonte: z.string().max(40).optional().nullable(),
       })
       .optional()
       .nullable(),
