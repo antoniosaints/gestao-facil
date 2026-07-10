@@ -695,3 +695,251 @@ export async function getResumoGeralProdutos(
     res.status(500).json({ error: "Erro ao gerar resumo geral de produtos" });
   }
 }
+
+/**
+ * Painel de produtos consolidado: KPIs com comparação ao período anterior,
+ * curva de receita, distribuição por categoria, saúde do estoque e rankings
+ * (receita, lucro, mais repostos, estoque crítico) — tudo em uma requisição.
+ */
+export async function getPainelProdutos(req: Request, res: Response): Promise<any> {
+  try {
+    const contaId = getContaId(req);
+    const { start, end } = getPeriodo(req);
+    const durationMs = Math.max(0, end.getTime() - start.getTime());
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+
+    const [
+      vendas,
+      vendasAnterior,
+      itens,
+      itensAnterior,
+      reposicoes,
+      produtos,
+      produtosBase,
+      totalProdutosBase,
+      totalVariantes,
+      totalCategorias,
+    ] = await Promise.all([
+      prisma.vendas.findMany({
+        where: { contaId, status: "FATURADO", data: { gte: start, lte: end } },
+        select: { valor: true, data: true },
+      }),
+      prisma.vendas.findMany({
+        where: { contaId, status: "FATURADO", data: { gte: prevStart, lte: prevEnd } },
+        select: { valor: true },
+      }),
+      prisma.itensVendas.findMany({
+        where: { venda: { contaId, status: "FATURADO", data: { gte: start, lte: end } } },
+        select: {
+          produtoId: true,
+          itemName: true,
+          quantidade: true,
+          valor: true,
+          produto: {
+            select: { nome: true, nomeVariante: true, precoCompra: true, custoMedioProducao: true },
+          },
+        },
+      }),
+      prisma.itensVendas.findMany({
+        where: { venda: { contaId, status: "FATURADO", data: { gte: prevStart, lte: prevEnd } } },
+        select: {
+          quantidade: true,
+          valor: true,
+          produto: { select: { precoCompra: true, custoMedioProducao: true } },
+        },
+      }),
+      prisma.movimentacoesEstoque.findMany({
+        where: { contaId, tipo: "ENTRADA", status: "CONCLUIDO", data: { gte: start, lte: end } },
+        select: {
+          custo: true,
+          quantidade: true,
+          Produto: { select: { nome: true, nomeVariante: true } },
+        },
+      }),
+      prisma.produto.findMany({
+        where: { contaId },
+        select: {
+          nome: true,
+          nomeVariante: true,
+          estoque: true,
+          minimo: true,
+          controlaEstoque: true,
+          materiaPrima: true,
+          mostrarNoPdv: true,
+          precoCompra: true,
+          custoMedioProducao: true,
+        },
+      }),
+      prisma.produtoBase.findMany({
+        where: { contaId },
+        select: { Categoria: { select: { nome: true } } },
+      }),
+      prisma.produtoBase.count({ where: { contaId } }),
+      prisma.produto.count({ where: { contaId } }),
+      prisma.produtoCategoria.count({ where: { contaId } }),
+    ]);
+
+    const num = (value: unknown) => Number(value || 0);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const delta = (atual: number, anterior: number) =>
+      anterior > 0 ? ((atual - anterior) / anterior) * 100 : atual > 0 ? 100 : 0;
+    const custoItem = (produto?: { precoCompra?: unknown; custoMedioProducao?: unknown } | null) =>
+      num(produto?.custoMedioProducao ?? produto?.precoCompra ?? 0);
+
+    // KPIs de receita/lucro no período e no anterior
+    const receitaAtual = vendas.reduce((sum, v) => sum + num(v.valor), 0);
+    const qtdVendas = vendas.length;
+    const ticketAtual = qtdVendas ? receitaAtual / qtdVendas : 0;
+    const receitaAnterior = vendasAnterior.reduce((sum, v) => sum + num(v.valor), 0);
+    const qtdVendasAnterior = vendasAnterior.length;
+    const ticketAnterior = qtdVendasAnterior ? receitaAnterior / qtdVendasAnterior : 0;
+
+    const lucroAtual = itens.reduce(
+      (sum, it) => sum + (num(it.valor) - custoItem(it.produto)) * num(it.quantidade),
+      0
+    );
+    const lucroAnterior = itensAnterior.reduce(
+      (sum, it) => sum + (num(it.valor) - custoItem(it.produto)) * num(it.quantidade),
+      0
+    );
+    const itensVendidosAtual = itens.reduce((sum, it) => sum + num(it.quantidade), 0);
+    const itensVendidosAnterior = itensAnterior.reduce((sum, it) => sum + num(it.quantidade), 0);
+
+    const custoReposicoes = reposicoes.reduce(
+      (sum, r) => sum + num(r.custo) * num(r.quantidade),
+      0
+    );
+
+    // KPIs de catálogo/estoque (snapshot atual)
+    const controlados = produtos.filter((p) => p.controlaEstoque === true);
+    const estoqueBaixo = controlados.filter((p) => p.estoque > 0 && p.estoque <= p.minimo).length;
+    const semEstoque = controlados.filter((p) => p.estoque <= 0).length;
+    const materiasPrimas = produtos.filter((p) => p.materiaPrima === true).length;
+    const produtosNoPdv = produtos.filter(
+      (p) => (p.mostrarNoPdv === true || p.mostrarNoPdv === null) && !p.materiaPrima
+    ).length;
+    const valorEstoque = produtos.reduce((sum, p) => sum + custoItem(p) * p.estoque, 0);
+
+    // Saúde do estoque
+    const saude = { saudavel: 0, baixo: 0, semEstoque: 0, semControle: 0 };
+    for (const p of produtos) {
+      if (!p.controlaEstoque) saude.semControle++;
+      else if (p.estoque <= 0) saude.semEstoque++;
+      else if (p.estoque <= p.minimo) saude.baixo++;
+      else saude.saudavel++;
+    }
+
+    // Estoque crítico (acionável)
+    const estoqueCritico = controlados
+      .filter((p) => p.estoque <= p.minimo)
+      .map((p) => ({ nome: getNomeProduto(p), estoque: p.estoque, minimo: p.minimo }))
+      .sort((a, b) => a.estoque - b.estoque)
+      .slice(0, 8);
+
+    // Distribuição por categoria
+    const categoriaMap = new Map<string, number>();
+    for (const base of produtosBase) {
+      const nome = base.Categoria?.nome || "Sem categoria";
+      categoriaMap.set(nome, (categoriaMap.get(nome) || 0) + 1);
+    }
+    const categoriasOrdenadas = [...categoriaMap.entries()].sort((a, b) => b[1] - a[1]);
+    const catTop = categoriasOrdenadas.slice(0, 6);
+    const catResto = categoriasOrdenadas.slice(6).reduce((sum, [, v]) => sum + v, 0);
+    const distribuicaoCategorias = {
+      labels: [...catTop.map(([l]) => l), ...(catResto > 0 ? ["Outras"] : [])],
+      data: [...catTop.map(([, v]) => v), ...(catResto > 0 ? [catResto] : [])],
+    };
+
+    // Rankings por produto (receita e lucro)
+    const produtoMap = new Map<
+      string,
+      { nome: string; valor: number; quantidade: number; lucro: number }
+    >();
+    for (const it of itens) {
+      const nome = it.produto ? getNomeProduto(it.produto) : it.itemName || "Desconhecido";
+      const key = it.produtoId ? `p:${it.produtoId}` : `n:${nome}`;
+      const atual = produtoMap.get(key) || { nome, valor: 0, quantidade: 0, lucro: 0 };
+      const qtd = num(it.quantidade);
+      atual.valor += num(it.valor) * qtd;
+      atual.quantidade += qtd;
+      atual.lucro += (num(it.valor) - custoItem(it.produto)) * qtd;
+      produtoMap.set(key, atual);
+    }
+    const produtosArr = [...produtoMap.values()];
+    const topReceita = [...produtosArr]
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 8)
+      .map((p) => ({ nome: p.nome, valor: p.valor, quantidade: p.quantidade }));
+    const topLucro = [...produtosArr]
+      .sort((a, b) => b.lucro - a.lucro)
+      .slice(0, 6)
+      .map((p) => ({ nome: p.nome, lucro: p.lucro }));
+
+    // Mais repostos (por quantidade de entrada)
+    const reposMap = new Map<string, number>();
+    for (const r of reposicoes) {
+      const nome = getNomeProduto(r.Produto ?? undefined);
+      reposMap.set(nome, (reposMap.get(nome) || 0) + num(r.quantidade));
+    }
+    const maisRepostos = [...reposMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([nome, quantidade]) => ({ nome, quantidade }));
+
+    // Curva de receita (por dia até 92 dias, senão por mês)
+    const dayMs = 86_400_000;
+    const diffDays = Math.max(1, Math.round(durationMs / dayMs) + 1);
+    const usarDia = diffDays <= 92;
+    const serieBuckets = new Map<string, number>();
+    if (usarDia) {
+      for (let i = 0; i < diffDays; i++) {
+        const dia = new Date(start.getTime() + i * dayMs);
+        serieBuckets.set(`${pad(dia.getDate())}/${pad(dia.getMonth() + 1)}`, 0);
+      }
+    }
+    for (const v of vendas) {
+      const dia = new Date(v.data);
+      const key = usarDia
+        ? `${pad(dia.getDate())}/${pad(dia.getMonth() + 1)}`
+        : `${pad(dia.getMonth() + 1)}/${dia.getFullYear()}`;
+      serieBuckets.set(key, (serieBuckets.get(key) || 0) + num(v.valor));
+    }
+
+    return res.json({
+      periodo: { inicio: start, fim: end, anterior: { inicio: prevStart, fim: prevEnd } },
+      kpis: {
+        receita: { atual: receitaAtual, anterior: receitaAnterior, delta: delta(receitaAtual, receitaAnterior) },
+        lucro: { atual: lucroAtual, anterior: lucroAnterior, delta: delta(lucroAtual, lucroAnterior) },
+        ticketMedio: { atual: ticketAtual, anterior: ticketAnterior, delta: delta(ticketAtual, ticketAnterior) },
+        itensVendidos: {
+          atual: itensVendidosAtual,
+          anterior: itensVendidosAnterior,
+          delta: delta(itensVendidosAtual, itensVendidosAnterior),
+        },
+        custoReposicoes: { atual: custoReposicoes },
+        valorEstoque: { atual: valorEstoque },
+        estoqueBaixo: { atual: estoqueBaixo },
+        semEstoque: { atual: semEstoque },
+        totalProdutosBase,
+        totalVariantes,
+        totalCategorias,
+        produtosNoPdv,
+        materiasPrimas,
+      },
+      serieReceita: { labels: [...serieBuckets.keys()], data: [...serieBuckets.values()] },
+      distribuicaoCategorias,
+      saudeEstoque: {
+        labels: ["Saudável", "Estoque baixo", "Sem estoque", "Estoque livre"],
+        data: [saude.saudavel, saude.baixo, saude.semEstoque, saude.semControle],
+      },
+      topReceita,
+      topLucro,
+      maisRepostos,
+      estoqueCritico,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao gerar o painel de produtos" });
+  }
+}

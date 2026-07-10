@@ -45,6 +45,7 @@ import {
   getMargemMedia,
   getProdutosMaisRepostos,
   getProdutosMenosSaida,
+  getPainelProdutos,
   getReposicaoMensal,
   getResumoGeralProdutos,
   getSaudeEstoqueProdutos,
@@ -146,5 +147,6 @@ routerProdutos.get(
   getSaudeEstoqueProdutos
 );
 routerProdutos.get("/graficos/resumo-geral", authenticateJWT, getResumoGeralProdutos);
+routerProdutos.get("/graficos/painel", authenticateJWT, getPainelProdutos);
 
 export { routerProdutos };

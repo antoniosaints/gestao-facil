@@ -48,6 +48,7 @@ routerVendas.post("/comandas/:id/itens", authenticateJWT, addItemComanda);
 routerVendas.delete("/comandas/:id/itens/:itemId", authenticateJWT, removeItemComanda);
 routerVendas.post("/comandas/:id/checkout", authenticateJWT, checkoutComanda);
 routerVendas.get("/resumo/dashboard", authenticateJWT, ResumoVendasController.getResumo);
+routerVendas.get("/resumo/painel", authenticateJWT, ResumoVendasController.getPainel);
 routerVendas.post("/criar", authenticateJWT, saveVenda);
 routerVendas.get("/lista/geral", authenticateJWT, getVendas);
 routerVendas.get("/resumo/mensal", authenticateJWT, getResumoVendasMensalChart);
