@@ -159,6 +159,13 @@ export const ProdutoCategoriaSchema = z.object({
     .optional(),
 });
 
+const fornecedorField = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value.trim());
+  return Number(value);
+}, z.number({ invalid_type_error: "fornecedor deve ser um número" }).int().nullable().optional());
+
 export const ReposicaoEstoqueSchema = z.object({
   produtoId: parseInteger("produtoId", true, 1),
   quantidade: parseInteger("quantidade", true, 1),
@@ -166,10 +173,25 @@ export const ReposicaoEstoqueSchema = z.object({
   desconto: parseDecimal("desconto").nullable().optional(),
   frete: parseDecimal("frete").nullable().optional(),
   notaFiscal: parseNullableText.optional(),
-  fornecedor: z.preprocess((value) => {
-    if (value === undefined || value === null || value === "") return null;
-    if (typeof value === "number") return value;
-    if (typeof value === "string") return Number(value.trim());
-    return Number(value);
-  }, z.number({ invalid_type_error: "fornecedor deve ser um número" }).int().nullable().optional()),
+  fornecedor: fornecedorField,
+});
+
+export const ReposicaoLoteSchema = z.object({
+  data: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    return value;
+  }, z.coerce.date({ invalid_type_error: "data inválida" }).optional()),
+  notaFiscal: parseNullableText.optional(),
+  fornecedor: fornecedorField,
+  frete: parseDecimal("frete").nullable().optional(),
+  desconto: parseDecimal("desconto").nullable().optional(),
+  itens: z
+    .array(
+      z.object({
+        produtoId: parseInteger("produtoId", true, 1),
+        quantidade: parseInteger("quantidade", true, 1),
+        custo: parseDecimal("custo", true),
+      })
+    )
+    .min(1, "Informe ao menos um produto para reposição"),
 });

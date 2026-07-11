@@ -22,6 +22,7 @@ import {
   getResumoProdutoVariante,
   getVariantesProduto,
   reposicaoProduto,
+  reposicaoLoteProduto,
   saveCategoriaProduto,
   saveProduto,
   saveProdutoVariante,
@@ -100,6 +101,7 @@ routerProdutos.post("/", authenticateJWT, saveProduto);
 routerProdutos.post("/variantes", authenticateJWT, saveProdutoVariante);
 routerProdutos.post("/categorias", authenticateJWT, saveCategoriaProduto);
 routerProdutos.get("/", authenticateJWT, tableProdutos);
+routerProdutos.post("/reposicao/lote", authenticateJWT, reposicaoLoteProduto);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("/descarte", authenticateJWT, descarteProduto);
 routerProdutos.post(

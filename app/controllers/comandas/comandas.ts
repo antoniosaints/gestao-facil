@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { criarLancamentoFinanceiro } from "../../services/financeiro/lancamentoService";
@@ -1068,6 +1069,32 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
         throw new Error(
           "Um ou mais itens selecionados ja foram faturados. Atualize a comanda e tente novamente."
         );
+      }
+
+      // Registra as saidas de estoque dos produtos faturados para que a
+      // comanda apareca nas movimentacoes de produto (auditoria de estoque).
+      for (const item of comanda.itens) {
+        if (
+          !itemIds.includes(item.id) ||
+          item.origemTipo !== "PRODUTO" ||
+          !item.origemId
+        ) {
+          continue;
+        }
+
+        await tx.movimentacoesEstoque.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("MOV"),
+            produtoId: Number(item.origemId),
+            tipo: "SAIDA",
+            status: "CONCLUIDO",
+            quantidade: new Decimal(item.quantidade).toNumber(),
+            custo: item.valorUnitarioSnapshot,
+            contaId: customData.contaId,
+            clienteFornecedor: comanda.clienteId ?? null,
+            data: dataPagamento,
+          },
+        });
       }
 
       const itensAtualizados = comanda.itens.map((item) =>

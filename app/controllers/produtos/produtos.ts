@@ -8,6 +8,7 @@ import {
   ProdutoCategoriaSchema,
   ProdutoSchema,
   ReposicaoEstoqueSchema,
+  ReposicaoLoteSchema,
 } from "../../schemas/produtos";
 import { emailScheduleService } from "../../services/emailScheduleQueueService";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
@@ -787,6 +788,140 @@ export const reposicaoProduto = async (
       {
         ...entrada.movimentacao,
         Produto: entrada.produto,
+      },
+      201
+    );
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const reposicaoLoteProduto = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const parsed = ReposicaoLoteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return handleError(res, parsed.error);
+  }
+  const data = parsed.data;
+
+  try {
+    // Rateio de frete e desconto proporcional ao subtotal (custo * quantidade)
+    // de cada item. O resíduo de arredondamento vai para o último item.
+    const freteTotal = new Decimal(data.frete || 0);
+    const descontoTotal = new Decimal(data.desconto || 0);
+    const totalBase = data.itens.reduce(
+      (acc, item) =>
+        acc.plus(new Decimal(Number(item.custo)).times(Number(item.quantidade))),
+      new Decimal(0)
+    );
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const movimentacoes = [];
+      let freteAcumulado = new Decimal(0);
+      let descontoAcumulado = new Decimal(0);
+
+      for (let i = 0; i < data.itens.length; i++) {
+        const item = data.itens[i];
+        const produtoId = Number(item.produtoId);
+        const quantidade = Number(item.quantidade);
+        const custo = Number(item.custo);
+        const isUltimo = i === data.itens.length - 1;
+
+        const produtoExistente = await tx.produto.findFirst({
+          where: {
+            contaId: customData.contaId,
+            id: produtoId,
+          },
+          select: {
+            id: true,
+            nome: true,
+            nomeVariante: true,
+            unidade: true,
+            entradas: true,
+          },
+        });
+
+        if (!produtoExistente) {
+          throw new Error(`Produto #${produtoId} não encontrado.`);
+        }
+
+        if (produtoExistente.entradas === false) {
+          throw new Error(
+            `O produto ${produtoExistente.nome} não permite entradas de estoque, altere isso antes de continuar.`
+          );
+        }
+
+        const base = new Decimal(custo).times(quantidade);
+        const peso = totalBase.gt(0)
+          ? base.div(totalBase)
+          : new Decimal(1).div(data.itens.length);
+
+        const freteItem = isUltimo
+          ? freteTotal.minus(freteAcumulado)
+          : freteTotal.times(peso).toDecimalPlaces(2);
+        const descontoItem = isUltimo
+          ? descontoTotal.minus(descontoAcumulado)
+          : descontoTotal.times(peso).toDecimalPlaces(2);
+
+        freteAcumulado = freteAcumulado.plus(freteItem);
+        descontoAcumulado = descontoAcumulado.plus(descontoItem);
+
+        await tx.produto.update({
+          where: { id: produtoId, contaId: customData.contaId },
+          data: { estoque: { increment: quantidade } },
+        });
+
+        const movimentacao = await tx.movimentacoesEstoque.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("MOV"),
+            produtoId: produtoId,
+            tipo: "ENTRADA",
+            status: "CONCLUIDO",
+            quantidade: quantidade,
+            custo: custo,
+            contaId: customData.contaId,
+            clienteFornecedor: data.fornecedor ?? null,
+            notaFiscal: data.notaFiscal ?? null,
+            frete: freteItem.toNumber(),
+            desconto: descontoItem.toNumber(),
+            ...(data.data ? { data: data.data } : {}),
+          },
+        });
+
+        movimentacoes.push({ movimentacao, produto: produtoExistente });
+      }
+
+      return movimentacoes;
+    });
+
+    const totalItens = resultado.length;
+    const totalUnidades = resultado.reduce(
+      (acc, item) => acc + item.movimentacao.quantidade,
+      0
+    );
+
+    await enqueuePushNotificationByPreference(
+      "PRODUTO_ALTERADO",
+      {
+        title: "Reposição de estoque em massa",
+        body: `${totalItens} produto(s) repostos (${totalUnidades} unidade(s) no total).`,
+      },
+      customData.contaId
+    );
+
+    return ResponseHandler(
+      res,
+      "Reposição em massa realizada com sucesso",
+      {
+        totalItens,
+        totalUnidades,
+        movimentacoes: resultado.map((item) => ({
+          ...item.movimentacao,
+          Produto: item.produto,
+        })),
       },
       201
     );
