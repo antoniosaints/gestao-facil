@@ -4,6 +4,23 @@ import { loginSchema } from "../../schemas/login";
 import { prisma } from "../../utils/prisma";
 import { JwtUtil } from "../../utils/jwt";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import {
+  hashPassword,
+  isPasswordHashed,
+  verifyPassword,
+} from "../../services/auth/passwordService";
+
+// Faz a migração preguiçosa: se a senha conferida ainda estava em texto puro,
+// reescreve com hash bcrypt. Nunca deixa a falha da migração quebrar o login.
+async function upgradeLegacyPassword(userId: number, storedSenha: string | null, plainSenha: string) {
+  if (isPasswordHashed(storedSenha)) return;
+  try {
+    const hashed = await hashPassword(plainSenha);
+    await prisma.usuarios.update({ where: { id: userId }, data: { senha: hashed } });
+  } catch (error) {
+    console.error("[auth] Falha ao migrar senha para hash:", error);
+  }
+}
 
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -17,12 +34,21 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    const usuario = await prisma.usuarios.findFirst({
+    // Busca por e-mail e valida a senha aceitando hash ou texto puro (legado).
+    // findMany cobre o caso raro de e-mails repetidos entre contas diferentes.
+    const candidatos = await prisma.usuarios.findMany({
       where: {
         email: validated.data.email,
-        senha: validated.data.senha,
       },
     });
+
+    let usuario: (typeof candidatos)[number] | null = null;
+    for (const candidato of candidatos) {
+      if (await verifyPassword(validated.data.senha, candidato.senha)) {
+        usuario = candidato;
+        break;
+      }
+    }
 
     if (!usuario) {
       return res.status(401).json({
@@ -31,6 +57,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         data: null,
       });
     }
+
+    await upgradeLegacyPassword(usuario.id, usuario.senha, validated.data.senha);
 
     const jwtToken = JwtUtil.encode({
       id: usuario.id,
@@ -87,18 +115,19 @@ export const verificarSenha = async (req: Request, res: Response): Promise<any> 
       where: {
         id: customData.userId,
         contaId: customData.contaId,
-        senha,
       },
-      select: { id: true },
+      select: { id: true, senha: true },
     });
 
-    if (!usuario) {
+    if (!usuario || !(await verifyPassword(senha, usuario.senha))) {
       return res.status(401).json({
         status: 401,
         message: "Senha incorreta",
         data: null,
       });
     }
+
+    await upgradeLegacyPassword(usuario.id, usuario.senha, senha);
 
     return res.status(200).json({
       status: 200,

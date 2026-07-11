@@ -7,6 +7,13 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { updateContaSchema } from "../../schemas/contas";
 import { redisConnecion } from "../../utils/redis";
 import { getConfiguredPlatformGateway } from "../../services/contas/platformGatewayService";
+import { hashPassword } from "../../services/auth/passwordService";
+import {
+  getOrCreateCodigoIndicacao,
+  getPlatformIndicacaoConfig,
+  resolverIndicador,
+  vincularIndicacaoNoCadastro,
+} from "../../services/contas/indicacaoService";
 import { getContaInfoCacheKey, syncAuthenticatedSessionCaches } from "../../services/session/accountSessionCacheService";
 import { sendSessionUpdated } from "../../hooks/contas/socket";
 
@@ -22,6 +29,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
       funcionarios = 1,
       dicasNovidades,
       cpfCnpj,
+      indicacao,
     } = req.body;
 
     if (
@@ -41,6 +49,9 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
     }
 
     const platformGateway = await getConfiguredPlatformGateway();
+
+    // Indicação: resolve o código informado (link/campo) antes de criar a conta.
+    const indicadorContaId = await resolverIndicador(indicacao);
 
     const data = await prisma.$transaction(async (tx) => {
       const created = await tx.contas.create({
@@ -66,7 +77,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
         data: {
           nome,
           email,
-          senha,
+          senha: await hashPassword(senha),
           emailReceiver: true,
           pushReceiver: true,
           permissao: "root",
@@ -82,10 +93,73 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
       };
     });
 
+    // Gera o código de indicação da nova conta (para ela mesma indicar depois).
+    await getOrCreateCodigoIndicacao(data.created.id).catch((e) =>
+      console.error("[indicacao] falha ao gerar código:", e),
+    );
+
+    // Vincula ao indicador e aplica o bônus do indicado (se o programa estiver ativo).
+    if (indicadorContaId) {
+      await vincularIndicacaoNoCadastro({
+        novaContaId: data.created.id,
+        indicadorContaId,
+        valorBasePlano: data.created.valorBasePlano,
+      }).catch((e) => console.error("[indicacao] falha ao vincular indicação:", e));
+    }
+
     ResponseHandler(res, "Conta criada com sucesso", data);
   } catch (err: any) {
     console.log(err);
     handleError(res, err);
+  }
+};
+
+export const getMinhaIndicacao = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { contaId } = getCustomRequest(req).customData;
+
+    const codigo = await getOrCreateCodigoIndicacao(contaId);
+    const [conta, indicados, config] = await Promise.all([
+      prisma.contas.findUniqueOrThrow({
+        where: { id: contaId },
+        select: { creditoIndicacao: true, status: true },
+      }),
+      prisma.contas.findMany({
+        where: { indicadoPorContaId: contaId },
+        select: {
+          id: true,
+          nome: true,
+          nomeFantasia: true,
+          status: true,
+          indicacaoRecompensada: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      getPlatformIndicacaoConfig(),
+    ]);
+
+    return ResponseHandler(res, "Dados de indicação", {
+      codigo,
+      creditoIndicacao: Number(conta.creditoIndicacao || 0),
+      contaAtiva: conta.status === "ATIVO",
+      programa: {
+        ativo: config.ativa,
+        tipoRecompensa: config.tipoRecompensa,
+        valorRecompensa: config.valorRecompensa.toNumber(),
+        tipoBonusIndicado: config.tipoBonusIndicado,
+        valorBonusIndicado: config.valorBonusIndicado.toNumber(),
+      },
+      indicados: indicados.map((indicado) => ({
+        id: indicado.id,
+        nome: indicado.nomeFantasia || indicado.nome,
+        status: indicado.status,
+        recompensado: indicado.indicacaoRecompensada,
+        createdAt: indicado.createdAt,
+      })),
+    });
+  } catch (error) {
+    handleError(res, error);
   }
 };
 

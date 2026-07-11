@@ -82,6 +82,14 @@ model Contas {
   asaasCustomerId                 String
   asaasSubscriptionId             String?
   dicasNovidades                  Boolean?                          @default(false)
+  codigoIndicacao                 String?                           @unique
+  indicadoPorContaId              Int?
+  indicadoPorConta                Contas?                           @relation("IndicacaoConta", fields: [indicadoPorContaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  indicados                       Contas[]                          @relation("IndicacaoConta")
+  indicacaoRecompensada           Boolean                           @default(false)
+  creditoIndicacao                Decimal                           @default(0) @db.Decimal(10, 2)
+  indicacoesFeitas                IndicacaoRecompensa[]             @relation("IndicadorRecompensa")
+  indicacoesRecebidas             IndicacaoRecompensa[]             @relation("IndicadoRecompensa")
   createdAt                       DateTime                          @default(now())
   updatedAt                       DateTime                          @updatedAt
   Produto                         Produto[]
@@ -250,8 +258,28 @@ model ParametrosConta {
   financeiroVencimentosNotificacoesAtivo Boolean? @default(true)
   corPrimaria                            String?
   corSecundaria                          String?
+  indicacaoAtiva                         Boolean? @default(false)
+  indicacaoTipoRecompensa                String?  @default("PERCENTUAL")
+  indicacaoValorRecompensa               Decimal? @default(0) @db.Decimal(10, 2)
+  indicacaoTipoBonusIndicado             String?  @default("PERCENTUAL")
+  indicacaoValorBonusIndicado            Decimal? @default(0) @db.Decimal(10, 2)
   createdAt                              DateTime @default(now())
   updatedAt                              DateTime @updatedAt
+}
+
+model IndicacaoRecompensa {
+  id               Int      @id @default(autoincrement())
+  indicadorContaId Int
+  indicadorConta   Contas   @relation("IndicadorRecompensa", fields: [indicadorContaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  indicadoContaId  Int
+  indicadoConta    Contas   @relation("IndicadoRecompensa", fields: [indicadoContaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tipo             String
+  valor            Decimal  @db.Decimal(10, 2)
+  faturaId         Int?
+  createdAt        DateTime @default(now())
+
+  @@index([indicadorContaId])
+  @@index([indicadoContaId])
 }
 
 model Usuarios {

@@ -9,7 +9,11 @@ import {
   AbacatePayService,
   type AbacatePayWebhookPayload,
 } from "../../services/financeiro/abacatePayService";
-import { reconcileStoreModulesAfterPayment } from "../../services/contas/storeModulesService";
+import {
+  consumirCreditoIndicacaoNoPagamento,
+  reconcileStoreModulesAfterPayment,
+} from "../../services/contas/storeModulesService";
+import { concederRecompensaIndicador } from "../../services/contas/indicacaoService";
 import { clearCacheAccount } from "../administracao/contas";
 import { env } from "../../utils/dotenv";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
@@ -272,6 +276,17 @@ async function handleSaasWebhook(args: {
       previousDueDate,
       novoVencimento,
     );
+
+    // Indicação: consome crédito próprio usado neste pagamento e credita a recompensa
+    // (1ª vez) ao indicador desta conta, se houver.
+    await consumirCreditoIndicacaoNoPagamento(args.contaId, invoiceValue || 0).catch((e) =>
+      console.error("[indicacao] consumo de crédito falhou:", e),
+    );
+    await concederRecompensaIndicador({
+      contaPaganteId: args.contaId,
+      valorPago: invoiceValue || 0,
+    }).catch((e) => console.error("[indicacao] recompensa ao indicador falhou:", e));
+
     await clearCacheAccount(args.contaId);
     return;
   }

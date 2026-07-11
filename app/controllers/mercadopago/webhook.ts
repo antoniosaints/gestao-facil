@@ -16,9 +16,11 @@ import { clearCacheAccount } from "../administracao/contas";
 import { recalculateComandaStatus } from "../vendas/comandas";
 import {
   activateStoreModuleFromCharge,
+  consumirCreditoIndicacaoNoPagamento,
   reconcileStoreModulesAfterPayment,
   releaseStoreModuleCharge,
 } from "../../services/contas/storeModulesService";
+import { concederRecompensaIndicador } from "../../services/contas/indicacaoService";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 
@@ -117,6 +119,17 @@ export async function webhookMercadoPago(
         },
       });
       await reconcileStoreModulesAfterPayment(contaId, vencimentoConta, vencimentoNovo);
+
+      // Indicação: consome crédito próprio usado neste pagamento e, se esta conta foi
+      // indicada, credita a recompensa (1ª vez) ao indicador.
+      await consumirCreditoIndicacaoNoPagamento(contaId, transaction_amount || 0).catch((e) =>
+        console.error("[indicacao] consumo de crédito falhou:", e),
+      );
+      await concederRecompensaIndicador({
+        contaPaganteId: contaId,
+        valorPago: transaction_amount || 0,
+      }).catch((e) => console.error("[indicacao] recompensa ao indicador falhou:", e));
+
       await clearCacheAccount(conta.id);
     }
 

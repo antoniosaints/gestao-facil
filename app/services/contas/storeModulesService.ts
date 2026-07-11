@@ -416,6 +416,7 @@ export async function syncContaRecurringBilling(contaId: number) {
       nome: true,
       valorBasePlano: true,
       valor: true,
+      creditoIndicacao: true,
       email: true,
       documento: true,
       vencimento: true,
@@ -426,12 +427,19 @@ export async function syncContaRecurringBilling(contaId: number) {
 
   const recurringValue = await getContaNextRecurringValue(contaId);
 
+  // Aplica o crédito de indicação (abate da mensalidade). O crédito só é CONSUMIDO
+  // quando o pagamento é confirmado (consumirCreditoIndicacaoNoPagamento), então aqui
+  // apenas calculamos o valor efetivo a cobrar sem alterar o saldo.
+  const credito = new Decimal(conta.creditoIndicacao || 0);
+  const desconto = Decimal.min(credito, recurringValue);
+  const effectiveValue = recurringValue.minus(desconto);
+
   await prisma.contas.update({
     where: {
       id: contaId,
     },
     data: {
-      valor: recurringValue.toFixed(2),
+      valor: effectiveValue.toFixed(2),
     },
   });
 
@@ -446,7 +454,7 @@ export async function syncContaRecurringBilling(contaId: number) {
       },
     },
     data: {
-      valor: recurringValue.toNumber(),
+      valor: effectiveValue.toNumber(),
     },
   });
 
@@ -455,7 +463,7 @@ export async function syncContaRecurringBilling(contaId: number) {
       customer: conta.asaasCustomerId,
       billingType: "UNDEFINED",
       nextDueDate: format(conta.vencimento, "yyyy-MM-dd"),
-      value: recurringValue.toNumber(),
+      value: effectiveValue.toNumber(),
       cycle: "MONTHLY",
       description: `Assinatura do plano ${conta.nome} no Gestao Facil`,
       externalReference: `conta-gestaofacil-${conta.id}`,
@@ -465,7 +473,31 @@ export async function syncContaRecurringBilling(contaId: number) {
 
   await clearCacheAccount(contaId);
 
-  return recurringValue;
+  return effectiveValue;
+}
+
+// Consome o crédito de indicação quando um pagamento é confirmado: decrementa o saldo
+// pelo desconto que foi efetivamente aplicado (valor cheio − valor pago), limitado ao saldo.
+export async function consumirCreditoIndicacaoNoPagamento(
+  contaId: number,
+  valorPago: number | Decimal,
+) {
+  const conta = await prisma.contas.findUnique({
+    where: { id: contaId },
+    select: { creditoIndicacao: true },
+  });
+  const credito = new Decimal(conta?.creditoIndicacao || 0);
+  if (credito.lte(0)) return;
+
+  const full = await getContaNextRecurringValue(contaId);
+  const descontoAplicado = Decimal.max(0, full.minus(new Decimal(valorPago || 0)));
+  const usado = Decimal.min(credito, descontoAplicado);
+  if (usado.lte(0)) return;
+
+  await prisma.contas.update({
+    where: { id: contaId },
+    data: { creditoIndicacao: { decrement: usado.toNumber() } },
+  });
 }
 
 export async function createImmediateModuleCharge(args: {

@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
 import { addDays, differenceInCalendarDays, isAfter, startOfDay } from "date-fns";
+import Decimal from "decimal.js";
 import { z } from "zod";
 import { deleteContaCompletely } from "../../services/administracao/deleteContaService";
+import { hashPassword } from "../../services/auth/passwordService";
+import { getOrCreateCodigoIndicacao } from "../../services/contas/indicacaoService";
 import { getConfiguredPlatformGateway } from "../../services/contas/platformGatewayService";
 import { Prisma } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
@@ -11,6 +14,7 @@ import { clearCacheAccount } from "./contas";
 import {
   cancelOutstandingModuleCharges,
   ensureDefaultStoreModules,
+  getContaNextRecurringValue,
   syncContaRecurringBilling,
   type ModuleStatus,
 } from "../../services/contas/storeModulesService";
@@ -155,7 +159,7 @@ export const createAssinanteAdmin = async (req: Request, res: Response): Promise
         data: {
           nome: data.nomeUsuario,
           email: data.email,
-          senha: data.senha,
+          senha: await hashPassword(data.senha),
           emailReceiver: true,
           pushReceiver: true,
           permissao: "root",
@@ -167,6 +171,10 @@ export const createAssinanteAdmin = async (req: Request, res: Response): Promise
 
       return { conta, usuario };
     });
+
+    await getOrCreateCodigoIndicacao(resultado.conta.id).catch((e) =>
+      console.error("[indicacao] falha ao gerar código:", e),
+    );
 
     console.log(
       `[admin] Conta ${resultado.conta.id} (${resultado.conta.nome}) criada pelo superadmin ${customData.userId}`,
@@ -284,7 +292,7 @@ export const resetRootPasswordAdmin = async (req: Request, res: Response): Promi
         permissao: "root",
       },
       data: {
-        senha: parsed.data.senha,
+        senha: await hashPassword(parsed.data.senha),
       },
     });
 
@@ -364,6 +372,10 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
           status: true,
           vencimento: true,
           valor: true,
+          valorBasePlano: true,
+          creditoIndicacao: true,
+          codigoIndicacao: true,
+          indicadoPorContaId: true,
           data: true,
           funcionarios: true,
           gateway: true,
@@ -407,6 +419,10 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
         status: conta.status,
         vencimento: conta.vencimento,
         valor: Number(conta.valor || 0),
+        valorBasePlano: Number(conta.valorBasePlano || 0),
+        creditoIndicacao: Number(conta.creditoIndicacao || 0),
+        codigoIndicacao: conta.codigoIndicacao,
+        indicadoPorContaId: conta.indicadoPorContaId,
         data: conta.data,
         funcionarios: conta.funcionarios,
         gateway: conta.gateway,
@@ -431,6 +447,17 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
   }
 };
 
+const manageAssinanteSchema = z.object({
+  status: z.string().optional(),
+  vencimento: z.union([z.string(), z.date()]).optional(),
+  nome: z.string().trim().min(2, "Informe o nome da conta.").optional(),
+  nomeFantasia: z.string().trim().optional().nullable(),
+  email: z.string().trim().email("Informe um e-mail válido.").optional(),
+  telefone: z.string().trim().optional().nullable(),
+  documento: z.string().trim().optional().nullable(),
+  valorBasePlano: z.coerce.number().min(0, "Mensalidade inválida.").optional(),
+});
+
 export const manageAssinanteAdmin = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
@@ -450,28 +477,53 @@ export const manageAssinanteAdmin = async (req: Request, res: Response): Promise
       });
     }
 
-    const status = String(req.body?.status || "").toUpperCase();
-    const vencimentoRaw = req.body?.vencimento;
+    const parsed = manageAssinanteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.issues[0].message });
+    }
+    const body = parsed.data;
 
+    const status = String(body.status || "").toUpperCase();
     if (!ensureValidStatus(status)) {
       return res.status(400).json({
         message: "Status inválido para a conta.",
       });
     }
 
+    const contaAtual = await prisma.contas.findUnique({
+      where: { id: contaId },
+      select: { id: true, valorBasePlano: true },
+    });
+    if (!contaAtual) {
+      return res.status(404).json({ message: "Conta não encontrada." });
+    }
+
     const updateData: Prisma.ContasUpdateInput = {
       status: status as any,
     };
 
-    if (vencimentoRaw) {
-      const vencimento = new Date(vencimentoRaw);
+    if (body.vencimento) {
+      const vencimento = new Date(body.vencimento);
       if (Number.isNaN(vencimento.getTime())) {
         return res.status(400).json({
           message: "Data de vencimento inválida.",
         });
       }
-
       updateData.vencimento = vencimento;
+    }
+
+    // Campos editáveis do assinante (apenas quando enviados)
+    if (body.nome !== undefined) updateData.nome = body.nome;
+    if (body.nomeFantasia !== undefined) updateData.nomeFantasia = body.nomeFantasia || null;
+    if (body.email !== undefined) updateData.email = body.email;
+    if (body.telefone !== undefined) updateData.telefone = body.telefone || null;
+    if (body.documento !== undefined) updateData.documento = body.documento || null;
+
+    const valorBaseMudou =
+      body.valorBasePlano !== undefined &&
+      !new Decimal(body.valorBasePlano).equals(new Decimal(contaAtual.valorBasePlano ?? 0));
+    if (body.valorBasePlano !== undefined) {
+      updateData.valorBasePlano = new Decimal(body.valorBasePlano).toFixed(2);
     }
 
     const conta = await prisma.contas.update({
@@ -484,8 +536,15 @@ export const manageAssinanteAdmin = async (req: Request, res: Response): Promise
         nome: true,
         status: true,
         vencimento: true,
+        valorBasePlano: true,
+        valor: true,
       },
     });
+
+    // Mudou a mensalidade base: recomputa valor (base + apps) e sincroniza gateway/faturas.
+    if (valorBaseMudou) {
+      await syncContaRecurringBilling(contaId);
+    }
 
     await clearCacheAccount(contaId);
 

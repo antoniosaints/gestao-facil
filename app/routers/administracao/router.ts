@@ -15,8 +15,14 @@ import { getMonitoramentoAdmin } from "../../controllers/administracao/monitoram
 import { getDashboardFaturasAdmin, manageFaturaAdmin, tableFaturasAdmin } from "../../controllers/administracao/faturas";
 import {
   getAdminGatewayConfig,
+  getAdminIndicacaoConfig,
   saveAdminGatewayConfig,
+  saveAdminIndicacaoConfig,
 } from "../../controllers/administracao/configuracoes";
+import {
+  listModulosAdmin,
+  updateModuloAdmin,
+} from "../../controllers/administracao/modulos";
 
 const routerAdminMain = Router();
 
@@ -35,6 +41,10 @@ routerAdminMain.post("/faturas/:id/controle", authenticateJWT, manageFaturaAdmin
 routerAdminMain.get("/faturas/dashboard", authenticateJWT, getDashboardFaturasAdmin);
 routerAdminMain.get("/configuracoes/gateway", authenticateJWT, getAdminGatewayConfig);
 routerAdminMain.post("/configuracoes/gateway", authenticateJWT, saveAdminGatewayConfig);
+routerAdminMain.get("/modulos", authenticateJWT, listModulosAdmin);
+routerAdminMain.patch("/modulos/:id", authenticateJWT, updateModuloAdmin);
+routerAdminMain.get("/configuracoes/indicacao", authenticateJWT, getAdminIndicacaoConfig);
+routerAdminMain.post("/configuracoes/indicacao", authenticateJWT, saveAdminIndicacaoConfig);
 
 export {
     routerAdminMain

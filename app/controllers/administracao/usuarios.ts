@@ -9,6 +9,7 @@ import { hasPermission } from "../../helpers/userPermission";
 import { redisConnecion } from "../../utils/redis";
 import { getUserSessionCacheKey, refreshUserSessionCache } from "../../services/session/accountSessionCacheService";
 import { sendSessionUpdated } from "../../hooks/contas/socket";
+import { hashPassword, hashPasswordIfNeeded, verifyPassword } from "../../services/auth/passwordService";
 
 export const getMinhaConexao = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -226,6 +227,10 @@ export const saveUsuario = async (
     const hasId = req.body.id && Number(req.body.id) > 0 ? true : false;
     let data = null;
 
+    // Ao editar, o formulário reenvia a senha carregada (que pode já ser um hash):
+    // hashPasswordIfNeeded mantém o hash existente e só gera hash para senha nova em texto puro.
+    const senhaParaGravar = await hashPasswordIfNeeded(String(req.body.senha));
+
     if (hasId) {
       const user = await prisma.usuarios.findUnique({
         where: {
@@ -247,7 +252,7 @@ export const saveUsuario = async (
           contaId: customData.contaId,
           nome: req.body.nome,
           email: req.body.email,
-          senha: req.body.senha,
+          senha: senhaParaGravar,
           permissao: req.body.permissao,
           status: req.body.status,
           biografia: req.body.biografia,
@@ -265,7 +270,7 @@ export const saveUsuario = async (
           contaId: customData.contaId,
           nome: req.body.nome,
           email: req.body.email,
-          senha: req.body.senha,
+          senha: senhaParaGravar,
           permissao: req.body.permissao,
           status: req.body.status,
           biografia: req.body.biografia,
@@ -354,7 +359,7 @@ export const updateSenha = async (req: Request, res: Response): Promise<any> => 
       },
     });
 
-    if (usuario.senha !== senhaAtual) {
+    if (!(await verifyPassword(senhaAtual, usuario.senha))) {
       return ResponseHandler(res, "A senha atual informada está incorreta.", null, 400);
     }
 
@@ -364,7 +369,7 @@ export const updateSenha = async (req: Request, res: Response): Promise<any> => 
         contaId,
       },
       data: {
-        senha: novaSenha,
+        senha: await hashPassword(novaSenha),
       },
     });
 

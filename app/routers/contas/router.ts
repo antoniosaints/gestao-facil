@@ -12,6 +12,7 @@ import {
   atualizarDadosConta,
   criarConta,
   dadosConta,
+  getMinhaIndicacao,
   infosConta,
 } from "../../controllers/contas/cadastro";
 import {
@@ -52,6 +53,7 @@ routerContas.get(
 routerContas.post("/cadastro", criarConta);
 routerContas.post("/atualizar", authenticateJWT, atualizarDadosConta);
 routerContas.get("/infos", authenticateJWT, dadosConta);
+routerContas.get("/indicacao", authenticateJWT, getMinhaIndicacao);
 routerContas.get("/detalhes", authenticateJWT, infosConta);
 routerContas.post("/parametros", authenticateJWT, saveParametros);
 routerContas.get("/parametros", authenticateJWT, getParametros);
