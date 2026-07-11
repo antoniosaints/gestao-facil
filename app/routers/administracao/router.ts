@@ -6,6 +6,7 @@ import {
   deleteAssinanteAdmin,
   listAssinanteAppsAdmin,
   manageAssinanteAdmin,
+  resetRootPasswordAdmin,
   tableAssinantesAdmin,
   toggleAssinanteAppAdmin,
 } from "../../controllers/administracao/assinantes";
@@ -26,6 +27,7 @@ routerAdminMain.delete("/assinantes/:id", authenticateJWT, deleteAssinanteAdmin)
 routerAdminMain.get("/financeiro/painel", authenticateJWT, getFinanceiroPainelAdmin);
 routerAdminMain.get("/monitoramento", authenticateJWT, getMonitoramentoAdmin);
 routerAdminMain.post("/assinantes/:id/controle", authenticateJWT, manageAssinanteAdmin);
+routerAdminMain.post("/assinantes/:id/reset-senha-root", authenticateJWT, resetRootPasswordAdmin);
 routerAdminMain.get("/assinantes/:id/apps", authenticateJWT, listAssinanteAppsAdmin);
 routerAdminMain.post("/assinantes/:id/apps/:moduleId", authenticateJWT, toggleAssinanteAppAdmin);
 routerAdminMain.get("/faturas", authenticateJWT, tableFaturasAdmin);

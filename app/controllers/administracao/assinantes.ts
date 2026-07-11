@@ -229,6 +229,87 @@ export const deleteAssinanteAdmin = async (req: Request, res: Response): Promise
   }
 };
 
+const resetRootPasswordSchema = z.object({
+  senha: z.string().min(6, "A nova senha precisa de ao menos 6 caracteres."),
+});
+
+export const resetRootPasswordAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await ensureAdminAccess(req, res);
+    if (!customData) return;
+
+    const contaId = Number(req.params.id);
+    if (!contaId) {
+      return res.status(400).json({ message: "Conta inválida." });
+    }
+
+    const parsed = resetRootPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.issues[0].message });
+    }
+
+    const conta = await prisma.contas.findUnique({
+      where: { id: contaId },
+      select: { id: true, nome: true },
+    });
+
+    if (!conta) {
+      return res.status(404).json({ message: "Conta não encontrada." });
+    }
+
+    const rootUsers = await prisma.usuarios.findMany({
+      where: {
+        contaId,
+        permissao: "root",
+      },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+      },
+      orderBy: {
+        id: "asc",
+      },
+    });
+
+    if (!rootUsers.length) {
+      return res.status(404).json({
+        message: "Esta conta não possui um usuário root para recuperar.",
+      });
+    }
+
+    await prisma.usuarios.updateMany({
+      where: {
+        contaId,
+        permissao: "root",
+      },
+      data: {
+        senha: parsed.data.senha,
+      },
+    });
+
+    await clearCacheAccount(contaId);
+
+    console.warn(
+      `[admin] Senha do root da conta ${contaId} (${conta.nome}) redefinida pelo superadmin ${customData.userId}`,
+    );
+
+    const principal = rootUsers[0];
+
+    return res.status(200).json({
+      message: `Senha do usuário root de ${conta.nome} redefinida com sucesso.`,
+      data: {
+        contaId,
+        email: principal.email,
+        nome: principal.nome,
+        totalUsuariosRoot: rootUsers.length,
+      },
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 export const tableAssinantesAdmin = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;

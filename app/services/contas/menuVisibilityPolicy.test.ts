@@ -36,4 +36,16 @@ describe("menuVisibilityPolicy", () => {
       assert.equal(normalized.includes(key), true);
     }
   });
+
+  it("keeps known submenu keys and drops unknown ones", () => {
+    assert.deepEqual(
+      normalizeVisibleMenuKeys([
+        "vendas",
+        "vendas:caixas",
+        "financeiro:cobrancas",
+        "vendas:inexistente",
+      ]),
+      ["vendas", "vendas:caixas", "financeiro:cobrancas", "configuracoes"]
+    );
+  });
 });

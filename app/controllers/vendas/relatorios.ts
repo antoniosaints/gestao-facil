@@ -311,7 +311,16 @@ function drawMetricCard(doc: PDFKit.PDFDocument, options: {
   }
 }
 
+function ensurePageSpace(doc: PDFKit.PDFDocument, heightNeeded = 40) {
+  if (doc.y + heightNeeded <= doc.page.height - doc.page.margins.bottom) {
+    return;
+  }
+  doc.addPage();
+  doc.y = doc.page.margins.top;
+}
+
 function drawSectionTitle(doc: PDFKit.PDFDocument, title: string, y?: number) {
+  if (y === undefined) ensurePageSpace(doc, 52);
   const lineY = y ?? doc.y;
 
   doc
@@ -336,6 +345,7 @@ function drawInfoLine(
   value: string,
   accentColor = "#111827",
 ) {
+  ensurePageSpace(doc, 20);
   const currentY = doc.y;
 
   doc
@@ -582,6 +592,7 @@ export async function getResumoVendasPDF(
       drawInfoLine(doc, "Prejuízo", formatDecimalCurrency(resumo.financeiro.prejuizo), "#B91C1C");
     }
 
+    ensurePageSpace(doc, 60);
     doc
       .font("Roboto")
       .fontSize(8)

@@ -1031,7 +1031,7 @@ function getPaymentMethodLabel(method?: string | null) {
     case "DINHEIRO":
       return "Dinheiro";
     case "CARTAO":
-      return "Cartao";
+      return "Cartão";
     case "PIX":
       return "PIX";
     case "BOLETO":
@@ -1050,7 +1050,7 @@ function ensurePdfSpace(doc: PDFKit.PDFDocument, heightNeeded = 40) {
 function drawPdfSectionTitle(doc: PDFKit.PDFDocument, title: string) {
   ensurePdfSpace(doc, 34);
   doc.moveDown(0.7);
-  doc.fontSize(13).fillColor("#111827").font("Helvetica-Bold").text(title);
+  doc.fontSize(13).fillColor("#111827").font("Roboto-Bold").text(title);
   doc.moveTo(doc.page.margins.left, doc.y + 4)
     .lineTo(doc.page.width - doc.page.margins.right, doc.y + 4)
     .strokeColor("#e5e7eb")
@@ -1067,12 +1067,12 @@ function drawPdfKeyValue(
   width: number
 ) {
   doc
-    .font("Helvetica")
+    .font("Roboto")
     .fontSize(8)
     .fillColor("#6b7280")
     .text(label, x, y, { width });
   doc
-    .font("Helvetica-Bold")
+    .font("Roboto-Bold")
     .fontSize(10)
     .fillColor("#111827")
     .text(value, x, y + 12, { width });
@@ -1088,7 +1088,7 @@ function drawPdfTableHeader(
     .fill("#f3f4f6");
   columns.forEach((column) => {
     doc
-      .font("Helvetica-Bold")
+      .font("Roboto-Bold")
       .fontSize(8)
       .fillColor("#374151")
       .text(column.label, column.x, y + 4, {
@@ -1108,7 +1108,7 @@ function drawPdfTableRow(
   const y = doc.y;
   columns.forEach((column) => {
     doc
-      .font("Helvetica")
+      .font("Roboto")
       .fontSize(8)
       .fillColor("#111827")
       .text(column.text, column.x, y, {
@@ -1181,14 +1181,16 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
     );
 
     doc.pipe(res);
+    doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
+    doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
     doc
-      .font("Helvetica-Bold")
+      .font("Roboto-Bold")
       .fontSize(18)
       .fillColor("#111827")
-      .text("Relatorio de Caixa PDV");
+      .text("Relatório de Caixa PDV");
     doc
-      .font("Helvetica")
+      .font("Roboto")
       .fontSize(9)
       .fillColor("#6b7280")
       .text(`Gerado em ${formatPdfDate(new Date())}`);
@@ -1211,14 +1213,14 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
     drawPdfKeyValue(doc, "Saldo inicial", formatCurrency(dados.resumo.saldoInicial), 398, metricY, 150);
     drawPdfKeyValue(doc, "Saldo esperado", formatCurrency(dados.resumo.saldoEsperado), 42, metricY + 42, colWidth);
     drawPdfKeyValue(doc, "Saldo contado", dados.resumo.saldoContado === null ? "-" : formatCurrency(dados.resumo.saldoContado || 0), 220, metricY + 42, colWidth);
-    drawPdfKeyValue(doc, "Diferenca", formatCurrency(dados.resumo.diferenca || 0), 398, metricY + 42, 150);
+    drawPdfKeyValue(doc, "Diferença", formatCurrency(dados.resumo.diferenca || 0), 398, metricY + 42, 150);
     drawPdfKeyValue(doc, "Sangrias", formatCurrency(dados.resumo.totalSangrias), 42, metricY + 84, colWidth);
-    drawPdfKeyValue(doc, "Reforcos", formatCurrency(dados.resumo.totalReforcos), 220, metricY + 84, colWidth);
+    drawPdfKeyValue(doc, "Reforços", formatCurrency(dados.resumo.totalReforcos), 220, metricY + 84, colWidth);
     doc.y = metricY + 126;
 
-    drawPdfSectionTitle(doc, "Totais por metodo de pagamento");
+    drawPdfSectionTitle(doc, "Totais por método de pagamento");
     const metodoColumns = [
-      { label: "Metodo", x: 42, width: 260 },
+      { label: "Método", x: 42, width: 260 },
       { label: "Valor", x: 388, width: 120, align: "right" as const },
     ];
     drawPdfTableHeader(doc, metodoColumns);
@@ -1237,18 +1239,18 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
       });
     }
 
-    drawPdfSectionTitle(doc, "Movimentacoes");
+    drawPdfSectionTitle(doc, "Movimentações");
     const movimentoColumns = [
       { label: "Data", x: 42, width: 80 },
       { label: "Tipo", x: 130, width: 70 },
-      { label: "Metodo", x: 205, width: 70 },
-      { label: "Descricao", x: 282, width: 150 },
+      { label: "Método", x: 205, width: 70 },
+      { label: "Descrição", x: 282, width: 150 },
       { label: "Valor", x: 438, width: 70, align: "right" as const },
     ];
     drawPdfTableHeader(doc, movimentoColumns);
     if (!dados.movimentos.length) {
       drawPdfTableRow(doc, [
-        { text: "Nenhuma movimentacao registrada", x: 42, width: 260 },
+        { text: "Nenhuma movimentação registrada", x: 42, width: 260 },
         { text: "", x: 130, width: 70 },
         { text: "", x: 205, width: 70 },
         { text: "", x: 282, width: 150 },
