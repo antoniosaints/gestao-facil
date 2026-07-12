@@ -51,6 +51,7 @@ export interface SendMessageInput {
 export interface ConversationFilters {
   search?: string;
   status?: WhatsAppConversaStatus;
+  instanciaId?: number;
   take?: number;
   cursor?: number;
 }
@@ -545,6 +546,7 @@ export const whatsAppService = {
     const where: Prisma.WhatsAppConversaWhereInput = {
       contaId,
       ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.instanciaId ? { instanciaId: filters.instanciaId } : {}),
       ...(search
         ? {
             OR: [

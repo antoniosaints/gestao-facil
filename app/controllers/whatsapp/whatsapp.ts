@@ -211,6 +211,7 @@ export const listConversations = async (req: Request, res: Response): Promise<an
     const result = await whatsAppService.listConversations(customData.contaId, {
       search: String(req.query.search || ""),
       status,
+      instanciaId: req.query.instanciaId ? Number(req.query.instanciaId) : undefined,
       take: Number(req.query.take || 50),
       cursor: req.query.cursor ? Number(req.query.cursor) : undefined,
     });
