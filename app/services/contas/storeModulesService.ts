@@ -105,10 +105,15 @@ export function calculateModuleImmediateCharge(
     0,
   );
 
+  // Sem dias restantes no ciclo atual (vencimento é hoje/no passado): não há período a
+  // cobrar de forma proporcional — o app entra no próximo ciclo pela mensalidade cheia.
+  // Antes retornava o valor cheio aqui, o que cobrava um mês inteiro por 0 dias de uso.
   if (remainingDays <= 0) {
-    return fullPrice;
+    return new Decimal(0);
   }
 
+  // Diária = preço / 30 (taxa mensal padrão). Cobra a diária pelos dias restantes,
+  // limitado a no máximo uma mensalidade cheia.
   return Decimal.min(
     fullPrice,
     fullPrice.mul(remainingDays).div(MODULE_CYCLE_DAYS),

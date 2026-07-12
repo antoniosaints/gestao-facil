@@ -296,6 +296,29 @@ export async function activateStoreModule(req: Request, res: Response): Promise<
       });
     }
 
+    // Valor imediato a cobrar (proporcional aos dias restantes, ou mensal cheio).
+    const immediateAmount = calculateModuleImmediateCharge(
+      vinculo.valorAdicional,
+      conta.vencimento,
+      billingMode,
+    );
+
+    // Sem valor proporcional a cobrar agora (ex.: vencimento é hoje): reserva o app
+    // para o próximo ciclo, que já inclui o valor cheio na mensalidade. Evita gerar
+    // uma cobrança avulsa de valor zero/inválido no gateway.
+    if (immediateAmount.lte(0)) {
+      return res.json({
+        message:
+          "App reservado para o próximo ciclo. Ele sera liberado automaticamente na confirmacao da proxima mensalidade.",
+        data: {
+          recurringValue: recurringValue.toNumber(),
+          billingMode,
+          immediateCharge: 0,
+          paymentLink: null,
+        },
+      });
+    }
+
     const immediateCharge = await createImmediateModuleCharge({
       contaId: customData.contaId,
       moduloOnContaId: vinculo.id,
