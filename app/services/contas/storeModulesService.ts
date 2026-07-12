@@ -321,12 +321,15 @@ export async function ensureDefaultStoreModules() {
         create: {
           ...modulo,
         },
+        // IMPORTANTE: nao sobrescrever `preco` nem `status` aqui.
+        // Esses campos sao gerenciados pelo super admin (modo CEO). Como esta rotina
+        // roda a cada abertura da loja / start do processo, forcar o valor padrao
+        // revertia qualquer preco configurado (ex.: deixar um app gratis virava 19,90).
+        // O `create` semeia o preco inicial; o `update` so mantem os textos de apresentacao.
         update: {
           nome: modulo.nome,
           descricao: modulo.descricao,
           categoria: modulo.categoria,
-          preco: modulo.preco,
-          status: true,
         },
       }),
     ),
@@ -362,6 +365,74 @@ export async function getContaNextRecurringValue(contaId: number) {
     (total, modulo) => total.plus(modulo.valorAdicional || 0),
     new Decimal(conta.valorBasePlano || 0),
   );
+}
+
+// Aplica o crédito de indicação sobre o valor recorrente (base + apps), sem deixar
+// o valor negativo. Fonte única de verdade para o desconto — usada tanto na
+// sincronizacao quanto na geracao de qualquer cobranca da mensalidade.
+export function aplicarCreditoIndicacao(
+  recurringValue: Decimal,
+  creditoIndicacao: Decimal.Value,
+) {
+  const credito = Decimal.max(new Decimal(creditoIndicacao || 0), 0);
+  const desconto = Decimal.min(credito, recurringValue);
+  return recurringValue.minus(desconto);
+}
+
+// Valor EFETIVO a cobrar da conta: mensalidade (base + apps) menos o crédito de
+// indicacao disponivel. Sempre use este valor ao gerar cobrancas da mensalidade.
+export async function getContaEffectiveRecurringValue(contaId: number) {
+  const [recurringValue, conta] = await Promise.all([
+    getContaNextRecurringValue(contaId),
+    prisma.contas.findUniqueOrThrow({
+      where: { id: contaId },
+      select: { creditoIndicacao: true },
+    }),
+  ]);
+  return aplicarCreditoIndicacao(recurringValue, conta.creditoIndicacao || 0);
+}
+
+export interface RenovacaoBreakdown {
+  base: number; // mensalidade base (valorBasePlano)
+  apps: number; // soma dos apps ativos (valorAdicional)
+  subtotal: number; // base + apps (mensalidade cheia antes do crédito)
+  creditoIndicacao: number; // saldo de indicação disponível
+  desconto: number; // quanto do crédito é aplicado nesta renovação (min(crédito, subtotal))
+  total: number; // valor a pagar (subtotal − desconto), nunca negativo
+  cobreTotalmente: boolean; // crédito cobre toda a mensalidade → renovação grátis
+  saldoRestante: number; // crédito que sobra para os próximos ciclos
+}
+
+// Detalhamento da próxima renovação para exibir ao usuário ANTES de gerar o pagamento.
+// Fonte única para o preview da tela de assinatura e para o endpoint de renovação grátis.
+export async function getContaRenovacaoBreakdown(contaId: number): Promise<RenovacaoBreakdown> {
+  const [subtotal, conta] = await Promise.all([
+    getContaNextRecurringValue(contaId),
+    prisma.contas.findUniqueOrThrow({
+      where: { id: contaId },
+      select: { valorBasePlano: true, creditoIndicacao: true },
+    }),
+  ]);
+
+  const base = new Decimal(conta.valorBasePlano || 0);
+  const apps = Decimal.max(subtotal.minus(base), 0);
+  const credito = Decimal.max(new Decimal(conta.creditoIndicacao || 0), 0);
+  const desconto = Decimal.min(credito, subtotal);
+  const total = subtotal.minus(desconto);
+
+  const money = (v: Decimal) => v.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+
+  return {
+    base: money(base),
+    apps: money(apps),
+    subtotal: money(subtotal),
+    creditoIndicacao: money(credito),
+    desconto: money(desconto),
+    total: money(total),
+    // Só é "grátis" se há uma mensalidade real (subtotal > 0) e o crédito a cobre por inteiro.
+    cobreTotalmente: subtotal.gt(0) && total.lte(0),
+    saldoRestante: money(credito.minus(desconto)),
+  };
 }
 
 let ensureDefaultModulesPromise: Promise<unknown> | null = null;
@@ -435,9 +506,7 @@ export async function syncContaRecurringBilling(contaId: number) {
   // Aplica o crédito de indicação (abate da mensalidade). O crédito só é CONSUMIDO
   // quando o pagamento é confirmado (consumirCreditoIndicacaoNoPagamento), então aqui
   // apenas calculamos o valor efetivo a cobrar sem alterar o saldo.
-  const credito = new Decimal(conta.creditoIndicacao || 0);
-  const desconto = Decimal.min(credito, recurringValue);
-  const effectiveValue = recurringValue.minus(desconto);
+  const effectiveValue = aplicarCreditoIndicacao(recurringValue, conta.creditoIndicacao || 0);
 
   await prisma.contas.update({
     where: {

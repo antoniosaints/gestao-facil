@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { addDays, startOfDay } from "date-fns";
 import { describe, it } from "node:test";
 
-import { calculateModuleImmediateCharge } from "./storeModulesService";
+import { aplicarCreditoIndicacao, calculateModuleImmediateCharge } from "./storeModulesService";
 
 // Constrói um vencimento a N dias de hoje (início do dia, determinístico).
 function vencimentoEm(dias: number) {
@@ -52,5 +52,28 @@ describe("calculateModuleImmediateCharge (valor proporcional)", () => {
 
   it("preço zero resulta em zero", () => {
     assert.equal(calculateModuleImmediateCharge(0, vencimentoEm(15), "PROPORCIONAL").toNumber(), 0);
+  });
+});
+
+describe("aplicarCreditoIndicacao (desconto na mensalidade)", () => {
+  it("desconta o crédito do valor recorrente (70 - 10 = 60)", () => {
+    assert.equal(aplicarCreditoIndicacao(new Decimal(70), 10).toNumber(), 60);
+  });
+
+  it("sem crédito mantém o valor cheio", () => {
+    assert.equal(aplicarCreditoIndicacao(new Decimal(70), 0).toNumber(), 70);
+  });
+
+  it("crédito maior que a mensalidade zera o valor (não fica negativo)", () => {
+    assert.equal(aplicarCreditoIndicacao(new Decimal(70), 100).toNumber(), 0);
+  });
+
+  it("crédito igual à mensalidade zera o valor", () => {
+    assert.equal(aplicarCreditoIndicacao(new Decimal(70), 70).toNumber(), 0);
+  });
+
+  it("trata crédito negativo/nulo como zero", () => {
+    assert.equal(aplicarCreditoIndicacao(new Decimal(70), -5).toNumber(), 70);
+    assert.equal(aplicarCreditoIndicacao(new Decimal(70), null as any).toNumber(), 70);
   });
 });

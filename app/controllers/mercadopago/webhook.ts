@@ -87,17 +87,38 @@ export async function webhookMercadoPago(
     }
 
     if (!faturaExistente) {
-      await prisma.faturasContas.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("INV"),
-          asaasPaymentId: String(payment.id),
-          urlPagamento: link_pagamento,
-          valor: transaction_amount || 0,
-          vencimento: addHours(hoje, 24),
-          status: statusFatura,
+      // O checkout já cria uma fatura pendente (chaveada pelo id da preferência).
+      // Adota essa fatura para o pagamento em vez de criar uma duplicada.
+      const pendente = await prisma.faturasContas.findFirst({
+        where: {
           contaId,
+          status: { in: ["PENDENTE", "ATRASADO"] },
         },
+        orderBy: { criadoEm: "desc" },
       });
+
+      if (pendente) {
+        await prisma.faturasContas.update({
+          where: { id: pendente.id },
+          data: {
+            asaasPaymentId: String(payment.id),
+            urlPagamento: link_pagamento || pendente.urlPagamento,
+            valor: transaction_amount ?? pendente.valor,
+          },
+        });
+      } else {
+        await prisma.faturasContas.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("INV"),
+            asaasPaymentId: String(payment.id),
+            urlPagamento: link_pagamento,
+            valor: transaction_amount || 0,
+            vencimento: addHours(hoje, 24),
+            status: statusFatura,
+            contaId,
+          },
+        });
+      }
     }
 
     await prisma.faturasContas.updateMany({

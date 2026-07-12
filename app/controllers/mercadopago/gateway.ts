@@ -4,7 +4,7 @@ import { mercadoPagoPreference } from "../../utils/mercadoPago";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
-import { getContaNextRecurringValue } from "../../services/contas/storeModulesService";
+import { getContaEffectiveRecurringValue } from "../../services/contas/storeModulesService";
 
 export async function criarLinkAssinatura(
   req: Request,
@@ -15,7 +15,7 @@ export async function criarLinkAssinatura(
     const conta = await prisma.contas.findUniqueOrThrow({
       where: { id: customData.contaId },
     });
-    const recurringValue = await getContaNextRecurringValue(conta.id);
+    const recurringValue = await getContaEffectiveRecurringValue(conta.id);
 
     const payment = await mercadoPagoPreference.create({
       body: {

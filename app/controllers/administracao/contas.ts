@@ -10,6 +10,7 @@ import { redisConnecion } from "../../utils/redis";
 import { ResponseHandler } from "../../utils/response";
 import { prisma } from "../../utils/prisma";
 import { isStoreModuleCharge } from "../../services/financeiro/chargeVisibilityService";
+import { getContaRenovacaoBreakdown } from "../../services/contas/storeModulesService";
 
 export const clearCacheAccount = async (contaId: number) => {
     await syncContaSessionCaches(contaId, { refreshUsers: true });
@@ -34,7 +35,11 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
         const cached = await redisConnecion.get(cacheKey);
 
         if (cached) {
-            return ResponseHandler(res, "OK", JSON.parse(cached), 200);
+            const cachedData = JSON.parse(cached);
+            // Breakdown da renovação é sempre recalculado (crédito de indicação pode ter
+            // mudado) para que o preview na tela de assinatura nunca fique defasado.
+            cachedData.renovacao = await getContaRenovacaoBreakdown(customData.contaId);
+            return ResponseHandler(res, "OK", cachedData, 200);
         }
 
         const conta = await prisma.contas.findUniqueOrThrow({
@@ -126,6 +131,9 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
         }
 
         await redisConnecion.set(cacheKey, JSON.stringify(data), "EX", 3600);
+
+        // Anexado após o cache (recalculado a cada request) — ver bloco de cache-hit acima.
+        (data as any).renovacao = await getContaRenovacaoBreakdown(customData.contaId);
 
         ResponseHandler(res, "OK", data, 200);
     } catch (error: any) {
