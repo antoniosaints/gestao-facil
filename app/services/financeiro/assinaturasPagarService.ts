@@ -71,10 +71,12 @@ function normalizeFormaPagamento(value?: string | null) {
     case 'BOLETO':
     case 'TRANSFERENCIA':
     case 'CHEQUE':
+      return value
+    // GATEWAY/OUTRO não existem na forma de pagamento do lançamento financeiro
+    // (que usa DEPOSITO); caem no padrão PIX assim como valores desconhecidos.
+    case 'PIX':
     case 'GATEWAY':
     case 'OUTRO':
-      return value
-    case 'PIX':
     default:
       return 'PIX'
   }

@@ -15,6 +15,7 @@ import { getDashboardFinanceiroVisaoGeral } from "../../controllers/financeiro/d
 import { getCsvBaseLancamentos, postImportarLancamentos } from "../../controllers/financeiro/lote/uploadcsv";
 import {
   deleteAssinaturaPagar,
+  efetivarAssinaturaPagarManual,
   gerarFinanceiroAssinaturaPagar,
   getAssinaturaPagarDetalhe,
   getAssinaturasPagar,
@@ -59,6 +60,7 @@ routerLancamentos.post("/assinaturas-pagar", authenticateJWT, saveAssinaturaPaga
 routerLancamentos.post("/assinaturas-pagar/:id/status", authenticateJWT, updateAssinaturaPagarStatus);
 routerLancamentos.post("/assinaturas-pagar/:id/notificacao-vencimento", authenticateJWT, updateAssinaturaPagarNotificacaoVencimento);
 routerLancamentos.post("/assinaturas-pagar/:id/gerar-financeiro", authenticateJWT, gerarFinanceiroAssinaturaPagar);
+routerLancamentos.post("/assinaturas-pagar/:id/efetivar-manual", authenticateJWT, efetivarAssinaturaPagarManual);
 routerLancamentos.delete("/assinaturas-pagar/:id", authenticateJWT, deleteAssinaturaPagar);
 routerLancamentos.get("/dashboard/visao-geral", authenticateJWT, getDashboardFinanceiroVisaoGeral);
 routerLancamentos.post("/:id/notificacao-vencimento", authenticateJWT, updateLancamentoNotificacaoVencimento);

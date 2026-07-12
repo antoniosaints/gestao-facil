@@ -8,6 +8,14 @@ import { assertSuperAdmin } from "./assinantes";
 import { renovarVencimento } from "../asaas/hooks";
 import { clearCacheAccount } from "./contas";
 import { reconcileStoreModulesAfterPayment } from "../../services/contas/storeModulesService";
+import { redisConnecion } from "../../utils/redis";
+
+// Remove o cache do status da assinatura (assinaturaconta:conta{id}) que o endpoint
+// assinaturaConta grava por 1h. Sem isso, uma fatura excluída continua aparecendo
+// (cacheada) até expirar. clearCacheAccount NÃO cobre essa chave.
+async function clearAssinaturaContaCache(contaId: number) {
+  await redisConnecion.del(`assinaturaconta:conta${contaId}`);
+}
 
 const ALLOWED_SORT_FIELDS = new Set([
   "id",
@@ -221,6 +229,40 @@ export const manageFaturaAdmin = async (req: Request, res: Response): Promise<an
       message: "Fatura atualizada com sucesso.",
       data: updated,
     });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+// Exclui uma fatura (ex.: cobrança de teste gerada errado pelo cliente). Remove do banco
+// e limpa o cache de status da assinatura da conta para não deixar "lixo" cacheado.
+export const deleteFaturaAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const isSuperAdmin = await assertSuperAdmin(customData.userId);
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({
+        message: "Usuário não tem permissão para gerenciar essas faturas.",
+      });
+    }
+
+    const faturaId = Number(req.params.id);
+    if (!faturaId) {
+      return res.status(400).json({ message: "Fatura inválida." });
+    }
+
+    const fatura = await prisma.faturasContas.findUniqueOrThrow({
+      where: { id: faturaId },
+      select: { id: true, contaId: true },
+    });
+
+    await prisma.faturasContas.delete({ where: { id: faturaId } });
+
+    await clearAssinaturaContaCache(fatura.contaId);
+    await clearCacheAccount(fatura.contaId);
+
+    return res.status(200).json({ message: "Fatura excluída com sucesso." });
   } catch (error) {
     return handleError(res, error);
   }

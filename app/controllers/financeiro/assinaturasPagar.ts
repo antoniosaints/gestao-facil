@@ -8,10 +8,12 @@ import { hasPermission } from '../../helpers/userPermission'
 import { gerarIdUnicoComMetaFinal } from '../../helpers/generateUUID'
 import { sendFinanceiroUpdated } from '../../hooks/financeiro/socket'
 import {
+  advanceAssinaturaPagarDate,
   buildAssinaturaPagarReference,
   garantirLancamentoAtualAssinaturaPagar,
 } from '../../services/financeiro/assinaturasPagarService'
 import { decimalToNumber } from './queryFilters'
+import { startOfDay } from 'date-fns'
 
 const assinaturaPagarLinkSchema = z.object({
   titulo: z.string().trim().min(1, 'Informe o título do link.'),
@@ -96,7 +98,7 @@ function buildWhere(contaId: number, req: Request): Prisma.AssinaturaPagarWhereI
   const search = parseSearch(req.query.search)
   const status = parseStatus(req.query.status)
 
-  const where: AssinaturaPagarWhere = { contaId }
+  const where: Prisma.AssinaturaPagarWhereInput = { contaId }
 
   if (status !== 'TODOS') {
     where.status = status
@@ -634,6 +636,71 @@ export const updateAssinaturaPagarNotificacaoVencimento = async (req: Request, r
     })
   } catch (error: any) {
     return res.status(400).json({ message: error?.message || 'Erro ao atualizar a notificação.' })
+  }
+}
+
+// Efetivação MANUAL para assinaturas com "Gerar financeiro" DESLIGADO: marca o mês
+// atual como pago apenas avançando o próximo vencimento (sai do "vencida"), SEM criar
+// nenhum lançamento financeiro. Exclusivo para gerarFinanceiro=false.
+export const efetivarAssinaturaPagarManual = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData
+    await ensureFinancePermission(customData)
+
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: 'ID inválido.' })
+    }
+
+    const assinatura = await prisma.assinaturaPagar.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: {
+        id: true,
+        status: true,
+        gerarFinanceiro: true,
+        periodicidade: true,
+        intervaloDiasPersonalizado: true,
+        proximoVencimento: true,
+      },
+    })
+
+    if (!assinatura) {
+      return res.status(404).json({ message: 'Assinatura a pagar não encontrada.' })
+    }
+
+    if (assinatura.status !== 'ATIVA') {
+      return res.status(400).json({ message: 'Somente assinaturas ativas podem ser efetivadas.' })
+    }
+
+    // Quando há geração de financeiro, o avanço do vencimento ocorre pelo pagamento do
+    // lançamento — não por aqui. Bloqueia para evitar furar o controle financeiro.
+    if (assinatura.gerarFinanceiro) {
+      return res.status(400).json({
+        message: 'Esta assinatura gera financeiro. Use "Gerar financeiro" e quite o lançamento.',
+      })
+    }
+
+    if (!assinatura.proximoVencimento) {
+      return res.status(400).json({ message: 'A assinatura não possui vencimento definido.' })
+    }
+
+    const novoVencimento = advanceAssinaturaPagarDate(
+      startOfDay(assinatura.proximoVencimento),
+      assinatura.periodicidade,
+      assinatura.intervaloDiasPersonalizado,
+    )
+
+    await prisma.assinaturaPagar.update({
+      where: { id: assinatura.id },
+      data: { proximoVencimento: novoVencimento },
+    })
+
+    return res.json({
+      message: 'Mês marcado como pago. Próximo vencimento atualizado.',
+      data: { proximoVencimento: novoVencimento },
+    })
+  } catch (error: any) {
+    return res.status(400).json({ message: error?.message || 'Erro ao efetivar a assinatura.' })
   }
 }
 
