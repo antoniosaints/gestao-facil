@@ -12,6 +12,7 @@ export const MAIN_VISIBLE_MENU_KEYS = [
   "assinaturas",
   "core-ia",
   "whatsapp",
+  "atendimento",
   "usuarios",
   "configuracoes",
   "changelog",

@@ -28,6 +28,13 @@ const DEFAULT_MODULES = [
     preco: 19.9,
   },
   {
+    codigo: "atendimento",
+    nome: "Atendimento",
+    descricao: "Central de atendimento e chat via WhatsApp, com conversas, filas e vinculo com clientes.",
+    categoria: "Atendimento",
+    preco: 29.9,
+  },
+  {
     codigo: "assinaturas",
     nome: "Assinaturas",
     descricao: "Gestao de contratos recorrentes, ciclos, comodatos e cobrancas do modulo de assinaturas.",
