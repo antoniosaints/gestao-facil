@@ -727,6 +727,76 @@ export const whatsAppService = {
     return updated;
   },
 
+  async startConversation(contaId: number, input: { clienteId: number; instanciaId?: number }) {
+    const cliente = await prisma.clientesFornecedores.findFirst({
+      where: { id: input.clienteId, contaId },
+      select: { id: true, nome: true, telefone: true, whastapp: true },
+    });
+    if (!cliente) throw new Error("Cliente não encontrado para esta conta");
+
+    const phone = normalizePhone(cliente.whastapp || cliente.telefone);
+    if (!phone) throw new Error("Cliente não possui telefone/WhatsApp cadastrado para iniciar o atendimento");
+
+    let instance;
+    if (input.instanciaId) {
+      instance = await prisma.whatsAppInstancia.findFirst({ where: { id: input.instanciaId, contaId, ativo: true } });
+      if (!instance) throw new Error("Instância de WhatsApp não encontrada para esta conta");
+    } else {
+      instance =
+        (await prisma.whatsAppInstancia.findFirst({
+          where: { contaId, ativo: true, status: WhatsAppInstanciaStatus.CONECTADA },
+          orderBy: { updatedAt: "desc" },
+        })) ||
+        (await prisma.whatsAppInstancia.findFirst({
+          where: { contaId, ativo: true },
+          orderBy: { updatedAt: "desc" },
+        }));
+      if (!instance) throw new Error("Nenhuma instância de WhatsApp ativa. Conecte uma instância no app WhatsApp antes de iniciar o atendimento.");
+    }
+
+    const contato = await prisma.whatsAppContato.upsert({
+      where: { contaId_telefone: { contaId, telefone: phone } },
+      update: { nome: cliente.nome || undefined, clienteId: cliente.id },
+      create: {
+        contaId,
+        telefone: phone,
+        nome: cliente.nome || null,
+        clienteId: cliente.id,
+        dadosAuxiliares: safeJson({ createdBy: "atendimento-start" }),
+      },
+    });
+
+    const conversa = await prisma.whatsAppConversa.upsert({
+      where: {
+        contaId_instanciaId_telefone: { contaId, instanciaId: instance.id, telefone: phone },
+      },
+      update: {
+        contatoId: contato.id,
+        clienteId: cliente.id,
+        status: WhatsAppConversaStatus.ABERTA,
+      },
+      create: {
+        contaId,
+        instanciaId: instance.id,
+        contatoId: contato.id,
+        clienteId: cliente.id,
+        telefone: phone,
+        status: WhatsAppConversaStatus.ABERTA,
+        ultimaInteracaoEm: new Date(),
+        naoLidas: 0,
+      },
+      include: {
+        Contato: true,
+        Cliente: { select: { id: true, nome: true, telefone: true, whastapp: true } },
+        Atendente: { select: { id: true, nome: true } },
+        Instancia: { select: { id: true, nome: true, status: true, numeroConectado: true } },
+      },
+    });
+
+    sendWhatsAppConversationUpdated(contaId, conversa);
+    return conversa;
+  },
+
   async processWebhook(instanceId: string, receivedSecret: string | undefined, explicitKind: WhatsAppWebhookKind, payload: any) {
     const instance = await prisma.whatsAppInstancia.findUnique({ where: { instanceId } });
     if (!instance || !instance.ativo) {

@@ -4,13 +4,17 @@ import { env } from "../../utils/dotenv";
 export type WApiMessageKind = "text" | "image" | "audio" | "video" | "document";
 export type WApiWebhookKey = "connected" | "disconnected" | "delivery" | "received" | "status" | "presence";
 
+// Endpoints reais da W-API para registrar as URLs de webhook por evento.
+// IMPORTANTE: o caminho correto é `/v1/webhook/update-webhook-*` (não `/v1/instance/...`);
+// `status` usa o sufixo `message-status` e `presence` usa `chat-presence`. Endpoints errados
+// fazem o PUT retornar 404 e a W-API nunca passa a enviar os eventos recebidos.
 export const WAPI_WEBHOOK_ENDPOINTS: Array<{ key: WApiWebhookKey; label: string; endpoint: string }> = [
-  { key: "connected", label: "Ao conectar", endpoint: "/v1/instance/instance/update-webhook-connected" },
-  { key: "disconnected", label: "Ao desconectar", endpoint: "/v1/instance/instance/update-webhook-disconnected" },
-  { key: "delivery", label: "Ao enviar", endpoint: "/v1/instance/instance/update-webhook-delivery" },
-  { key: "received", label: "Ao receber", endpoint: "/v1/instance/instance/update-webhook-received" },
-  { key: "status", label: "Status de mensagens", endpoint: "/v1/instance/instance/update-webhook-status" },
-  { key: "presence", label: "Status do chat", endpoint: "/v1/instance/instance/update-webhook-presence" },
+  { key: "connected", label: "Ao conectar", endpoint: "/v1/webhook/update-webhook-connected" },
+  { key: "disconnected", label: "Ao desconectar", endpoint: "/v1/webhook/update-webhook-disconnected" },
+  { key: "delivery", label: "Ao enviar", endpoint: "/v1/webhook/update-webhook-delivery" },
+  { key: "received", label: "Ao receber", endpoint: "/v1/webhook/update-webhook-received" },
+  { key: "status", label: "Status de mensagens", endpoint: "/v1/webhook/update-webhook-message-status" },
+  { key: "presence", label: "Status do chat", endpoint: "/v1/webhook/update-webhook-chat-presence" },
 ];
 
 export type WApiWebhookUrls = Partial<Record<WApiWebhookKey, string>>;

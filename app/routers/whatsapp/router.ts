@@ -16,6 +16,7 @@ import {
   removeInstance,
   removePayment,
   sendMessage,
+  startConversation,
   updateConversation,
   updateInstance,
 } from "../../controllers/whatsapp/whatsapp";
@@ -38,6 +39,7 @@ routerWhatsapp.delete("/instances/:id/payments/:paymentId", removePayment);
 routerWhatsapp.post("/instances/:id/:action", instanceAction);
 
 routerWhatsapp.get("/conversas", listConversations);
+routerWhatsapp.post("/conversas/iniciar", startConversation);
 routerWhatsapp.get("/conversas/:id/mensagens", listMessages);
 routerWhatsapp.post("/conversas/:id/mensagens", sendMessage);
 routerWhatsapp.patch("/conversas/:id", updateConversation);

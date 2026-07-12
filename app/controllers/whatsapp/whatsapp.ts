@@ -54,6 +54,11 @@ const sendMessageSchema = z.object({
   }
 });
 
+const startConversationSchema = z.object({
+  clienteId: z.coerce.number().int().positive({ message: "Cliente inválido" }),
+  instanciaId: z.coerce.number().int().positive().optional(),
+});
+
 const updateConversationSchema = z.object({
   status: z.nativeEnum(WhatsAppConversaStatus).optional(),
   atendenteId: z.number().int().positive().nullable().optional(),
@@ -233,6 +238,18 @@ export const sendMessage = async (req: Request, res: Response): Promise<any> => 
     const data = sendMessageSchema.parse(req.body);
     const message = await whatsAppService.sendMessage(customData.contaId, Number(req.params.id), data);
     ResponseHandler(res, "Mensagem enviada", message, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const startConversation = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const data = startConversationSchema.parse(req.body);
+    const conversation = await whatsAppService.startConversation(customData.contaId, data);
+    ResponseHandler(res, "Conversa iniciada", conversation, 201);
   } catch (error) {
     handleError(res, error);
   }
