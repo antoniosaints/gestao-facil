@@ -1658,6 +1658,20 @@ model IaModelo {
   updatedAt DateTime @updatedAt
 }
 
+// Configuração (singleton) do chat "Core IA" — o assistente interno do ERP. Gerenciada pelo
+// CEO/super admin: define o modelo, a chave de API dedicada, o prompt de sistema e o
+// comportamento usados para atender os clientes do sistema.
+model IaCoreConfig {
+  id           Int      @id @default(autoincrement())
+  provider     String   @default("gemini")
+  modelId      String   @default("gemini-2.0-flash-lite")
+  apiKey       String?  @db.Text
+  systemPrompt String?  @db.LongText
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model WhatsAppContato {
   id              Int                   @id @default(autoincrement())
   contaId         Int

@@ -44,6 +44,26 @@ export interface ModeloInput {
   ativo?: boolean;
 }
 
+export interface CoreConfigInput {
+  provider?: string;
+  modelId?: string;
+  apiKey?: string;
+  systemPrompt?: string;
+  ativo?: boolean;
+}
+
+// Prompt de sistema padrão do Core IA (usado enquanto o CEO não define um próprio). A data atual
+// e o link do site são anexados em tempo de execução (ver callGemini) para não ficarem estáticos.
+export const DEFAULT_CORE_SYSTEM_PROMPT = `Você é um assistente de gestão ERP, seu nome é Core e tem a missão de ajudar a gestão de negócios.
+Regras de comportamento:
+1. Seja direto, profissional e prestativo.
+2. Use sempre as ferramentas (functions) disponíveis para registrar ou consultar dados.
+3. Use Markdown para formatar listas, negritos, tabelas, headers e dados que vêm em formato JSON, escolha a melhor formatação para facilitar a visualização do cliente.
+4. Se o usuário pedir algo fora do escopo de ERP, tente trazer o foco de volta para a gestão do negócio.
+5. Pode ajudar o cliente com perguntas simples fora do escopo ERP, como cálculos matemáticos, etc.`;
+
+const DEFAULT_CORE_MODEL = "gemini-2.0-flash-lite";
+
 export const iaPlatformService = {
   // ---------------- Chaves API ----------------
   async listChaves() {
@@ -149,5 +169,58 @@ export const iaPlatformService = {
     });
     const ids = modelos.map((m) => m.modelId);
     return ids.length ? ids : DEFAULT_GEMINI_MODELS;
+  },
+
+  // ---------------- Core IA (assistente interno do ERP) ----------------
+  // Config singleton: cria a linha padrão na primeira leitura para simplificar o consumo.
+  async getCoreConfigRow() {
+    const existing = await prisma.iaCoreConfig.findFirst({ orderBy: { id: "asc" } });
+    if (existing) return existing;
+    return prisma.iaCoreConfig.create({ data: {} });
+  },
+
+  // Versão para a tela do CEO: nunca expõe a chave em texto puro, apenas mascarada.
+  async getCoreConfig() {
+    const cfg = await this.getCoreConfigRow();
+    const { apiKey, ...rest } = cfg;
+    return {
+      ...rest,
+      systemPrompt: cfg.systemPrompt ?? "",
+      defaultSystemPrompt: DEFAULT_CORE_SYSTEM_PROMPT,
+      apiKeyMasked: maskApiKey(apiKey),
+      apiKeyConfigured: Boolean(apiKey),
+    };
+  },
+
+  async saveCoreConfig(input: CoreConfigInput) {
+    const cfg = await this.getCoreConfigRow();
+    const data: Prisma.IaCoreConfigUpdateInput = {};
+    if (typeof input.provider === "string" && input.provider.trim()) data.provider = input.provider.trim();
+    if (typeof input.modelId === "string" && input.modelId.trim()) data.modelId = input.modelId.trim();
+    // A chave só é sobrescrita quando um valor novo é enviado (o front não reenvia a existente).
+    if (typeof input.apiKey === "string" && input.apiKey.trim()) data.apiKey = input.apiKey.trim();
+    if (typeof input.systemPrompt === "string") data.systemPrompt = input.systemPrompt.trim() || null;
+    if (typeof input.ativo === "boolean") data.ativo = input.ativo;
+    await prisma.iaCoreConfig.update({ where: { id: cfg.id }, data });
+    return this.getCoreConfig();
+  },
+
+  // Config efetiva usada em runtime pelo Core IA: chave em texto puro + fallbacks para não
+  // travar o assistente enquanto o CEO não configurar tudo.
+  async getCoreRuntimeConfig(): Promise<{
+    ativo: boolean;
+    provider: string;
+    modelId: string;
+    apiKey: string | null;
+    systemPrompt: string;
+  }> {
+    const cfg = await this.getCoreConfigRow();
+    return {
+      ativo: cfg.ativo,
+      provider: cfg.provider || DEFAULT_PROVIDER,
+      modelId: cfg.modelId?.trim() || DEFAULT_CORE_MODEL,
+      apiKey: cfg.apiKey?.trim() || env.GEMINI_API_KEY || null,
+      systemPrompt: cfg.systemPrompt?.trim() || DEFAULT_CORE_SYSTEM_PROMPT,
+    };
   },
 };

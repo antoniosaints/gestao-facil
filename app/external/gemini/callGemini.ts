@@ -2,30 +2,7 @@ import { Content, GoogleGenerativeAI } from "@google/generative-ai";
 import { systemFunctionsIA, toolsIA } from "./gemini";
 import { env } from "../../utils/dotenv";
 import { CustomData } from "../../helpers/getCustomRequest";
-
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-  // model: "gemini-2.5-flash",
-  // model: "gemini-2.5-flash-lite",
-  model: "gemini-2.0-flash-lite",
-  tools: toolsIA,
-  systemInstruction: {
-    role: "system",
-    parts: [
-      {
-        text: `Você é um assistente de gestão ERP, seu nome é Core e tem a missão de ajudar a gestão de negócios.
-        Regras de comportamento:
-        1. Seja direto, profissional e prestativo.
-        2. Use sempre as ferramentas (functions) disponíveis para registrar ou consultar dados.
-        3. Use Markdown para formatar listas, negritos, tabelas, headers e dados que vem em formato JSON, escolha a melhor formatação para facilitar a visualização do cliente.
-        4. Se o usuário pedir algo fora do escopo de ERP, tente trazer o foco de volta para a gestão do negócio.
-        5. Pode ajudar o cliente com perguntas simples fora do escopo ERP, como calculos matemáticos, etc.
-        6. a data atual de hoje é ${new Date().toISOString().split("T")[0]}.
-        7. Caso o usuario queira o acesso ao site, envie pra ele um link em formato de markdown para "${env.BASE_URL_FRONTEND}/site"`,
-      },
-    ],
-  },
-});
+import { iaPlatformService } from "../../services/ia/iaPlatformService";
 
 export const callChatGeminiService = async (
   request: CustomData,
@@ -35,6 +12,32 @@ export const callChatGeminiService = async (
   if (!prompt) {
     return { error: "Mensagem é obrigatória" };
   }
+
+  // Modelo, chave de API e prompt de sistema são definidos pelo CEO (config do Core IA). O
+  // modelo é montado por requisição para refletir mudanças sem reiniciar o servidor.
+  const coreConfig = await iaPlatformService.getCoreRuntimeConfig();
+  if (!coreConfig.ativo) {
+    return { error: "O Core IA está desativado pela plataforma no momento." };
+  }
+  if (!coreConfig.apiKey) {
+    return { error: "Nenhuma chave de API configurada para o Core IA. Contate o administrador da plataforma." };
+  }
+
+  // Anexamos ao prompt do CEO um contexto dinâmico (data atual + link do site) para que as
+  // ferramentas e a data continuem corretas independentemente do texto configurado.
+  const systemInstructionText = `${coreConfig.systemPrompt}
+
+Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T")[0]}. Caso o usuário queira acessar o site, envie um link em formato markdown para "${env.BASE_URL_FRONTEND}/site".`;
+
+  const genAI = new GoogleGenerativeAI(coreConfig.apiKey);
+  const model = genAI.getGenerativeModel({
+    model: coreConfig.modelId,
+    tools: toolsIA,
+    systemInstruction: {
+      role: "system",
+      parts: [{ text: systemInstructionText }],
+    },
+  });
 
   // Inicia o chat com o histórico enviado pelo front-end
   const chat = model.startChat({

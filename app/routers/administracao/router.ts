@@ -28,8 +28,10 @@ import {
   createModeloIaAdmin,
   deleteChaveIaAdmin,
   deleteModeloIaAdmin,
+  getCoreConfigIaAdmin,
   listChavesIaAdmin,
   listModelosIaAdmin,
+  saveCoreConfigIaAdmin,
   updateChaveIaAdmin,
   updateModeloIaAdmin,
 } from "../../controllers/administracao/inteligencia";
@@ -66,6 +68,8 @@ routerAdminMain.get("/ia/modelos", authenticateJWT, listModelosIaAdmin);
 routerAdminMain.post("/ia/modelos", authenticateJWT, createModeloIaAdmin);
 routerAdminMain.put("/ia/modelos/:id", authenticateJWT, updateModeloIaAdmin);
 routerAdminMain.delete("/ia/modelos/:id", authenticateJWT, deleteModeloIaAdmin);
+routerAdminMain.get("/ia/core", authenticateJWT, getCoreConfigIaAdmin);
+routerAdminMain.put("/ia/core", authenticateJWT, saveCoreConfigIaAdmin);
 
 export {
     routerAdminMain

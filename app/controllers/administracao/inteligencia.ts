@@ -29,6 +29,14 @@ const modeloSchema = z.object({
   ativo: z.boolean().optional(),
 });
 
+const coreConfigSchema = z.object({
+  provider: z.string().min(2).optional(),
+  modelId: z.string().min(2, "Informe o modelo do Core IA (ex.: gemini-2.0-flash)").optional(),
+  apiKey: z.string().min(10, "Informe a chave de API").optional(),
+  systemPrompt: z.string().optional(),
+  ativo: z.boolean().optional(),
+});
+
 // ---------------- Chaves API ----------------
 export async function listChavesIaAdmin(req: Request, res: Response): Promise<any> {
   try {
@@ -103,6 +111,26 @@ export async function deleteModeloIaAdmin(req: Request, res: Response): Promise<
   try {
     if (!(await ensureSuperAdmin(req, res))) return;
     res.json({ message: "Modelo removido", data: await iaPlatformService.removeModelo(Number(req.params.id)) });
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+// ---------------- Core IA (assistente interno) ----------------
+export async function getCoreConfigIaAdmin(req: Request, res: Response): Promise<any> {
+  try {
+    if (!(await ensureSuperAdmin(req, res))) return;
+    res.json({ data: await iaPlatformService.getCoreConfig() });
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+export async function saveCoreConfigIaAdmin(req: Request, res: Response): Promise<any> {
+  try {
+    if (!(await ensureSuperAdmin(req, res))) return;
+    const data = coreConfigSchema.parse(req.body);
+    res.json({ message: "Configuração do Core IA salva", data: await iaPlatformService.saveCoreConfig(data) });
   } catch (error) {
     handleError(res, error);
   }
