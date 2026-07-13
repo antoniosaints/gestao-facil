@@ -195,21 +195,24 @@ async function getInstanceById(contaId: number, id: number) {
   return instance;
 }
 
-function buildWebhookUrls(instanceId: string, secret: string): Record<keyof WApiWebhookUrls, string> {
+// A W-API não repassa query params (ex.: `?secret=`) ao chamar o webhook de volta, então
+// as URLs registradas carregam apenas o evento. A instância é identificada pelo `instanceId`
+// na própria rota e não há validação de segredo no webhook de mensagens (ver processWebhook).
+function buildWebhookUrls(instanceId: string): Record<keyof WApiWebhookUrls, string> {
   const base = env.BASE_URL.replace(/\/$/, "");
-  const url = `${base}/api/whatsapp/webhooks/${encodeURIComponent(instanceId)}?secret=${encodeURIComponent(secret)}`;
+  const url = `${base}/api/whatsapp/webhooks/${encodeURIComponent(instanceId)}`;
   return {
-    connected: `${url}&event=connected`,
-    disconnected: `${url}&event=disconnected`,
-    delivery: `${url}&event=delivery`,
-    received: `${url}&event=received`,
-    status: `${url}&event=status`,
-    presence: `${url}&event=presence`,
+    connected: `${url}?event=connected`,
+    disconnected: `${url}?event=disconnected`,
+    delivery: `${url}?event=delivery`,
+    received: `${url}?event=received`,
+    status: `${url}?event=status`,
+    presence: `${url}?event=presence`,
   };
 }
 
-function buildWebhookPreview(instanceId: string, secret: string) {
-  const webhookUrls = buildWebhookUrls(instanceId, secret);
+function buildWebhookPreview(instanceId: string) {
+  const webhookUrls = buildWebhookUrls(instanceId);
   return {
     webhookUrls,
     callbacks: WAPI_WEBHOOK_ENDPOINTS.map((item) => ({
@@ -414,7 +417,7 @@ export const whatsAppService = {
     const instance = await getInstanceById(contaId, id);
     return {
       instance: publicInstance(instance),
-      ...buildWebhookPreview(instance.instanceId, instance.webhookSecret),
+      ...buildWebhookPreview(instance.instanceId),
     };
   },
 
@@ -449,7 +452,7 @@ export const whatsAppService = {
 
   async configureInstanceWebhooks(contaId: number, id: number, webhookUrls?: WApiWebhookUrls) {
     const instance = await getInstanceById(contaId, id);
-    const urls = webhookUrls && Object.keys(webhookUrls).length ? webhookUrls : buildWebhookUrls(instance.instanceId, instance.webhookSecret);
+    const urls = webhookUrls && Object.keys(webhookUrls).length ? webhookUrls : buildWebhookUrls(instance.instanceId);
     const client = new WApiClient(instance.instanceId, instance.token);
     const results = await client.configureWebhooks(urls);
     const hasFailures = results.some((result) => !result.ok && !result.skipped);
@@ -982,7 +985,7 @@ export const whatsAppService = {
     return conversa;
   },
 
-  async processWebhook(instanceId: string, receivedSecret: string | undefined, explicitKind: WhatsAppWebhookKind, payload: any) {
+  async processWebhook(instanceId: string, explicitKind: WhatsAppWebhookKind, payload: any) {
     const instance = await prisma.whatsAppInstancia.findUnique({ where: { instanceId } });
     if (!instance || !instance.ativo) {
       const error = new Error("Instância de webhook inválida ou inativa");
@@ -990,12 +993,8 @@ export const whatsAppService = {
       throw error;
     }
 
-    if (!receivedSecret || receivedSecret !== instance.webhookSecret) {
-      const error = new Error("Assinatura de webhook inválida");
-      (error as any).statusCode = 403;
-      throw error;
-    }
-
+    // A W-API não repassa o segredo ao chamar o webhook, então a instância é identificada
+    // apenas pelo `instanceId` na rota; não há validação de segredo aqui.
     const eventId = String(payload?.eventId || payload?.id || payload?.data?.id || payload?.messageId || payload?.data?.messageId || hashPayload(payload));
     const tipo = String(explicitKind || payload?.event || payload?.type || payload?.eventName || "generic");
 

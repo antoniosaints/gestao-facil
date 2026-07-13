@@ -345,9 +345,8 @@ export const markConversationAsRead = async (req: Request, res: Response): Promi
 
 export const receiveWebhook = async (req: Request, res: Response): Promise<any> => {
   try {
-    const secret = (req.query.secret || req.headers["x-whatsapp-webhook-secret"] || req.headers["x-webhook-secret"]) as string | undefined;
     const kind = (req.query.event || req.body?.event || req.body?.type || "generic") as WhatsAppWebhookKind;
-    const result = await whatsAppService.processWebhook(req.params.instanceId, secret, kind, req.body);
+    const result = await whatsAppService.processWebhook(req.params.instanceId, kind, req.body);
     ResponseHandler(res, result.duplicated ? "Webhook já processado" : "Webhook processado", { duplicated: result.duplicated });
   } catch (error: any) {
     const statusCode = error?.statusCode || 500;
