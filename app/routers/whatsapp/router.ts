@@ -7,6 +7,7 @@ import {
   createInstance,
   createPixPayment,
   getInstanceWebhooks,
+  getMessageMedia,
   instanceAction,
   listConversations,
   listConversationSales,
@@ -46,6 +47,7 @@ routerWhatsapp.post("/instances/:id/:action", instanceAction);
 routerWhatsapp.get("/conversas", listConversations);
 routerWhatsapp.post("/conversas/iniciar", startConversation);
 routerWhatsapp.get("/conversas/:id/mensagens", listMessages);
+routerWhatsapp.get("/messages/:id/media", getMessageMedia);
 routerWhatsapp.post("/conversas/:id/mensagens", sendMessage);
 routerWhatsapp.patch("/conversas/:id", updateConversation);
 routerWhatsapp.post("/conversas/:id/atender", attendConversation);

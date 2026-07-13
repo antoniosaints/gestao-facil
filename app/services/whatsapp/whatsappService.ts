@@ -6,6 +6,7 @@ import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 import { formatCurrency } from "../../utils/formatters";
 import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } from "./wApiClient";
+import { downloadAndDecryptWhatsAppMedia, DecryptedWhatsAppMedia, WhatsAppMediaError } from "./whatsappMedia";
 import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
@@ -711,6 +712,30 @@ export const whatsAppService = {
     const hasMore = items.length > limit;
     const sliced = hasMore ? items.slice(0, limit) : items;
     return { items: sliced.reverse(), nextCursor: hasMore ? sliced[sliced.length - 1]?.id : null };
+  },
+
+  // Baixa e descriptografa a mídia (imagem/figurinha/vídeo/áudio/documento) de uma mensagem
+  // recebida, a partir do `rawPayload` do webhook (que contém a URL `.enc` e a `mediaKey`).
+  async getMessageMedia(contaId: number, messageId: number): Promise<DecryptedWhatsAppMedia> {
+    const message = await prisma.whatsAppMensagem.findFirst({
+      where: { id: messageId, contaId },
+      select: { rawPayload: true },
+    });
+    if (!message) {
+      throw new WhatsAppMediaError("Mensagem não encontrada para esta conta.", 404);
+    }
+    if (!message.rawPayload) {
+      throw new WhatsAppMediaError("Mensagem sem mídia disponível para download.", 404);
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(message.rawPayload);
+    } catch {
+      throw new WhatsAppMediaError("Payload da mensagem inválido.", 422);
+    }
+
+    return downloadAndDecryptWhatsAppMedia(payload);
   },
 
   async sendMessage(contaId: number, conversaId: number, input: SendMessageInput) {

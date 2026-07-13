@@ -246,6 +246,26 @@ export const listMessages = async (req: Request, res: Response): Promise<any> =>
   }
 };
 
+export const getMessageMedia = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 1);
+    if (!customData) return;
+    const media = await whatsAppService.getMessageMedia(customData.contaId, Number(req.params.id));
+    res.setHeader("Content-Type", media.mimetype || "application/octet-stream");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    if (media.fileName) {
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(media.fileName)}"`);
+    }
+    return res.send(media.buffer);
+  } catch (error: any) {
+    const statusCode = error?.statusCode || 500;
+    if (statusCode >= 400 && statusCode < 500) {
+      return ResponseHandler(res, error.message, null, statusCode);
+    }
+    handleError(res, error);
+  }
+};
+
 export const sendMessage = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 2);
