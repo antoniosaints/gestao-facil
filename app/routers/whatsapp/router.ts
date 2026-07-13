@@ -9,6 +9,7 @@ import {
   getInstanceWebhooks,
   getMessageMedia,
   instanceAction,
+  listContacts,
   listConversations,
   listConversationSales,
   listInstanceWebhookEvents,
@@ -18,10 +19,13 @@ import {
   sendConversationSale,
   receivePaymentWebhook,
   receiveWebhook,
+  removeContact,
+  removeConversation,
   removeInstance,
   removePayment,
   sendMessage,
   startConversation,
+  updateContact,
   updateConversation,
   updateInstance,
 } from "../../controllers/whatsapp/whatsapp";
@@ -44,8 +48,13 @@ routerWhatsapp.post("/instances/:id/payments/card-subscription", createCardSubsc
 routerWhatsapp.delete("/instances/:id/payments/:paymentId", removePayment);
 routerWhatsapp.post("/instances/:id/:action", instanceAction);
 
+routerWhatsapp.get("/contatos", listContacts);
+routerWhatsapp.patch("/contatos/:id", updateContact);
+routerWhatsapp.delete("/contatos/:id", removeContact);
+
 routerWhatsapp.get("/conversas", listConversations);
 routerWhatsapp.post("/conversas/iniciar", startConversation);
+routerWhatsapp.delete("/conversas/:id", removeConversation);
 routerWhatsapp.get("/conversas/:id/mensagens", listMessages);
 routerWhatsapp.get("/messages/:id/media", getMessageMedia);
 routerWhatsapp.post("/conversas/:id/mensagens", sendMessage);

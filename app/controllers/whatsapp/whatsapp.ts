@@ -67,6 +67,11 @@ const updateConversationSchema = z.object({
   clienteId: z.number().int().positive().nullable().optional(),
 });
 
+const updateContactSchema = z.object({
+  nome: z.string().max(120).nullable().optional(),
+  clienteId: z.number().int().positive().nullable().optional(),
+});
+
 async function requirePermission(req: Request, res: Response, permission: number) {
   const customData = getCustomRequest(req).customData;
   const allowed = await hasPermission(customData, permission);
@@ -297,6 +302,57 @@ export const updateConversation = async (req: Request, res: Response): Promise<a
     const data = updateConversationSchema.parse(req.body);
     const conversation = await whatsAppService.updateConversation(customData.contaId, Number(req.params.id), data);
     ResponseHandler(res, "Conversa atualizada", conversation);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const removeConversation = async (req: Request, res: Response): Promise<any> => {
+  try {
+    // Apagar chats é restrito a administradores (nível 4: admin/root).
+    const customData = await requirePermission(req, res, 4);
+    if (!customData) return;
+    const result = await whatsAppService.removeConversation(customData.contaId, Number(req.params.id));
+    ResponseHandler(res, "Conversa apagada", result);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const listContacts = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 1);
+    if (!customData) return;
+    const result = await whatsAppService.listContacts(customData.contaId, {
+      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      take: req.query.take ? Number(req.query.take) : undefined,
+      cursor: req.query.cursor ? Number(req.query.cursor) : undefined,
+    });
+    ResponseHandler(res, "Contatos encontrados", result);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const updateContact = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const data = updateContactSchema.parse(req.body);
+    const contato = await whatsAppService.updateContact(customData.contaId, Number(req.params.id), data);
+    ResponseHandler(res, "Contato atualizado", contato);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const removeContact = async (req: Request, res: Response): Promise<any> => {
+  try {
+    // Apagar contatos é restrito a administradores (nível 4: admin/root).
+    const customData = await requirePermission(req, res, 4);
+    if (!customData) return;
+    const result = await whatsAppService.removeContact(customData.contaId, Number(req.params.id));
+    ResponseHandler(res, "Contato apagado", result);
   } catch (error) {
     handleError(res, error);
   }

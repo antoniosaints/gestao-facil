@@ -19,3 +19,11 @@ export function sendWhatsAppConversationUpdated(contaId: number, body?: any) {
 export function sendWhatsAppMessageCreated(contaId: number, body?: any) {
   emitToConta(contaId, "whatsapp:mensagem:created", body);
 }
+
+export function sendWhatsAppConversationDeleted(contaId: number, body?: any) {
+  emitToConta(contaId, "whatsapp:conversa:deleted", body);
+}
+
+export function sendWhatsAppContactDeleted(contaId: number, body?: any) {
+  emitToConta(contaId, "whatsapp:contato:deleted", body);
+}

@@ -15,6 +15,8 @@ import {
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 import {
+  sendWhatsAppContactDeleted,
+  sendWhatsAppConversationDeleted,
   sendWhatsAppConversationUpdated,
   sendWhatsAppInstanceUpdated,
   sendWhatsAppMessageCreated,
@@ -847,6 +849,137 @@ export const whatsAppService = {
     });
     sendWhatsAppConversationUpdated(contaId, updated);
     return updated;
+  },
+
+  // Apaga um chat (conversa + suas mensagens). Ação restrita a administradores no controller.
+  // O contato é preservado (permanece na lista de contatos, podendo ser vinculado a um cliente).
+  async removeConversation(contaId: number, conversaId: number) {
+    const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+
+    await prisma.$transaction([
+      prisma.whatsAppMensagem.deleteMany({ where: { contaId, conversaId } }),
+      prisma.whatsAppConversa.delete({ where: { id: conversaId } }),
+    ]);
+
+    sendWhatsAppConversationDeleted(contaId, { id: conversaId });
+    return { id: conversaId };
+  },
+
+  // Lista de contatos (tabela WhatsAppContato): contatos podem ou não estar vinculados a um
+  // cliente do ERP; um mesmo cliente pode ter vários contatos. Se vinculado, o chat mostra o
+  // nome do cliente; senão, o nome salvo no contato.
+  async listContacts(contaId: number, filters: { search?: string; take?: number; cursor?: number } = {}) {
+    const take = Math.min(Math.max(Number(filters.take || DEFAULT_TAKE), 1), MAX_TAKE);
+    const search = filters.search?.trim();
+    const where: Prisma.WhatsAppContatoWhereInput = {
+      contaId,
+      ...(search
+        ? {
+            OR: [
+              { nome: { contains: search } },
+              { telefone: { contains: normalizePhone(search) || search } },
+              { Cliente: { nome: { contains: search } } },
+            ],
+          }
+        : {}),
+    };
+
+    const items = await prisma.whatsAppContato.findMany({
+      where,
+      take: take + 1,
+      ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
+      orderBy: { updatedAt: "desc" },
+      include: {
+        Cliente: { select: { id: true, nome: true, telefone: true, whastapp: true } },
+        _count: { select: { conversas: true } },
+      },
+    });
+
+    const hasMore = items.length > take;
+    const sliced = hasMore ? items.slice(0, take) : items;
+    return {
+      items: sliced.map((contato) => {
+        const { dadosAuxiliares: _dadosAuxiliares, ...rest } = contato as any;
+        return rest;
+      }),
+      nextCursor: hasMore ? sliced[sliced.length - 1]?.id : null,
+    };
+  },
+
+  // Atualiza um contato: renomear e/ou (des)vincular a um cliente. Ao (des)vincular, propaga o
+  // clienteId para as conversas desse contato, para o chat refletir o nome correto.
+  async updateContact(contaId: number, contatoId: number, input: { nome?: string | null; clienteId?: number | null }) {
+    const contato = await prisma.whatsAppContato.findFirst({ where: { id: contatoId, contaId } });
+    if (!contato) throw new Error("Contato não encontrado para esta conta");
+
+    if (input.clienteId) {
+      const cliente = await prisma.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId } });
+      if (!cliente) throw new Error("Cliente não encontrado para esta conta");
+    }
+
+    const data: Prisma.WhatsAppContatoUpdateInput = {};
+    if ("nome" in input) data.nome = input.nome?.trim() || null;
+    if ("clienteId" in input) {
+      data.Cliente = input.clienteId ? { connect: { id: input.clienteId } } : { disconnect: true };
+    }
+
+    const updated = await prisma.whatsAppContato.update({
+      where: { id: contatoId },
+      data,
+      include: {
+        Cliente: { select: { id: true, nome: true, telefone: true, whastapp: true } },
+        _count: { select: { conversas: true } },
+      },
+    });
+
+    if ("clienteId" in input) {
+      await prisma.whatsAppConversa.updateMany({
+        where: { contaId, contatoId },
+        data: { clienteId: input.clienteId ?? null },
+      });
+      // Notifica os clientes para recarregarem as conversas afetadas (rótulo/cliente mudou).
+      const conversas = await prisma.whatsAppConversa.findMany({
+        where: { contaId, contatoId },
+        include: {
+          Contato: true,
+          Cliente: { select: { id: true, nome: true, telefone: true, whastapp: true } },
+          Atendente: { select: { id: true, nome: true } },
+          Instancia: { select: { id: true, nome: true, status: true, numeroConectado: true } },
+        },
+      });
+      conversas.forEach((conversa) => sendWhatsAppConversationUpdated(contaId, conversa));
+    }
+
+    const { dadosAuxiliares: _dadosAuxiliares, ...rest } = updated as any;
+    return rest;
+  },
+
+  // Apaga um contato e, junto, todas as conversas e mensagens dele (a conversa tem FK Restrict
+  // para o contato). Ação restrita a administradores no controller.
+  async removeContact(contaId: number, contatoId: number) {
+    const contato = await prisma.whatsAppContato.findFirst({ where: { id: contatoId, contaId } });
+    if (!contato) throw new Error("Contato não encontrado para esta conta");
+
+    const conversas = await prisma.whatsAppConversa.findMany({
+      where: { contaId, contatoId },
+      select: { id: true },
+    });
+    const conversaIds = conversas.map((conversa) => conversa.id);
+
+    await prisma.$transaction([
+      ...(conversaIds.length
+        ? [
+            prisma.whatsAppMensagem.deleteMany({ where: { contaId, conversaId: { in: conversaIds } } }),
+            prisma.whatsAppConversa.deleteMany({ where: { contaId, contatoId } }),
+          ]
+        : []),
+      prisma.whatsAppContato.delete({ where: { id: contatoId } }),
+    ]);
+
+    conversaIds.forEach((id) => sendWhatsAppConversationDeleted(contaId, { id }));
+    sendWhatsAppContactDeleted(contaId, { id: contatoId });
+    return { id: contatoId, conversasRemovidas: conversaIds.length };
   },
 
   async markAsRead(contaId: number, conversaId: number) {
