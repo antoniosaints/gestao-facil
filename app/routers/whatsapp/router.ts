@@ -10,6 +10,7 @@ import {
   instanceAction,
   listConversations,
   listConversationSales,
+  listInstanceWebhookEvents,
   listInstances,
   listMessages,
   markConversationAsRead,
@@ -35,6 +36,7 @@ routerWhatsapp.post("/instances", createInstance);
 routerWhatsapp.put("/instances/:id", updateInstance);
 routerWhatsapp.delete("/instances/:id", removeInstance);
 routerWhatsapp.get("/instances/:id/webhooks", getInstanceWebhooks);
+routerWhatsapp.get("/instances/:id/eventos", listInstanceWebhookEvents);
 routerWhatsapp.post("/instances/:id/webhooks", configureInstanceWebhooks);
 routerWhatsapp.post("/instances/:id/payments/pix", createPixPayment);
 routerWhatsapp.post("/instances/:id/payments/card-subscription", createCardSubscription);

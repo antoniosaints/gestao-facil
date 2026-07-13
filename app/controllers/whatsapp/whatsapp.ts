@@ -133,6 +133,20 @@ export const getInstanceWebhooks = async (req: Request, res: Response): Promise<
   }
 };
 
+export const listInstanceWebhookEvents = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const events = await whatsAppService.listInstanceWebhookEvents(customData.contaId, Number(req.params.id), {
+      take: req.query.take ? Number(req.query.take) : undefined,
+      tipo: typeof req.query.tipo === "string" && req.query.tipo ? req.query.tipo : undefined,
+    });
+    ResponseHandler(res, "Eventos de webhook encontrados", events);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const configureInstanceWebhooks = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 5);

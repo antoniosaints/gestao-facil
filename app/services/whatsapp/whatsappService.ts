@@ -418,6 +418,35 @@ export const whatsAppService = {
     };
   },
 
+  // Logs de webhook recebidos e persistidos para a instância (tabela WhatsAppWebhookEvento).
+  // Útil para diagnosticar quando eventos "received" (mensagens do cliente) não chegam:
+  // se não aparecem aqui, a W-API não está entregando o webhook ao backend (URL/segredo/BASE_URL);
+  // se aparecem com `erro`, o problema é no processamento.
+  async listInstanceWebhookEvents(contaId: number, id: number, filters: { take?: number; tipo?: string } = {}) {
+    await getInstanceById(contaId, id);
+    const take = Math.min(Math.max(Number(filters.take || 40), 1), 100);
+    const events = await prisma.whatsAppWebhookEvento.findMany({
+      where: {
+        contaId,
+        instanciaId: id,
+        ...(filters.tipo ? { tipo: filters.tipo } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take,
+    });
+
+    return events.map((event) => ({
+      id: event.id,
+      tipo: event.tipo,
+      eventId: event.eventId,
+      processado: event.processado,
+      erro: event.erro,
+      payload: event.payload,
+      createdAt: event.createdAt,
+      processedAt: event.processedAt,
+    }));
+  },
+
   async configureInstanceWebhooks(contaId: number, id: number, webhookUrls?: WApiWebhookUrls) {
     const instance = await getInstanceById(contaId, id);
     const urls = webhookUrls && Object.keys(webhookUrls).length ? webhookUrls : buildWebhookUrls(instance.instanceId, instance.webhookSecret);
