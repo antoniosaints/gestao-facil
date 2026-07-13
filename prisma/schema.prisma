@@ -1633,6 +1633,31 @@ model WhatsAppAgenteInstancia {
   @@index([contaId, agenteId])
 }
 
+// Configuração global de IA da plataforma, gerenciada pelo CEO (super admin). Os assinantes
+// NÃO informam a própria chave: usam a chave marcada como padrão aqui e apenas os modelos ativos.
+model IaChaveApi {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  provider  String   @default("gemini")
+  apiKey    String   @db.Text
+  ativo     Boolean  @default(true)
+  isPadrao  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provider, ativo, isPadrao])
+}
+
+model IaModelo {
+  id        Int      @id @default(autoincrement())
+  modelId   String   @unique
+  nome      String
+  provider  String   @default("gemini")
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model WhatsAppContato {
   id              Int                   @id @default(autoincrement())
   contaId         Int

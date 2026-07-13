@@ -23,6 +23,16 @@ import {
   listModulosAdmin,
   updateModuloAdmin,
 } from "../../controllers/administracao/modulos";
+import {
+  createChaveIaAdmin,
+  createModeloIaAdmin,
+  deleteChaveIaAdmin,
+  deleteModeloIaAdmin,
+  listChavesIaAdmin,
+  listModelosIaAdmin,
+  updateChaveIaAdmin,
+  updateModeloIaAdmin,
+} from "../../controllers/administracao/inteligencia";
 
 const routerAdminMain = Router();
 
@@ -46,6 +56,16 @@ routerAdminMain.get("/modulos", authenticateJWT, listModulosAdmin);
 routerAdminMain.patch("/modulos/:id", authenticateJWT, updateModuloAdmin);
 routerAdminMain.get("/configuracoes/indicacao", authenticateJWT, getAdminIndicacaoConfig);
 routerAdminMain.post("/configuracoes/indicacao", authenticateJWT, saveAdminIndicacaoConfig);
+
+// Inteligência (IA) — chaves de API e modelos da plataforma (super admin)
+routerAdminMain.get("/ia/chaves", authenticateJWT, listChavesIaAdmin);
+routerAdminMain.post("/ia/chaves", authenticateJWT, createChaveIaAdmin);
+routerAdminMain.put("/ia/chaves/:id", authenticateJWT, updateChaveIaAdmin);
+routerAdminMain.delete("/ia/chaves/:id", authenticateJWT, deleteChaveIaAdmin);
+routerAdminMain.get("/ia/modelos", authenticateJWT, listModelosIaAdmin);
+routerAdminMain.post("/ia/modelos", authenticateJWT, createModeloIaAdmin);
+routerAdminMain.put("/ia/modelos/:id", authenticateJWT, updateModeloIaAdmin);
+routerAdminMain.delete("/ia/modelos/:id", authenticateJWT, deleteModeloIaAdmin);
 
 export {
     routerAdminMain

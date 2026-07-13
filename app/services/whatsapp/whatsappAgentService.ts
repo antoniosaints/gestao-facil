@@ -3,7 +3,8 @@ import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemStatus, WhatsAppMensag
 import { prisma } from "../../utils/prisma";
 import { WApiClient } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia } from "./whatsappMedia";
-import { AGENT_MODELS, AgentHistoryItem, generateAgentReply, geminiSupportsMime } from "./whatsappAgentAI";
+import { AgentHistoryItem, generateAgentReply, geminiSupportsMime } from "./whatsappAgentAI";
+import { iaPlatformService } from "../ia/iaPlatformService";
 import { sendWhatsAppConversationUpdated, sendWhatsAppMessageCreated } from "../../hooks/whatsapp/socket";
 
 export interface AgentInput {
@@ -120,9 +121,16 @@ async function setAgentInstances(contaId: number, agenteId: number, instanciaIds
   ]);
 }
 
-export const whatsAppAgentService = {
-  models: AGENT_MODELS,
+// Garante que o modelo escolhido está entre os liberados pelo CEO (modelos ativos).
+async function assertModeloPermitido(modelo?: string) {
+  if (!modelo) return;
+  const permitidos = await iaPlatformService.getActiveModelIds();
+  if (!permitidos.includes(modelo)) {
+    throw new Error("Modelo de IA não permitido. Escolha um dos modelos liberados pela plataforma.");
+  }
+}
 
+export const whatsAppAgentService = {
   async listAgents(contaId: number) {
     const agents = await prisma.whatsAppAgente.findMany({
       where: { contaId },
@@ -142,12 +150,15 @@ export const whatsAppAgentService = {
   },
 
   async createAgent(contaId: number, input: AgentInput) {
+    const permitidos = await iaPlatformService.getActiveModelIds();
+    const modelo = input.modelo?.trim() || permitidos[0] || "gemini-2.0-flash";
+    await assertModeloPermitido(modelo);
     const agent = await prisma.whatsAppAgente.create({
       data: {
         contaId,
         nome: input.nome.trim(),
         prompt: input.prompt.trim(),
-        modelo: input.modelo?.trim() || "gemini-2.0-flash",
+        modelo,
         ativo: input.ativo ?? true,
         horaInicio: normalizeHora(input.horaInicio),
         horaFim: normalizeHora(input.horaFim),
@@ -163,7 +174,10 @@ export const whatsAppAgentService = {
     const data: Prisma.WhatsAppAgenteUpdateInput = {};
     if (typeof input.nome === "string") data.nome = input.nome.trim();
     if (typeof input.prompt === "string") data.prompt = input.prompt.trim();
-    if (typeof input.modelo === "string" && input.modelo.trim()) data.modelo = input.modelo.trim();
+    if (typeof input.modelo === "string" && input.modelo.trim()) {
+      await assertModeloPermitido(input.modelo.trim());
+      data.modelo = input.modelo.trim();
+    }
     if (typeof input.ativo === "boolean") data.ativo = input.ativo;
     if ("horaInicio" in input) data.horaInicio = normalizeHora(input.horaInicio);
     if ("horaFim" in input) data.horaFim = normalizeHora(input.horaFim);
@@ -229,7 +243,14 @@ export const whatsAppAgentService = {
         }
       }
 
+      const apiKey = await iaPlatformService.getDefaultApiKey();
+      if (!apiKey) {
+        console.warn("[whatsapp-agent] nenhuma chave de API de IA configurada; autoatendimento ignorado");
+        return;
+      }
+
       const reply = await generateAgentReply({
+        apiKey,
         modelo: agent.modelo,
         systemPrompt: buildSystemPrompt(agent),
         history,

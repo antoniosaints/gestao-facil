@@ -5,7 +5,7 @@ import { handleError } from "../../utils/handleError";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { whatsAppAgentService } from "../../services/whatsapp/whatsappAgentService";
-import { AGENT_MODELS } from "../../services/whatsapp/whatsappAgentAI";
+import { iaPlatformService } from "../../services/ia/iaPlatformService";
 
 // Agentes são gerenciados pelo admin da conta (nível 4: admin/root).
 async function requireAdmin(req: Request, res: Response) {
@@ -27,7 +27,7 @@ const horaSchema = z
 const agentSchema = z.object({
   nome: z.string().min(2, "Nome do agente é obrigatório"),
   prompt: z.string().min(10, "Descreva o comportamento do agente (prompt)"),
-  modelo: z.enum(AGENT_MODELS as [string, ...string[]]).optional(),
+  modelo: z.string().min(1).optional(),
   ativo: z.boolean().optional(),
   horaInicio: horaSchema,
   horaFim: horaSchema,
@@ -41,10 +41,11 @@ export const listAgents = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requireAdmin(req, res);
     if (!customData) return;
-    ResponseHandler(res, "Agentes encontrados", {
-      items: await whatsAppAgentService.listAgents(customData.contaId),
-      models: AGENT_MODELS,
-    });
+    const [items, models] = await Promise.all([
+      whatsAppAgentService.listAgents(customData.contaId),
+      iaPlatformService.getActiveModelIds(),
+    ]);
+    ResponseHandler(res, "Agentes encontrados", { items, models });
   } catch (error) {
     handleError(res, error);
   }

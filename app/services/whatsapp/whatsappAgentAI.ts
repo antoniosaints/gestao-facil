@@ -1,11 +1,8 @@
 import { Content, GoogleGenerativeAI, Part } from "@google/generative-ai";
-import { env } from "../../utils/dotenv";
 
-// Integração Gemini para os agentes de autoatendimento do WhatsApp. Reaproveita a mesma
-// GEMINI_API_KEY já usada no módulo Core IA, mas com modelo/prompt configuráveis por agente
-// e suporte a anexos (imagem, PDF, áudio, vídeo) via inlineData.
-
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+// Integração Gemini para os agentes de autoatendimento do WhatsApp. A chave de API e os
+// modelos permitidos são definidos pelo CEO (iaPlatformService) e passados pelo chamador —
+// o assinante não informa a própria chave. Suporta anexos (imagem, PDF, áudio, vídeo).
 
 export interface AgentHistoryItem {
   role: "user" | "model";
@@ -16,15 +13,6 @@ export interface AgentMediaInput {
   mimeType: string;
   dataBase64: string;
 }
-
-// Modelos oferecidos na criação do agente (o front lista estes).
-export const AGENT_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-pro",
-];
 
 // Tipos de arquivo que o Gemini consegue interpretar como anexo.
 export function geminiSupportsMime(mimetype?: string | null): boolean {
@@ -55,12 +43,17 @@ function buildHistory(items: AgentHistoryItem[]): Content[] {
 }
 
 export async function generateAgentReply(params: {
+  apiKey: string;
   modelo: string;
   systemPrompt: string;
   history: AgentHistoryItem[];
   userText: string;
   media?: AgentMediaInput | null;
 }): Promise<string> {
+  if (!params.apiKey) {
+    throw new Error("Nenhuma chave de API de IA configurada pela plataforma");
+  }
+  const genAI = new GoogleGenerativeAI(params.apiKey);
   const model = genAI.getGenerativeModel({
     model: params.modelo || "gemini-2.0-flash",
     systemInstruction: { role: "system", parts: [{ text: params.systemPrompt }] },
