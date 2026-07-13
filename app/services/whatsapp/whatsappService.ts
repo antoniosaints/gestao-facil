@@ -35,6 +35,10 @@ export interface CreateInstanceInput {
   ativo?: boolean;
 }
 
+export interface CreateInstanceAutoInput {
+  nome: string;
+}
+
 export interface UpdateInstanceInput {
   nome?: string;
   instanceId?: string;
@@ -379,6 +383,40 @@ export const whatsAppService = {
     });
     sendWhatsAppInstanceUpdated(contaId, publicInstance(instance));
     return publicInstance(instance);
+  },
+
+  // Criação automática: provisiona uma instância nova na W-API usando o token de conta
+  // (WHATSAPP_WAPI_ACCOUNT_TOKEN) e só o nome informado pelo usuário. Persiste o instanceId/token
+  // retornados (reaproveitando `createInstance`, que esconde o token da resposta) e registra os
+  // webhooks com o instanceId real. A instância nasce com 7 dias de trial grátis.
+  async createInstanceAuto(contaId: number, input: CreateInstanceAutoInput) {
+    const accountToken = env.WHATSAPP_WAPI_ACCOUNT_TOKEN;
+    if (!accountToken) {
+      throw new Error("Token de conta W-API não configurado (WHATSAPP_WAPI_ACCOUNT_TOKEN)");
+    }
+
+    const nome = input.nome.trim();
+    const result = await WApiClient.createClientInstance({ apiKey: accountToken, instanceName: nome });
+
+    if (result?.error === true || !result?.instanceId || !result?.token) {
+      throw new Error(result?.message || "Falha ao gerar instância na W-API");
+    }
+
+    const instance = await this.createInstance(contaId, {
+      nome,
+      instanceId: result.instanceId,
+      token: result.token,
+    });
+
+    // Registra os webhooks já com o instanceId real. Não falha a criação se der erro: a
+    // instância já existe e os webhooks podem ser reconfigurados em "Gerenciar instância".
+    try {
+      await this.configureInstanceWebhooks(contaId, instance.id);
+    } catch (error) {
+      console.warn(`[whatsapp] Falha ao registrar webhooks da instância gerada id=${instance.id}`, error);
+    }
+
+    return { instance, isTrial: result.isTrial ?? true, trialDays: 7 };
   },
 
   async updateInstance(contaId: number, id: number, input: UpdateInstanceInput) {

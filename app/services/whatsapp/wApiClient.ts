@@ -34,9 +34,52 @@ export interface WApiPaymentInput {
   webhookPaymentUrl?: string;
 }
 
+export interface WApiCreateInstanceInput {
+  apiKey: string;
+  instanceName: string;
+}
+
+export interface WApiCreateInstanceResult {
+  error?: boolean;
+  message?: string;
+  instanceId?: string;
+  token?: string;
+  instanceName?: string;
+  isTrial?: boolean;
+  status?: string;
+}
+
 export class WApiClient {
   private readonly http: AxiosInstance;
   private readonly instanceId: string;
+
+  // Provisiona uma instância nova a nível de conta (não usa Bearer nem instanceId: a
+  // autenticação vai no corpo via `apiKey`, o token de conta da W-API). A instância nasce
+  // com 7 dias de trial grátis. Os `webhook*Url` não são enviados aqui porque as URLs de
+  // webhook do sistema dependem do `instanceId`, que só é conhecido nesta resposta; os
+  // webhooks são registrados logo depois via `configureWebhooks` com o instanceId real.
+  static async createClientInstance(input: WApiCreateInstanceInput): Promise<WApiCreateInstanceResult> {
+    if (!env.WHATSAPP_WAPI_BASE_URL) {
+      throw new Error("WHATSAPP_WAPI_BASE_URL não configurado para integração W-API");
+    }
+
+    const baseURL = env.WHATSAPP_WAPI_BASE_URL.replace(/\/$/, "");
+    const response = await axios.request<WApiCreateInstanceResult>({
+      method: "POST",
+      url: `${baseURL}/v1/client/create-instance`,
+      headers: { "Content-Type": "application/json" },
+      timeout: 25000,
+      data: {
+        apiKey: input.apiKey,
+        instanceName: input.instanceName,
+        lite: true,
+        automaticReading: false,
+        rejectCalls: false,
+      },
+    });
+
+    return response.data;
+  }
 
   constructor(instanceId: string, token: string) {
     if (!env.WHATSAPP_WAPI_BASE_URL) {

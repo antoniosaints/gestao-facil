@@ -14,6 +14,10 @@ const createInstanceSchema = z.object({
   ativo: z.boolean().optional(),
 });
 
+const createInstanceAutoSchema = z.object({
+  nome: z.string().min(2, "Nome da instância é obrigatório"),
+});
+
 const updateInstanceSchema = z.object({
   nome: z.string().min(2).optional(),
   instanceId: z.string().min(2).optional(),
@@ -99,6 +103,18 @@ export const createInstance = async (req: Request, res: Response): Promise<any> 
     const data = createInstanceSchema.parse(req.body);
     const instance = await whatsAppService.createInstance(customData.contaId, data);
     ResponseHandler(res, "Instância criada", instance, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const createInstanceAuto = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const data = createInstanceAutoSchema.parse(req.body);
+    const result = await whatsAppService.createInstanceAuto(customData.contaId, data);
+    ResponseHandler(res, "Instância gerada", result, 201);
   } catch (error) {
     handleError(res, error);
   }

@@ -6,6 +6,7 @@ import {
   configureInstanceWebhooks,
   createCardSubscription,
   createInstance,
+  createInstanceAuto,
   createPixPayment,
   getInstanceWebhooks,
   getMessageMedia,
@@ -39,6 +40,7 @@ routerWhatsapp.post("/payments/webhooks/:instanceId", receivePaymentWebhook);
 routerWhatsapp.use(authenticateJWT);
 routerWhatsapp.get("/instances", listInstances);
 routerWhatsapp.post("/instances", createInstance);
+routerWhatsapp.post("/instances/generate", createInstanceAuto);
 routerWhatsapp.put("/instances/:id", updateInstance);
 routerWhatsapp.delete("/instances/:id", removeInstance);
 routerWhatsapp.get("/instances/:id/webhooks", getInstanceWebhooks);
