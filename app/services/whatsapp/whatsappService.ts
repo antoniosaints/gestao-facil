@@ -1141,15 +1141,50 @@ export const whatsAppService = {
     return this.sendMessage(contaId, conversaId, { tipo: "text", conteudo: message });
   },
 
-  async startConversation(contaId: number, input: { clienteId: number; instanciaId?: number }) {
-    const cliente = await prisma.clientesFornecedores.findFirst({
-      where: { id: input.clienteId, contaId },
-      select: { id: true, nome: true, telefone: true, whastapp: true },
-    });
-    if (!cliente) throw new Error("Cliente não encontrado para esta conta");
+  async startConversation(contaId: number, input: { clienteId?: number; contatoId?: number; instanciaId?: number }) {
+    // A nova conversa pode partir de um contato já existente (WhatsAppContato) ou de um cliente
+    // do ERP com telefone/WhatsApp cadastrado. Em ambos os casos resolvemos o `contato` e o
+    // telefone antes de criar/reaproveitar a conversa.
+    let contato: { id: number; telefone: string; clienteId: number | null };
+    let clienteId: number | null = null;
 
-    const phone = normalizePhone(cliente.whastapp || cliente.telefone);
-    if (!phone) throw new Error("Cliente não possui telefone/WhatsApp cadastrado para iniciar o atendimento");
+    if (input.contatoId) {
+      const found = await prisma.whatsAppContato.findFirst({
+        where: { id: input.contatoId, contaId },
+        select: { id: true, telefone: true, clienteId: true },
+      });
+      if (!found) throw new Error("Contato não encontrado para esta conta");
+      contato = found;
+      clienteId = found.clienteId ?? null;
+    } else if (input.clienteId) {
+      const cliente = await prisma.clientesFornecedores.findFirst({
+        where: { id: input.clienteId, contaId },
+        select: { id: true, nome: true, telefone: true, whastapp: true },
+      });
+      if (!cliente) throw new Error("Cliente não encontrado para esta conta");
+
+      const clientePhone = normalizePhone(cliente.whastapp || cliente.telefone);
+      if (!clientePhone) throw new Error("Cliente não possui telefone/WhatsApp cadastrado para iniciar o atendimento");
+
+      contato = await prisma.whatsAppContato.upsert({
+        where: { contaId_telefone: { contaId, telefone: clientePhone } },
+        update: { nome: cliente.nome || undefined, clienteId: cliente.id },
+        create: {
+          contaId,
+          telefone: clientePhone,
+          nome: cliente.nome || null,
+          clienteId: cliente.id,
+          dadosAuxiliares: safeJson({ createdBy: "atendimento-start" }),
+        },
+        select: { id: true, telefone: true, clienteId: true },
+      });
+      clienteId = cliente.id;
+    } else {
+      throw new Error("Informe um cliente ou contato para iniciar a conversa");
+    }
+
+    const phone = normalizePhone(contato.telefone);
+    if (!phone) throw new Error("Contato não possui telefone válido para iniciar o atendimento");
 
     let instance;
     if (input.instanciaId) {
@@ -1168,32 +1203,20 @@ export const whatsAppService = {
       if (!instance) throw new Error("Nenhuma instância de WhatsApp ativa. Conecte uma instância no app WhatsApp antes de iniciar o atendimento.");
     }
 
-    const contato = await prisma.whatsAppContato.upsert({
-      where: { contaId_telefone: { contaId, telefone: phone } },
-      update: { nome: cliente.nome || undefined, clienteId: cliente.id },
-      create: {
-        contaId,
-        telefone: phone,
-        nome: cliente.nome || null,
-        clienteId: cliente.id,
-        dadosAuxiliares: safeJson({ createdBy: "atendimento-start" }),
-      },
-    });
-
     const conversa = await prisma.whatsAppConversa.upsert({
       where: {
         contaId_instanciaId_telefone: { contaId, instanciaId: instance.id, telefone: phone },
       },
       update: {
         contatoId: contato.id,
-        clienteId: cliente.id,
+        clienteId: clienteId ?? undefined,
         status: WhatsAppConversaStatus.ABERTA,
       },
       create: {
         contaId,
         instanciaId: instance.id,
         contatoId: contato.id,
-        clienteId: cliente.id,
+        clienteId,
         telefone: phone,
         status: WhatsAppConversaStatus.ABERTA,
         ultimaInteracaoEm: new Date(),
@@ -1293,11 +1316,25 @@ export const whatsAppService = {
         }
 
         if (tipo !== "delivery") {
+          // Evento de exclusão (protocolMessage REVOKE): o remetente apagou a mensagem. Não
+          // criamos um balão novo (que aparecia como "Mídia"); apenas marcamos a mensagem
+          // original referenciada (`key.ID`) como apagada para exibir a badge no chat.
+          const protocolMessage =
+            payload?.msgContent?.protocolMessage || payload?.message?.protocolMessage || payload?.data?.message?.protocolMessage;
           const msg = extractMessagePayload(payload);
-          // Ignora mensagens de grupo (isGroup), transmissões de status/stories
-          // (chat.id === "status") e canais/newsletters (sender.id vazio): o atendimento é
-          // apenas para conversas privadas 1:1.
-          if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast && !msg.isChannel) {
+          if (protocolMessage?.type === "REVOKE") {
+            const revokedId = String(protocolMessage?.key?.ID || protocolMessage?.key?.id || "");
+            if (revokedId) {
+              await prisma.whatsAppMensagem.updateMany({
+                where: { contaId: instance.contaId, instanciaId: instance.id, externalMessageId: revokedId, apagadaEm: null },
+                data: { apagadaEm: new Date() },
+              });
+              const revoked = await prisma.whatsAppMensagem.findFirst({
+                where: { contaId: instance.contaId, instanciaId: instance.id, externalMessageId: revokedId },
+              });
+              if (revoked) sendWhatsAppMessageCreated(instance.contaId, revoked);
+            }
+          } else if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast && !msg.isChannel) {
             const autoCliente = await findAutoCliente(instance.contaId, msg.phone);
             const contato = await prisma.whatsAppContato.upsert({
               where: { contaId_telefone: { contaId: instance.contaId, telefone: msg.phone } },

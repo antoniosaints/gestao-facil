@@ -58,10 +58,15 @@ const sendMessageSchema = z.object({
   }
 });
 
-const startConversationSchema = z.object({
-  clienteId: z.coerce.number().int().positive({ message: "Cliente inválido" }),
-  instanciaId: z.coerce.number().int().positive().optional(),
-});
+const startConversationSchema = z
+  .object({
+    clienteId: z.coerce.number().int().positive({ message: "Cliente inválido" }).optional(),
+    contatoId: z.coerce.number().int().positive({ message: "Contato inválido" }).optional(),
+    instanciaId: z.coerce.number().int().positive().optional(),
+  })
+  .refine((data) => Boolean(data.clienteId || data.contatoId), {
+    message: "Informe um cliente ou contato para iniciar a conversa",
+  });
 
 const updateConversationSchema = z.object({
   status: z.nativeEnum(WhatsAppConversaStatus).optional(),

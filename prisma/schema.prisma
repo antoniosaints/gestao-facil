@@ -1726,6 +1726,9 @@ model WhatsAppMensagem {
   erroEnvio         String?                 @db.Text
   enviadoEm         DateTime?
   lidoEm            DateTime?
+  // Preenchido quando o remetente apaga a mensagem (evento protocolMessage REVOKE da W-API):
+  // mantemos a mensagem original e apenas marcamos como apagada para exibir a badge no chat.
+  apagadaEm         DateTime?
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 
