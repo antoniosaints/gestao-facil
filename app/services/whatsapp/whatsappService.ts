@@ -57,6 +57,9 @@ export interface SendMessageInput {
   caption?: string;
   fileName?: string;
   extension?: string;
+  // Id externo da mensagem que está sendo respondida (citada). Quando presente, a W-API envia
+  // como resposta marcando a mensagem original.
+  quotedMessageId?: string;
 }
 
 export interface ConversationFilters {
@@ -124,6 +127,37 @@ function normalizeMessageType(value?: string | null): WhatsAppMensagemTipo {
   return WhatsAppMensagemTipo.OUTRO;
 }
 
+// Extrai um resumo textual de um conteúdo de mensagem da W-API (o mesmo formato de `msgContent`).
+// Usado tanto para o corpo da mensagem quanto para o trecho citado numa resposta.
+function extractTextFromContent(content: any): string {
+  if (!content || typeof content !== "object") return "";
+  const text =
+    content?.conversation ||
+    content?.extendedTextMessage?.text ||
+    content?.imageMessage?.caption ||
+    content?.videoMessage?.caption ||
+    content?.documentMessage?.caption ||
+    content?.text ||
+    content?.body ||
+    "";
+  if (typeof text === "string" && text.trim()) return text;
+  if (content?.imageMessage) return "[imagem]";
+  if (content?.stickerMessage) return "[figurinha]";
+  if (content?.videoMessage) return "[vídeo]";
+  if (content?.audioMessage) return "[áudio]";
+  if (content?.documentMessage) return content?.documentMessage?.fileName || "[documento]";
+  return "";
+}
+
+// Localiza o `contextInfo` (metadados de resposta/citação) dentro de um conteúdo, olhando os
+// vários tipos de mensagem (texto, imagem, vídeo, ...).
+function findContextInfo(content: any): any {
+  if (!content || typeof content !== "object") return null;
+  if (content?.contextInfo) return content.contextInfo;
+  const messageKey = Object.keys(content).find((chave) => chave.endsWith("Message") && content[chave]?.contextInfo);
+  return messageKey ? content[messageKey].contextInfo : null;
+}
+
 function extractMessagePayload(payload: any) {
   // Formato real da W-API (event "webhookReceived"): campos no topo do payload + `msgContent`
   // com o conteúdo (conversation, extendedTextMessage, imageMessage, ...). Mantemos fallbacks
@@ -185,8 +219,16 @@ function extractMessagePayload(payload: any) {
     Object.keys(content || {}).find((chave) => chave.endsWith("Message")) ||
     (content?.conversation ? "conversation" : content?.type || content?.messageType || payload?.type || "text");
 
+  // Resposta/citação: `contextInfo.stanzaID` referencia a mensagem citada e `quotedMessage`
+  // traz o conteúdo dela (usado como preview quando a mensagem original não está carregada).
+  const contextInfo = findContextInfo(content);
+  const quotedMessageId = String(contextInfo?.stanzaID || contextInfo?.stanzaId || "") || null;
+  const quotedConteudo = contextInfo?.quotedMessage ? extractTextFromContent(contextInfo.quotedMessage) || null : null;
+
   return {
     externalMessageId,
+    quotedMessageId,
+    quotedConteudo,
     phone,
     fromMe,
     isGroup,
@@ -208,6 +250,63 @@ function extractMessagePayload(payload: any) {
     pushName: sender?.pushName || payload?.pushName || payload?.senderName || null,
     foto: chat?.profilePicture || sender?.profilePicture || null,
   };
+}
+
+type ReacaoMensagem = { emoji: string; fromMe: boolean; senderId: string | null };
+
+// Chave que identifica o autor de uma reação num chat 1:1: cada participante tem no máximo
+// uma reação por mensagem, então uma nova reação do mesmo autor substitui a anterior.
+function reactionKey(r: Pick<ReacaoMensagem, "fromMe" | "senderId">): string {
+  return r.fromMe ? "__me__" : r.senderId || "__them__";
+}
+
+// Aplica uma reação (novo emoji, ou remoção quando o emoji vem vazio) sobre a lista atual de
+// reações de uma mensagem, mantendo apenas uma reação por autor. Retorna o JSON serializado
+// (ou null quando não sobra nenhuma reação).
+function mergeReactions(existing: string | null | undefined, entry: ReacaoMensagem): string | null {
+  let list: ReacaoMensagem[] = [];
+  if (existing) {
+    try {
+      const parsed = JSON.parse(existing);
+      if (Array.isArray(parsed)) list = parsed;
+    } catch {
+      list = [];
+    }
+  }
+  const key = reactionKey(entry);
+  list = list.filter((r) => reactionKey(r) !== key);
+  if (entry.emoji) list.push({ emoji: entry.emoji, fromMe: entry.fromMe, senderId: entry.senderId });
+  return list.length ? JSON.stringify(list) : null;
+}
+
+// Trata o evento `reactionMessage` da W-API: não cria um balão próprio (que aparecia como
+// "Mídia"); localiza a mensagem reagida (`reactionMessage.key.ID`) e guarda/atualiza a reação
+// nela, reemitindo a mensagem para o front exibir o emoji abaixo do balão.
+async function applyReaction(
+  instance: { id: number; contaId: number },
+  payload: any,
+  reactionMessage: any,
+): Promise<void> {
+  const reactedId = String(reactionMessage?.key?.ID || reactionMessage?.key?.id || "");
+  if (!reactedId) return;
+
+  const emoji = typeof reactionMessage?.text === "string" ? reactionMessage.text : "";
+  const fromMe = Boolean(payload?.fromMe ?? reactionMessage?.key?.fromMe);
+  const senderId = String(payload?.sender?.id ?? "").trim() || null;
+
+  const target = await prisma.whatsAppMensagem.findFirst({
+    where: { contaId: instance.contaId, instanciaId: instance.id, externalMessageId: reactedId },
+  });
+  if (!target) return;
+
+  const reacoes = mergeReactions(target.reacoes, { emoji, fromMe, senderId });
+  if (reacoes === (target.reacoes ?? null)) return;
+
+  const updated = await prisma.whatsAppMensagem.update({
+    where: { id: target.id },
+    data: { reacoes },
+  });
+  sendWhatsAppMessageCreated(instance.contaId, updated);
 }
 
 async function findAutoCliente(contaId: number, phone: string) {
@@ -792,6 +891,18 @@ export const whatsAppService = {
     const tipo = input.tipo || "text";
     const prismaTipo = normalizeMessageType(tipo);
 
+    // Ao responder, buscamos a mensagem citada para guardar um preview do conteúdo dela e já
+    // exibir o trecho citado no nosso chat (o cliente respondeu a algo visível na conversa).
+    const quoted = input.quotedMessageId
+      ? await prisma.whatsAppMensagem.findFirst({
+          where: { contaId, conversaId, externalMessageId: input.quotedMessageId },
+          select: { conteudo: true, tipo: true, fileName: true },
+        })
+      : null;
+    const quotedConteudo = quoted
+      ? quoted.conteudo || (quoted.tipo === WhatsAppMensagemTipo.DOCUMENTO ? quoted.fileName || "[documento]" : `[${quoted.tipo.toLowerCase()}]`)
+      : null;
+
     const pending = await prisma.whatsAppMensagem.create({
       data: {
         contaId,
@@ -803,6 +914,8 @@ export const whatsAppService = {
         conteudo: input.conteudo || input.caption || null,
         mediaUrl: input.mediaUrl || null,
         fileName: input.fileName || null,
+        quotedMessageId: input.quotedMessageId || null,
+        quotedConteudo,
         statusEnvio: WhatsAppMensagemStatus.PENDENTE,
       },
     });
@@ -818,6 +931,7 @@ export const whatsAppService = {
         fileName: input.fileName,
         extension: input.extension,
         messageId,
+        quotedMessageId: input.quotedMessageId,
       });
 
       const updated = await prisma.whatsAppMensagem.update({
@@ -1304,7 +1418,7 @@ export const whatsAppService = {
         sendWhatsAppInstanceUpdated(instance.contaId, publicInstance(updatedInstance));
       }
 
-      if (["received", "delivery"].includes(tipo) || payload?.message || payload?.data?.message || payload?.data?.messageId) {
+      if (["received", "delivery"].includes(tipo) || payload?.msgContent || payload?.message || payload?.data?.message || payload?.data?.messageId) {
         if (tipo === "delivery" || payload?.status || payload?.data?.status || payload?.ack || payload?.data?.ack) {
           const messageId = String(payload?.messageId || payload?.data?.messageId || payload?.id || payload?.data?.id || "");
           if (messageId) {
@@ -1321,8 +1435,12 @@ export const whatsAppService = {
           // original referenciada (`key.ID`) como apagada para exibir a badge no chat.
           const protocolMessage =
             payload?.msgContent?.protocolMessage || payload?.message?.protocolMessage || payload?.data?.message?.protocolMessage;
+          const reactionMessage =
+            payload?.msgContent?.reactionMessage || payload?.message?.reactionMessage || payload?.data?.message?.reactionMessage;
           const msg = extractMessagePayload(payload);
-          if (protocolMessage?.type === "REVOKE") {
+          if (reactionMessage) {
+            await applyReaction(instance, payload, reactionMessage);
+          } else if (protocolMessage?.type === "REVOKE") {
             const revokedId = String(protocolMessage?.key?.ID || protocolMessage?.key?.id || "");
             if (revokedId) {
               await prisma.whatsAppMensagem.updateMany({
@@ -1430,6 +1548,8 @@ export const whatsAppService = {
                 mediaUrl: msg.mediaUrl || null,
                 mediaMimeType: msg.mediaMimeType || null,
                 fileName: msg.fileName || null,
+                quotedMessageId: msg.quotedMessageId || null,
+                quotedConteudo: msg.quotedConteudo || null,
                 rawPayload: safeJson(payload),
                 statusEnvio: msg.fromMe ? WhatsAppMensagemStatus.ENVIADA : WhatsAppMensagemStatus.RECEBIDA,
                 enviadoEm: msg.fromMe ? new Date() : null,

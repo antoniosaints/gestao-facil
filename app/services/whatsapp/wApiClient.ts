@@ -27,6 +27,9 @@ export interface WApiSendMessageInput {
   fileName?: string;
   extension?: string;
   messageId: string;
+  // Id externo (WhatsApp) da mensagem citada. Quando presente, a W-API envia como resposta
+  // marcando a mensagem original; caso contrário mantemos o `messageId` interno de rastreio.
+  quotedMessageId?: string;
 }
 
 export interface WApiPaymentInput {
@@ -175,9 +178,12 @@ export class WApiClient {
   }
 
   send(kind: WApiMessageKind, input: WApiSendMessageInput) {
+    // O campo `messageId` da W-API, quando aponta para uma mensagem existente, faz o envio
+    // ser uma resposta (citação) a ela. Ao responder usamos o id da mensagem citada; nos
+    // envios normais mantemos o id interno de rastreio (a W-API ignora se não existir).
     const common = {
       phone: input.phone,
-      messageId: input.messageId,
+      messageId: input.quotedMessageId || input.messageId,
       delayMessage: 0,
     };
 

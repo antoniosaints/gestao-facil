@@ -49,6 +49,7 @@ const sendMessageSchema = z.object({
   caption: z.string().optional(),
   fileName: z.string().optional(),
   extension: z.string().optional(),
+  quotedMessageId: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.tipo === "text" && !data.conteudo?.trim()) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["conteudo"], message: "Mensagem de texto é obrigatória" });

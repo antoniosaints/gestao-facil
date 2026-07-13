@@ -1,0 +1,3 @@
+ALTER TABLE `WhatsAppMensagem`
+    ADD COLUMN `quotedMessageId` VARCHAR(191) NULL,
+    ADD COLUMN `quotedConteudo` TEXT NULL;

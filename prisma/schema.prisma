@@ -1729,6 +1729,14 @@ model WhatsAppMensagem {
   // Preenchido quando o remetente apaga a mensagem (evento protocolMessage REVOKE da W-API):
   // mantemos a mensagem original e apenas marcamos como apagada para exibir a badge no chat.
   apagadaEm         DateTime?
+  // Reações (evento reactionMessage da W-API): não criam balão próprio; ficam guardadas como
+  // JSON na mensagem reagida (array de { emoji, fromMe, senderId }) para exibir abaixo do balão.
+  reacoes           String?                 @db.Text
+  // Resposta/citação (contextInfo.stanzaID da W-API): quando esta mensagem responde a outra,
+  // guardamos o id externo da mensagem citada e um resumo do conteúdo dela para exibir o
+  // trecho citado acima do balão (como no WhatsApp).
+  quotedMessageId   String?
+  quotedConteudo    String?                 @db.Text
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 
