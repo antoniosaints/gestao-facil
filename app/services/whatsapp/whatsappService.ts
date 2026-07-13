@@ -126,11 +126,15 @@ function extractMessagePayload(payload: any) {
   const key = payload?.key || payload?.data?.key || {};
 
   const fromMe = Boolean(payload?.fromMe ?? key?.fromMe ?? payload?.data?.fromMe);
+  const senderId = String(sender?.id ?? "").trim();
   // `chat.id` identifica o chat: número@s.whatsapp.net, um @lid, `@g.us` (grupo) ou "status"
   // (transmissões de status/stories). Usamos isso para ignorar grupos e status.
   const chatId = String(chat?.id ?? key?.remoteJid ?? "");
   const isGroup = Boolean(payload?.isGroup) || chatId.endsWith("@g.us");
   const isStatusBroadcast = chatId === "status" || chatId.startsWith("status@");
+  // Canais/newsletters do WhatsApp chegam sem remetente real (`sender.id` vazio) e com um
+  // `chat.id` que não é um telefone. Não são atendimento 1:1, então são ignorados.
+  const isChannel = chatId.endsWith("@newsletter") || (!fromMe && senderId === "");
 
   const externalMessageId = String(
     payload?.messageId || payload?.data?.messageId || payload?.id || key?.id || payload?.data?.id || hashPayload(payload),
@@ -139,7 +143,7 @@ function extractMessagePayload(payload: any) {
   // O número real do contato vem em `sender.id` (o `chat.id` pode ser um @lid sem o número).
   // Para mensagens enviadas por nós (fromMe) o contato é o outro lado da conversa (chat.id).
   const contactRaw =
-    (fromMe ? chat?.id || sender?.id : sender?.id || chat?.id) ||
+    (fromMe ? chat?.id || senderId : senderId || chat?.id) ||
     payload?.phone ||
     payload?.from ||
     "";
@@ -158,6 +162,8 @@ function extractMessagePayload(payload: any) {
   const mediaUrl =
     content?.imageMessage?.URL ||
     content?.imageMessage?.url ||
+    content?.stickerMessage?.URL ||
+    content?.stickerMessage?.url ||
     content?.audioMessage?.URL ||
     content?.audioMessage?.url ||
     content?.videoMessage?.URL ||
@@ -177,12 +183,14 @@ function extractMessagePayload(payload: any) {
     fromMe,
     isGroup,
     isStatusBroadcast,
+    isChannel,
     chatId,
     tipo: normalizeMessageType(rawType),
     conteudo: typeof text === "string" ? text : safeJson(text),
     mediaUrl,
     mediaMimeType:
       content?.imageMessage?.mimetype ||
+      content?.stickerMessage?.mimetype ||
       content?.videoMessage?.mimetype ||
       content?.audioMessage?.mimetype ||
       content?.documentMessage?.mimetype ||
@@ -1089,9 +1097,10 @@ export const whatsAppService = {
 
         if (tipo !== "delivery") {
           const msg = extractMessagePayload(payload);
-          // Ignora mensagens de grupo (isGroup) e transmissões de status/stories
-          // (chat.id === "status"): o atendimento é apenas para conversas privadas 1:1.
-          if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast) {
+          // Ignora mensagens de grupo (isGroup), transmissões de status/stories
+          // (chat.id === "status") e canais/newsletters (sender.id vazio): o atendimento é
+          // apenas para conversas privadas 1:1.
+          if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast && !msg.isChannel) {
             const autoCliente = await findAutoCliente(instance.contaId, msg.phone);
             const contato = await prisma.whatsAppContato.upsert({
               where: { contaId_telefone: { contaId: instance.contaId, telefone: msg.phone } },
