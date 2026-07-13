@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
+import { createAgent, listAgents, removeAgent, updateAgent } from "../../controllers/whatsapp/agentes";
 import {
   attendConversation,
   configureInstanceWebhooks,
@@ -51,6 +52,11 @@ routerWhatsapp.post("/instances/:id/:action", instanceAction);
 routerWhatsapp.get("/contatos", listContacts);
 routerWhatsapp.patch("/contatos/:id", updateContact);
 routerWhatsapp.delete("/contatos/:id", removeContact);
+
+routerWhatsapp.get("/agentes", listAgents);
+routerWhatsapp.post("/agentes", createAgent);
+routerWhatsapp.put("/agentes/:id", updateAgent);
+routerWhatsapp.delete("/agentes/:id", removeAgent);
 
 routerWhatsapp.get("/conversas", listConversations);
 routerWhatsapp.post("/conversas/iniciar", startConversation);

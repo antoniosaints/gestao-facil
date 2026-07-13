@@ -123,6 +123,7 @@ model Contas {
   WhatsAppMensagem                WhatsAppMensagem[]
   WhatsAppWebhookEvento           WhatsAppWebhookEvento[]
   WhatsAppInstanciaPagamento      WhatsAppInstanciaPagamento[]
+  WhatsAppAgente                  WhatsAppAgente[]
   NotificacaoVencimentoFinanceiro NotificacaoVencimentoFinanceiro[]
   metas                           Meta[]
   PdvPonto                        PdvPonto[]
@@ -1562,6 +1563,7 @@ model WhatsAppInstancia {
   mensagens       WhatsAppMensagem[]
   webhookEventos  WhatsAppWebhookEvento[]
   pagamentos      WhatsAppInstanciaPagamento[]
+  agentes         WhatsAppAgenteInstancia[]
 
   @@unique([contaId, instanceId])
   @@index([contaId, status])
@@ -1591,6 +1593,44 @@ model WhatsAppInstanciaPagamento {
   @@index([contaId, instanciaId, status, createdAt], map: "wa_pagto_conta_inst_status_created_idx")
   @@index([paymentId], map: "wa_pagto_payment_id_idx")
   @@index([sessionId], map: "wa_pagto_session_id_idx")
+}
+
+// Agente de IA para autoatendimento: enquanto a conversa está em espera (PENDENTE) e sem
+// atendente humano, o agente responde o cliente. Só atende as instâncias vinculadas
+// (WhatsAppAgenteInstancia), dentro dos dias/horários configurados e se estiver ativo.
+model WhatsAppAgente {
+  id         Int                       @id @default(autoincrement())
+  contaId    Int
+  Conta      Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome       String
+  prompt     String                    @db.Text
+  modelo     String                    @default("gemini-2.0-flash")
+  ativo      Boolean                   @default(true)
+  // Janela de atendimento (horário local America/Sao_Paulo). Nulo = sem restrição de horário.
+  horaInicio String?
+  horaFim    String?
+  // Dias da semana em que atende: índices separados por vírgula (0=domingo ... 6=sábado).
+  diasSemana String                    @default("0,1,2,3,4,5,6")
+  createdAt  DateTime                  @default(now())
+  updatedAt  DateTime                  @updatedAt
+  instancias WhatsAppAgenteInstancia[]
+
+  @@index([contaId, ativo])
+}
+
+// Vínculo agente <-> instância. O unique por instância garante que cada instância seja
+// triada por no máximo um agente (o admin escolhe qual agente atende cada instância).
+model WhatsAppAgenteInstancia {
+  id          Int               @id @default(autoincrement())
+  contaId     Int
+  agenteId    Int
+  instanciaId Int
+  Agente      WhatsAppAgente    @relation(fields: [agenteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Instancia   WhatsAppInstancia @relation(fields: [instanciaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt   DateTime          @default(now())
+
+  @@unique([contaId, instanciaId])
+  @@index([contaId, agenteId])
 }
 
 model WhatsAppContato {

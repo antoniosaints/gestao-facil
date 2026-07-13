@@ -7,6 +7,7 @@ import { env } from "../../utils/dotenv";
 import { formatCurrency } from "../../utils/formatters";
 import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia, DecryptedWhatsAppMedia, WhatsAppMediaError } from "./whatsappMedia";
+import { whatsAppAgentService } from "./whatsappAgentService";
 import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
@@ -1362,6 +1363,24 @@ export const whatsAppService = {
 
             sendWhatsAppConversationUpdated(instance.contaId, conversa);
             sendWhatsAppMessageCreated(instance.contaId, message);
+
+            // Autoatendimento por agente de IA: só para mensagens recebidas do cliente.
+            // Roda em background para não segurar a resposta do webhook.
+            if (!msg.fromMe) {
+              void whatsAppAgentService.handleIncomingForAgent({
+                contaId: instance.contaId,
+                instance: { id: instance.id, instanceId: instance.instanceId, token: instance.token },
+                conversa: {
+                  id: conversa.id,
+                  telefone: conversa.telefone,
+                  status: conversa.status,
+                  atendenteId: conversa.atendenteId ?? null,
+                },
+                incoming: { conteudo: msg.conteudo, tipo: msg.tipo },
+                incomingMessageId: message.id,
+                payload,
+              });
+            }
           }
         }
       }
