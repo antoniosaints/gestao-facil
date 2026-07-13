@@ -1,7 +1,10 @@
 import crypto from "crypto";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Prisma, WhatsAppConversaStatus, WhatsAppInstanciaStatus, WhatsAppMensagemDirecao, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
+import { formatCurrency } from "../../utils/formatters";
 import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } from "./wApiClient";
 import {
   buildDeletedWhatsAppInstanceId,
@@ -250,6 +253,64 @@ function assertWApiPaymentCreated(result: any, fallbackMessage: string) {
   if (result?.error === true || result?.data?.error === true) {
     throw new Error(result?.message || result?.data?.message || fallbackMessage);
   }
+}
+
+const VENDA_STATUS_LABEL: Record<string, string> = {
+  ORCAMENTO: "Orçamento",
+  FATURADO: "Faturado",
+  ANDAMENTO: "Em andamento",
+  FINALIZADO: "Finalizado",
+  PENDENTE: "Pendente",
+  CANCELADO: "Cancelado",
+};
+
+type VendaComItens = Prisma.VendasGetPayload<{
+  include: {
+    ItensVendas: { include: { produto: { select: { nome: true } }; servico: { select: { nome: true } } } };
+    PagamentoVendas: true;
+  };
+}>;
+
+function buildVendaResumoMessage(venda: VendaComItens, clienteNome: string) {
+  const nome = clienteNome?.trim() || "cliente";
+  const subtotal = Number(venda.valor || 0);
+  const desconto = Number(venda.desconto || 0);
+  const total = Math.max(0, subtotal - desconto);
+  const dataVenda = format(new Date(venda.data), "dd/MM/yyyy", { locale: ptBR });
+
+  const linhas = venda.ItensVendas.map((item) => {
+    const itemNome = item.itemName || item.produto?.nome || item.servico?.nome || "Item";
+    const totalLinha = Number(item.valor || 0) * Number(item.quantidade || 0);
+    return `• ${item.quantidade}x ${itemNome} — ${formatCurrency(totalLinha)}`;
+  });
+
+  const partes = [
+    `Olá, ${nome}! 🧾`,
+    ``,
+    `Resumo da venda *${venda.Uid}*`,
+    `Data: ${dataVenda}`,
+    `Status: ${VENDA_STATUS_LABEL[venda.status] || venda.status}`,
+  ];
+
+  if (linhas.length) {
+    partes.push(``, ...linhas);
+  }
+
+  partes.push(``, `Subtotal: ${formatCurrency(subtotal)}`);
+  if (desconto > 0) {
+    partes.push(`Desconto: ${formatCurrency(desconto)}`);
+  }
+  partes.push(`*Total: ${formatCurrency(total)}*`);
+
+  if (venda.PagamentoVendas?.metodo) {
+    partes.push(`Pagamento: ${venda.PagamentoVendas.metodo}`);
+  }
+
+  if (venda.observacoes?.trim()) {
+    partes.push(``, `Obs.: ${venda.observacoes.trim()}`);
+  }
+
+  return partes.join("\n");
 }
 
 export const whatsAppService = {
@@ -646,7 +707,9 @@ export const whatsAppService = {
         data: {
           ultimaMensagem: input.conteudo || input.caption || `[${prismaTipo.toLowerCase()}]`,
           ultimaInteracaoEm: new Date(),
-          status: conversa.status === WhatsAppConversaStatus.FINALIZADA ? WhatsAppConversaStatus.ABERTA : conversa.status,
+          // Responder move a conversa para ABERTA (em atendimento), inclusive reabrindo
+          // uma que estava em ESPERA ou FINALIZADA.
+          status: WhatsAppConversaStatus.ABERTA,
         },
       });
       sendWhatsAppMessageCreated(contaId, updated);
@@ -727,6 +790,97 @@ export const whatsAppService = {
 
     sendWhatsAppConversationUpdated(contaId, updated);
     return updated;
+  },
+
+  // Assume o atendimento: registra o atendente responsável e move a conversa de ESPERA
+  // (PENDENTE) para ABERTA (em atendimento). É a ação explícita de "Atender" — clicar/abrir
+  // a conversa não inicia o atendimento, o que mantém os KPIs de quem atendeu confiáveis.
+  async attendConversation(contaId: number, conversaId: number, atendenteId: number) {
+    const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+
+    const updated = await prisma.whatsAppConversa.update({
+      where: { id: conversaId },
+      data: {
+        status: WhatsAppConversaStatus.ABERTA,
+        atendenteId,
+      },
+      include: {
+        Contato: true,
+        Cliente: { select: { id: true, nome: true, telefone: true, whastapp: true } },
+        Atendente: { select: { id: true, nome: true } },
+        Instancia: { select: { id: true, nome: true, status: true, numeroConectado: true } },
+      },
+    });
+
+    sendWhatsAppConversationUpdated(contaId, updated);
+    return updated;
+  },
+
+  // Ferramenta de ação rápida "Venda": lista as vendas do cliente vinculado à conversa.
+  // Exige que o contato esteja vinculado a um cliente do sistema e só retorna vendas desse cliente.
+  async listConversationSales(contaId: number, conversaId: number, search?: string) {
+    const conversa = await prisma.whatsAppConversa.findFirst({
+      where: { id: conversaId, contaId },
+      select: { clienteId: true, Cliente: { select: { id: true, nome: true } } },
+    });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+    if (!conversa.clienteId) {
+      throw new Error("Vincule um cliente do sistema à conversa para usar a ferramenta de venda.");
+    }
+
+    const term = search?.trim();
+    const vendas = await prisma.vendas.findMany({
+      where: {
+        contaId,
+        clienteId: conversa.clienteId,
+        ...(term ? { Uid: { contains: term } } : {}),
+      },
+      orderBy: { data: "desc" },
+      take: 20,
+      select: { id: true, Uid: true, data: true, status: true, valor: true, desconto: true },
+    });
+
+    return {
+      cliente: conversa.Cliente,
+      items: vendas.map((venda) => ({
+        id: venda.id,
+        uid: venda.Uid,
+        data: venda.data,
+        status: venda.status,
+        total: Math.max(0, Number(venda.valor || 0) - Number(venda.desconto || 0)),
+      })),
+    };
+  },
+
+  // Envia o resumo de uma venda do cliente vinculado para a conversa (persiste na thread e
+  // dispara pela instância da conversa, reaproveitando `sendMessage`).
+  async sendConversationSale(contaId: number, conversaId: number, vendaId: number) {
+    const conversa = await prisma.whatsAppConversa.findFirst({
+      where: { id: conversaId, contaId },
+      select: { clienteId: true, Cliente: { select: { id: true, nome: true } } },
+    });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+    if (!conversa.clienteId) {
+      throw new Error("Vincule um cliente do sistema à conversa para enviar dados de venda.");
+    }
+
+    const venda = await prisma.vendas.findFirst({
+      where: { id: vendaId, contaId, clienteId: conversa.clienteId },
+      include: {
+        ItensVendas: {
+          include: {
+            produto: { select: { nome: true } },
+            servico: { select: { nome: true } },
+          },
+        },
+        PagamentoVendas: true,
+      },
+    });
+    if (!venda) throw new Error("Venda não encontrada para o cliente desta conversa.");
+
+    const message = buildVendaResumoMessage(venda, conversa.Cliente?.nome || "cliente");
+    return this.sendMessage(contaId, conversaId, { tipo: "text", conteudo: message });
   },
 
   async startConversation(contaId: number, input: { clienteId: number; instanciaId?: number }) {
@@ -877,6 +1031,27 @@ export const whatsAppService = {
               },
             });
 
+            const existingConversa = await prisma.whatsAppConversa.findUnique({
+              where: {
+                contaId_instanciaId_telefone: {
+                  contaId: instance.contaId,
+                  instanciaId: instance.id,
+                  telefone: msg.phone,
+                },
+              },
+              select: { status: true },
+            });
+
+            // Fluxo de atendimento (ESPERA -> ABERTA -> FINALIZADA): mensagem recebida do
+            // cliente coloca/mantém a conversa em ESPERA (PENDENTE) até alguém assumir; se já
+            // estiver ABERTA (em atendimento) permanece ABERTA. Uma mensagem enviada (fromMe)
+            // marca ABERTA. Conversa FINALIZADA que recebe nova mensagem volta para ESPERA.
+            const nextConversaStatus = msg.fromMe
+              ? WhatsAppConversaStatus.ABERTA
+              : existingConversa?.status === WhatsAppConversaStatus.ABERTA
+                ? WhatsAppConversaStatus.ABERTA
+                : WhatsAppConversaStatus.PENDENTE;
+
             const conversa = await prisma.whatsAppConversa.upsert({
               where: {
                 contaId_instanciaId_telefone: {
@@ -888,7 +1063,7 @@ export const whatsAppService = {
               update: {
                 contatoId: contato.id,
                 clienteId: contato.clienteId || autoCliente?.id || undefined,
-                status: WhatsAppConversaStatus.ABERTA,
+                status: nextConversaStatus,
                 ultimaMensagem: msg.conteudo || `[${msg.tipo.toLowerCase()}]`,
                 ultimaInteracaoEm: new Date(),
                 ...(msg.fromMe ? {} : { naoLidas: { increment: 1 } }),
@@ -899,7 +1074,7 @@ export const whatsAppService = {
                 contatoId: contato.id,
                 clienteId: contato.clienteId || autoCliente?.id || null,
                 telefone: msg.phone,
-                status: WhatsAppConversaStatus.ABERTA,
+                status: nextConversaStatus,
                 ultimaMensagem: msg.conteudo || `[${msg.tipo.toLowerCase()}]`,
                 ultimaInteracaoEm: new Date(),
                 naoLidas: msg.fromMe ? 0 : 1,

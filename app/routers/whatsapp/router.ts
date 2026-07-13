@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import {
+  attendConversation,
   configureInstanceWebhooks,
   createCardSubscription,
   createInstance,
@@ -8,9 +9,11 @@ import {
   getInstanceWebhooks,
   instanceAction,
   listConversations,
+  listConversationSales,
   listInstances,
   listMessages,
   markConversationAsRead,
+  sendConversationSale,
   receivePaymentWebhook,
   receiveWebhook,
   removeInstance,
@@ -43,6 +46,9 @@ routerWhatsapp.post("/conversas/iniciar", startConversation);
 routerWhatsapp.get("/conversas/:id/mensagens", listMessages);
 routerWhatsapp.post("/conversas/:id/mensagens", sendMessage);
 routerWhatsapp.patch("/conversas/:id", updateConversation);
+routerWhatsapp.post("/conversas/:id/atender", attendConversation);
+routerWhatsapp.get("/conversas/:id/ferramentas/vendas", listConversationSales);
+routerWhatsapp.post("/conversas/:id/ferramentas/vendas", sendConversationSale);
 routerWhatsapp.post("/conversas/:id/read", markConversationAsRead);
 
 export { routerWhatsapp };

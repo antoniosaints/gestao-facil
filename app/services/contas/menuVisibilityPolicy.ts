@@ -49,6 +49,10 @@ export const KNOWN_SUBMENU_KEYS = [
   "assinaturas:planos",
   "assinaturas:cobrancas",
   "assinaturas:comodatos",
+  "atendimento:painel",
+  "atendimento:chat",
+  "atendimento:agentes",
+  "atendimento:relatorios",
 ] as const;
 
 const knownMenuKeys = new Set<string>(MAIN_VISIBLE_MENU_KEYS);

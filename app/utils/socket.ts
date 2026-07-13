@@ -1,11 +1,27 @@
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import type { Server as HttpServer } from "http";
+import { redisConnecion } from "./redis";
 
 let io: Server;
 
 export function initSocket(server: HttpServer) {
   io = new Server(server, {
     cors: { origin: "*" },
+    // WebSocket puro: evita o handshake multi-request do long-polling, que quebraria
+    // sem sticky session no cluster do PM2 (`instances: max`).
+    transports: ["websocket"],
+  });
+
+  // Redis adapter: propaga os `emit`/broadcast entre TODAS as instâncias do cluster.
+  // Sem ele, cada worker PM2 só entrega eventos aos sockets conectados nele mesmo, e
+  // um webhook atendido por um worker não alcança clientes conectados em outro.
+  const pubClient = redisConnecion;
+  const subClient = redisConnecion.duplicate();
+  io.adapter(createAdapter(pubClient, subClient));
+
+  subClient.on("error", (error) => {
+    console.error("[socket] Falha no cliente Redis (sub) do adapter", error);
   });
 
   io.on("connection", (socket) => {

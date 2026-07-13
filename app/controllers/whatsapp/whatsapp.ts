@@ -268,6 +268,56 @@ export const updateConversation = async (req: Request, res: Response): Promise<a
   }
 };
 
+export const listConversationSales = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const result = await whatsAppService.listConversationSales(
+      customData.contaId,
+      Number(req.params.id),
+      typeof req.query.search === "string" ? req.query.search : undefined,
+    );
+    ResponseHandler(res, "Vendas do cliente encontradas", result);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const sendConversationSaleSchema = z.object({
+  vendaId: z.coerce.number().int().positive({ message: "Venda inválida" }),
+});
+
+export const sendConversationSale = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const data = sendConversationSaleSchema.parse(req.body);
+    const message = await whatsAppService.sendConversationSale(
+      customData.contaId,
+      Number(req.params.id),
+      data.vendaId,
+    );
+    ResponseHandler(res, "Dados da venda enviados", message, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const attendConversation = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const conversation = await whatsAppService.attendConversation(
+      customData.contaId,
+      Number(req.params.id),
+      customData.userId,
+    );
+    ResponseHandler(res, "Atendimento assumido", conversation);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const markConversationAsRead = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 1);
