@@ -117,59 +117,80 @@ function normalizeMessageType(value?: string | null): WhatsAppMensagemTipo {
 }
 
 function extractMessagePayload(payload: any) {
-  const data = payload?.data?.message || payload?.message || payload?.data || payload;
-  const nestedMessage = data?.message || payload?.message?.message || {};
-  const key = data?.key || payload?.key || {};
+  // Formato real da W-API (event "webhookReceived"): campos no topo do payload + `msgContent`
+  // com o conteúdo (conversation, extendedTextMessage, imageMessage, ...). Mantemos fallbacks
+  // para o formato aninhado (data.message/message) por segurança.
+  const content = payload?.msgContent || payload?.data?.message || payload?.message?.message || payload?.message || payload?.data || {};
+  const sender = payload?.sender || {};
+  const chat = payload?.chat || {};
+  const key = payload?.key || payload?.data?.key || {};
+
+  const fromMe = Boolean(payload?.fromMe ?? key?.fromMe ?? payload?.data?.fromMe);
+  // `chat.id` identifica o chat: número@s.whatsapp.net, um @lid, `@g.us` (grupo) ou "status"
+  // (transmissões de status/stories). Usamos isso para ignorar grupos e status.
+  const chatId = String(chat?.id ?? key?.remoteJid ?? "");
+  const isGroup = Boolean(payload?.isGroup) || chatId.endsWith("@g.us");
+  const isStatusBroadcast = chatId === "status" || chatId.startsWith("status@");
+
   const externalMessageId = String(
-    data?.messageId || data?.id || key?.id || payload?.messageId || payload?.id || hashPayload(payload),
+    payload?.messageId || payload?.data?.messageId || payload?.id || key?.id || payload?.data?.id || hashPayload(payload),
   );
-  const phone = normalizePhone(
-    data?.phone ||
-      payload?.phone ||
-      key?.remoteJid ||
-      data?.remoteJid ||
-      data?.from ||
-      data?.to ||
-      payload?.from ||
-      payload?.sender,
-  );
-  const fromMe = Boolean(data?.fromMe ?? key?.fromMe ?? payload?.fromMe ?? payload?.data?.fromMe);
+
+  // O número real do contato vem em `sender.id` (o `chat.id` pode ser um @lid sem o número).
+  // Para mensagens enviadas por nós (fromMe) o contato é o outro lado da conversa (chat.id).
+  const contactRaw =
+    (fromMe ? chat?.id || sender?.id : sender?.id || chat?.id) ||
+    payload?.phone ||
+    payload?.from ||
+    "";
+  const phone = normalizePhone(contactRaw);
+
   const text =
-    data?.text ||
-    data?.body ||
-    data?.message ||
-    nestedMessage?.conversation ||
-    nestedMessage?.extendedTextMessage?.text ||
-    nestedMessage?.imageMessage?.caption ||
-    nestedMessage?.videoMessage?.caption ||
-    nestedMessage?.documentMessage?.caption ||
+    content?.conversation ||
+    content?.extendedTextMessage?.text ||
+    content?.imageMessage?.caption ||
+    content?.videoMessage?.caption ||
+    content?.documentMessage?.caption ||
+    content?.text ||
+    content?.body ||
     payload?.text ||
-    payload?.body ||
     "";
   const mediaUrl =
-    data?.mediaUrl ||
-    data?.url ||
-    data?.image ||
-    data?.audio ||
-    data?.video ||
-    data?.document ||
-    nestedMessage?.imageMessage?.url ||
-    nestedMessage?.audioMessage?.url ||
-    nestedMessage?.videoMessage?.url ||
-    nestedMessage?.documentMessage?.url ||
+    content?.imageMessage?.URL ||
+    content?.imageMessage?.url ||
+    content?.audioMessage?.URL ||
+    content?.audioMessage?.url ||
+    content?.videoMessage?.URL ||
+    content?.videoMessage?.url ||
+    content?.documentMessage?.URL ||
+    content?.documentMessage?.url ||
+    content?.mediaUrl ||
+    content?.url ||
     null;
-  const rawType = data?.type || data?.messageType || payload?.type || Object.keys(nestedMessage || {})[0] || "text";
+  const rawType =
+    Object.keys(content || {}).find((chave) => chave.endsWith("Message")) ||
+    (content?.conversation ? "conversation" : content?.type || content?.messageType || payload?.type || "text");
 
   return {
     externalMessageId,
     phone,
     fromMe,
+    isGroup,
+    isStatusBroadcast,
+    chatId,
     tipo: normalizeMessageType(rawType),
     conteudo: typeof text === "string" ? text : safeJson(text),
     mediaUrl,
-    mediaMimeType: data?.mimeType || nestedMessage?.documentMessage?.mimetype || null,
-    fileName: data?.fileName || nestedMessage?.documentMessage?.fileName || null,
-    pushName: data?.pushName || data?.senderName || payload?.senderName || null,
+    mediaMimeType:
+      content?.imageMessage?.mimetype ||
+      content?.videoMessage?.mimetype ||
+      content?.audioMessage?.mimetype ||
+      content?.documentMessage?.mimetype ||
+      content?.mimeType ||
+      null,
+    fileName: content?.documentMessage?.fileName || content?.documentMessage?.title || content?.fileName || null,
+    pushName: sender?.pushName || payload?.pushName || payload?.senderName || null,
+    foto: chat?.profilePicture || sender?.profilePicture || null,
   };
 }
 
@@ -1019,11 +1040,38 @@ export const whatsAppService = {
     }
 
     try {
-      if (["connected", "disconnected", "status", "presence"].includes(tipo)) {
-        const status = tipo === "connected" ? WhatsAppInstanciaStatus.CONECTADA : tipo === "disconnected" ? WhatsAppInstanciaStatus.DESCONECTADA : mapWApiInstanceStatusFromPayload(payload);
+      // Só eventos que refletem de fato a conexão alteram o status da instância:
+      // - `connected`/`disconnected`: sinais explícitos da W-API;
+      // - `status`: aplicado apenas quando o payload traz um estado conclusivo — nunca
+      //   rebaixamos para PENDENTE por payload ambíguo;
+      // - `presence` (presença do contato no chat: online/digitando) NÃO diz respeito à
+      //   conexão da instância e por isso nunca mexe no status. Antes ele caía no fallback
+      //   "PENDENTE" de mapWApiInstanceStatusFromPayload e derrubava uma instância conectada
+      //   a cada evento de presença.
+      // Além disso, qualquer mensagem realmente recebida prova que a instância está
+      // conectada: se estava PENDENTE/CONECTANDO, reconhece como CONECTADA.
+      let nextInstanceStatus: WhatsAppInstanciaStatus | null = null;
+      if (tipo === "connected") {
+        nextInstanceStatus = WhatsAppInstanciaStatus.CONECTADA;
+      } else if (tipo === "disconnected") {
+        nextInstanceStatus = WhatsAppInstanciaStatus.DESCONECTADA;
+      } else if (tipo === "status") {
+        const mapped = mapWApiInstanceStatusFromPayload(payload);
+        if (mapped !== "PENDENTE") {
+          nextInstanceStatus = mapped as WhatsAppInstanciaStatus;
+        }
+      } else if (
+        tipo === "received" &&
+        (instance.status === WhatsAppInstanciaStatus.PENDENTE ||
+          instance.status === WhatsAppInstanciaStatus.CONECTANDO)
+      ) {
+        nextInstanceStatus = WhatsAppInstanciaStatus.CONECTADA;
+      }
+
+      if (nextInstanceStatus && nextInstanceStatus !== instance.status) {
         const updatedInstance = await prisma.whatsAppInstancia.update({
           where: { id: instance.id },
-          data: { status, lastSyncAt: new Date(), ultimoErro: null },
+          data: { status: nextInstanceStatus, lastSyncAt: new Date(), ultimoErro: null },
         });
         sendWhatsAppInstanceUpdated(instance.contaId, publicInstance(updatedInstance));
       }
@@ -1041,12 +1089,15 @@ export const whatsAppService = {
 
         if (tipo !== "delivery") {
           const msg = extractMessagePayload(payload);
-          if (msg.phone) {
+          // Ignora mensagens de grupo (isGroup) e transmissões de status/stories
+          // (chat.id === "status"): o atendimento é apenas para conversas privadas 1:1.
+          if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast) {
             const autoCliente = await findAutoCliente(instance.contaId, msg.phone);
             const contato = await prisma.whatsAppContato.upsert({
               where: { contaId_telefone: { contaId: instance.contaId, telefone: msg.phone } },
               update: {
                 nome: msg.pushName || undefined,
+                foto: msg.foto || undefined,
                 clienteId: autoCliente?.id || undefined,
                 dadosAuxiliares: safeJson({ lastWebhookAt: new Date().toISOString() }),
               },
@@ -1054,6 +1105,7 @@ export const whatsAppService = {
                 contaId: instance.contaId,
                 telefone: msg.phone,
                 nome: msg.pushName || null,
+                foto: msg.foto || null,
                 clienteId: autoCliente?.id || null,
                 dadosAuxiliares: safeJson({ createdBy: "whatsapp-webhook" }),
               },
