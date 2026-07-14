@@ -12,7 +12,9 @@ const setRefreshCookie = (res: Response, value: string) => res.cookie("loja_refr
 export async function register(req: Request, res: Response) { try {
   await enforceStoreRateLimit("register", `${req.params.slug}:${req.ip}`);
   const body = z.object({ name: z.string().min(2).max(120), email: z.string().email(), phone: z.string().max(30).optional(), password }).parse(req.body);
-  return ResponseHandler(res, "Cadastro realizado. Verifique seu e-mail", await registerStoreCustomer(req.params.slug, body), 201);
+  const result = await registerStoreCustomer(req.params.slug, body, { userAgent: req.headers["user-agent"], ip: req.ip });
+  setRefreshCookie(res, result.refreshToken);
+  return ResponseHandler(res, "Cadastro realizado", { customer: result.customer, accessToken: result.accessToken }, 201);
 } catch (error) { return sendCommerceError(res, error); } }
 
 export async function verify(req: Request, res: Response) { try {

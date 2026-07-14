@@ -53,20 +53,19 @@ async function enqueueCustomerEmail(to: string, subject: string, link: string) {
   await emailScheduleQueue.add("loja-cliente", { to, subject, text: `${subject}\n\n${link}\n\nSe você não solicitou esta ação, ignore esta mensagem.` }, { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true });
 }
 
-export async function registerStoreCustomer(slug: string, input: { name: string; email: string; phone?: string; password: string }) {
+export async function registerStoreCustomer(slug: string, input: { name: string; email: string; phone?: string; password: string }, context: { userAgent?: string; ip?: string } = {}) {
   const config = await resolveStore(slug);
   if (!config.permitirCadastro) throw new CommerceError("validation_failed", "Cadastro não habilitado nesta loja");
   const email = input.email.trim().toLowerCase();
   const existing = await prisma.lojaCliente.findUnique({ where: { contaId_emailNormalizado: { contaId: config.contaId, emailNormalizado: email } } });
   if (existing) throw new CommerceError("validation_failed", "Já existe um cadastro com este e-mail");
   const senhaHash = await hashPassword(input.password);
+  // A loja não exige confirmação de e-mail: a conta já nasce ativa e o cliente entra na hora.
   const customer = await prisma.$transaction(async (tx) => {
     const erpCustomer = await tx.clientesFornecedores.create({ data: { contaId: config.contaId, Uid: gerarIdUnicoComMetaFinal("CLI"), nome: input.name, email, telefone: input.phone, tipo: "CLIENTE" } });
-    return tx.lojaCliente.create({ data: { contaId: config.contaId, clienteId: erpCustomer.id, nome: input.name, email, emailNormalizado: email, telefone: input.phone, senhaHash } });
+    return tx.lojaCliente.create({ data: { contaId: config.contaId, clienteId: erpCustomer.id, nome: input.name, email, emailNormalizado: email, telefone: input.phone, senhaHash, status: "ATIVO", emailVerificadoEm: new Date() } });
   });
-  const token = await issueCustomerToken(customer, "VERIFICACAO_EMAIL");
-  await enqueueCustomerEmail(email, "Verifique seu e-mail", `${env.BASE_URL_FRONTEND}/lojas/${slug}/verificar?token=${token}`);
-  return { id: customer.id, email: customer.email, verificationRequired: true };
+  return { customer: { id: customer.id, name: customer.nome, email: customer.email }, ...(await createSession(customer, context)) };
 }
 
 export async function verifyStoreCustomerEmail(slug: string, token: string) {
@@ -85,7 +84,7 @@ export async function loginStoreCustomer(slug: string, emailValue: string, passw
   const email = emailValue.trim().toLowerCase();
   const customer = await prisma.lojaCliente.findUnique({ where: { contaId_emailNormalizado: { contaId: config.contaId, emailNormalizado: email } } });
   if (!customer || !(await verifyPassword(password, customer.senhaHash))) throw new CommerceError("unauthorized", "E-mail ou senha inválidos");
-  if (customer.status !== "ATIVO") throw new CommerceError("unauthorized", "Verifique seu e-mail antes de entrar");
+  if (customer.status === "BLOQUEADO") throw new CommerceError("unauthorized", "Sua conta está bloqueada. Fale com a loja.");
   return { customer: { id: customer.id, name: customer.nome, email: customer.email }, ...(await createSession(customer, context)) };
 }
 
