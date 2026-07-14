@@ -23,6 +23,7 @@ import {
   receiveWebhook,
   removeContact,
   removeConversation,
+  select2Contacts,
   removeInstance,
   removePayment,
   sendMessage,
@@ -30,6 +31,7 @@ import {
   updateContact,
   updateConversation,
   updateInstance,
+  updateInstanceAtendimento,
 } from "../../controllers/whatsapp/whatsapp";
 
 const routerWhatsapp = Router();
@@ -42,6 +44,7 @@ routerWhatsapp.get("/instances", listInstances);
 routerWhatsapp.post("/instances", createInstance);
 routerWhatsapp.post("/instances/generate", createInstanceAuto);
 routerWhatsapp.put("/instances/:id", updateInstance);
+routerWhatsapp.patch("/instances/:id/atendimento", updateInstanceAtendimento);
 routerWhatsapp.delete("/instances/:id", removeInstance);
 routerWhatsapp.get("/instances/:id/webhooks", getInstanceWebhooks);
 routerWhatsapp.get("/instances/:id/eventos", listInstanceWebhookEvents);
@@ -52,6 +55,7 @@ routerWhatsapp.delete("/instances/:id/payments/:paymentId", removePayment);
 routerWhatsapp.post("/instances/:id/:action", instanceAction);
 
 routerWhatsapp.get("/contatos", listContacts);
+routerWhatsapp.get("/contatos/select2", select2Contacts);
 routerWhatsapp.patch("/contatos/:id", updateContact);
 routerWhatsapp.delete("/contatos/:id", removeContact);
 

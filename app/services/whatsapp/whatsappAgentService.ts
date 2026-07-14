@@ -33,9 +33,22 @@ function normalizeDias(value?: string | null): string {
   return Array.from(new Set(dias)).join(",") || "0,1,2,3,4,5,6";
 }
 
-function normalizeHora(value?: string | null): string | null {
+export function normalizeHora(value?: string | null): string | null {
   const hora = String(value ?? "").trim();
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora) ? hora : null;
+}
+
+// Está dentro da janela de horário [inicio, fim] (fuso America/Sao_Paulo)? Horário não definido
+// (qualquer um dos dois nulo/ inválido) = sempre dentro. Suporta janela que cruza a meia-noite.
+export function withinBusinessHours(horaInicio?: string | null, horaFim?: string | null, now = new Date()): boolean {
+  const inicio = normalizeHora(horaInicio);
+  const fim = normalizeHora(horaFim);
+  if (!inicio || !fim) return true;
+  const { minutes } = saoPauloDayAndMinutes(now);
+  const start = hmToMinutes(inicio);
+  const end = hmToMinutes(fim);
+  if (start <= end) return minutes >= start && minutes <= end;
+  return !(minutes < start && minutes > end);
 }
 
 function hmToMinutes(value: string): number {

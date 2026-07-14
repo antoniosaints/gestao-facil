@@ -25,6 +25,12 @@ const updateInstanceSchema = z.object({
   ativo: z.boolean().optional(),
 });
 
+const updateAtendimentoSchema = z.object({
+  naoPerturbe: z.boolean().optional(),
+  horaInicio: z.string().nullable().optional(),
+  horaFim: z.string().nullable().optional(),
+});
+
 const webhookUrlsSchema = z.object({
   connected: z.string().url().optional(),
   disconnected: z.string().url().optional(),
@@ -144,6 +150,19 @@ export const removeInstance = async (req: Request, res: Response): Promise<any> 
     if (!customData) return;
     const instance = await whatsAppService.removeInstance(customData.contaId, Number(req.params.id));
     ResponseHandler(res, "Instancia removida", instance);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// Controle de atendimento da instância (não perturbe + janela de horário), sem desconectar a API.
+export const updateInstanceAtendimento = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const data = updateAtendimentoSchema.parse(req.body);
+    const instance = await whatsAppService.updateAtendimento(customData.contaId, Number(req.params.id), data);
+    ResponseHandler(res, "Atendimento da instância atualizado", instance);
   } catch (error) {
     handleError(res, error);
   }
@@ -353,6 +372,21 @@ export const listContacts = async (req: Request, res: Response): Promise<any> =>
     ResponseHandler(res, "Contatos encontrados", result);
   } catch (error) {
     handleError(res, error);
+  }
+};
+
+// Endpoint no formato select2 ({ results: [{ id, label }] }) para o componente Select2Ajax.
+export const select2Contacts = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 1);
+    if (!customData) return;
+    const results = await whatsAppService.select2Contacts(customData.contaId, {
+      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      id: req.query.id ? Number(req.query.id) : undefined,
+    });
+    return res.json({ results });
+  } catch (error) {
+    return res.json({ results: [] });
   }
 };
 

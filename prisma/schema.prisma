@@ -1556,6 +1556,12 @@ model WhatsAppInstancia {
   devicePayload   String?                      @db.Text
   ultimoErro      String?                      @db.Text
   ativo           Boolean                      @default(true)
+  // Controle de atendimento sem desconectar a API: "não perturbe" para de salvar os eventos
+  // de mensagem recebida; horaInicio/horaFim (fuso America/Sao_Paulo) definem a janela em que
+  // os eventos são salvos — fora dela também paramos de salvar. Nulo = sem restrição de horário.
+  atendimentoNaoPerturbe Boolean               @default(false)
+  atendimentoHoraInicio  String?
+  atendimentoHoraFim     String?
   lastSyncAt      DateTime?
   createdAt       DateTime                     @default(now())
   updatedAt       DateTime                     @updatedAt
@@ -1678,6 +1684,9 @@ model WhatsAppContato {
   Conta           Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   telefone        String
   nome            String?
+  // Marca que o nome foi definido manualmente pelo usuário; quando true, os webhooks (pushName)
+  // não sobrescrevem mais o nome do contato.
+  nomeManual      Boolean               @default(false)
   foto            String?               @db.Text
   clienteId       Int?
   Cliente         ClientesFornecedores? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)

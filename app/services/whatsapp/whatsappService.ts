@@ -7,7 +7,7 @@ import { env } from "../../utils/dotenv";
 import { formatCurrency } from "../../utils/formatters";
 import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia, DecryptedWhatsAppMedia, WhatsAppMediaError } from "./whatsappMedia";
-import { whatsAppAgentService } from "./whatsappAgentService";
+import { whatsAppAgentService, withinBusinessHours, normalizeHora } from "./whatsappAgentService";
 import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
@@ -102,6 +102,18 @@ function publicPayment(payment: any) {
   if (!payment) return payment;
   const { rawPayload: _rawPayload, ...rest } = payment;
   return rest;
+}
+
+// Atendimento pausado para esta instância: "não perturbe" ligado, ou fora da janela de horário
+// configurada. Enquanto pausado, a instância segue conectada na W-API mas paramos de salvar os
+// eventos de mensagem recebida.
+function instanceAtendimentoPaused(instance: {
+  atendimentoNaoPerturbe: boolean;
+  atendimentoHoraInicio: string | null;
+  atendimentoHoraFim: string | null;
+}): boolean {
+  if (instance.atendimentoNaoPerturbe) return true;
+  return !withinBusinessHours(instance.atendimentoHoraInicio, instance.atendimentoHoraFim);
 }
 
 function mapMessageStatus(payload: any): WhatsAppMensagemStatus {
@@ -525,6 +537,24 @@ export const whatsAppService = {
     if (typeof input.instanceId === "string") data.instanceId = input.instanceId.trim();
     if (typeof input.ativo === "boolean") data.ativo = input.ativo;
     if (typeof input.token === "string" && input.token.trim()) data.token = input.token.trim();
+
+    const instance = await prisma.whatsAppInstancia.update({ where: { id }, data });
+    sendWhatsAppInstanceUpdated(contaId, publicInstance(instance));
+    return publicInstance(instance);
+  },
+
+  // Atualiza o controle de atendimento da instância (não perturbe + janela de horário), sem tocar
+  // na conexão da W-API. Enquanto pausada, a instância para de salvar os eventos de mensagem.
+  async updateAtendimento(
+    contaId: number,
+    id: number,
+    input: { naoPerturbe?: boolean; horaInicio?: string | null; horaFim?: string | null },
+  ) {
+    await getInstanceById(contaId, id);
+    const data: Prisma.WhatsAppInstanciaUpdateInput = {};
+    if (typeof input.naoPerturbe === "boolean") data.atendimentoNaoPerturbe = input.naoPerturbe;
+    if ("horaInicio" in input) data.atendimentoHoraInicio = normalizeHora(input.horaInicio);
+    if ("horaFim" in input) data.atendimentoHoraFim = normalizeHora(input.horaFim);
 
     const instance = await prisma.whatsAppInstancia.update({ where: { id }, data });
     sendWhatsAppInstanceUpdated(contaId, publicInstance(instance));
@@ -1060,6 +1090,40 @@ export const whatsAppService = {
     };
   },
 
+  // Lista de contatos no formato select2 ({ id, label }) para o componente Select2Ajax.
+  // Suporta busca por nome/telefone/cliente e resolução de um id específico (item selecionado).
+  async select2Contacts(contaId: number, filters: { search?: string; id?: number } = {}) {
+    if (filters.id) {
+      const contato = await prisma.whatsAppContato.findFirst({ where: { id: filters.id, contaId } });
+      if (!contato) return [];
+      return [{ id: contato.id, label: contato.nome ? `${contato.nome} · ${contato.telefone}` : contato.telefone }];
+    }
+
+    const search = filters.search?.trim();
+    const where: Prisma.WhatsAppContatoWhereInput = {
+      contaId,
+      ...(search
+        ? {
+            OR: [
+              { nome: { contains: search } },
+              { telefone: { contains: normalizePhone(search) || search } },
+              { Cliente: { nome: { contains: search } } },
+            ],
+          }
+        : {}),
+    };
+
+    const contatos = await prisma.whatsAppContato.findMany({
+      where,
+      take: 20,
+      orderBy: { updatedAt: "desc" },
+    });
+    return contatos.map((contato) => ({
+      id: contato.id,
+      label: contato.nome ? `${contato.nome} · ${contato.telefone}` : contato.telefone,
+    }));
+  },
+
   // Atualiza um contato: renomear e/ou (des)vincular a um cliente. Ao (des)vincular, propaga o
   // clienteId para as conversas desse contato, para o chat refletir o nome correto.
   async updateContact(contaId: number, contatoId: number, input: { nome?: string | null; clienteId?: number | null }) {
@@ -1072,7 +1136,11 @@ export const whatsAppService = {
     }
 
     const data: Prisma.WhatsAppContatoUpdateInput = {};
-    if ("nome" in input) data.nome = input.nome?.trim() || null;
+    if ("nome" in input) {
+      // Editar o nome fixa-o como manual: a partir daqui os webhooks não o sobrescrevem.
+      data.nome = input.nome?.trim() || null;
+      data.nomeManual = Boolean(data.nome);
+    }
     if ("clienteId" in input) {
       data.Cliente = input.clienteId ? { connect: { id: input.clienteId } } : { disconnect: true };
     }
@@ -1361,6 +1429,16 @@ export const whatsAppService = {
     const eventId = String(payload?.eventId || payload?.id || payload?.data?.id || payload?.messageId || payload?.data?.messageId || hashPayload(payload));
     const tipo = String(explicitKind || payload?.event || payload?.type || payload?.eventName || "generic");
 
+    // "Não perturbe" / fora do horário de atendimento: sem desconectar a API, ignoramos os eventos
+    // de mensagem recebida — não registramos o evento nem criamos contato/conversa/mensagem.
+    // Eventos de conexão (connected/disconnected/status) e recibos de entrega (delivery) seguem
+    // normais, para o status da instância continuar correto.
+    const inboundMessageEvent =
+      tipo === "received" || Boolean(payload?.msgContent || payload?.message || payload?.data?.message);
+    if (inboundMessageEvent && tipo !== "delivery" && instanceAtendimentoPaused(instance)) {
+      return { ignored: true, reason: "atendimento-pausado" as const };
+    }
+
     let event = await prisma.whatsAppWebhookEvento.findUnique({
       where: { instanciaId_eventId: { instanciaId: instance.id, eventId } },
     });
@@ -1454,10 +1532,15 @@ export const whatsAppService = {
             }
           } else if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast && !msg.isChannel) {
             const autoCliente = await findAutoCliente(instance.contaId, msg.phone);
+            const existingContato = await prisma.whatsAppContato.findUnique({
+              where: { contaId_telefone: { contaId: instance.contaId, telefone: msg.phone } },
+              select: { nomeManual: true },
+            });
             const contato = await prisma.whatsAppContato.upsert({
               where: { contaId_telefone: { contaId: instance.contaId, telefone: msg.phone } },
               update: {
-                nome: msg.pushName || undefined,
+                // Nome definido manualmente pelo usuário não é sobrescrito pelo pushName do evento.
+                ...(existingContato?.nomeManual ? {} : { nome: msg.pushName || undefined }),
                 foto: msg.foto || undefined,
                 clienteId: autoCliente?.id || undefined,
                 dadosAuxiliares: safeJson({ lastWebhookAt: new Date().toISOString() }),
