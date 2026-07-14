@@ -324,6 +324,31 @@ export const sendMessage = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
+// Envio de imagem a partir do dispositivo (multipart, campo "file"): faz scale down, sobe no
+// storage público e envia a URL na conversa. Espera multer.single("file") na rota.
+export const sendImageMessage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    if (!req.file) {
+      return ResponseHandler(res, "Nenhuma imagem enviada", null, 400);
+    }
+    if (!req.file.mimetype?.startsWith("image/")) {
+      return ResponseHandler(res, "O arquivo enviado não é uma imagem", null, 400);
+    }
+    const message = await whatsAppService.sendImageMessage(customData.contaId, Number(req.params.id), {
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalName: req.file.originalname,
+      caption: typeof req.body.caption === "string" ? req.body.caption : undefined,
+      quotedMessageId: typeof req.body.quotedMessageId === "string" ? req.body.quotedMessageId : undefined,
+    });
+    ResponseHandler(res, "Imagem enviada", message, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const startConversation = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 2);

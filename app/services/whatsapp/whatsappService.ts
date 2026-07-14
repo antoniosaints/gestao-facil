@@ -22,6 +22,8 @@ import {
   sendWhatsAppInstanceUpdated,
   sendWhatsAppMessageCreated,
 } from "../../hooks/whatsapp/socket";
+import { buildScopedUploadKey, uploadPublicFile } from "../uploads/fileStorageService";
+import { downscaleImage } from "../uploads/imageProcessingService";
 
 const DEFAULT_TAKE = 50;
 const MAX_TAKE = 100;
@@ -997,6 +999,32 @@ export const whatsAppService = {
       sendWhatsAppMessageCreated(contaId, failed);
       throw error;
     }
+  },
+
+  // Envia uma imagem vinda do dispositivo do usuário: reescala/comprime (scale down), salva no
+  // storage público (Cloudflare R2) e envia a URL pública ao destino reaproveitando `sendMessage`.
+  async sendImageMessage(
+    contaId: number,
+    conversaId: number,
+    input: { buffer: Buffer; mimeType?: string | null; originalName?: string | null; caption?: string; quotedMessageId?: string },
+  ) {
+    const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+
+    // Scale down obrigatório para qualquer imagem enviada.
+    const processed = await downscaleImage(input.buffer, input.mimeType);
+
+    const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${processed.extension}`;
+    const key = buildScopedUploadKey(contaId, `whatsapp/conversas/${conversaId}`, fileName);
+    const uploaded = await uploadPublicFile({ key, body: processed.buffer, contentType: processed.contentType });
+
+    // Bucket público: a URL já é acessível diretamente, sem presign.
+    return this.sendMessage(contaId, conversaId, {
+      tipo: "image",
+      mediaUrl: uploaded.url,
+      caption: input.caption,
+      quotedMessageId: input.quotedMessageId,
+    });
   },
 
   async updateConversation(contaId: number, conversaId: number, input: { status?: WhatsAppConversaStatus; atendenteId?: number | null; setor?: string | null; fila?: string | null; clienteId?: number | null }) {

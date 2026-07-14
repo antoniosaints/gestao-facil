@@ -9,6 +9,7 @@ import {
   normalizeStorageKey,
   uploadPublicFile,
 } from "../../services/uploads/fileStorageService";
+import { downscaleIfImage } from "../../services/uploads/imageProcessingService";
 
 const routerUploadArquivos = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -39,14 +40,20 @@ routerUploadArquivos.post("/r2", upload.single("file"), async (req, res): Promis
       return res.status(400).json({ status: 400, message: "Nenhum diretorio enviado, especifique o local de armazenamento" });
     }
 
-    const ext = originalname.includes(".") ? originalname.split(".").pop() : undefined;
+    // Scale down para qualquer imagem: reescala/comprime antes de subir. Não-imagens passam direto.
+    const processed = await downscaleIfImage(buffer, mimetype);
+    const body = processed?.buffer ?? buffer;
+    const contentType = processed?.contentType ?? mimetype;
+
+    const ext = processed?.extension
+      ?? (originalname.includes(".") ? originalname.split(".").pop() : undefined);
     const generatedFileName = `${Date.now()}-${randomUUID()}${ext ? `.${ext}` : ""}`;
     const key = buildScopedUploadKey(customData.contaId, diretorio, generatedFileName);
 
     const file = await uploadPublicFile({
       key,
-      body: buffer,
-      contentType: mimetype,
+      body,
+      contentType,
     });
 
     res.json({

@@ -53,6 +53,7 @@
     "nodemailer": "^7.0.3",
     "pdfkit": "^0.17.1",
     "qrcode": "^1.5.4",
+    "sharp": "^0.35.3",
     "socket.io": "^4.8.1",
     "system-monitoring": "^0.0.17",
     "web-push": "^3.6.7",

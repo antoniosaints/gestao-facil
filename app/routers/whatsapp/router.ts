@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { createAgent, listAgents, removeAgent, updateAgent } from "../../controllers/whatsapp/agentes";
 import {
@@ -26,6 +27,7 @@ import {
   select2Contacts,
   removeInstance,
   removePayment,
+  sendImageMessage,
   sendMessage,
   startConversation,
   updateContact,
@@ -35,6 +37,8 @@ import {
 } from "../../controllers/whatsapp/whatsapp";
 
 const routerWhatsapp = Router();
+// Upload de imagem em memória (scale down + storage no service). Limite defensivo de 25MB.
+const uploadImagem = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 routerWhatsapp.post("/webhooks/:instanceId", receiveWebhook);
 routerWhatsapp.post("/payments/webhooks/:instanceId", receivePaymentWebhook);
@@ -70,6 +74,7 @@ routerWhatsapp.delete("/conversas/:id", removeConversation);
 routerWhatsapp.get("/conversas/:id/mensagens", listMessages);
 routerWhatsapp.get("/messages/:id/media", getMessageMedia);
 routerWhatsapp.post("/conversas/:id/mensagens", sendMessage);
+routerWhatsapp.post("/conversas/:id/mensagens/imagem", uploadImagem.single("file"), sendImageMessage);
 routerWhatsapp.patch("/conversas/:id", updateConversation);
 routerWhatsapp.post("/conversas/:id/atender", attendConversation);
 routerWhatsapp.get("/conversas/:id/ferramentas/vendas", listConversationSales);
