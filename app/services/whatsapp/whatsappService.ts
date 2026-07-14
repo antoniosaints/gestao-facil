@@ -1042,6 +1042,10 @@ export const whatsAppService = {
 
     await prisma.$transaction([
       prisma.whatsAppMensagem.deleteMany({ where: { contaId, conversaId } }),
+      // Apaga os webhooks correspondentes ao chat (mesmo telefone + instância) para não acumular.
+      prisma.whatsAppWebhookEvento.deleteMany({
+        where: { contaId, instanciaId: conversa.instanciaId, telefone: conversa.telefone },
+      }),
       prisma.whatsAppConversa.delete({ where: { id: conversaId } }),
     ]);
 
@@ -1195,6 +1199,8 @@ export const whatsAppService = {
             prisma.whatsAppConversa.deleteMany({ where: { contaId, contatoId } }),
           ]
         : []),
+      // Apaga os webhooks correspondentes ao contato (mesmo telefone) para não acumular.
+      prisma.whatsAppWebhookEvento.deleteMany({ where: { contaId, telefone: contato.telefone } }),
       prisma.whatsAppContato.delete({ where: { id: contatoId } }),
     ]);
 
@@ -1460,6 +1466,9 @@ export const whatsAppService = {
     }
 
     try {
+      // Telefone do chat a que este evento pertence (quando é evento de mensagem). Guardado no
+      // registro do evento para permitir apagar os webhooks correspondentes ao excluir o chat.
+      let eventTelefone: string | null = null;
       // Só eventos que refletem de fato a conexão alteram o status da instância:
       // - `connected`/`disconnected`: sinais explícitos da W-API;
       // - `status`: aplicado apenas quando o payload traz um estado conclusivo — nunca
@@ -1516,6 +1525,8 @@ export const whatsAppService = {
           const reactionMessage =
             payload?.msgContent?.reactionMessage || payload?.message?.reactionMessage || payload?.data?.message?.reactionMessage;
           const msg = extractMessagePayload(payload);
+          // Vincula o evento ao chat pelo telefone (mesmo valor de conversa.telefone/contato.telefone).
+          if (msg.phone && !msg.isGroup && !msg.isStatusBroadcast && !msg.isChannel) eventTelefone = msg.phone;
           if (reactionMessage) {
             await applyReaction(instance, payload, reactionMessage);
           } else if (protocolMessage?.type === "REVOKE") {
@@ -1665,7 +1676,7 @@ export const whatsAppService = {
 
       const processed = await prisma.whatsAppWebhookEvento.update({
         where: { id: event.id },
-        data: { processado: true, processedAt: new Date(), erro: null },
+        data: { processado: true, processedAt: new Date(), erro: null, telefone: eventTelefone },
       });
       return { duplicated: false, event: processed };
     } catch (error: any) {

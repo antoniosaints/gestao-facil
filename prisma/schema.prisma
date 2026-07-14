@@ -1776,6 +1776,10 @@ model WhatsAppWebhookEvento {
   Instancia   WhatsAppInstancia @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   eventId     String
   tipo        String
+  // Telefone do chat a que o evento pertence (msg.phone), quando é um evento de mensagem. Usado
+  // para apagar os webhooks correspondentes ao excluir a conversa/contato. Nulo p/ eventos sem
+  // telefone (connected/disconnected/status/presence).
+  telefone    String?
   payload     String            @db.LongText
   processado  Boolean           @default(false)
   erro        String?           @db.Text
@@ -1784,4 +1788,5 @@ model WhatsAppWebhookEvento {
 
   @@unique([instanciaId, eventId])
   @@index([contaId, tipo, createdAt])
+  @@index([instanciaId, telefone])
 }
