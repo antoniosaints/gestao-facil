@@ -137,6 +137,7 @@ export const ProdutoSchema = z.object({
   saidas: parseBoolean("saidas", true),
   producaoLocal: parseBoolean("produção local", false).optional().nullable(),
   mostrarNoPdv: parseBoolean("mostrarNoPdv", true).optional().nullable(),
+  mostrarNoCatalogo: parseBoolean("mostrarNoCatalogo", true).optional().nullable(),
   materiaPrima: parseBoolean("materiaPrima", false).optional().nullable(),
   custoMedioProducao: parseDecimal("custoMedioProducao").optional().nullable(),
   controlaEstoque: parseBoolean("controlaEstoque", true).optional().nullable(),

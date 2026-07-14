@@ -16,6 +16,7 @@ import { routerAssinaturas } from "./assinaturas/router";
 import { routerWhatsapp } from "./whatsapp/router";
 import { routerComandas } from "./comandas/router";
 import { routerMetas } from "./metas/router";
+import { routerLoja } from "./loja/router";
 import { callChatGemini } from "../controllers/inteligence/gemini";
 import { authenticateJWT } from "../middlewares/auth";
 
@@ -38,6 +39,7 @@ RouterMain.use("/api/assinaturas", routerAssinaturas);
 RouterMain.use("/api/whatsapp", routerWhatsapp);
 RouterMain.use("/api/comandas", routerComandas);
 RouterMain.use("/api/metas", routerMetas);
+RouterMain.use("/api/loja", routerLoja);
 RouterMain.post("/api/gemini/chat", authenticateJWT, callChatGemini);
 
 export { RouterMain };

@@ -13,6 +13,8 @@ import {
   deleteCategoriaProduto,
   deleteProduto,
   deleteProdutoVariante,
+  deleteVarianteImagem,
+  getCatalogoPublico,
   getCategoriasProduto,
   gerarSkuProduto,
   getProduto,
@@ -26,6 +28,7 @@ import {
   saveCategoriaProduto,
   saveProduto,
   saveProdutoVariante,
+  uploadVarianteImagem,
 } from "../../controllers/produtos/produtos";
 import { ListagemMobileProdutos } from "../../controllers/produtos/mobile";
 import {
@@ -59,6 +62,14 @@ import {
 
 const routerProdutos = Router();
 const upload = multer({ dest: "uploads/" });
+// Upload de imagem de variante em memória (o scale down / envio ao R2 fica no controller). Limite 5MB.
+const uploadImagem = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+// Catálogo público (loja virtual): sem autenticação. Deve vir antes das rotas com `/:id`.
+routerProdutos.get("/publico/catalogo", getCatalogoPublico);
 
 routerProdutos.get("/relatorio", authenticateJWT, relatorioProdutos);
 routerProdutos.get("/relatorio/vendas", authenticateJWT, relatorioVendasProduto);
@@ -110,6 +121,14 @@ routerProdutos.post(
   upload.single("arquivo"),
   postImportarProdutos
 );
+
+routerProdutos.post(
+  "/variantes/:id/imagem",
+  authenticateJWT,
+  uploadImagem.single("file"),
+  uploadVarianteImagem
+);
+routerProdutos.delete("/variantes/:id/imagem", authenticateJWT, deleteVarianteImagem);
 
 routerProdutos.delete("/:id", authenticateJWT, deleteProduto);
 routerProdutos.delete("/variantes/:id", authenticateJWT, deleteProdutoVariante);

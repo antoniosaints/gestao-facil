@@ -117,6 +117,7 @@ model Contas {
   comandasOperacao                ComandaOperacao[]
   comandasOperacaoConfiguracao    ComandaOperacaoConfiguracao?
   moduloOnContas                  ModuloOnConta[]
+  LojaVirtualConfig               LojaVirtualConfig?
   WhatsAppInstancia               WhatsAppInstancia[]
   WhatsAppContato                 WhatsAppContato[]
   WhatsAppConversa                WhatsAppConversa[]
@@ -164,6 +165,30 @@ model ModuloOnConta {
   updatedAt                DateTime                 @updatedAt
 
   @@unique([moduloId, contaId], map: "ModuloOnConta_moduloId_contaId_key")
+}
+
+// Configuração da Loja Virtual (módulo pago). Uma por conta. Guarda a customização visual da
+// vitrine (cores, estilo de header, banner, textos) e toggles de comportamento. Os campos de
+// login/cadastro de cliente são usados na Fase B (autenticação do cliente da loja).
+model LojaVirtualConfig {
+  id                 Int      @id @default(autoincrement())
+  contaId            Int      @unique
+  Conta              Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  corPrimaria        String   @default("#4f46e5")
+  corSecundaria      String   @default("#0ea5e9")
+  // Estilo do cabeçalho da loja: "padrao" | "centralizado" | "banner".
+  headerEstilo       String   @default("padrao")
+  bannerUrl          String?  @db.Text
+  bannerTitulo       String?
+  bannerSubtitulo    String?
+  mensagemBoasVindas String?  @db.Text
+  mostrarPrecos      Boolean  @default(true)
+  pedidoWhatsapp     Boolean  @default(true)
+  // Fase B (login/cadastro de cliente): mantidos aqui para já existirem na config.
+  permitirLogin      Boolean  @default(false)
+  permitirCadastro   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 enum StatusModuloConta {
@@ -437,6 +462,11 @@ model Produto {
   mostrarNoPdv         Boolean?               @default(true)
   materiaPrima         Boolean?               @default(false)
   custoMedioProducao   Decimal?               @db.Decimal(10, 2)
+  // Imagem da variante (uma por variante). Guarda a referência do storage (URL pública no R2 ou a
+  // chave local), no mesmo padrão de `Contas.profile`. Ao excluir a variante a imagem é apagada.
+  imagem               String?                @db.Text
+  // Controla se a variante aparece no catálogo/loja online pública. Default: aparece.
+  mostrarNoCatalogo    Boolean                @default(true)
   ItensVendas          ItensVendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   ItensOrdensServico   ItensOrdensServico[]

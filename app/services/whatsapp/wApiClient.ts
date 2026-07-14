@@ -32,6 +32,24 @@ export interface WApiSendMessageInput {
   quotedMessageId?: string;
 }
 
+export interface WApiSendLocationInput {
+  phone: string;
+  latitude: string;
+  longitude: string;
+  name: string;
+  address: string;
+  // Id externo da mensagem citada (quando o envio é uma resposta).
+  quotedMessageId?: string;
+}
+
+export interface WApiSendContactInput {
+  phone: string;
+  contactName: string;
+  contactPhone: string;
+  contactBusinessDescription?: string;
+  quotedMessageId?: string;
+}
+
 export interface WApiPaymentInput {
   payerEmail: string;
   webhookPaymentUrl?: string;
@@ -228,6 +246,41 @@ export class WApiClient {
         extension: input.extension || "",
         fileName: input.fileName || "documento",
         caption: input.caption || input.message || "",
+      },
+    });
+  }
+
+  // Envia uma localização (pino no mapa). `latitude`/`longitude` vão como string (a W-API aceita
+  // string); `name` é o título e `address` o endereço completo. `messageId`, quando presente,
+  // faz o envio ser uma resposta (citação) à mensagem referenciada.
+  sendLocation(input: WApiSendLocationInput) {
+    return this.request({
+      method: "POST",
+      url: "/v1/message/send-location",
+      data: {
+        phone: input.phone,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        name: input.name,
+        address: input.address,
+        ...(input.quotedMessageId ? { messageId: input.quotedMessageId } : {}),
+        delayMessage: 0,
+      },
+    });
+  }
+
+  // Envia um cartão de contato (vCard). `contactBusinessDescription` é opcional.
+  sendContact(input: WApiSendContactInput) {
+    return this.request({
+      method: "POST",
+      url: "/v1/message/send-contact",
+      data: {
+        phone: input.phone,
+        contactName: input.contactName,
+        contactPhone: input.contactPhone,
+        ...(input.contactBusinessDescription ? { contactBusinessDescription: input.contactBusinessDescription } : {}),
+        ...(input.quotedMessageId ? { messageId: input.quotedMessageId } : {}),
+        delayMessage: 0,
       },
     });
   }

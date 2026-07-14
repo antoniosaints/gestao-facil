@@ -28,7 +28,9 @@ import {
   removeInstance,
   removePayment,
   sendAudioMessage,
+  sendContactMessage,
   sendImageMessage,
+  sendLocationMessage,
   sendMessage,
   startConversation,
   updateContact,
@@ -76,6 +78,8 @@ routerWhatsapp.delete("/conversas/:id", removeConversation);
 routerWhatsapp.get("/conversas/:id/mensagens", listMessages);
 routerWhatsapp.get("/messages/:id/media", getMessageMedia);
 routerWhatsapp.post("/conversas/:id/mensagens", sendMessage);
+routerWhatsapp.post("/conversas/:id/mensagens/localizacao", sendLocationMessage);
+routerWhatsapp.post("/conversas/:id/mensagens/contato", sendContactMessage);
 routerWhatsapp.post("/conversas/:id/mensagens/imagem", uploadMedia.single("file"), sendImageMessage);
 routerWhatsapp.post("/conversas/:id/mensagens/audio", uploadMedia.single("file"), sendAudioMessage);
 routerWhatsapp.patch("/conversas/:id", updateConversation);

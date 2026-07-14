@@ -65,14 +65,33 @@ const sendMessageSchema = z.object({
   }
 });
 
+const sendLocationSchema = z.object({
+  latitude: z.union([z.number(), z.string()]).refine((v) => Number.isFinite(Number(v)), "Latitude inválida"),
+  longitude: z.union([z.number(), z.string()]).refine((v) => Number.isFinite(Number(v)), "Longitude inválida"),
+  name: z.string().trim().min(1, "Título da localização é obrigatório"),
+  address: z.string().trim().min(1, "Endereço da localização é obrigatório"),
+  quotedMessageId: z.string().optional(),
+});
+
+const sendContactSchema = z.object({
+  contactName: z.string().trim().min(1, "Nome do contato é obrigatório"),
+  contactPhone: z.string().trim().min(1, "Telefone do contato é obrigatório"),
+  contactBusinessDescription: z.string().trim().optional(),
+  quotedMessageId: z.string().optional(),
+});
+
 const startConversationSchema = z
   .object({
     clienteId: z.coerce.number().int().positive({ message: "Cliente inválido" }).optional(),
     contatoId: z.coerce.number().int().positive({ message: "Contato inválido" }).optional(),
+    // Telefone avulso (ex.: cartão de contato recebido no chat): inicia o atendimento criando/
+    // reaproveitando um contato com esse número.
+    phone: z.string().trim().min(1).optional(),
+    nome: z.string().trim().optional(),
     instanciaId: z.coerce.number().int().positive().optional(),
   })
-  .refine((data) => Boolean(data.clienteId || data.contatoId), {
-    message: "Informe um cliente ou contato para iniciar a conversa",
+  .refine((data) => Boolean(data.clienteId || data.contatoId || data.phone), {
+    message: "Informe um cliente, contato ou telefone para iniciar a conversa",
   });
 
 const updateConversationSchema = z.object({
@@ -319,6 +338,30 @@ export const sendMessage = async (req: Request, res: Response): Promise<any> => 
     const data = sendMessageSchema.parse(req.body);
     const message = await whatsAppService.sendMessage(customData.contaId, Number(req.params.id), data);
     ResponseHandler(res, "Mensagem enviada", message, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const sendLocationMessage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const data = sendLocationSchema.parse(req.body);
+    const message = await whatsAppService.sendLocationMessage(customData.contaId, Number(req.params.id), data);
+    ResponseHandler(res, "Localização enviada", message, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const sendContactMessage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    const data = sendContactSchema.parse(req.body);
+    const message = await whatsAppService.sendContactMessage(customData.contaId, Number(req.params.id), data);
+    ResponseHandler(res, "Contato enviado", message, 201);
   } catch (error) {
     handleError(res, error);
   }

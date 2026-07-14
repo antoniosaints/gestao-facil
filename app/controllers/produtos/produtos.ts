@@ -21,6 +21,13 @@ import {
   canDiscardProdutoStock,
   getProdutoDescarteUpdate,
 } from "../../services/produtos/estoqueService";
+import {
+  buildScopedUploadKey,
+  deleteStoredFile,
+  uploadPublicFile,
+} from "../../services/uploads/fileStorageService";
+import { downscaleImage } from "../../services/uploads/imageProcessingService";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 const produtoVarianteSchema = ProdutoSchema.partial({ nome: true }).extend({
   produtoBaseId: z.number({
@@ -66,6 +73,8 @@ function buildProdutoBaseResponse(
     totalVariantes: base.variantes.length,
     estoqueTotal: base.variantes.reduce((acc, item) => acc + item.estoque, 0),
     variantePadraoId: variantePadrao?.id ?? null,
+    imagem: variantePadrao?.imagem ?? null,
+    mostrarNoCatalogo: variantePadrao?.mostrarNoCatalogo ?? true,
     nomeVariante: variantePadrao?.nomeVariante ?? "Padrão",
     preco: variantePadrao?.preco ?? 0,
     precoCompra: variantePadrao?.precoCompra ?? null,
@@ -269,6 +278,104 @@ export const getProduto = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+// Catálogo público (loja virtual): endpoint SEM autenticação. A conta é identificada pelo id
+// (o frontend decodifica o hash da URL e envia o id real, mesmo padrão do cadastro público de
+// clientes). Retorna os dados da loja e todos os produtos ativos da conta agrupados por base.
+// Obs.: por enquanto mostra todos os produtos ativos; o controle de "aparecer no catálogo" por
+// produto virá depois.
+export const getCatalogoPublico = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const contaId = Number(req.query.contaId);
+    if (!contaId || Number.isNaN(contaId)) {
+      return ResponseHandler(res, "Loja não encontrada", null, 400);
+    }
+
+    const conta = await prisma.contas.findFirst({
+      where: { id: contaId },
+      select: { id: true, nome: true, nomeFantasia: true, profile: true, telefone: true },
+    });
+    if (!conta) {
+      return ResponseHandler(res, "Loja não encontrada", null, 404);
+    }
+
+    const bases = await prisma.produtoBase.findMany({
+      where: { contaId, status: Status.ATIVO },
+      include: {
+        Categoria: { select: { nome: true } },
+        variantes: {
+          where: { status: Status.ATIVO, mostrarNoCatalogo: true },
+          orderBy: [{ ehPadrao: "desc" }, { id: "asc" }],
+        },
+      },
+      orderBy: { nome: "asc" },
+    });
+
+    const produtos = bases
+      .filter((base) => base.variantes.length > 0)
+      .map((base) => {
+        const variantes = base.variantes.map((variante) => ({
+          id: variante.id,
+          nomeVariante: variante.nomeVariante,
+          preco: variante.preco,
+          imagem: variante.imagem,
+          unidade: variante.unidade,
+          estoque: variante.estoque,
+          controlaEstoque: variante.controlaEstoque,
+          ehPadrao: variante.ehPadrao,
+        }));
+        const capa = variantes.find((v) => v.imagem)?.imagem ?? null;
+        const precos = variantes.map((v) => Number(v.preco) || 0);
+
+        return {
+          id: base.id,
+          nome: base.nome,
+          descricao: base.descricao,
+          categoria: base.Categoria?.nome ?? null,
+          imagem: capa,
+          precoMin: Math.min(...precos),
+          precoMax: Math.max(...precos),
+          totalVariantes: variantes.length,
+          variantes,
+        };
+      });
+
+    const categorias = Array.from(
+      new Set(produtos.map((p) => p.categoria).filter((c): c is string => Boolean(c)))
+    ).sort((a, b) => a.localeCompare(b));
+
+    // Loja Virtual (módulo pago): quando ativa, a vitrine é renderizada como loja completa e
+    // personalizada. Sem o módulo, permanece o catálogo gratuito. Retornamos o estado + a config
+    // pública (sem campos sensíveis) para o frontend decidir a experiência.
+    const lojaAtiva = await contaHasActiveModule(contaId, "loja-virtual");
+    const lojaConfigRaw = lojaAtiva
+      ? await prisma.lojaVirtualConfig.findUnique({ where: { contaId } })
+      : null;
+    const loja = {
+      ativa: lojaAtiva,
+      config: lojaConfigRaw
+        ? {
+            corPrimaria: lojaConfigRaw.corPrimaria,
+            corSecundaria: lojaConfigRaw.corSecundaria,
+            headerEstilo: lojaConfigRaw.headerEstilo,
+            bannerUrl: lojaConfigRaw.bannerUrl,
+            bannerTitulo: lojaConfigRaw.bannerTitulo,
+            bannerSubtitulo: lojaConfigRaw.bannerSubtitulo,
+            mensagemBoasVindas: lojaConfigRaw.mensagemBoasVindas,
+            mostrarPrecos: lojaConfigRaw.mostrarPrecos,
+            pedidoWhatsapp: lojaConfigRaw.pedidoWhatsapp,
+          }
+        : null,
+    };
+
+    return ResponseHandler(res, "Catálogo encontrado", { conta, produtos, categorias, loja });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const getProdutos = async (
   req: Request,
   res: Response
@@ -373,6 +480,13 @@ export const deleteProduto = async (
         },
       });
     });
+
+    // Tratativa: apaga as imagens das variantes excluídas para não ocupar espaço no storage.
+    for (const variante of produto.variantes) {
+      if (variante.imagem) {
+        await deleteStoredFile(variante.imagem).catch(() => undefined);
+      }
+    }
 
     await emailScheduleService({
       to: "costaantonio883@gmail.com",
@@ -479,6 +593,7 @@ export const saveProduto = async (
               controlaEstoque: data.controlaEstoque,
               producaoLocal: data.producaoLocal,
               mostrarNoPdv: data.mostrarNoPdv,
+              mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
               materiaPrima: data.materiaPrima,
               custoMedioProducao: data.custoMedioProducao,
             },
@@ -512,6 +627,7 @@ export const saveProduto = async (
               controlaEstoque: data.controlaEstoque,
               producaoLocal: data.producaoLocal,
               mostrarNoPdv: data.mostrarNoPdv,
+              mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
               materiaPrima: data.materiaPrima,
               custoMedioProducao: data.custoMedioProducao,
               categoria: categoriaNome,
@@ -588,6 +704,7 @@ export const saveProduto = async (
           controlaEstoque: data.controlaEstoque,
           producaoLocal: data.producaoLocal,
           mostrarNoPdv: data.mostrarNoPdv,
+          mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
           materiaPrima: data.materiaPrima,
           custoMedioProducao: data.custoMedioProducao,
           categoria: categoriaNome,
@@ -1180,6 +1297,7 @@ export const saveProdutoVariante = async (
             controlaEstoque: data.controlaEstoque,
             producaoLocal: data.producaoLocal,
             mostrarNoPdv: data.mostrarNoPdv,
+            mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
             materiaPrima: data.materiaPrima,
             custoMedioProducao: data.custoMedioProducao,
           },
@@ -1216,6 +1334,7 @@ export const saveProdutoVariante = async (
           controlaEstoque: data.controlaEstoque,
           producaoLocal: data.producaoLocal,
           mostrarNoPdv: data.mostrarNoPdv,
+          mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
           materiaPrima: data.materiaPrima,
           custoMedioProducao: data.custoMedioProducao,
           ehPadrao: false,
@@ -1266,7 +1385,114 @@ export const deleteProdutoVariante = async (
       },
     });
 
+    // Tratativa: ao excluir a variante, apaga também a imagem do storage para não ocupar espaço.
+    if (variante.imagem) {
+      await deleteStoredFile(variante.imagem).catch(() => undefined);
+    }
+
     return ResponseHandler(res, "Variante excluída com sucesso", variante);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// Envio da imagem de uma variante: reescala/comprime (mesmo tratamento do chat) e sobe no storage
+// público (R2), substituindo a imagem anterior. Uma imagem por variante.
+export const uploadVarianteImagem = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return ResponseHandler(res, "Variante inválida", null, 400);
+    }
+    if (!req.file) {
+      return ResponseHandler(res, "Nenhuma imagem enviada", null, 400);
+    }
+    if (!req.file.mimetype?.startsWith("image/")) {
+      return ResponseHandler(res, "O arquivo enviado não é uma imagem", null, 400);
+    }
+
+    const variante = await prisma.produto.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: { id: true, imagem: true },
+    });
+    if (!variante) {
+      return ResponseHandler(res, "Variante não encontrada", null, 404);
+    }
+
+    // Scale down para evitar imagens grandes (limita a maior dimensão e recomprime).
+    const processed = await downscaleImage(req.file.buffer, req.file.mimetype, {
+      maxDimension: 1280,
+      quality: 72,
+    });
+
+    // Remove a imagem anterior antes de subir a nova (a extensão pode mudar).
+    if (variante.imagem) {
+      await deleteStoredFile(variante.imagem).catch(() => undefined);
+    }
+
+    const key = buildScopedUploadKey(
+      customData.contaId,
+      `produtos/variantes/variante_${variante.id}`,
+      `variante-${variante.id}.${processed.extension}`
+    );
+
+    const file = await uploadPublicFile({
+      key,
+      body: processed.buffer,
+      contentType: processed.contentType,
+      cacheControl: "public, max-age=3600",
+    });
+
+    await prisma.produto.update({
+      where: { id: variante.id, contaId: customData.contaId },
+      data: { imagem: file.reference },
+    });
+
+    return ResponseHandler(res, "Imagem da variante enviada com sucesso", {
+      id: variante.id,
+      imagem: file.reference,
+      imagemUrl: file.url,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+// Remove a imagem de uma variante (apaga do storage e limpa o campo).
+export const deleteVarianteImagem = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return ResponseHandler(res, "Variante inválida", null, 400);
+    }
+
+    const variante = await prisma.produto.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: { id: true, imagem: true },
+    });
+    if (!variante) {
+      return ResponseHandler(res, "Variante não encontrada", null, 404);
+    }
+
+    if (variante.imagem) {
+      await deleteStoredFile(variante.imagem).catch(() => undefined);
+      await prisma.produto.update({
+        where: { id: variante.id, contaId: customData.contaId },
+        data: { imagem: null },
+      });
+    }
+
+    return ResponseHandler(res, "Imagem da variante removida com sucesso", {
+      id: variante.id,
+    });
   } catch (error) {
     handleError(res, error);
   }

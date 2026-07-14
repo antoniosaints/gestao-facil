@@ -65,6 +65,21 @@ export interface SendMessageInput {
   quotedMessageId?: string;
 }
 
+export interface SendLocationInput {
+  latitude: number | string;
+  longitude: number | string;
+  name: string;
+  address: string;
+  quotedMessageId?: string;
+}
+
+export interface SendContactInput {
+  contactName: string;
+  contactPhone: string;
+  contactBusinessDescription?: string;
+  quotedMessageId?: string;
+}
+
 export interface ConversationFilters {
   search?: string;
   status?: WhatsAppConversaStatus;
@@ -77,6 +92,22 @@ function normalizePhone(value?: string | null) {
   if (!value) return "";
   const clean = String(value).replace(/@.*/, "").replace(/\D/g, "");
   return clean.startsWith("55") || clean.length < 11 ? clean : `55${clean}`;
+}
+
+// Monta um vCard (3.0) no mesmo formato que a W-API entrega nas mensagens recebidas, para que o
+// balão de contato enviado por nós seja lido pelo mesmo parser do frontend (nome + telefone).
+function buildVCard(name: string, phone: string, businessDescription?: string | null) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  const lines = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    `N:;${name};;;`,
+    `FN:${name}`,
+    ...(businessDescription ? [`X-WA-BIZ-NAME:${businessDescription}`] : []),
+    `TEL;type=CELL;type=VOICE;waid=${digits}:${phone}`,
+    "END:VCARD",
+  ];
+  return lines.join("\n");
 }
 
 function safeJson(value: unknown) {
@@ -161,6 +192,8 @@ function extractTextFromContent(content: any): string {
   if (content?.videoMessage) return "[vídeo]";
   if (content?.audioMessage) return "[áudio]";
   if (content?.documentMessage) return content?.documentMessage?.fileName || "[documento]";
+  if (content?.locationMessage) return `📍 ${content?.locationMessage?.name || "Localização"}`;
+  if (content?.contactMessage) return `👤 ${content?.contactMessage?.displayName || "Contato"}`;
   return "";
 }
 
@@ -215,6 +248,8 @@ function extractMessagePayload(payload: any) {
     content?.text ||
     content?.body ||
     payload?.text ||
+    (content?.locationMessage ? `📍 ${content?.locationMessage?.name || "Localização"}` : "") ||
+    (content?.contactMessage ? `👤 ${content?.contactMessage?.displayName || "Contato"}` : "") ||
     "";
   const mediaUrl =
     content?.imageMessage?.URL ||
@@ -1019,6 +1054,187 @@ export const whatsAppService = {
     }
   },
 
+  // Envia uma localização (pino no mapa). Guarda no `rawPayload` o mesmo formato `msgContent`
+  // das mensagens recebidas (locationMessage) para o frontend renderizar o balão do jeito único,
+  // independente da direção.
+  async sendLocationMessage(contaId: number, conversaId: number, input: SendLocationInput) {
+    const conversa = await prisma.whatsAppConversa.findFirst({
+      where: { id: conversaId, contaId },
+      include: { Instancia: true },
+    });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+    if (!conversa.Instancia.ativo) throw new Error("Instância inativa para envio de mensagens");
+    if (conversa.Instancia.status !== WhatsAppInstanciaStatus.CONECTADA) throw new Error("Instância desconectada. Reconecte antes de enviar mensagens.");
+
+    const messageId = `erp-${contaId}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    const latitude = String(input.latitude);
+    const longitude = String(input.longitude);
+    const name = String(input.name || "").trim();
+    const address = String(input.address || "").trim();
+    const conteudo = `📍 ${name || "Localização"}`;
+    const locationMessage = {
+      degreesLatitude: Number(latitude),
+      degreesLongitude: Number(longitude),
+      name,
+      address,
+    };
+    const metadata = { msgContent: { locationMessage } };
+
+    const quoted = input.quotedMessageId
+      ? await prisma.whatsAppMensagem.findFirst({
+          where: { contaId, conversaId, externalMessageId: input.quotedMessageId },
+          select: { conteudo: true, tipo: true, fileName: true },
+        })
+      : null;
+    const quotedConteudo = quoted
+      ? quoted.conteudo || (quoted.tipo === WhatsAppMensagemTipo.DOCUMENTO ? quoted.fileName || "[documento]" : `[${quoted.tipo.toLowerCase()}]`)
+      : null;
+
+    const pending = await prisma.whatsAppMensagem.create({
+      data: {
+        contaId,
+        conversaId,
+        instanciaId: conversa.instanciaId,
+        direcao: WhatsAppMensagemDirecao.SAIDA,
+        tipo: WhatsAppMensagemTipo.LOCALIZACAO,
+        externalMessageId: messageId,
+        conteudo,
+        quotedMessageId: input.quotedMessageId || null,
+        quotedConteudo,
+        rawPayload: safeJson(metadata),
+        statusEnvio: WhatsAppMensagemStatus.PENDENTE,
+      },
+    });
+    sendWhatsAppMessageCreated(contaId, pending);
+
+    try {
+      const client = new WApiClient(conversa.Instancia.instanceId, conversa.Instancia.token);
+      const result = await client.sendLocation({
+        phone: conversa.telefone,
+        latitude,
+        longitude,
+        name,
+        address,
+        quotedMessageId: input.quotedMessageId,
+      });
+
+      const updated = await prisma.whatsAppMensagem.update({
+        where: { id: pending.id },
+        data: {
+          rawPayload: safeJson({ ...metadata, wapiResult: result }),
+          statusEnvio: WhatsAppMensagemStatus.ENVIADA,
+          enviadoEm: new Date(),
+        },
+      });
+      const updatedConversation = await prisma.whatsAppConversa.update({
+        where: { id: conversa.id },
+        data: { ultimaMensagem: conteudo, ultimaInteracaoEm: new Date(), status: WhatsAppConversaStatus.ABERTA },
+      });
+      sendWhatsAppMessageCreated(contaId, updated);
+      sendWhatsAppConversationUpdated(contaId, updatedConversation);
+      return updated;
+    } catch (error: any) {
+      const failed = await prisma.whatsAppMensagem.update({
+        where: { id: pending.id },
+        data: {
+          statusEnvio: WhatsAppMensagemStatus.ERRO,
+          erroEnvio: error?.response?.data ? safeJson(error.response.data) : error?.message || "Erro no envio pela W-API",
+        },
+      });
+      sendWhatsAppMessageCreated(contaId, failed);
+      throw error;
+    }
+  },
+
+  // Envia um cartão de contato (vCard). Guarda no `rawPayload` o formato `msgContent.contactMessage`
+  // com o vCard montado, para o frontend renderizar o balão igual ao de um contato recebido.
+  async sendContactMessage(contaId: number, conversaId: number, input: SendContactInput) {
+    const conversa = await prisma.whatsAppConversa.findFirst({
+      where: { id: conversaId, contaId },
+      include: { Instancia: true },
+    });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+    if (!conversa.Instancia.ativo) throw new Error("Instância inativa para envio de mensagens");
+    if (conversa.Instancia.status !== WhatsAppInstanciaStatus.CONECTADA) throw new Error("Instância desconectada. Reconecte antes de enviar mensagens.");
+
+    const messageId = `erp-${contaId}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    const contactName = String(input.contactName || "").trim();
+    const contactPhone = String(input.contactPhone || "").trim();
+    const businessDescription = input.contactBusinessDescription?.trim() || undefined;
+    const conteudo = `👤 ${contactName || "Contato"}`;
+    const contactMessage = {
+      displayName: contactName,
+      vcard: buildVCard(contactName, contactPhone, businessDescription),
+      phone: contactPhone,
+      businessDescription: businessDescription || null,
+    };
+    const metadata = { msgContent: { contactMessage } };
+
+    const quoted = input.quotedMessageId
+      ? await prisma.whatsAppMensagem.findFirst({
+          where: { contaId, conversaId, externalMessageId: input.quotedMessageId },
+          select: { conteudo: true, tipo: true, fileName: true },
+        })
+      : null;
+    const quotedConteudo = quoted
+      ? quoted.conteudo || (quoted.tipo === WhatsAppMensagemTipo.DOCUMENTO ? quoted.fileName || "[documento]" : `[${quoted.tipo.toLowerCase()}]`)
+      : null;
+
+    const pending = await prisma.whatsAppMensagem.create({
+      data: {
+        contaId,
+        conversaId,
+        instanciaId: conversa.instanciaId,
+        direcao: WhatsAppMensagemDirecao.SAIDA,
+        tipo: WhatsAppMensagemTipo.CONTATO,
+        externalMessageId: messageId,
+        conteudo,
+        quotedMessageId: input.quotedMessageId || null,
+        quotedConteudo,
+        rawPayload: safeJson(metadata),
+        statusEnvio: WhatsAppMensagemStatus.PENDENTE,
+      },
+    });
+    sendWhatsAppMessageCreated(contaId, pending);
+
+    try {
+      const client = new WApiClient(conversa.Instancia.instanceId, conversa.Instancia.token);
+      const result = await client.sendContact({
+        phone: conversa.telefone,
+        contactName,
+        contactPhone,
+        contactBusinessDescription: businessDescription,
+        quotedMessageId: input.quotedMessageId,
+      });
+
+      const updated = await prisma.whatsAppMensagem.update({
+        where: { id: pending.id },
+        data: {
+          rawPayload: safeJson({ ...metadata, wapiResult: result }),
+          statusEnvio: WhatsAppMensagemStatus.ENVIADA,
+          enviadoEm: new Date(),
+        },
+      });
+      const updatedConversation = await prisma.whatsAppConversa.update({
+        where: { id: conversa.id },
+        data: { ultimaMensagem: conteudo, ultimaInteracaoEm: new Date(), status: WhatsAppConversaStatus.ABERTA },
+      });
+      sendWhatsAppMessageCreated(contaId, updated);
+      sendWhatsAppConversationUpdated(contaId, updatedConversation);
+      return updated;
+    } catch (error: any) {
+      const failed = await prisma.whatsAppMensagem.update({
+        where: { id: pending.id },
+        data: {
+          statusEnvio: WhatsAppMensagemStatus.ERRO,
+          erroEnvio: error?.response?.data ? safeJson(error.response.data) : error?.message || "Erro no envio pela W-API",
+        },
+      });
+      sendWhatsAppMessageCreated(contaId, failed);
+      throw error;
+    }
+  },
+
   // Envia uma imagem vinda do dispositivo do usuário: reescala/comprime (scale down), salva no
   // storage público (Cloudflare R2) e envia a URL pública ao destino reaproveitando `sendMessage`.
   async sendImageMessage(
@@ -1398,7 +1614,7 @@ export const whatsAppService = {
     return this.sendMessage(contaId, conversaId, { tipo: "text", conteudo: message });
   },
 
-  async startConversation(contaId: number, input: { clienteId?: number; contatoId?: number; instanciaId?: number }) {
+  async startConversation(contaId: number, input: { clienteId?: number; contatoId?: number; phone?: string; nome?: string; instanciaId?: number }) {
     // A nova conversa pode partir de um contato já existente (WhatsAppContato) ou de um cliente
     // do ERP com telefone/WhatsApp cadastrado. Em ambos os casos resolvemos o `contato` e o
     // telefone antes de criar/reaproveitar a conversa.
@@ -1436,8 +1652,26 @@ export const whatsAppService = {
         select: { id: true, telefone: true, clienteId: true },
       });
       clienteId = cliente.id;
+    } else if (input.phone) {
+      // Telefone avulso (ex.: "Conversar" no cartão de contato recebido): cria/reaproveita um
+      // WhatsAppContato com esse número para abrir o atendimento no sistema.
+      const phoneNorm = normalizePhone(input.phone);
+      if (!phoneNorm) throw new Error("Telefone inválido para iniciar o atendimento");
+
+      contato = await prisma.whatsAppContato.upsert({
+        where: { contaId_telefone: { contaId, telefone: phoneNorm } },
+        update: { nome: input.nome?.trim() || undefined },
+        create: {
+          contaId,
+          telefone: phoneNorm,
+          nome: input.nome?.trim() || null,
+          dadosAuxiliares: safeJson({ createdBy: "atendimento-contact-card" }),
+        },
+        select: { id: true, telefone: true, clienteId: true },
+      });
+      clienteId = contato.clienteId ?? null;
     } else {
-      throw new Error("Informe um cliente ou contato para iniciar a conversa");
+      throw new Error("Informe um cliente, contato ou telefone para iniciar a conversa");
     }
 
     const phone = normalizePhone(contato.telefone);

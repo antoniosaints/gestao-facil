@@ -35,6 +35,13 @@ const DEFAULT_MODULES = [
     preco: 29.9,
   },
   {
+    codigo: "loja-virtual",
+    nome: "Loja Virtual",
+    descricao: "Vitrine online completa e personalizavel (cores, header, banner) com login e cadastro de clientes. Substitui o catalogo gratuito por uma loja profissional.",
+    categoria: "Vendas",
+    preco: 39.9,
+  },
+  {
     codigo: "assinaturas",
     nome: "Assinaturas",
     descricao: "Gestao de contratos recorrentes, ciclos, comodatos e cobrancas do modulo de assinaturas.",
