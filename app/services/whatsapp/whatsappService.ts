@@ -24,6 +24,7 @@ import {
 } from "../../hooks/whatsapp/socket";
 import { buildScopedUploadKey, uploadPublicFile } from "../uploads/fileStorageService";
 import { downscaleImage } from "../uploads/imageProcessingService";
+import { transcodeAudioToOgg } from "../uploads/audioProcessingService";
 
 const DEFAULT_TAKE = 50;
 const MAX_TAKE = 100;
@@ -891,11 +892,28 @@ export const whatsAppService = {
   async getMessageMedia(contaId: number, messageId: number): Promise<DecryptedWhatsAppMedia> {
     const message = await prisma.whatsAppMensagem.findFirst({
       where: { id: messageId, contaId },
-      select: { rawPayload: true },
+      select: { rawPayload: true, direcao: true, mediaUrl: true, mediaMimeType: true, fileName: true },
     });
     if (!message) {
       throw new WhatsAppMediaError("Mensagem não encontrada para esta conta.", 404);
     }
+
+    // Mídia enviada por nós (SAIDA): já está num storage público nosso (mediaUrl). Fazemos proxy
+    // server-side para servir same-origin e evitar CORS no chat do sistema (ex.: a waveform do
+    // wavesurfer precisa ler os bytes do áudio, o que o bucket público bloqueia por CORS).
+    if (message.direcao === WhatsAppMensagemDirecao.SAIDA && message.mediaUrl) {
+      const response = await fetch(message.mediaUrl);
+      if (!response.ok) {
+        throw new WhatsAppMediaError(`Falha ao baixar a mídia enviada (${response.status}).`, 502);
+      }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return {
+        buffer,
+        mimetype: message.mediaMimeType || response.headers.get("content-type") || "application/octet-stream",
+        fileName: message.fileName || "",
+      };
+    }
+
     if (!message.rawPayload) {
       throw new WhatsAppMediaError("Mensagem sem mídia disponível para download.", 404);
     }
@@ -1023,6 +1041,29 @@ export const whatsAppService = {
       tipo: "image",
       mediaUrl: uploaded.url,
       caption: input.caption,
+      quotedMessageId: input.quotedMessageId,
+    });
+  },
+
+  // Envia um áudio gravado no dispositivo: transcoda para OGG/Opus (ffmpeg), salva no storage
+  // público (Cloudflare R2) e envia a URL ao destino como nota de voz, reaproveitando `sendMessage`.
+  async sendAudioMessage(
+    contaId: number,
+    conversaId: number,
+    input: { buffer: Buffer; mimeType?: string | null; quotedMessageId?: string },
+  ) {
+    const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
+    if (!conversa) throw new Error("Conversa não encontrada para esta conta");
+
+    const audio = await transcodeAudioToOgg(input.buffer, input.mimeType);
+
+    const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${audio.extension}`;
+    const key = buildScopedUploadKey(contaId, `whatsapp/conversas/${conversaId}`, fileName);
+    const uploaded = await uploadPublicFile({ key, body: audio.buffer, contentType: audio.contentType });
+
+    return this.sendMessage(contaId, conversaId, {
+      tipo: "audio",
+      mediaUrl: uploaded.url,
       quotedMessageId: input.quotedMessageId,
     });
   },

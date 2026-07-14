@@ -349,6 +349,29 @@ export const sendImageMessage = async (req: Request, res: Response): Promise<any
   }
 };
 
+// Envio de áudio gravado (multipart, campo "file"): transcoda p/ OGG, sobe no storage e envia a
+// URL como nota de voz. Espera multer.single("file") na rota.
+export const sendAudioMessage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 2);
+    if (!customData) return;
+    if (!req.file) {
+      return ResponseHandler(res, "Nenhum áudio enviado", null, 400);
+    }
+    if (!req.file.mimetype?.startsWith("audio/")) {
+      return ResponseHandler(res, "O arquivo enviado não é um áudio", null, 400);
+    }
+    const message = await whatsAppService.sendAudioMessage(customData.contaId, Number(req.params.id), {
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      quotedMessageId: typeof req.body.quotedMessageId === "string" ? req.body.quotedMessageId : undefined,
+    });
+    ResponseHandler(res, "Áudio enviado", message, 201);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const startConversation = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 2);
