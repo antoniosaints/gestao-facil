@@ -9,10 +9,12 @@
 - `whatsappNotificationWorker.ts`: consome a fila de notificações administrativas por WhatsApp.
 - `cronJobsWorker.ts`: dispara rotinas recorrentes.
 - `cron/recurrencyFinanceWorker.ts`: agenda e processa a geração automática de ciclos/cobranças recorrentes de assinaturas a cada 5 minutos.
+- `cron/storeReservationExpirationWorker.ts`: consome a fila `store-reservation-expiration`; o scheduler de `cronJobsWorker.ts` roda a cada minuto e libera, em lotes idempotentes, reservas de pedidos vencidos.
 - `cron/`: implementações auxiliares de tarefas agendadas.
 
 ## Infraestrutura
 - Workers usam BullMQ e Redis.
+- A expiração de reservas depende do processo `npm run cron`; retries são seguros porque pedido e reserva só mudam quando ainda estão ativos e vencidos.
 - As filas são definidas em `app/queues`.
 - O enfileiramento é acionado por services ou controllers.
 

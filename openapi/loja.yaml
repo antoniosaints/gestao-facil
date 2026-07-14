@@ -1,0 +1,310 @@
+openapi: 3.0.3
+info:
+  title: Gestão Fácil — Loja Virtual
+  version: 1.0.0
+  description: API pública e operacional da loja multi-tenant. Nenhuma rota pública aceita contaId.
+servers:
+  - url: /api
+tags:
+  - name: Loja pública
+  - name: Cliente da loja
+  - name: Operação da loja
+paths:
+  /loja/publica/{slug}:
+    get:
+      tags: [Loja pública]
+      summary: Identidade, tema, modo e capacidades da loja
+      parameters: [$ref: "#/components/parameters/Slug"]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "404": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/produtos:
+    get:
+      tags: [Loja pública]
+      summary: Lista produtos com cursor e estoque disponível
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - { in: query, name: cursor, schema: { type: integer } }
+        - {
+            in: query,
+            name: limit,
+            schema: { type: integer, default: 24, maximum: 48 },
+          }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: category, schema: { type: string } }
+      responses: { "200": { $ref: "#/components/responses/Success" } }
+  /loja/publica/{slug}/checkout/preview:
+    post:
+      tags: [Loja pública]
+      summary: Recalcula preços, frete e disponibilidade
+      parameters: [$ref: "#/components/parameters/Slug"]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/OrderInput" } },
+            },
+        }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "409": { $ref: "#/components/responses/Error" },
+          "422": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/pedidos:
+    post:
+      tags: [Loja pública]
+      summary: Cria pedido e reservas antes do checkout externo
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - {
+            in: header,
+            name: Idempotency-Key,
+            required: true,
+            schema: { type: string },
+          }
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/OrderInput" } },
+            },
+        }
+      responses:
+        {
+          "201": { $ref: "#/components/responses/Success" },
+          "403": { $ref: "#/components/responses/Error" },
+          "409": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/pedidos/{publicId}/retry:
+    post:
+      tags: [Loja pública]
+      summary: Retoma checkout existente sem duplicar pedido ou reserva
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/PublicId"
+        - {
+            in: header,
+            name: Idempotency-Key,
+            required: true,
+            schema: { type: string },
+          }
+        - { in: header, name: X-Order-Token, schema: { type: string } }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "409": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/pedidos/{publicId}:
+    get:
+      tags: [Loja pública]
+      summary: Consulta pedido por sessão do cliente ou token opaco do visitante
+      parameters:
+        [
+          $ref: "#/components/parameters/Slug",
+          $ref: "#/components/parameters/PublicId",
+          { in: header, name: X-Order-Token, schema: { type: string } },
+        ]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "401": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/auth/{action}:
+    post:
+      tags: [Cliente da loja]
+      summary: Cadastro, verificação, login, refresh, logout e recuperação
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - {
+            in: path,
+            name: action,
+            required: true,
+            schema:
+              {
+                type: string,
+                enum:
+                  [
+                    register,
+                    verify,
+                    login,
+                    refresh,
+                    logout,
+                    forgot-password,
+                    reset-password,
+                  ],
+              },
+          }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "201": { $ref: "#/components/responses/Success" },
+          "429": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/auth/me:
+    get:
+      tags: [Cliente da loja]
+      security: [{ storeBearer: [] }]
+      parameters: [$ref: "#/components/parameters/Slug"]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "401": { $ref: "#/components/responses/Error" },
+        }
+  /loja/publica/{slug}/auth/addresses:
+    post:
+      tags: [Cliente da loja]
+      security: [{ storeBearer: [] }]
+      summary: Cadastra endereço do cliente no tenant da sessão
+      parameters: [$ref: "#/components/parameters/Slug"]
+      responses:
+        {
+          "201": { $ref: "#/components/responses/Success" },
+          "422": { $ref: "#/components/responses/Error" },
+        }
+  /loja/pedidos:
+    get:
+      tags: [Operação da loja]
+      security: [{ erpBearer: [] }]
+      summary: Lista pedidos do tenant do JWT
+      parameters:
+        [
+          { in: query, name: page, schema: { type: integer, default: 1 } },
+          { in: query, name: limit, schema: { type: integer, maximum: 100 } },
+          { in: query, name: search, schema: { type: string } },
+          { in: query, name: status, schema: { type: string } },
+          { in: query, name: channel, schema: { type: string } },
+        ]
+      responses: { "200": { $ref: "#/components/responses/Success" } }
+  /loja/pedidos/{id}/{action}:
+    post:
+      tags: [Operação da loja]
+      security: [{ erpBearer: [] }]
+      summary: Confirma, prepara, despacha, cancela ou conclui
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+        - {
+            in: path,
+            name: action,
+            required: true,
+            schema:
+              {
+                type: string,
+                enum: [confirmar, preparar, despachar, cancelar, concluir],
+              },
+          }
+        - {
+            in: header,
+            name: Idempotency-Key,
+            required: true,
+            schema: { type: string },
+          }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/Success" },
+          "409": { $ref: "#/components/responses/Error" },
+        }
+components:
+  securitySchemes:
+    erpBearer: { type: http, scheme: bearer, bearerFormat: JWT }
+    storeBearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Slug: { in: path, name: slug, required: true, schema: { type: string } }
+    PublicId:
+      {
+        in: path,
+        name: publicId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+  schemas:
+    OrderInput:
+      type: object
+      required: [items, channel, deliveryType, customer]
+      properties:
+        items:
+          {
+            type: array,
+            minItems: 1,
+            items:
+              {
+                type: object,
+                required: [productId, quantity],
+                properties:
+                  {
+                    productId: { type: integer },
+                    quantity: { type: integer, minimum: 1 },
+                  },
+              },
+          }
+        channel: { type: string, enum: [WHATSAPP, GATEWAY] }
+        deliveryType: { type: string, enum: [RETIRADA, ENTREGA_LOCAL] }
+        customer:
+          {
+            type: object,
+            required: [name, phone],
+            properties:
+              {
+                name: { type: string },
+                email: { type: string, format: email },
+                phone: { type: string },
+                postalCode: { type: string },
+                address: { type: string },
+                number: { type: string },
+                district: { type: string },
+                city: { type: string },
+                state: { type: string },
+              },
+          }
+    Error:
+      type: object
+      properties:
+        status: { type: integer }
+        message: { type: string }
+        data: { nullable: true }
+        error:
+          {
+            type: object,
+            properties:
+              {
+                code: { type: string },
+                details: {},
+                requestId: { type: string, format: uuid },
+              },
+          }
+  responses:
+    Success:
+      {
+        description: Operação concluída,
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    properties:
+                      {
+                        status: { type: integer },
+                        message: { type: string },
+                        data: {},
+                      },
+                  },
+              },
+          },
+      }
+    Error:
+      {
+        description: Erro de negócio,
+        content:
+          {
+            application/json:
+              { schema: { $ref: "#/components/schemas/Error" } },
+          },
+      }

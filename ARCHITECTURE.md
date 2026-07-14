@@ -57,6 +57,15 @@ O schema Prisma é grande e multi-tenant por `contaId`. Os domínios mais fortes
 - arena, quadras, reservas e comandas;
 - notificações push e integrações;
 - atendimento WhatsApp via W-API, com instâncias, contatos, conversas, mensagens e eventos de webhook isolados por `contaId`.
+- loja virtual, com configuração visual versionada, clientes/sessões próprios, pedidos e snapshots comerciais, reservas de estoque, tentativas de checkout, idempotência e webhooks repetindo `contaId` e usando relações/índices compostos por tenant.
+
+## Fachada transacional da Loja Virtual
+
+O domínio em `app/services/loja` concentra `placeOrder`, retry de checkout, transições operacionais, confirmação de pagamento, expiração e despacho. Mercado Pago, AbacatePay e WhatsApp são saídas da fachada; webhooks confirmam pagamento e reservas, mas nunca debitam estoque.
+
+A disponibilidade operacional é `estoque físico - reservas ATIVA/CONFIRMADA`. Vendas, caixas/PDV, comandas, ordens de serviço e descartes usam `assertAvailableAndDecrement`, que bloqueia as linhas em ordem determinística e impede consumo de unidades reservadas. O despacho da loja consome cada reserva uma única vez por meio da relação exclusiva com `MovimentacoesEstoque`.
+
+Desativar o módulo bloqueia cadastro/login e novos pedidos no backend, sem interromper webhooks, expirações ou a gestão dos pedidos já criados. A leitura pública muda para o modo `CATALOGO`.
 
 No domínio de produtos, o backend trabalha com duas visões complementares:
 - `ProdutoBase`, que representa o cadastro principal e agrega variantes;

@@ -26,6 +26,8 @@ const envSchema = z
       }),
     PORT: z.string().transform(Number).default("3000"),
     JWT_SECRET: z.string().min(1, "JWT_SECRET é obrigatório"),
+    LOJA_CUSTOMER_JWT_SECRET: optionalEnvString,
+    LOJA_CORS_ALLOWLIST: optionalEnvString,
     REQUIRED_JWT: z.enum(["true", "false"]).default("true"),
     VAPID_PRIVATE_KEY: z.string({
       required_error: "VAPID_PRIVATE_KEY é obrigatório",
@@ -73,6 +75,20 @@ const envSchema = z
     R2_BUCKET: optionalEnvString,
   })
   .superRefine((data, ctx) => {
+    if (data.NODE_ENV === "production" && !data.LOJA_CUSTOMER_JWT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["LOJA_CUSTOMER_JWT_SECRET"],
+        message: "LOJA_CUSTOMER_JWT_SECRET é obrigatório em produção",
+      });
+    }
+    if (data.LOJA_CUSTOMER_JWT_SECRET && data.LOJA_CUSTOMER_JWT_SECRET === data.JWT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["LOJA_CUSTOMER_JWT_SECRET"],
+        message: "Use um segredo diferente do JWT do ERP",
+      });
+    }
     const hasAnyS3Config = Boolean(
       data.R2_SECRET_ACCESS_KEY ||
         data.R2_ACCESS_KEY_ID ||

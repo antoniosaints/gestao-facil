@@ -19,8 +19,8 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { z } from "zod";
 import {
   canDiscardProdutoStock,
-  getProdutoDescarteUpdate,
 } from "../../services/produtos/estoqueService";
+import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import {
   buildScopedUploadKey,
   deleteStoredFile,
@@ -1058,13 +1058,16 @@ export const descarteProduto = async (
   }
 
   const data = parsedDescarte.data;
+  const produtoId = data.produtoId;
+  const quantidade = data.quantidade;
+  if (!produtoId || !quantidade) return ResponseHandler(res, "Produto e quantidade são obrigatórios", null, 422);
 
   try {
     const produto = await prisma.$transaction(async (tx) => {
       const produtoExistente = await tx.produto.findFirst({
         where: {
           contaId: customData.contaId,
-          id: data.produtoId,
+          id: produtoId,
         },
         select: {
           id: true,
@@ -1084,18 +1087,27 @@ export const descarteProduto = async (
         throw new Error("Produto nao controla estoque.");
       }
 
-      if (!canDiscardProdutoStock(produtoExistente.estoque, data.quantidade)) {
+      if (!canDiscardProdutoStock(produtoExistente.estoque, quantidade)) {
         throw new Error(
           `Estoque insuficiente para descarte. Disponivel: ${produtoExistente.estoque}.`
         );
       }
 
-      return tx.produto.update({
-        where: {
-          id: data.produtoId,
+      await assertAvailableAndDecrement(tx, customData.contaId, produtoId, quantidade);
+      await tx.movimentacoesEstoque.create({
+        data: {
+          Uid: gerarIdUnicoComMetaFinal("MOV"),
           contaId: customData.contaId,
+          produtoId,
+          quantidade,
+          custo: 0,
+          tipo: "DESCARTE",
+          status: "CONCLUIDO",
+          notaFiscal: data.motivo || null,
         },
-        data: getProdutoDescarteUpdate(data.quantidade),
+      });
+      return tx.produto.findFirstOrThrow({
+        where: { id: produtoId, contaId: customData.contaId },
         select: {
           id: true,
           nome: true,
@@ -1110,7 +1122,7 @@ export const descarteProduto = async (
       "PRODUTO_ALTERADO",
       {
         title: "Descarte de produto",
-        body: `A variante ${produto.nome} / ${produto.nomeVariante || "Padrao"} teve ${data.quantidade} ${produto.unidade || "un"} descartado(s).`,
+        body: `A variante ${produto.nome} / ${produto.nomeVariante || "Padrao"} teve ${quantidade} ${produto.unidade || "un"} descartado(s).`,
       },
       customData.contaId
     );
@@ -1120,7 +1132,7 @@ export const descarteProduto = async (
       "Descarte registrado com sucesso",
       {
         produto,
-        quantidade: data.quantidade,
+        quantidade,
         motivo: data.motivo || null,
       },
       200

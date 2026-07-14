@@ -12,7 +12,14 @@ const server = http.createServer(app);
 
 app.use(
   cors({
-    origin: "*",
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      const configured = env.LOJA_CORS_ALLOWLIST?.split(",").map((value) => value.trim().replace(/\/+$/, "")).filter(Boolean) ?? [];
+      const allowed = new Set([env.BASE_URL_FRONTEND.replace(/\/+$/, ""), ...configured]);
+      const normalizedOrigin = origin.replace(/\/+$/, "");
+      return callback(allowed.has(normalizedOrigin) ? null : new Error("Origem não permitida pelo CORS"), allowed.has(normalizedOrigin));
+    },
+    credentials: true,
   })
 );
 

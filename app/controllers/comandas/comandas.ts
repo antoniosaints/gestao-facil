@@ -11,6 +11,7 @@ import { ResponseHandler } from "../../utils/response";
 import { criarLancamentoFinanceiro } from "../../services/financeiro/lancamentoService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
+import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 import {
   buildComandaPosFilename,
@@ -275,10 +276,7 @@ async function buildItemData(
       throw new Error(`Produto ${produto.nome} nao possui estoque suficiente.`);
     }
 
-    await tx.produto.update({
-      where: { id: produto.id, contaId },
-      data: { estoque: { decrement: quantidade.toNumber() } },
-    });
+    await assertAvailableAndDecrement(tx, contaId, produto.id, quantidade.toNumber());
 
     const baseName = produto.ProdutoBase?.nome || produto.nome;
     nomeSnapshot = `${baseName} / ${produto.nomeVariante || "Padrao"}`;
@@ -686,10 +684,7 @@ export async function updateComandaItem(
           if (new Decimal(produto.estoque).lt(delta.quantidade)) {
             throw new Error(`Produto ${produto.nome} nao possui estoque suficiente.`);
           }
-          await tx.produto.update({
-            where: { id: produto.id, contaId: customData.contaId },
-            data: { estoque: { decrement: delta.quantidade } },
-          });
+          await assertAvailableAndDecrement(tx, customData.contaId, produto.id, delta.quantidade);
         }
 
         if (delta.action === "REDUZIR") {

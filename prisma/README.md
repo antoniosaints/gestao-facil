@@ -20,8 +20,10 @@
 - financeiro, parcelas e cobranças;
 - arena, agendamentos, pagamentos e comandas;
 - notificações push.
+- loja virtual: configuração por slug, clientes/sessões/tokens/endereços, pedidos e itens com snapshots, reservas, tentativas de checkout, eventos de webhook e idempotência.
 
 ## Regras
 - Alterações de schema exigem migration consistente.
 - `backend/generated` não deve ser editado manualmente.
 - Antes de mudar relações, validar impacto em módulos que compartilham `contaId` e referências cruzadas.
+- Tabelas operacionais da loja repetem `contaId`; e-mail de cliente é único dentro do tenant e relações críticas usam chaves compostas. `PedidoLoja` só se relaciona a uma Venda e cada reserva só se relaciona a uma Movimentação de Estoque.

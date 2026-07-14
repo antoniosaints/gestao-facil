@@ -52,6 +52,74 @@ enum GatewayConta {
   asaass
 }
 
+enum LojaTemplate {
+  ESSENCIAL
+  EDITORIAL
+  IMPACTO
+}
+
+enum LojaGateway {
+  MERCADOPAGO
+  ABACATEPAY
+}
+
+enum LojaCanalPedido {
+  WHATSAPP
+  GATEWAY
+}
+
+enum LojaTipoEntrega {
+  RETIRADA
+  ENTREGA_LOCAL
+}
+
+enum LojaPedidoStatus {
+  RECEBIDO
+  CONFIRMADO
+  PREPARANDO
+  DESPACHADO
+  CONCLUIDO
+  CANCELAMENTO_PENDENTE
+  CANCELADO
+  EXPIRADO
+  REVISAO
+}
+
+enum LojaPagamentoStatus {
+  NAO_APLICAVEL
+  PENDENTE
+  PAGO
+  FALHOU
+  ESTORNADO
+  REVISAO
+}
+
+enum LojaReservaStatus {
+  ATIVA
+  CONFIRMADA
+  CONSUMIDA
+  LIBERADA
+  EXPIRADA
+}
+
+enum LojaClienteStatus {
+  PENDENTE_VERIFICACAO
+  ATIVO
+  BLOQUEADO
+}
+
+enum LojaClienteTokenTipo {
+  VERIFICACAO_EMAIL
+  REDEFINICAO_SENHA
+}
+
+enum LojaCheckoutStatus {
+  PENDENTE
+  PRONTO
+  FALHOU
+  EXPIRADO
+}
+
 model Contas {
   id                              Int                               @id @default(autoincrement())
   nome                            String
@@ -118,6 +186,12 @@ model Contas {
   comandasOperacaoConfiguracao    ComandaOperacaoConfiguracao?
   moduloOnContas                  ModuloOnConta[]
   LojaVirtualConfig               LojaVirtualConfig?
+  LojaClientes                    LojaCliente[]
+  LojaPedidos                     LojaPedido[]
+  LojaReservas                    LojaReservaEstoque[]
+  LojaCheckoutTentativas          LojaCheckoutTentativa[]
+  LojaWebhookEventos              LojaWebhookEvento[]
+  LojaIdempotencias               LojaIdempotencia[]
   WhatsAppInstancia               WhatsAppInstancia[]
   WhatsAppContato                 WhatsAppContato[]
   WhatsAppConversa                WhatsAppConversa[]
@@ -171,24 +245,268 @@ model ModuloOnConta {
 // vitrine (cores, estilo de header, banner, textos) e toggles de comportamento. Os campos de
 // login/cadastro de cliente são usados na Fase B (autenticação do cliente da loja).
 model LojaVirtualConfig {
-  id                 Int      @id @default(autoincrement())
-  contaId            Int      @unique
-  Conta              Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  corPrimaria        String   @default("#4f46e5")
-  corSecundaria      String   @default("#0ea5e9")
-  // Estilo do cabeçalho da loja: "padrao" | "centralizado" | "banner".
-  headerEstilo       String   @default("padrao")
-  bannerUrl          String?  @db.Text
-  bannerTitulo       String?
-  bannerSubtitulo    String?
-  mensagemBoasVindas String?  @db.Text
-  mostrarPrecos      Boolean  @default(true)
-  pedidoWhatsapp     Boolean  @default(true)
-  // Fase B (login/cadastro de cliente): mantidos aqui para já existirem na config.
-  permitirLogin      Boolean  @default(false)
-  permitirCadastro   Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                        Int          @id @default(autoincrement())
+  contaId                   Int          @unique
+  Conta                     Contas       @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  slug                      String       @unique
+  template                  LojaTemplate @default(ESSENCIAL)
+  themeVersion              Int          @default(1)
+  themeConfig               Json?
+  corPrimaria               String       @default("#4f46e5")
+  corSecundaria             String       @default("#0ea5e9")
+  headerEstilo              String       @default("padrao")
+  bannerUrl                 String?      @db.Text
+  bannerMobileUrl           String?      @db.Text
+  bannerTitulo              String?
+  bannerSubtitulo           String?
+  mensagemBoasVindas        String?      @db.Text
+  mostrarPrecos             Boolean      @default(true)
+  mostrarDisponibilidade    Boolean      @default(true)
+  ocultarEsgotados          Boolean      @default(false)
+  quickAdd                  Boolean      @default(true)
+  pedidoWhatsapp            Boolean      @default(true)
+  pagamentoOnline           Boolean      @default(false)
+  gatewayPreferido          LojaGateway?
+  permitirLogin             Boolean      @default(false)
+  permitirCadastro          Boolean      @default(false)
+  permitirCheckoutVisitante Boolean      @default(true)
+  retiradaAtiva             Boolean      @default(true)
+  entregaLocalAtiva         Boolean      @default(false)
+  taxaEntrega               Decimal      @default(0) @db.Decimal(10, 2)
+  freteGratisAcima          Decimal?     @db.Decimal(10, 2)
+  barraAvisoAtiva           Boolean      @default(false)
+  barraAvisoTexto           String?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+}
+
+model LojaCliente {
+  id                Int                   @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  clienteId         Int?
+  Cliente           ClientesFornecedores? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  nome              String
+  email             String
+  emailNormalizado  String
+  telefone          String?
+  senhaHash         String
+  status            LojaClienteStatus     @default(PENDENTE_VERIFICACAO)
+  emailVerificadoEm DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  sessoes           LojaClienteSessao[]
+  tokens            LojaClienteToken[]
+  enderecos         LojaClienteEndereco[]
+  pedidos           LojaPedido[]
+
+  @@unique([contaId, emailNormalizado])
+  @@unique([id, contaId])
+  @@index([contaId, clienteId])
+}
+
+model LojaClienteSessao {
+  id               Int         @id @default(autoincrement())
+  contaId          Int
+  lojaClienteId    Int
+  Cliente          LojaCliente @relation(fields: [lojaClienteId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  refreshTokenHash String      @unique
+  userAgent        String?     @db.Text
+  ip               String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime    @default(now())
+
+  @@index([contaId, lojaClienteId, expiresAt])
+}
+
+model LojaClienteToken {
+  id            Int                  @id @default(autoincrement())
+  contaId       Int
+  lojaClienteId Int
+  Cliente       LojaCliente          @relation(fields: [lojaClienteId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  tipo          LojaClienteTokenTipo
+  tokenHash     String               @unique
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime             @default(now())
+
+  @@index([contaId, lojaClienteId, tipo, expiresAt])
+}
+
+model LojaClienteEndereco {
+  id            Int         @id @default(autoincrement())
+  contaId       Int
+  lojaClienteId Int
+  Cliente       LojaCliente @relation(fields: [lojaClienteId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  rotulo        String?
+  destinatario  String
+  cep           String
+  endereco      String
+  numero        String
+  complemento   String?
+  bairro        String
+  cidade        String
+  estado        String
+  principal     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([contaId, lojaClienteId, principal])
+}
+
+model LojaPedido {
+  id                  Int                     @id @default(autoincrement())
+  contaId             Int
+  Conta               Contas                  @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  publicId            String                  @unique
+  accessTokenHash     String
+  Uid                 String
+  clienteLojaId       Int?
+  ClienteLoja         LojaCliente?            @relation(fields: [clienteLojaId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  clienteId           Int?
+  Cliente             ClientesFornecedores?   @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  vendaId             Int?                    @unique
+  Venda               Vendas?                 @relation(fields: [vendaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  status              LojaPedidoStatus        @default(RECEBIDO)
+  pagamentoStatus     LojaPagamentoStatus     @default(NAO_APLICAVEL)
+  canal               LojaCanalPedido
+  gateway             LojaGateway?
+  tipoEntrega         LojaTipoEntrega
+  nomeSnapshot        String
+  emailSnapshot       String?
+  telefoneSnapshot    String
+  cepSnapshot         String?
+  enderecoSnapshot    String?
+  numeroSnapshot      String?
+  complementoSnapshot String?
+  bairroSnapshot      String?
+  cidadeSnapshot      String?
+  estadoSnapshot      String?
+  subtotal            Decimal                 @db.Decimal(10, 2)
+  frete               Decimal                 @default(0) @db.Decimal(10, 2)
+  total               Decimal                 @db.Decimal(10, 2)
+  observacao          String?                 @db.Text
+  reservaExpiraEm     DateTime?
+  confirmadoEm        DateTime?
+  pagoEm              DateTime?
+  preparandoEm        DateTime?
+  despachadoEm        DateTime?
+  concluidoEm         DateTime?
+  canceladoEm         DateTime?
+  codigoRastreio      String?
+  transportadora      String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  itens               LojaPedidoItem[]
+  reservas            LojaReservaEstoque[]
+  tentativasCheckout  LojaCheckoutTentativa[]
+  cobrancas           CobrancasFinanceiras[]
+
+  @@unique([contaId, Uid])
+  @@unique([id, contaId])
+  @@index([contaId, status, createdAt])
+  @@index([contaId, pagamentoStatus, reservaExpiraEm])
+}
+
+model LojaPedidoItem {
+  id                    Int                 @id @default(autoincrement())
+  contaId               Int
+  pedidoId              Int
+  Pedido                LojaPedido          @relation(fields: [pedidoId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  produtoId             Int
+  Produto               Produto             @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  produtoNomeSnapshot   String
+  varianteNomeSnapshot  String?
+  skuSnapshot           String?
+  imagemSnapshot        String?             @db.Text
+  unidadeSnapshot       String?
+  precoUnitarioSnapshot Decimal             @db.Decimal(10, 2)
+  quantidade            Int
+  subtotal              Decimal             @db.Decimal(10, 2)
+  controlaEstoque       Boolean             @default(false)
+  createdAt             DateTime            @default(now())
+  reserva               LojaReservaEstoque?
+
+  @@unique([id, contaId])
+  @@index([contaId, pedidoId])
+  @@index([contaId, produtoId])
+}
+
+model LojaReservaEstoque {
+  id           Int                   @id @default(autoincrement())
+  contaId      Int
+  Conta        Contas                @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pedidoId     Int
+  Pedido       LojaPedido            @relation(fields: [pedidoId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  pedidoItemId Int                   @unique
+  PedidoItem   LojaPedidoItem        @relation(fields: [pedidoItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoId    Int
+  Produto      Produto               @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  quantidade   Int
+  status       LojaReservaStatus     @default(ATIVA)
+  expiresAt    DateTime?
+  consumedAt   DateTime?
+  releasedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  movimentacao MovimentacoesEstoque?
+
+  @@index([contaId, produtoId, status])
+  @@index([contaId, status, expiresAt])
+}
+
+model LojaCheckoutTentativa {
+  id                Int                @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pedidoId          Int
+  Pedido            LojaPedido         @relation(fields: [pedidoId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  gateway           LojaGateway
+  idempotencyKey    String
+  status            LojaCheckoutStatus @default(PENDENTE)
+  referenciaExterna String?
+  checkoutUrl       String?            @db.Text
+  erro              String?            @db.Text
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([contaId, idempotencyKey])
+  @@index([contaId, pedidoId, status])
+}
+
+model LojaWebhookEvento {
+  id          Int         @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas      @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  provider    LojaGateway
+  eventId     String
+  payload     Json?
+  processedAt DateTime?
+  erro        String?     @db.Text
+  createdAt   DateTime    @default(now())
+
+  @@unique([contaId, provider, eventId])
+  @@index([contaId, processedAt])
+}
+
+model LojaIdempotencia {
+  id           Int      @id @default(autoincrement())
+  contaId      Int
+  Conta        Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  escopo       String
+  chave        String
+  requestHash  String
+  recursoTipo  String?
+  recursoId    String?
+  responseCode Int?
+  responseBody Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([contaId, escopo, chave])
+  @@index([contaId, expiresAt])
 }
 
 enum StatusModuloConta {
@@ -388,6 +706,8 @@ model ClientesFornecedores {
   comandaVendas        ComandaVenda[]
   WhatsAppContatos     WhatsAppContato[]
   WhatsAppConversas    WhatsAppConversa[]
+  LojaClientes         LojaCliente[]
+  LojaPedidos          LojaPedido[]
 }
 
 enum TipoMovimentacao {
@@ -424,6 +744,8 @@ model MovimentacoesEstoque {
   Produto           Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   quantidade        Int
   custo             Decimal               @db.Decimal(10, 2)
+  reservaLojaId     Int?                  @unique
+  ReservaLoja       LojaReservaEstoque?   @relation(fields: [reservaLojaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 }
 
 model Produto {
@@ -474,7 +796,10 @@ model Produto {
   assinaturaItens      AssinaturaItem[]
   planoAssinaturaItens PlanoAssinaturaItem[]
   assinaturaComodatos  AssinaturaComodato[]
+  LojaPedidoItens      LojaPedidoItem[]
+  LojaReservas         LojaReservaEstoque[]
 
+  @@unique([id, contaId])
   @@index([produtoBaseId])
 }
 
@@ -978,6 +1303,7 @@ model Vendas {
   CobrancasFinanceiras CobrancasFinanceiras[]
   ComandaItens         ComandaItem[]
   CaixaMovimento       CaixaMovimento[]
+  PedidoLoja           LojaPedido?
 
   @@index([caixaId])
 }
@@ -1160,6 +1486,11 @@ model CobrancasFinanceiras {
   assinaturaCiclos        AssinaturaCiclo[]
   cobrancasOnAgendamentos CobrancasOnAgendamentos[]
   moduloOnContaAtual      ModuloOnConta?            @relation("ModuloCobrancaAtual")
+  pedidoLojaId            Int?
+  PedidoLoja              LojaPedido?               @relation(fields: [pedidoLojaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([contaId, gateway, idCobranca])
+  @@index([contaId, pedidoLojaId])
 }
 
 model LancamentoFinanceiro {
@@ -1574,32 +1905,32 @@ enum WhatsAppPagamentoStatus {
 }
 
 model WhatsAppInstancia {
-  id              Int                          @id @default(autoincrement())
-  contaId         Int
-  Conta           Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  nome            String
-  instanceId      String                       @unique
-  token           String                       @db.Text
-  webhookSecret   String                       @unique
-  status          WhatsAppInstanciaStatus      @default(PENDENTE)
-  numeroConectado String?
-  devicePayload   String?                      @db.Text
-  ultimoErro      String?                      @db.Text
-  ativo           Boolean                      @default(true)
+  id                     Int                          @id @default(autoincrement())
+  contaId                Int
+  Conta                  Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome                   String
+  instanceId             String                       @unique
+  token                  String                       @db.Text
+  webhookSecret          String                       @unique
+  status                 WhatsAppInstanciaStatus      @default(PENDENTE)
+  numeroConectado        String?
+  devicePayload          String?                      @db.Text
+  ultimoErro             String?                      @db.Text
+  ativo                  Boolean                      @default(true)
   // Controle de atendimento sem desconectar a API: "não perturbe" para de salvar os eventos
   // de mensagem recebida; horaInicio/horaFim (fuso America/Sao_Paulo) definem a janela em que
   // os eventos são salvos — fora dela também paramos de salvar. Nulo = sem restrição de horário.
-  atendimentoNaoPerturbe Boolean               @default(false)
+  atendimentoNaoPerturbe Boolean                      @default(false)
   atendimentoHoraInicio  String?
   atendimentoHoraFim     String?
-  lastSyncAt      DateTime?
-  createdAt       DateTime                     @default(now())
-  updatedAt       DateTime                     @updatedAt
-  conversas       WhatsAppConversa[]
-  mensagens       WhatsAppMensagem[]
-  webhookEventos  WhatsAppWebhookEvento[]
-  pagamentos      WhatsAppInstanciaPagamento[]
-  agentes         WhatsAppAgenteInstancia[]
+  lastSyncAt             DateTime?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  conversas              WhatsAppConversa[]
+  mensagens              WhatsAppMensagem[]
+  webhookEventos         WhatsAppWebhookEvento[]
+  pagamentos             WhatsAppInstanciaPagamento[]
+  agentes                WhatsAppAgenteInstancia[]
 
   @@unique([contaId, instanceId])
   @@index([contaId, status])

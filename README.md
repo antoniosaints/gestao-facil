@@ -73,6 +73,15 @@ Esse bootstrap:
 - As credenciais da AbacatePay informadas na App Store da conta (app gratuito `AbacatePay`) pertencem ao tenant e servem apenas para cobranças internas da conta; quando `BASE_URL` é HTTPS, o backend também tenta sincronizar automaticamente a webhook dessa conta na AbacatePay.
 - O fluxo legado do Mercado Pago continua disponível no mesmo endpoint genérico como fallback.
 
+## Loja Virtual
+
+- A API pública usa `/api/loja/publica/:slug`; o endpoint legado `/api/produtos/publico/catalogo` continua disponível para `/catalogo/:hash`.
+- O slug resolve o tenant no servidor. Payloads públicos nunca aceitam `contaId`; rotas internas usam apenas a conta do JWT do ERP.
+- `PedidoLoja` é separado de `Vendas`. Criar um pedido reserva estoque, confirmar pagamento torna a reserva permanente e apenas `despachar` debita o estoque e cria Venda, PagamentoVenda e Movimentação de Estoque em uma transação.
+- Reservas de gateway vencem em 30 minutos e reservas de WhatsApp em 24 horas. `npm run cron` executa o job idempotente a cada minuto para liberar expiradas.
+- A autenticação do comprador usa access token curto e refresh token opaco em cookie `HttpOnly`; não reutiliza `Usuarios` nem o JWT do ERP.
+- O contrato HTTP está em `openapi/loja.yaml`.
+
 ## Scripts disponíveis
 
 ```bash
@@ -117,6 +126,8 @@ Atualmente, o backend exige na inicialização variáveis como:
 - `PORT`
 - `BASE_URL_FRONTEND`
 - `JWT_SECRET`
+- `LOJA_CUSTOMER_JWT_SECRET` — obrigatório em produção e diferente do segredo do ERP.
+- `LOJA_CORS_ALLOWLIST` — origens adicionais separadas por vírgula; `BASE_URL_FRONTEND` já é permitida.
 - `NODE_ENV`
 - `REQUIRED_JWT`
 - `VAPID_PUBLIC_KEY`

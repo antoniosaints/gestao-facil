@@ -14,6 +14,7 @@ import { efetivarOsSchema, saveOrdemServicoSchema } from "../../schemas/ordemser
 import { ItensOrdensServico } from "../../../generated";
 import { hasPermission } from "../../helpers/userPermission";
 import { cancelarCobrancaMercadoPago } from "../financeiro/cobrancas/managerCobranca";
+import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 
 export const addNovaMensagemOrdem = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -135,12 +136,7 @@ export const updateVendaInternal = async (
     await Promise.all(
       itensOrdemServico.map(async (item) => {
         if (item.tipo === "PRODUTO") {
-          await tx.produto.update({
-            where: { id: item.produtoId!, contaId: customData.contaId },
-            data: {
-              estoque: { decrement: item.quantidade },
-            },
-          });
+          await assertAvailableAndDecrement(tx, customData.contaId, item.produtoId!, item.quantidade);
           await tx.movimentacoesEstoque.create({
             data: {
               Uid: gerarIdUnicoComMetaFinal("MOV"),
@@ -254,14 +250,7 @@ export const saveOrdemServico = async (
             );
           }
 
-          await tx.produto.update({
-            where: { id: item.id, contaId: customData.contaId },
-            data: {
-              estoque: {
-                decrement: item.quantidade,
-              },
-            },
-          });
+          await assertAvailableAndDecrement(tx, customData.contaId, item.id, item.quantidade);
 
           await tx.movimentacoesEstoque.create({
             data: {

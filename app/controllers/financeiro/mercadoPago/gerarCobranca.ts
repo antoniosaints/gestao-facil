@@ -181,7 +181,7 @@ export const gerarCobrancaMercadoPagoBoleto = async (
       payment_method_id: "bolbradesco",
       installments: 1,
       callback_url: `${env.BASE_URL_FRONTEND}`,
-      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas?contaId=${parametros.contaId}`,
     },
   });
 
@@ -229,7 +229,7 @@ export const gerarCobrancaMercadoPagoPix = async (
       payment_method_id: "pix",
       installments: 1,
       callback_url: `${env.BASE_URL_FRONTEND}`,
-      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas?contaId=${parametros.contaId}`,
     },
   });
   const pixData = validarRetornoPixMercadoPago(pixGenerated);
@@ -272,7 +272,7 @@ export const gerarCobrancaMercadoPagoPixPublico = async (
       payment_method_id: "pix",
       installments: 1,
       callback_url: `${env.BASE_URL_FRONTEND}`,
-      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas?contaId=${parametros.contaId}`,
     },
   });
   const pixData = validarRetornoPixMercadoPago(pixGenerated);
@@ -369,7 +369,7 @@ export const gerarCobrancaMercadoPagoLink = async (
         failure: `${env.BASE_URL_FRONTEND}/success?success=false`,
         pending: `${env.BASE_URL_FRONTEND}/success?success=pending`,
       },
-      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas`,
+      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas?contaId=${parametros.contaId}`,
       external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|link`,
       auto_return: "approved",
     },

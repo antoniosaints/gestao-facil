@@ -11,6 +11,7 @@ import type { BodyCobranca } from "../financeiro/cobrancas";
 import { Prisma, StatusComanda } from "../../../generated";
 import { formatCurrency } from "../../utils/formatters";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -707,17 +708,7 @@ export async function addItemComanda(req: Request, res: Response): Promise<any> 
           );
         }
 
-        await tx.produto.update({
-          where: {
-            id: produto.id,
-            contaId: customData.contaId,
-          },
-          data: {
-            estoque: {
-              decrement: data.quantidade,
-            },
-          },
-        });
+        await assertAvailableAndDecrement(tx, customData.contaId, produto.id, data.quantidade);
 
         itemName = buildProdutoItemName(produto);
         produtoId = produto.id;

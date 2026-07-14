@@ -21,6 +21,7 @@ import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { recalculateComandaStatus } from "../vendas/comandas";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { applyStorePaymentEvent } from "../../services/loja/lojaOrderService";
 
 type WebhookResource = {
   id?: string;
@@ -343,6 +344,19 @@ async function handleTenantWebhook(args: {
       },
       include: { cobrancasOnAgendamentos: true },
     });
+  }
+
+  if (cobranca.pedidoLojaId) {
+    await applyStorePaymentEvent({
+      contaId: cobranca.contaId,
+      pedidoId: cobranca.pedidoLojaId,
+      provider: "ABACATEPAY",
+      eventId: `${args.resource.id}:${args.event}:${args.resource.status || "unknown"}`,
+      paid: statusNovo === "EFETIVADO",
+      refunded: ["CANCELADO", "ESTORNADO"].includes(statusNovo),
+      payload: { event: args.event, resourceId: args.resource.id, status: args.resource.status },
+    });
+    sendUpdateTable(cobranca.contaId, { reason: "loja-pagamento", pedidoId: cobranca.pedidoLojaId });
   }
 
   if (statusNovo === "EFETIVADO") {

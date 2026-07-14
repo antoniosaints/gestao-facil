@@ -23,11 +23,17 @@ import {
 import { concederRecompensaIndicador } from "../../services/contas/indicacaoService";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { applyStorePaymentEvent } from "../../services/loja/lojaOrderService";
 
 function extractChargeUidFromExternalReference(externalReference?: string | null) {
   if (!externalReference) return null;
   const match = externalReference.match(/cobranca:([^|]+)/i);
   return match?.[1] || null;
+}
+
+function extractContaIdFromExternalReference(externalReference?: string | null) {
+  const match = externalReference?.match(/conta:(\d+)/i);
+  return match ? Number(match[1]) : null;
 }
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
@@ -172,41 +178,21 @@ export async function webhookMercadoPagoCobrancas(
       return res.sendStatus(204);
     }
 
-    let cobranca = await prisma.cobrancasFinanceiras.findFirst({
-      include: { cobrancasOnAgendamentos: true },
-      where: { idCobranca: String(paymentId) },
-    });
-
-    if (!cobranca) {
-      const paymentProbe = await mercadoPagoPayment.get({ id: paymentId });
-      const chargeUid = extractChargeUidFromExternalReference(
-        paymentProbe.external_reference as string | undefined,
-      );
-
-      if (chargeUid) {
-        cobranca = await prisma.cobrancasFinanceiras.findFirst({
-          include: { cobrancasOnAgendamentos: true },
-          where: { Uid: chargeUid, gateway: "mercadopago" },
-        });
-
-        if (cobranca && cobranca.idCobranca !== String(paymentId)) {
-          cobranca = await prisma.cobrancasFinanceiras.update({
-            where: { id: cobranca.id },
-            data: { idCobranca: String(paymentId) },
-            include: { cobrancasOnAgendamentos: true },
-          });
-        }
-      }
+    const tenantHint = Number(req.query.contaId);
+    let candidate = Number.isInteger(tenantHint) && tenantHint > 0
+      ? await prisma.cobrancasFinanceiras.findFirst({ where: { contaId: tenantHint, gateway: "mercadopago", idCobranca: String(paymentId) } })
+      : null;
+    if (!candidate && !tenantHint) {
+      // Compatibilidade para cobranças antigas, anteriores à URL de webhook tenant-scoped.
+      const legacyCandidates = await prisma.cobrancasFinanceiras.findMany({ where: { gateway: "mercadopago", idCobranca: String(paymentId) }, take: 2 });
+      if (legacyCandidates.length === 1) candidate = legacyCandidates[0];
     }
-
-    if (!cobranca) {
-      console.warn(`Cobrança ${paymentId} não encontrada`);
-      return res.sendStatus(204);
-    }
+    const resolvedTenantId = tenantHint || candidate?.contaId;
+    if (!resolvedTenantId) return res.sendStatus(204);
 
     const moduleCharge = await prisma.moduloOnConta.findFirst({
       where: {
-        cobrancaAtualId: cobranca.id,
+        ...(candidate ? { cobrancaAtualId: candidate.id } : { contaId: resolvedTenantId, cobrancaAtualId: { not: null } }),
       },
       select: {
         id: true,
@@ -219,11 +205,11 @@ export async function webhookMercadoPagoCobrancas(
       mp = getSaasMercadoPagoService();
     } else {
       const parametros = await prisma.parametrosConta.findUniqueOrThrow({
-        where: { contaId: cobranca.contaId },
+        where: { contaId: resolvedTenantId },
       });
 
       if (!parametros?.MercadoPagoApiKey) {
-        console.warn(`Conta ${cobranca.contaId} sem chave Mercado Pago`);
+        console.warn(`Conta ${resolvedTenantId} sem chave Mercado Pago`);
         return res.sendStatus(204);
       }
 
@@ -231,6 +217,17 @@ export async function webhookMercadoPagoCobrancas(
     }
 
     const payment = await mp.payment.get({ id: paymentId });
+    const chargeUid = extractChargeUidFromExternalReference(payment.external_reference as string | undefined);
+    const authoritativeTenantId = extractContaIdFromExternalReference(payment.external_reference as string | undefined);
+    if (!chargeUid || authoritativeTenantId !== resolvedTenantId) return res.sendStatus(204);
+    let cobranca = await prisma.cobrancasFinanceiras.findFirst({
+      include: { cobrancasOnAgendamentos: true },
+      where: { contaId: resolvedTenantId, Uid: chargeUid, gateway: "mercadopago" },
+    });
+    if (!cobranca) return res.sendStatus(204);
+    if (cobranca.idCobranca !== String(paymentId)) {
+      cobranca = await prisma.cobrancasFinanceiras.update({ where: { id: cobranca.id }, data: { idCobranca: String(paymentId) }, include: { cobrancasOnAgendamentos: true } });
+    }
 
     const statusMap: Record<string, StatusPagamento> = {
       approved: "EFETIVADO",
@@ -252,6 +249,19 @@ export async function webhookMercadoPagoCobrancas(
       where: { id: cobranca.id, contaId: cobranca.contaId },
       data: { status: statusNovo },
     });
+
+    if (cobranca.pedidoLojaId) {
+      await applyStorePaymentEvent({
+        contaId: cobranca.contaId,
+        pedidoId: cobranca.pedidoLojaId,
+        provider: "MERCADOPAGO",
+        eventId: `payment:${paymentId}:${statusNovo}`,
+        paid: statusNovo === "EFETIVADO",
+        refunded: ["CANCELADO", "ESTORNADO"].includes(statusNovo),
+        payload: { paymentId, status: payment.status },
+      });
+      sendUpdateTable(cobranca.contaId, { reason: "loja-pagamento", pedidoId: cobranca.pedidoLojaId });
+    }
 
     if (statusNovo === "EFETIVADO") {
       await syncCycleStatusFromCharge(cobranca.id, "PAGO");

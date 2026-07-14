@@ -21,6 +21,7 @@ import {
   getMovementSignedValue,
   shouldReportCaixaMovimento,
 } from "../../services/vendas/caixaService";
+import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import {
   abrirCaixaSchema,
   caixaRelatorioQuerySchema,
@@ -1599,16 +1600,7 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         });
 
         if (item.produtoId) {
-          await tx.produto.update({
-            where: {
-              id: item.produtoId,
-            },
-            data: {
-              estoque: {
-                decrement: item.quantidade,
-              },
-            },
-          });
+          await assertAvailableAndDecrement(tx, customData.contaId, item.produtoId, item.quantidade);
 
           await tx.movimentacoesEstoque.create({
             data: {

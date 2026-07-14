@@ -2,12 +2,13 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import type { Server as HttpServer } from "http";
 import { redisConnecion } from "./redis";
+import { env } from "./dotenv";
 
 let io: Server;
 
 export function initSocket(server: HttpServer) {
   io = new Server(server, {
-    cors: { origin: "*" },
+    cors: { origin: [env.BASE_URL_FRONTEND, ...(env.LOJA_CORS_ALLOWLIST?.split(",").map((value) => value.trim()).filter(Boolean) ?? [])].map((value) => value.replace(/\/+$/, "")), credentials: true },
     // WebSocket puro: evita o handshake multi-request do long-polling, que quebraria
     // sem sticky session no cluster do PM2 (`instances: max`).
     transports: ["websocket"],

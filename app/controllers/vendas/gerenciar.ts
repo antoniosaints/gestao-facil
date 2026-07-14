@@ -20,6 +20,7 @@ import {
   getCaixaMovimentoVendaCleanupWhere,
   getSaldoAdjustmentForDeletedSaleMovements,
 } from "../../services/vendas/caixaService";
+import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -650,12 +651,7 @@ export const updateVendaInternal = async (
     await Promise.all(
       itensVenda.map(async (item) => {
         if (item.produtoId) {
-          await tx.produto.update({
-            where: { id: item.produtoId, contaId: customData.contaId },
-            data: {
-              estoque: { decrement: item.quantidade },
-            },
-          });
+          await assertAvailableAndDecrement(tx, customData.contaId, item.produtoId, item.quantidade);
           await tx.movimentacoesEstoque.create({
             data: {
               Uid: gerarIdUnicoComMetaFinal("MOV"),
@@ -805,14 +801,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         });
 
         if (item.tipo === "PRODUTO") {
-          await tx.produto.update({
-            where: { id: item.id },
-            data: {
-              estoque: {
-                decrement: item.quantidade,
-              },
-            },
-          });
+          await assertAvailableAndDecrement(tx, customData.contaId, item.id, item.quantidade);
           await tx.movimentacoesEstoque.create({
             data: {
               Uid: gerarIdUnicoComMetaFinal("MOV"),
