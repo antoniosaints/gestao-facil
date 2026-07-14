@@ -9,11 +9,21 @@ import { sendCommerceError } from "../../services/loja/commerceError";
 import { ResponseHandler } from "../../utils/response";
 
 const itemSchema = z.object({ productId: z.number().int().positive(), quantity: z.number().int().positive().max(999) });
+// Campos opcionais em branco (string vazia) devem virar `undefined` — caso contrário
+// validações como e-mail e UF (length 2) reprovam o pedido inteiro.
+const blankToUndefined = (val: unknown) => {
+  if (val && typeof val === "object") {
+    return Object.fromEntries(
+      Object.entries(val as Record<string, unknown>).map(([key, value]) => [key, typeof value === "string" && value.trim() === "" ? undefined : value]),
+    );
+  }
+  return val;
+};
 const orderSchema = z.object({
   items: z.array(itemSchema).min(1).max(100),
   channel: z.enum(["WHATSAPP", "GATEWAY"]),
   deliveryType: z.enum(["RETIRADA", "ENTREGA_LOCAL"]),
-  customer: z.object({
+  customer: z.preprocess(blankToUndefined, z.object({
     name: z.string().trim().min(2).max(120),
     email: z.string().email().optional(),
     phone: z.string().trim().min(8).max(30),
@@ -24,7 +34,7 @@ const orderSchema = z.object({
     district: z.string().trim().max(100).optional(),
     city: z.string().trim().max(100).optional(),
     state: z.string().trim().length(2).optional(),
-  }),
+  })),
   notes: z.string().trim().max(500).optional(),
 });
 

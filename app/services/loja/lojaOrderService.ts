@@ -122,6 +122,13 @@ export async function previewStoreOrder(slug: string, input: StoreOrderInput) {
   };
 }
 
+// Número de WhatsApp que recebe o pedido: usa o telefone da conta e, se ausente,
+// o WhatsApp cadastrado no rodapé da loja (themeConfig.company.whatsapp).
+function resolveStoreWhatsapp(config: Awaited<ReturnType<typeof getStoreBySlug>>): string | null {
+  const company = (config.themeConfig as any)?.company;
+  return config.Conta.telefone || company?.whatsapp || null;
+}
+
 function whatsappAction(phone: string | null, order: any) {
   if (!phone) throw new CommerceError("gateway_unavailable", "WhatsApp da empresa não configurado");
   const delivery = order.tipoEntrega === "RETIRADA" ? "Retirada" : `Entrega: ${order.enderecoSnapshot}, ${order.numeroSnapshot} - ${order.bairroSnapshot}, ${order.cidadeSnapshot}/${order.estadoSnapshot} - CEP ${order.cepSnapshot}`;
@@ -195,7 +202,7 @@ export async function placeStoreOrder(slug: string, input: StoreOrderInput, idem
     if (existing.requestHash !== requestHash) throw new CommerceError("idempotency_key_reused", "A chave já foi usada com outro conteúdo");
     if (existing.recursoId) {
       const order = await prisma.lojaPedido.findFirstOrThrow({ where: { contaId: config.contaId, publicId: existing.recursoId }, include: { itens: true } });
-      const nextAction = order.canal === "WHATSAPP" ? whatsappAction(config.Conta.telefone, order) : await createOnlineCheckout(order, `${idempotencyKey}:checkout`);
+      const nextAction = order.canal === "WHATSAPP" ? whatsappAction(resolveStoreWhatsapp(config), order) : await createOnlineCheckout(order, `${idempotencyKey}:checkout`);
       return { order, accessToken: null, nextAction, replayed: true };
     }
   }
@@ -265,7 +272,7 @@ export async function placeStoreOrder(slug: string, input: StoreOrderInput, idem
     return tx.lojaPedido.findUniqueOrThrow({ where: { id: created.id }, include: { itens: true } });
   });
 
-  const nextAction = input.channel === "WHATSAPP" ? whatsappAction(config.Conta.telefone, order) : await createOnlineCheckout(order, `${idempotencyKey}:checkout`);
+  const nextAction = input.channel === "WHATSAPP" ? whatsappAction(resolveStoreWhatsapp(config), order) : await createOnlineCheckout(order, `${idempotencyKey}:checkout`);
   return { order, accessToken, nextAction, replayed: false };
 }
 
@@ -278,7 +285,7 @@ export async function retryStoreCheckout(slug: string, publicId: string, accessT
   if (order.status !== "RECEBIDO" || (order.reservaExpiraEm && order.reservaExpiraEm <= new Date())) {
     throw new CommerceError("invalid_order_transition", "Este pedido não pode mais retomar o checkout");
   }
-  return order.canal === "WHATSAPP" ? whatsappAction(config.Conta.telefone, order) : createOnlineCheckout(order, `${idempotencyKey}:retry`);
+  return order.canal === "WHATSAPP" ? whatsappAction(resolveStoreWhatsapp(config), order) : createOnlineCheckout(order, `${idempotencyKey}:retry`);
 }
 
 export async function getPublicOrder(slug: string, publicId: string, accessToken: string, lojaClienteId?: number) {

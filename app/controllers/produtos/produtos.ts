@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import Decimal from "decimal.js";
 import { Prisma, Status } from "../../../generated";
 import { prisma } from "../../utils/prisma";
@@ -1441,22 +1442,25 @@ export const uploadVarianteImagem = async (
       quality: 72,
     });
 
-    // Remove a imagem anterior antes de subir a nova (a extensão pode mudar).
+    // Remove a imagem anterior antes de subir a nova.
     if (variante.imagem) {
       await deleteStoredFile(variante.imagem).catch(() => undefined);
     }
 
+    // Chave única por upload: garante uma URL nova a cada troca (evita cache do
+    // navegador/CDN servir a imagem antiga) e mantém a referência anterior distinta
+    // para que a limpeza acima realmente apague o arquivo antigo.
     const key = buildScopedUploadKey(
       customData.contaId,
       `produtos/variantes/variante_${variante.id}`,
-      `variante-${variante.id}.${processed.extension}`
+      `variante-${variante.id}-${randomUUID()}.${processed.extension}`
     );
 
     const file = await uploadPublicFile({
       key,
       body: processed.buffer,
       contentType: processed.contentType,
-      cacheControl: "public, max-age=3600",
+      cacheControl: "public, max-age=31536000, immutable",
     });
 
     await prisma.produto.update({

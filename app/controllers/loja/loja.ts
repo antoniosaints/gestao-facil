@@ -27,6 +27,23 @@ const configSchema = z.object({
     bannerHeight: z.enum(["pequeno", "medio", "grande"]),
     bannerOverlay: z.number().min(0).max(80),
     bannerFocalPoint: z.enum(["center", "top", "bottom", "left", "right"]),
+    // Personalizações extras persistidas no JSON (sem coluna dedicada no banco):
+    bgColor: z.string().regex(HEX_COLOR, "Cor de fundo inválida").optional().nullable(),
+    headerTitle: z.string().trim().max(60).optional().nullable(),
+    headerSubtitle: z.string().trim().max(120).optional().nullable(),
+    logoUrl: z.string().trim().max(400).optional().nullable(),
+    banners: z.array(z.string().trim().max(400)).max(8).optional(),
+    company: z.object({
+      phone: z.string().trim().max(40).optional().nullable(),
+      whatsapp: z.string().trim().max(40).optional().nullable(),
+      email: z.string().trim().max(120).optional().nullable(),
+      address: z.string().trim().max(200).optional().nullable(),
+      cnpj: z.string().trim().max(30).optional().nullable(),
+      instagram: z.string().trim().max(120).optional().nullable(),
+      facebook: z.string().trim().max(120).optional().nullable(),
+      hours: z.string().trim().max(200).optional().nullable(),
+      about: z.string().trim().max(500).optional().nullable(),
+    }).partial().optional().nullable(),
   }).optional(),
   corPrimaria: z.string().regex(HEX_COLOR, "Cor primária inválida").optional(),
   corSecundaria: z.string().regex(HEX_COLOR, "Cor secundária inválida").optional(),
@@ -95,18 +112,21 @@ export const uploadLojaBanner = async (req: Request, res: Response): Promise<any
 
     const config = await ensureLojaConfig(customData.contaId);
 
+    const tipo = String(req.query.tipo || "desktop");
+    const isLogo = tipo === "logo";
+    const isGallery = tipo === "galeria";
+    const mobile = tipo === "mobile";
+
     const processed = await downscaleImage(req.file.buffer, req.file.mimetype, {
-      maxDimension: 1920,
-      quality: 75,
+      maxDimension: isLogo ? 512 : 1920,
+      quality: isLogo ? 85 : 75,
     });
 
-    const mobile = req.query.tipo === "mobile";
-    const oldReference = mobile ? config.bannerMobileUrl : config.bannerUrl;
-
+    const prefix = isLogo ? "logo" : isGallery ? "galeria" : `banner-${mobile ? "mobile" : "desktop"}`;
     const key = buildScopedUploadKey(
       customData.contaId,
       `loja/conta_${customData.contaId}`,
-      `banner-${mobile ? "mobile" : "desktop"}-${randomUUID()}.${processed.extension}`,
+      `${prefix}-${randomUUID()}.${processed.extension}`,
     );
     const file = await uploadPublicFile({
       key,
@@ -115,6 +135,16 @@ export const uploadLojaBanner = async (req: Request, res: Response): Promise<any
       cacheControl: "public, max-age=31536000, immutable",
     });
 
+    // Logo e imagens de galeria (carrossel) são guardadas no themeConfig pelo front,
+    // então aqui apenas devolvemos a referência/URL sem gravar em coluna.
+    if (isLogo || isGallery) {
+      return ResponseHandler(res, "Imagem enviada com sucesso", {
+        reference: file.reference,
+        url: file.url,
+      });
+    }
+
+    const oldReference = mobile ? config.bannerMobileUrl : config.bannerUrl;
     const updated = await prisma.lojaVirtualConfig.update({
       where: { contaId: customData.contaId },
       data: mobile ? { bannerMobileUrl: file.reference } : { bannerUrl: file.reference },
