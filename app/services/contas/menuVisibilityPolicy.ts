@@ -13,6 +13,9 @@ export const MAIN_VISIBLE_MENU_KEYS = [
   "core-ia",
   "whatsapp",
   "atendimento",
+  // A Loja Virtual passou a ser configurável como os demais menus. Contas anteriores a essa
+  // mudança recebem a key por migration; sem isso a whitelist esconderia a loja delas.
+  "loja-virtual",
   "usuarios",
   "configuracoes",
   "changelog",

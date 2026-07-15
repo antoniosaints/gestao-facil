@@ -34,6 +34,7 @@ import {
   relatorioCaixa,
   resumoCaixa,
 } from "../../controllers/vendas/caixas";
+import { getResumoCaixas } from "../../controllers/vendas/caixasResumo";
 
 const routerVendas = Router();
 
@@ -61,6 +62,7 @@ routerVendas.get("/estornar/:id", authenticateJWT, estornarVenda);
 
 // PDV / Caixas
 routerVendas.get("/pdv/contexto", authenticateJWT, getContextoCaixa);
+routerVendas.get("/pdv/resumo", authenticateJWT, getResumoCaixas);
 routerVendas.post("/pdv/finalizarVenda", authenticateJWT, finalizarVendaPdv);
 routerVendas.post("/pdv/abrirCaixa", authenticateJWT, abrirCaixa);
 routerVendas.post("/pdv/entrarCaixa", authenticateJWT, entrarCaixa);

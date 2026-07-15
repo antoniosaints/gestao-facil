@@ -10,6 +10,7 @@ import {
 import { createPublicOrder, getPublicProducts, getPublicStore, previewCheckout, retryPublicOrder, showPublicOrder } from "../../controllers/loja/publica";
 import { actOnStoreOrder, deleteStoreOrder, listStoreOrders, showStoreOrder } from "../../controllers/loja/pedidos";
 import { addProdutoSecao, createSecao, deleteSecao, listSecoes, removeProdutoSecao, updateSecao } from "../../controllers/loja/secoes";
+import { getResumoLoja } from "../../controllers/loja/resumo";
 import { deleteAddress, forgotPassword, login, logout, me, refresh, register, resetPassword, saveAddress, verify } from "../../controllers/loja/auth";
 import { optionalStoreCustomer, requireStoreCustomer } from "../../middlewares/storeCustomerAuth";
 
@@ -38,6 +39,7 @@ routerLoja.post("/publica/:slug/auth/addresses", requireStoreCustomer as any, sa
 routerLoja.put("/publica/:slug/auth/addresses/:id", requireStoreCustomer as any, saveAddress as any);
 routerLoja.delete("/publica/:slug/auth/addresses/:id", requireStoreCustomer as any, deleteAddress as any);
 
+routerLoja.get("/resumo", authenticateJWT, getResumoLoja);
 routerLoja.get("/config", authenticateJWT, getLojaConfig);
 routerLoja.put("/config", authenticateJWT, saveLojaConfig);
 routerLoja.post("/config/banner", authenticateJWT, uploadBanner.single("file"), uploadLojaBanner);
