@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Prisma, WhatsAppConversaStatus, WhatsAppInstanciaStatus, WhatsAppMensagemDirecao, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
+import { Prisma, WhatsAppConversaStatus, WhatsAppInstanciaStatus, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
+import { resolverTransicaoAtendimento, TransicaoAtendimento } from "./whatsappAtendimento";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 import { formatCurrency } from "../../utils/formatters";
@@ -502,6 +503,30 @@ function buildVendaResumoMessage(venda: VendaComItens, clienteNome: string) {
   return partes.join("\n");
 }
 
+// Grava a transição no log append-only.
+// Nunca deixa uma falha de métrica derrubar o atendimento em si: o erro é logado e engolido.
+async function registrarEventoAtendimento(
+  contaId: number,
+  conversaId: number,
+  transicao: TransicaoAtendimento,
+  usuarioId: number | null | undefined,
+) {
+  if (!transicao.evento) return;
+  try {
+    await prisma.whatsAppConversaEvento.create({
+      data: {
+        contaId,
+        conversaId,
+        tipo: transicao.evento,
+        usuarioId: usuarioId ?? null,
+        referenciaEm: transicao.referenciaEm,
+      },
+    });
+  } catch (error) {
+    console.warn(`[whatsapp-atendimento] falha ao registrar evento conversa=${conversaId}`, error);
+  }
+}
+
 export const whatsAppService = {
   normalizePhone,
 
@@ -963,7 +988,9 @@ export const whatsAppService = {
     return downloadAndDecryptWhatsAppMedia(payload);
   },
 
-  async sendMessage(contaId: number, conversaId: number, input: SendMessageInput) {
+  // `usuarioId` é obrigatório: toda chamada vem de um atendente autenticado, e é o que
+  // distingue esta mensagem de uma resposta do agente de IA (ambas são SAIDA).
+  async sendMessage(contaId: number, conversaId: number, input: SendMessageInput, usuarioId: number) {
     const conversa = await prisma.whatsAppConversa.findFirst({
       where: { id: conversaId, contaId },
       include: { Instancia: true },
@@ -1001,6 +1028,8 @@ export const whatsAppService = {
         fileName: input.fileName || null,
         quotedMessageId: input.quotedMessageId || null,
         quotedConteudo,
+        origem: WhatsAppMensagemOrigem.ATENDENTE,
+        usuarioId,
         statusEnvio: WhatsAppMensagemStatus.PENDENTE,
       },
     });
@@ -1057,7 +1086,7 @@ export const whatsAppService = {
   // Envia uma localização (pino no mapa). Guarda no `rawPayload` o mesmo formato `msgContent`
   // das mensagens recebidas (locationMessage) para o frontend renderizar o balão do jeito único,
   // independente da direção.
-  async sendLocationMessage(contaId: number, conversaId: number, input: SendLocationInput) {
+  async sendLocationMessage(contaId: number, conversaId: number, input: SendLocationInput, usuarioId: number) {
     const conversa = await prisma.whatsAppConversa.findFirst({
       where: { id: conversaId, contaId },
       include: { Instancia: true },
@@ -1102,6 +1131,8 @@ export const whatsAppService = {
         quotedMessageId: input.quotedMessageId || null,
         quotedConteudo,
         rawPayload: safeJson(metadata),
+        origem: WhatsAppMensagemOrigem.ATENDENTE,
+        usuarioId,
         statusEnvio: WhatsAppMensagemStatus.PENDENTE,
       },
     });
@@ -1148,7 +1179,7 @@ export const whatsAppService = {
 
   // Envia um cartão de contato (vCard). Guarda no `rawPayload` o formato `msgContent.contactMessage`
   // com o vCard montado, para o frontend renderizar o balão igual ao de um contato recebido.
-  async sendContactMessage(contaId: number, conversaId: number, input: SendContactInput) {
+  async sendContactMessage(contaId: number, conversaId: number, input: SendContactInput, usuarioId: number) {
     const conversa = await prisma.whatsAppConversa.findFirst({
       where: { id: conversaId, contaId },
       include: { Instancia: true },
@@ -1192,6 +1223,8 @@ export const whatsAppService = {
         quotedMessageId: input.quotedMessageId || null,
         quotedConteudo,
         rawPayload: safeJson(metadata),
+        origem: WhatsAppMensagemOrigem.ATENDENTE,
+        usuarioId,
         statusEnvio: WhatsAppMensagemStatus.PENDENTE,
       },
     });
@@ -1241,6 +1274,7 @@ export const whatsAppService = {
     contaId: number,
     conversaId: number,
     input: { buffer: Buffer; mimeType?: string | null; originalName?: string | null; caption?: string; quotedMessageId?: string },
+    usuarioId: number,
   ) {
     const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
     if (!conversa) throw new Error("Conversa não encontrada para esta conta");
@@ -1253,12 +1287,17 @@ export const whatsAppService = {
     const uploaded = await uploadPublicFile({ key, body: processed.buffer, contentType: processed.contentType });
 
     // Bucket público: a URL já é acessível diretamente, sem presign.
-    return this.sendMessage(contaId, conversaId, {
-      tipo: "image",
-      mediaUrl: uploaded.url,
-      caption: input.caption,
-      quotedMessageId: input.quotedMessageId,
-    });
+    return this.sendMessage(
+      contaId,
+      conversaId,
+      {
+        tipo: "image",
+        mediaUrl: uploaded.url,
+        caption: input.caption,
+        quotedMessageId: input.quotedMessageId,
+      },
+      usuarioId,
+    );
   },
 
   // Envia um áudio gravado no dispositivo: transcoda para OGG/Opus (ffmpeg), salva no storage
@@ -1267,6 +1306,7 @@ export const whatsAppService = {
     contaId: number,
     conversaId: number,
     input: { buffer: Buffer; mimeType?: string | null; quotedMessageId?: string },
+    usuarioId: number,
   ) {
     const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
     if (!conversa) throw new Error("Conversa não encontrada para esta conta");
@@ -1277,11 +1317,16 @@ export const whatsAppService = {
     const key = buildScopedUploadKey(contaId, `whatsapp/conversas/${conversaId}`, fileName);
     const uploaded = await uploadPublicFile({ key, body: audio.buffer, contentType: audio.contentType });
 
-    return this.sendMessage(contaId, conversaId, {
-      tipo: "audio",
-      mediaUrl: uploaded.url,
-      quotedMessageId: input.quotedMessageId,
-    });
+    return this.sendMessage(
+      contaId,
+      conversaId,
+      {
+        tipo: "audio",
+        mediaUrl: uploaded.url,
+        quotedMessageId: input.quotedMessageId,
+      },
+      usuarioId,
+    );
   },
 
   async updateConversation(contaId: number, conversaId: number, input: { status?: WhatsAppConversaStatus; atendenteId?: number | null; setor?: string | null; fila?: string | null; clienteId?: number | null }) {
@@ -1299,6 +1344,19 @@ export const whatsAppService = {
       await prisma.whatsAppContato.update({ where: { id: conversa.contatoId }, data: { clienteId: input.clienteId } });
     }
 
+    // Só registramos evento quando o status muda de fase; trocar setor/fila/cliente não é
+    // transição de atendimento.
+    const transicao: TransicaoAtendimento = input.status
+      ? resolverTransicaoAtendimento({
+          statusAnterior: conversa.status,
+          statusNovo: input.status,
+          filaDesde: conversa.filaDesde,
+          atendidaEm: conversa.atendidaEm,
+          agora: new Date(),
+        })
+      : { evento: null, filaDesde: undefined, atendidaEm: undefined, referenciaEm: null };
+    await registrarEventoAtendimento(contaId, conversaId, transicao, input.atendenteId ?? conversa.atendenteId);
+
     const updated = await prisma.whatsAppConversa.update({
       where: { id: conversaId },
       data: {
@@ -1307,6 +1365,8 @@ export const whatsAppService = {
         ...("setor" in input ? { setor: input.setor } : {}),
         ...("fila" in input ? { fila: input.fila } : {}),
         ...("clienteId" in input ? { clienteId: input.clienteId } : {}),
+        ...(transicao.filaDesde !== undefined ? { filaDesde: transicao.filaDesde } : {}),
+        ...(transicao.atendidaEm !== undefined ? { atendidaEm: transicao.atendidaEm } : {}),
       },
       include: {
         Contato: true,
@@ -1530,11 +1590,22 @@ export const whatsAppService = {
     const conversa = await prisma.whatsAppConversa.findFirst({ where: { id: conversaId, contaId } });
     if (!conversa) throw new Error("Conversa não encontrada para esta conta");
 
+    const transicao = resolverTransicaoAtendimento({
+      statusAnterior: conversa.status,
+      statusNovo: WhatsAppConversaStatus.ABERTA,
+      filaDesde: conversa.filaDesde,
+      atendidaEm: conversa.atendidaEm,
+      agora: new Date(),
+    });
+    await registrarEventoAtendimento(contaId, conversaId, transicao, atendenteId);
+
     const updated = await prisma.whatsAppConversa.update({
       where: { id: conversaId },
       data: {
         status: WhatsAppConversaStatus.ABERTA,
         atendenteId,
+        ...(transicao.filaDesde !== undefined ? { filaDesde: transicao.filaDesde } : {}),
+        ...(transicao.atendidaEm !== undefined ? { atendidaEm: transicao.atendidaEm } : {}),
       },
       include: {
         Contato: true,
@@ -1586,7 +1657,7 @@ export const whatsAppService = {
 
   // Envia o resumo de uma venda do cliente vinculado para a conversa (persiste na thread e
   // dispara pela instância da conversa, reaproveitando `sendMessage`).
-  async sendConversationSale(contaId: number, conversaId: number, vendaId: number) {
+  async sendConversationSale(contaId: number, conversaId: number, vendaId: number, usuarioId: number) {
     const conversa = await prisma.whatsAppConversa.findFirst({
       where: { id: conversaId, contaId },
       select: { clienteId: true, Cliente: { select: { id: true, nome: true } } },
@@ -1611,7 +1682,7 @@ export const whatsAppService = {
     if (!venda) throw new Error("Venda não encontrada para o cliente desta conversa.");
 
     const message = buildVendaResumoMessage(venda, conversa.Cliente?.nome || "cliente");
-    return this.sendMessage(contaId, conversaId, { tipo: "text", conteudo: message });
+    return this.sendMessage(contaId, conversaId, { tipo: "text", conteudo: message }, usuarioId);
   },
 
   async startConversation(contaId: number, input: { clienteId?: number; contatoId?: number; phone?: string; nome?: string; instanciaId?: number }) {
@@ -1877,7 +1948,7 @@ export const whatsAppService = {
                   telefone: msg.phone,
                 },
               },
-              select: { status: true },
+              select: { status: true, filaDesde: true, atendidaEm: true },
             });
 
             // Fluxo de atendimento (ESPERA -> ABERTA -> FINALIZADA): mensagem recebida do
@@ -1889,6 +1960,16 @@ export const whatsAppService = {
               : existingConversa?.status === WhatsAppConversaStatus.ABERTA
                 ? WhatsAppConversaStatus.ABERTA
                 : WhatsAppConversaStatus.PENDENTE;
+
+            // Transição desta mensagem. Conversa nova entra sem status anterior, então uma
+            // primeira mensagem do cliente conta como ENFILEIRADA (entrou na fila agora).
+            const transicaoWebhook = resolverTransicaoAtendimento({
+              statusAnterior: existingConversa?.status ?? null,
+              statusNovo: nextConversaStatus,
+              filaDesde: existingConversa?.filaDesde ?? null,
+              atendidaEm: existingConversa?.atendidaEm ?? null,
+              agora: new Date(),
+            });
 
             const conversa = await prisma.whatsAppConversa.upsert({
               where: {
@@ -1905,6 +1986,8 @@ export const whatsAppService = {
                 ultimaMensagem: msg.conteudo || `[${msg.tipo.toLowerCase()}]`,
                 ultimaInteracaoEm: new Date(),
                 ...(msg.fromMe ? {} : { naoLidas: { increment: 1 } }),
+                ...(transicaoWebhook.filaDesde !== undefined ? { filaDesde: transicaoWebhook.filaDesde } : {}),
+                ...(transicaoWebhook.atendidaEm !== undefined ? { atendidaEm: transicaoWebhook.atendidaEm } : {}),
               },
               create: {
                 contaId: instance.contaId,
@@ -1916,6 +1999,8 @@ export const whatsAppService = {
                 ultimaMensagem: msg.conteudo || `[${msg.tipo.toLowerCase()}]`,
                 ultimaInteracaoEm: new Date(),
                 naoLidas: msg.fromMe ? 0 : 1,
+                filaDesde: transicaoWebhook.filaDesde ?? null,
+                atendidaEm: transicaoWebhook.atendidaEm ?? null,
               },
               include: {
                 Contato: true,
@@ -1924,6 +2009,10 @@ export const whatsAppService = {
                 Instancia: { select: { id: true, nome: true, status: true, numeroConectado: true } },
               },
             });
+
+            // Uma mensagem `fromMe` vinda do aparelho assume o atendimento sem atendente
+            // identificado: registramos o evento sem usuarioId em vez de atribuir a alguém.
+            await registrarEventoAtendimento(instance.contaId, conversa.id, transicaoWebhook, conversa.atendenteId);
 
             const message = await prisma.whatsAppMensagem.upsert({
               where: {
@@ -1948,6 +2037,9 @@ export const whatsAppService = {
                 quotedMessageId: msg.quotedMessageId || null,
                 quotedConteudo: msg.quotedConteudo || null,
                 rawPayload: safeJson(payload),
+                // Só chega aqui pelo `create` do upsert, ou seja, mensagem que ainda não existia.
+                // Se é `fromMe` e nós não a criamos, foi enviada direto do aparelho/WhatsApp Web.
+                origem: msg.fromMe ? WhatsAppMensagemOrigem.DISPOSITIVO : WhatsAppMensagemOrigem.CONTATO,
                 statusEnvio: msg.fromMe ? WhatsAppMensagemStatus.ENVIADA : WhatsAppMensagemStatus.RECEBIDA,
                 enviadoEm: msg.fromMe ? new Date() : null,
               },

@@ -2,6 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { createAgent, listAgents, removeAgent, updateAgent } from "../../controllers/whatsapp/agentes";
+import { getPainelAtendimento } from "../../controllers/whatsapp/painel";
+import { getRelatorioAtendimentos, getRelatorioAtendimentosResumo } from "../../controllers/whatsapp/relatorios";
 import {
   attendConversation,
   configureInstanceWebhooks,
@@ -71,6 +73,10 @@ routerWhatsapp.get("/agentes", listAgents);
 routerWhatsapp.post("/agentes", createAgent);
 routerWhatsapp.put("/agentes/:id", updateAgent);
 routerWhatsapp.delete("/agentes/:id", removeAgent);
+
+routerWhatsapp.get("/graficos/painel", getPainelAtendimento);
+routerWhatsapp.get("/relatorios/atendimentos", getRelatorioAtendimentos);
+routerWhatsapp.get("/relatorios/atendimentos/resumo", getRelatorioAtendimentosResumo);
 
 routerWhatsapp.get("/conversas", listConversations);
 routerWhatsapp.post("/conversas/iniciar", startConversation);

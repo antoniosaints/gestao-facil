@@ -336,7 +336,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<any> => 
     const customData = await requirePermission(req, res, 2);
     if (!customData) return;
     const data = sendMessageSchema.parse(req.body);
-    const message = await whatsAppService.sendMessage(customData.contaId, Number(req.params.id), data);
+    const message = await whatsAppService.sendMessage(customData.contaId, Number(req.params.id), data, customData.userId);
     ResponseHandler(res, "Mensagem enviada", message, 201);
   } catch (error) {
     handleError(res, error);
@@ -348,7 +348,7 @@ export const sendLocationMessage = async (req: Request, res: Response): Promise<
     const customData = await requirePermission(req, res, 2);
     if (!customData) return;
     const data = sendLocationSchema.parse(req.body);
-    const message = await whatsAppService.sendLocationMessage(customData.contaId, Number(req.params.id), data);
+    const message = await whatsAppService.sendLocationMessage(customData.contaId, Number(req.params.id), data, customData.userId);
     ResponseHandler(res, "Localização enviada", message, 201);
   } catch (error) {
     handleError(res, error);
@@ -360,7 +360,7 @@ export const sendContactMessage = async (req: Request, res: Response): Promise<a
     const customData = await requirePermission(req, res, 2);
     if (!customData) return;
     const data = sendContactSchema.parse(req.body);
-    const message = await whatsAppService.sendContactMessage(customData.contaId, Number(req.params.id), data);
+    const message = await whatsAppService.sendContactMessage(customData.contaId, Number(req.params.id), data, customData.userId);
     ResponseHandler(res, "Contato enviado", message, 201);
   } catch (error) {
     handleError(res, error);
@@ -385,7 +385,7 @@ export const sendImageMessage = async (req: Request, res: Response): Promise<any
       originalName: req.file.originalname,
       caption: typeof req.body.caption === "string" ? req.body.caption : undefined,
       quotedMessageId: typeof req.body.quotedMessageId === "string" ? req.body.quotedMessageId : undefined,
-    });
+    }, customData.userId);
     ResponseHandler(res, "Imagem enviada", message, 201);
   } catch (error) {
     handleError(res, error);
@@ -408,7 +408,7 @@ export const sendAudioMessage = async (req: Request, res: Response): Promise<any
       buffer: req.file.buffer,
       mimeType: req.file.mimetype,
       quotedMessageId: typeof req.body.quotedMessageId === "string" ? req.body.quotedMessageId : undefined,
-    });
+    }, customData.userId);
     ResponseHandler(res, "Áudio enviado", message, 201);
   } catch (error) {
     handleError(res, error);
@@ -533,6 +533,7 @@ export const sendConversationSale = async (req: Request, res: Response): Promise
       customData.contaId,
       Number(req.params.id),
       data.vendaId,
+      customData.userId,
     );
     ResponseHandler(res, "Dados da venda enviados", message, 201);
   } catch (error) {

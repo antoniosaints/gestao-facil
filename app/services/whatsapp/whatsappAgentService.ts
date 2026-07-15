@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
+import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { WApiClient } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia } from "./whatsappMedia";
@@ -292,6 +292,8 @@ export const whatsAppAgentService = {
         tipo: WhatsAppMensagemTipo.TEXTO,
         externalMessageId: messageId,
         conteudo: text,
+        // Resposta automática: não conta como atendimento humano nos KPIs do painel.
+        origem: WhatsAppMensagemOrigem.AGENTE_IA,
         statusEnvio: WhatsAppMensagemStatus.PENDENTE,
       },
     });

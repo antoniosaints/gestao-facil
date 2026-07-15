@@ -196,6 +196,7 @@ model Contas {
   WhatsAppInstancia               WhatsAppInstancia[]
   WhatsAppContato                 WhatsAppContato[]
   WhatsAppConversa                WhatsAppConversa[]
+  WhatsAppConversaEvento          WhatsAppConversaEvento[]
   WhatsAppMensagem                WhatsAppMensagem[]
   WhatsAppWebhookEvento           WhatsAppWebhookEvento[]
   WhatsAppInstanciaPagamento      WhatsAppInstanciaPagamento[]
@@ -684,6 +685,8 @@ model Usuarios {
   AssinaturaHistorico             AssinaturaHistorico[]
   OrdensServico                   OrdensServico[]
   WhatsAppConversasAtendidas      WhatsAppConversa[]                @relation("WhatsAppAtendente")
+  WhatsAppMensagensEnviadas       WhatsAppMensagem[]                @relation("WhatsAppMensagemAutor")
+  WhatsAppConversaEventos         WhatsAppConversaEvento[]          @relation("WhatsAppConversaEventoAutor")
   caixasAbertos                   CaixaSessao[]                     @relation("CaixaAbertoPor")
   caixasFechados                  CaixaSessao[]                     @relation("CaixaFechadoPor")
   caixaOperadores                 CaixaOperador[]
@@ -1907,6 +1910,26 @@ enum WhatsAppMensagemDirecao {
   SAIDA
 }
 
+// Quem produziu a mensagem. `direcao` sozinha não distingue uma resposta do atendente de uma
+// resposta automática do agente de IA (ambas são SAIDA), o que inviabiliza medir tempo de
+// resposta humano e produtividade. Nulo = mensagem anterior à instrumentação (origem desconhecida).
+enum WhatsAppMensagemOrigem {
+  CONTATO // recebida do cliente
+  ATENDENTE // enviada por um usuário pelo sistema
+  AGENTE_IA // resposta automática do agente de IA
+  DISPOSITIVO // enviada direto do aparelho/WhatsApp Web, fora do sistema
+}
+
+// Ciclo de atendimento de uma conversa. A conversa é uma thread rolante por contato
+// (unique contaId+instanciaId+telefone) e seu status é sobrescrito a cada transição, então
+// datas gravadas na própria conversa se perdem quando o cliente volta a falar. Este log é
+// append-only e é a fonte de verdade para os KPIs por período.
+enum WhatsAppConversaEventoTipo {
+  ENFILEIRADA // entrou na fila aguardando atendimento humano
+  ASSUMIDA // um atendente assumiu
+  FINALIZADA // atendimento encerrado
+}
+
 enum WhatsAppMensagemTipo {
   TEXTO
   IMAGEM
@@ -2117,14 +2140,42 @@ model WhatsAppConversa {
   ultimaMensagem    String?                @db.Text
   ultimaInteracaoEm DateTime?
   naoLidas          Int                    @default(0)
+  // Estado do ciclo de atendimento atual: quando entrou na fila e quando foi assumida. São
+  // sobrescritos a cada ciclo (a thread é reaproveitada); o histórico fica em
+  // WhatsAppConversaEvento. Servem para a espera da fila agora e para datar o evento seguinte.
+  filaDesde         DateTime?
+  atendidaEm        DateTime?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   mensagens         WhatsAppMensagem[]
+  eventos           WhatsAppConversaEvento[]
 
   @@unique([contaId, instanciaId, telefone])
   @@index([contaId, status, ultimaInteracaoEm])
   @@index([contaId, atendenteId])
   @@index([contaId, clienteId])
+  @@index([contaId, filaDesde])
+}
+
+// Log append-only das transições de atendimento. Cada linha é um fato imutável, então
+// reabrir uma conversa não apaga o ciclo anterior (ao contrário de datas na conversa).
+model WhatsAppConversaEvento {
+  id         Int                        @id @default(autoincrement())
+  contaId    Int
+  Conta      Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  conversaId Int
+  Conversa   WhatsAppConversa           @relation(fields: [conversaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tipo       WhatsAppConversaEventoTipo
+  usuarioId  Int?
+  Usuario    Usuarios?                  @relation("WhatsAppConversaEventoAutor", fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  // Início do intervalo que este evento fecha: entrada na fila (ASSUMIDA) ou início do
+  // atendimento (FINALIZADA). Permite medir espera e duração sem parear linhas do log.
+  referenciaEm DateTime?
+  createdAt  DateTime                   @default(now())
+
+  @@index([contaId, tipo, createdAt])
+  @@index([contaId, conversaId, createdAt])
+  @@index([contaId, usuarioId, tipo, createdAt])
 }
 
 model WhatsAppMensagem {
@@ -2158,12 +2209,18 @@ model WhatsAppMensagem {
   // trecho citado acima do balão (como no WhatsApp).
   quotedMessageId   String?
   quotedConteudo    String?                 @db.Text
+  // Quem produziu a mensagem, e qual usuário a enviou quando `origem` é ATENDENTE.
+  origem            WhatsAppMensagemOrigem?
+  usuarioId         Int?
+  Usuario           Usuarios?               @relation("WhatsAppMensagemAutor", fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 
   @@unique([contaId, instanciaId, externalMessageId])
   @@index([contaId, conversaId, createdAt])
   @@index([contaId, statusEnvio])
+  @@index([contaId, origem, createdAt])
+  @@index([contaId, usuarioId, createdAt])
 }
 
 model WhatsAppWebhookEvento {
