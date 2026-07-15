@@ -796,7 +796,9 @@ model Produto {
   nome                 String
   nomeVariante         String                 @default("Padrão")
   ehPadrao             Boolean                @default(false)
-  descricao            String?
+  // Texto livre onde o usuário descreve a variante; `@db.Text` porque o VARCHAR(191) padrão
+  // do MySQL não comporta uma descrição de verdade.
+  descricao            String?                @db.Text
   preco                Decimal                @db.Decimal(10, 2)
   // Preço promocional (opcional). Quando definido e menor que `preco`, a variante entra na
   // seção "Promoções" da loja e é vendida por este valor. `null` = sem promoção.
@@ -864,7 +866,8 @@ model ProdutoBase {
   Categoria      ProdutoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   Uid            String            @default("PB_000")
   nome           String
-  descricao      String?
+  // Ver Produto.descricao: texto livre, fora do limite de VARCHAR(191).
+  descricao      String?           @db.Text
   status         Status            @default(ATIVO)
   ncm            String?
   cest           String?
