@@ -30,7 +30,11 @@ export async function enforceStoreRateLimit(scope: string, key: string, max = 8,
 }
 
 function createAccessToken(customer: { id: number; contaId: number; email: string }, sessionId: number) {
-  return jwt.sign({ sub: customer.id, contaId: customer.contaId, email: customer.email, sessionId, audience: "loja-cliente" }, customerSecret(), { expiresIn: "15m" });
+  return jwt.sign(
+    { sub: customer.id, contaId: customer.contaId, email: customer.email, sessionId },
+    customerSecret(),
+    { expiresIn: "15m", audience: "loja-cliente" },
+  );
 }
 
 async function createSession(customer: { id: number; contaId: number; email: string }, context: { userAgent?: string; ip?: string }) {

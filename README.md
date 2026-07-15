@@ -79,7 +79,9 @@ Esse bootstrap:
 - O slug resolve o tenant no servidor. Payloads públicos nunca aceitam `contaId`; rotas internas usam apenas a conta do JWT do ERP.
 - `PedidoLoja` é separado de `Vendas`. Criar um pedido reserva estoque, confirmar pagamento torna a reserva permanente e apenas `despachar` debita o estoque e cria Venda, PagamentoVenda e Movimentação de Estoque em uma transação.
 - Reservas de gateway vencem em 30 minutos e reservas de WhatsApp em 24 horas. `npm run cron` executa o job idempotente a cada minuto para liberar expiradas.
-- A autenticação do comprador usa access token curto e refresh token opaco em cookie `HttpOnly`; não reutiliza `Usuarios` nem o JWT do ERP.
+- A autenticação do comprador usa access token curto assinado com audiência JWT `loja-cliente` e refresh token opaco em cookie `HttpOnly`; não reutiliza `Usuarios` nem o JWT do ERP.
+- A personalização visual fica no JSON versionado `themeConfig`; `bgColor`, `headerColor` e `footerColor` controlam de forma independente o fundo do conteúdo, do cabeçalho e do rodapé, com validação hexadecimal no endpoint interno de configuração.
+- `GET /api/loja/publica/:slug/auth/me` retorna também telefone e endereços do comprador para identificação da sessão e preenchimento do checkout no frontend.
 - O contrato HTTP está em `openapi/loja.yaml`.
 
 ## Scripts disponíveis

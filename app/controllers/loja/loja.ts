@@ -29,6 +29,8 @@ const configSchema = z.object({
     bannerFocalPoint: z.enum(["center", "top", "bottom", "left", "right"]),
     // Personalizações extras persistidas no JSON (sem coluna dedicada no banco):
     bgColor: z.string().regex(HEX_COLOR, "Cor de fundo inválida").optional().nullable(),
+    headerColor: z.string().regex(HEX_COLOR, "Cor do cabeçalho inválida").optional().nullable(),
+    footerColor: z.string().regex(HEX_COLOR, "Cor do rodapé inválida").optional().nullable(),
     // Cor de destaque das promoções (preço/percentual) e cor dos ícones das seções.
     promoColor: z.string().regex(HEX_COLOR, "Cor de promoção inválida").optional().nullable(),
     sectionIconColor: z.string().regex(HEX_COLOR, "Cor de ícone de seção inválida").optional().nullable(),

@@ -17,6 +17,8 @@ export const DEFAULT_THEME_CONFIG = {
   bannerHeight: "medio",
   bannerOverlay: 25,
   bannerFocalPoint: "center",
+  headerColor: "#ffffff",
+  footerColor: "#ffffff",
 } as const;
 
 export async function createUniqueStoreSlug(contaId: number, storeName: string) {
