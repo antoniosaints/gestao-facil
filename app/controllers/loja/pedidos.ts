@@ -3,7 +3,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import { sendCommerceError } from "../../services/loja/commerceError";
-import { transitionStoreOrder } from "../../services/loja/lojaOrderService";
+import { removeStoreOrder, transitionStoreOrder } from "../../services/loja/lojaOrderService";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 
 export async function listStoreOrders(req: Request, res: Response) {
@@ -41,5 +41,14 @@ export async function actOnStoreOrder(req: Request, res: Response) {
     const order = await transitionStoreOrder(contaId, Number(req.params.id), action, String(req.header("Idempotency-Key") || ""));
     sendUpdateTable(contaId, { reason: "loja-pedido", orderId: order.id, action });
     return ResponseHandler(res, "Pedido atualizado", order);
+  } catch (error) { return sendCommerceError(res, error); }
+}
+
+export async function deleteStoreOrder(req: Request, res: Response) {
+  try {
+    const { contaId } = getCustomRequest(req).customData;
+    const result = await removeStoreOrder(contaId, Number(req.params.id));
+    sendUpdateTable(contaId, { reason: "loja-pedido", orderId: result.id, action: "excluir" });
+    return ResponseHandler(res, "Pedido excluído", result);
   } catch (error) { return sendCommerceError(res, error); }
 }

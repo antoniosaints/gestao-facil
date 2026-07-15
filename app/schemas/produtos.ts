@@ -128,6 +128,7 @@ export const ProdutoSchema = z.object({
     .optional(),
   descricao: parseNullableText.optional(),
   preco: parseDecimal("preco", true),
+  precoPromocional: parseDecimal("precoPromocional").optional().nullable(),
   estoque: parseInteger("estoque", true, 0),
   minimo: parseInteger("minimo", true, 0),
   precoCompra: parseDecimal("precoCompra").optional(),

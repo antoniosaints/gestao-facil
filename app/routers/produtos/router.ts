@@ -28,6 +28,7 @@ import {
   saveCategoriaProduto,
   saveProduto,
   saveProdutoVariante,
+  setCatalogoVisibilidade,
   uploadVarianteImagem,
 } from "../../controllers/produtos/produtos";
 import { ListagemMobileProdutos } from "../../controllers/produtos/mobile";
@@ -112,6 +113,7 @@ routerProdutos.post("/", authenticateJWT, saveProduto);
 routerProdutos.post("/variantes", authenticateJWT, saveProdutoVariante);
 routerProdutos.post("/categorias", authenticateJWT, saveCategoriaProduto);
 routerProdutos.get("/", authenticateJWT, tableProdutos);
+routerProdutos.patch("/catalogo/visibilidade", authenticateJWT, setCatalogoVisibilidade);
 routerProdutos.post("/reposicao/lote", authenticateJWT, reposicaoLoteProduto);
 routerProdutos.post("/reposicao", authenticateJWT, reposicaoProduto);
 routerProdutos.post("/descarte", authenticateJWT, descarteProduto);

@@ -29,10 +29,19 @@ const configSchema = z.object({
     bannerFocalPoint: z.enum(["center", "top", "bottom", "left", "right"]),
     // Personalizações extras persistidas no JSON (sem coluna dedicada no banco):
     bgColor: z.string().regex(HEX_COLOR, "Cor de fundo inválida").optional().nullable(),
+    // Cor de destaque das promoções (preço/percentual) e cor dos ícones das seções.
+    promoColor: z.string().regex(HEX_COLOR, "Cor de promoção inválida").optional().nullable(),
+    sectionIconColor: z.string().regex(HEX_COLOR, "Cor de ícone de seção inválida").optional().nullable(),
     headerTitle: z.string().trim().max(60).optional().nullable(),
     headerSubtitle: z.string().trim().max(120).optional().nullable(),
     logoUrl: z.string().trim().max(400).optional().nullable(),
     banners: z.array(z.string().trim().max(400)).max(8).optional(),
+    // Liga/desliga as seções automáticas da loja (Promoções/Mais vendidos/Novidades).
+    secoesAutomaticas: z.object({
+      promocoes: z.boolean(),
+      maisVendidos: z.boolean(),
+      novidades: z.boolean(),
+    }).partial().optional().nullable(),
     company: z.object({
       phone: z.string().trim().max(40).optional().nullable(),
       whatsapp: z.string().trim().max(40).optional().nullable(),

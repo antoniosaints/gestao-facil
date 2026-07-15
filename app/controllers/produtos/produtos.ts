@@ -78,6 +78,7 @@ function buildProdutoBaseResponse(
     mostrarNoCatalogo: variantePadrao?.mostrarNoCatalogo ?? true,
     nomeVariante: variantePadrao?.nomeVariante ?? "Padrão",
     preco: variantePadrao?.preco ?? 0,
+    precoPromocional: variantePadrao?.precoPromocional ?? null,
     precoCompra: variantePadrao?.precoCompra ?? null,
     entradas: variantePadrao?.entradas ?? true,
     saidas: variantePadrao?.saidas ?? true,
@@ -509,6 +510,49 @@ export const deleteProduto = async (
   }
 };
 
+const catalogoVisibilidadeSchema = z.object({
+  // No modo "base" os ids são de produtos base (aplica a todas as variantes deles);
+  // no modo "variante" os ids são das variantes (produtos) diretamente.
+  scope: z.enum(["base", "variante"]).default("variante"),
+  mostrarNoCatalogo: z.boolean(),
+  ids: z.array(z.number().int().positive()).min(1, "Selecione ao menos um produto"),
+});
+
+// Ação em massa: mostra/oculta produtos (e suas variantes) no catálogo/loja online pública.
+export const setCatalogoVisibilidade = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const parsed = catalogoVisibilidadeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return ResponseHandler(res, "Dados inválidos", mapperErrorSchema(parsed.error), 400);
+    }
+    const { scope, mostrarNoCatalogo, ids } = parsed.data;
+
+    const where =
+      scope === "base"
+        ? { contaId: customData.contaId, produtoBaseId: { in: ids } }
+        : { contaId: customData.contaId, id: { in: ids } };
+
+    const result = await prisma.produto.updateMany({
+      where,
+      data: { mostrarNoCatalogo },
+    });
+
+    return ResponseHandler(
+      res,
+      mostrarNoCatalogo
+        ? "Produtos exibidos no catálogo online"
+        : "Produtos ocultados do catálogo online",
+      { atualizados: result.count }
+    );
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const saveProduto = async (
   req: Request,
   res: Response
@@ -589,6 +633,7 @@ export const saveProduto = async (
               unidade: data.unidade,
               codigo: data.codigo,
               preco: data.preco,
+              precoPromocional: data.precoPromocional ?? null,
               entradas: data.entradas,
               saidas: data.saidas,
               controlaEstoque: data.controlaEstoque,
@@ -618,6 +663,7 @@ export const saveProduto = async (
               estoque: data.estoque as number,
               nome: data.nome,
               preco: data.preco as number,
+              precoPromocional: data.precoPromocional ?? null,
               descricao: data.descricao,
               precoCompra: data.precoCompra,
               unidade: data.unidade,
@@ -1305,6 +1351,7 @@ export const saveProdutoVariante = async (
             unidade: data.unidade,
             codigo: data.codigo,
             preco: data.preco,
+            precoPromocional: data.precoPromocional ?? null,
             entradas: data.entradas,
             saidas: data.saidas,
             controlaEstoque: data.controlaEstoque,
@@ -1337,6 +1384,7 @@ export const saveProdutoVariante = async (
           categoria: categoriaNome,
           nomeVariante: data.nomeVariante || "Padrão",
           preco: data.preco || 0,
+          precoPromocional: data.precoPromocional ?? null,
           precoCompra: data.precoCompra,
           entradas: data.entradas,
           saidas: data.saidas,

@@ -6,6 +6,7 @@ import { CommerceError } from "./commerceError";
 import { ensureLojaConfig } from "./lojaConfigService";
 import { consumeOrderReservations, releaseOrderReservations, reserveOrderStock } from "./lojaInventoryService";
 import { assertOrderTransition, nextCancellationStatus, reservationDurationMs } from "./lojaOrderPolicy";
+import { storeEffectivePrice } from "./lojaPricing";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { generateCobrancaMercadoPago } from "../../controllers/financeiro/mercadoPago/gerarCobranca";
 import { generateCobrancaAbacatePay } from "../../controllers/financeiro/abacatePay/gerarCobranca";
@@ -82,7 +83,8 @@ async function calculateOrder(contaId: number, config: Awaited<ReturnType<typeof
 
   const items = products.map((product) => {
     const quantity = quantities.get(product.id)!;
-    const unitPrice = new Decimal(product.preco);
+    // Respeita a promoção ativa: o cliente paga o preço promocional que viu na vitrine.
+    const unitPrice = storeEffectivePrice(product);
     return {
       product,
       quantity,
@@ -346,6 +348,21 @@ export async function transitionStoreOrder(contaId: number, orderId: number, act
     });
     await tx.lojaIdempotencia.update({ where: { contaId_escopo_chave: { contaId, escopo: scope, chave: idempotencyKey } }, data: { responseCode: 200 } }); return result;
   });
+}
+
+// Exclusão de pedido: permitida apenas para pedidos "mortos" (cancelados ou expirados),
+// que não geraram venda. Os filhos (itens, reservas, tentativas) caem por cascade no banco;
+// cobranças e movimentações apenas se desvinculam (FK SetNull), preservando o histórico financeiro.
+const DELETABLE_ORDER_STATUSES = ["CANCELADO", "EXPIRADO"] as const;
+
+export async function removeStoreOrder(contaId: number, orderId: number) {
+  const order = await prisma.lojaPedido.findFirst({ where: { id: orderId, contaId }, select: { id: true, status: true } });
+  if (!order) throw new CommerceError("not_found", "Pedido não encontrado");
+  if (!DELETABLE_ORDER_STATUSES.includes(order.status as any)) {
+    throw new CommerceError("invalid_order_transition", "Só é possível excluir pedidos cancelados ou expirados");
+  }
+  await prisma.lojaPedido.delete({ where: { id: order.id } });
+  return { id: order.id };
 }
 
 export async function expireStoreReservations(now = new Date()) {

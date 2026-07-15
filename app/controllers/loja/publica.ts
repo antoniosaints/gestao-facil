@@ -1,9 +1,12 @@
 import type { Request, Response } from "express";
+import { createHash } from "crypto";
 import { z } from "zod";
 import { prisma } from "../../utils/prisma";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { publicStoreConfig } from "../../services/loja/lojaConfigService";
 import { getReservedQuantity, calculateAvailableStock } from "../../services/loja/lojaInventoryService";
+import { getSalesTotalsByVariantIds } from "../produtos/listingFilters";
+import { storeEffectivePrice } from "../../services/loja/lojaPricing";
 import { getPublicOrder, placeStoreOrder, previewStoreOrder, retryStoreCheckout } from "../../services/loja/lojaOrderService";
 import { sendCommerceError } from "../../services/loja/commerceError";
 import { ResponseHandler } from "../../utils/response";
@@ -46,11 +49,36 @@ export async function getPublicStore(req: Request, res: Response) {
     });
     if (!config) return ResponseHandler(res, "Loja não encontrada", null, 404);
     const active = await contaHasActiveModule(config.contaId, "loja-virtual");
+
+    // Seções manuais ativas (com produtos) e flags das seções automáticas.
+    const secoes = await prisma.lojaSecao.findMany({
+      where: { contaId: config.contaId, ativo: true },
+      orderBy: [{ ordem: "asc" }, { id: "asc" }],
+      include: { produtos: { orderBy: [{ ordem: "asc" }, { id: "asc" }], select: { produtoBaseId: true } } },
+    });
+    const sections = secoes
+      .map((secao) => ({ id: secao.id, nome: secao.nome, baseIds: secao.produtos.map((item) => item.produtoBaseId) }))
+      .filter((secao) => secao.baseIds.length > 0);
+    const secoesAuto = (config.themeConfig as any)?.secoesAutomaticas ?? {};
+    const automaticSections = {
+      promocoes: secoesAuto.promocoes ?? true,
+      maisVendidos: secoesAuto.maisVendidos ?? true,
+      novidades: secoesAuto.novidades ?? true,
+    };
+
+    // O ETag precisa refletir também as seções manuais (tabelas à parte, não alteram
+    // config.updatedAt). Sem isso, adicionar/editar seções devolveria 304 com corpo velho.
+    const sectionsSignature = createHash("sha1")
+      .update(JSON.stringify({ sections, automaticSections }))
+      .digest("hex")
+      .slice(0, 16);
     res.setHeader("Cache-Control", "no-cache, must-revalidate");
-    res.setHeader("ETag", `W/\"store-${config.id}-${config.updatedAt.getTime()}\"`);
+    res.setHeader("ETag", `W/\"store-${config.id}-${config.updatedAt.getTime()}-${sectionsSignature}\"`);
     return ResponseHandler(res, "Loja encontrada", {
       identity: { name: config.Conta.nomeFantasia || config.Conta.nome, logo: config.Conta.profile },
       ...publicStoreConfig(config, active ? "LOJA" : "CATALOGO"),
+      sections,
+      automaticSections,
     });
   } catch (error) {
     return sendCommerceError(res, error);
@@ -78,8 +106,12 @@ export async function getPublicProducts(req: Request, res: Response) {
     });
     const hasNext = products.length > limit;
     const page = products.slice(0, limit);
+    // Total vendido por variante alimenta a seção "Mais vendidos" da loja.
+    const salesTotals = await getSalesTotalsByVariantIds(config.contaId, page.map((product) => product.id));
     const data = await Promise.all(page.map(async (product) => {
       const reserved = product.controlaEstoque ? await getReservedQuantity(prisma as any, config.contaId, product.id) : 0;
+      const effective = storeEffectivePrice(product);
+      const onPromo = effective.lessThan(product.preco);
       return {
         id: product.id,
         baseId: product.produtoBaseId,
@@ -87,12 +119,14 @@ export async function getPublicProducts(req: Request, res: Response) {
         description: product.ProdutoBase?.descricao ?? product.descricao,
         variant: product.nomeVariante,
         category: product.ProdutoBase?.Categoria?.nome ?? null,
-        price: Number(product.preco),
+        price: effective.toNumber(),
+        priceOriginal: onPromo ? Number(product.preco) : null,
         image: product.imagem,
         unit: product.unidade,
         sku: product.codigoProduto ?? product.codigo,
         controlsStock: product.controlaEstoque ?? false,
         available: product.controlaEstoque ? calculateAvailableStock(product.estoque, reserved) : null,
+        soldCount: salesTotals.get(product.id) ?? 0,
       };
     }));
     return ResponseHandler(res, "Produtos encontrados", { data, nextCursor: hasNext ? page.at(-1)?.id : null });

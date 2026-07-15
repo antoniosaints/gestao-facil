@@ -192,6 +192,7 @@ model Contas {
   LojaCheckoutTentativas          LojaCheckoutTentativa[]
   LojaWebhookEventos              LojaWebhookEvento[]
   LojaIdempotencias               LojaIdempotencia[]
+  LojaSecoes                      LojaSecao[]
   WhatsAppInstancia               WhatsAppInstancia[]
   WhatsAppContato                 WhatsAppContato[]
   WhatsAppConversa                WhatsAppConversa[]
@@ -278,6 +279,38 @@ model LojaVirtualConfig {
   barraAvisoTexto           String?
   createdAt                 DateTime     @default(now())
   updatedAt                 DateTime     @updatedAt
+}
+
+// Seção manual/customizada da loja: o lojista cria seções (ex.: "Coleção verão") e escolhe
+// a dedo quais produtos base aparecem nela. As seções automáticas (Promoções/Mais vendidos/
+// Novidades) são apenas flags no themeConfig, não moram aqui.
+model LojaSecao {
+  id        Int                @id @default(autoincrement())
+  contaId   Int
+  Conta     Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  nome      String
+  ordem     Int                @default(0)
+  ativo     Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  produtos  LojaSecaoProduto[]
+
+  @@index([contaId])
+}
+
+model LojaSecaoProduto {
+  id            Int         @id @default(autoincrement())
+  contaId       Int
+  secaoId       Int
+  LojaSecao     LojaSecao   @relation(fields: [secaoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoBaseId Int
+  ProdutoBase   ProdutoBase @relation(fields: [produtoBaseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ordem         Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@unique([secaoId, produtoBaseId])
+  @@index([contaId])
+  @@index([produtoBaseId])
 }
 
 model LojaCliente {
@@ -762,6 +795,9 @@ model Produto {
   ehPadrao             Boolean                @default(false)
   descricao            String?
   preco                Decimal                @db.Decimal(10, 2)
+  // Preço promocional (opcional). Quando definido e menor que `preco`, a variante entra na
+  // seção "Promoções" da loja e é vendida por este valor. `null` = sem promoção.
+  precoPromocional     Decimal?               @db.Decimal(10, 2)
   precoCompra          Decimal?               @db.Decimal(10, 2)
   entradas             Boolean?               @default(true)
   saidas               Boolean?               @default(true)
@@ -840,6 +876,7 @@ model ProdutoBase {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   variantes      Produto[]
+  LojaSecoes     LojaSecaoProduto[]
 
   @@index([contaId, nome])
   @@index([categoriaId])

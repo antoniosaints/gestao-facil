@@ -8,7 +8,8 @@ import {
   uploadLojaBanner,
 } from "../../controllers/loja/loja";
 import { createPublicOrder, getPublicProducts, getPublicStore, previewCheckout, retryPublicOrder, showPublicOrder } from "../../controllers/loja/publica";
-import { actOnStoreOrder, listStoreOrders, showStoreOrder } from "../../controllers/loja/pedidos";
+import { actOnStoreOrder, deleteStoreOrder, listStoreOrders, showStoreOrder } from "../../controllers/loja/pedidos";
+import { addProdutoSecao, createSecao, deleteSecao, listSecoes, removeProdutoSecao, updateSecao } from "../../controllers/loja/secoes";
 import { deleteAddress, forgotPassword, login, logout, me, refresh, register, resetPassword, saveAddress, verify } from "../../controllers/loja/auth";
 import { optionalStoreCustomer, requireStoreCustomer } from "../../middlewares/storeCustomerAuth";
 
@@ -41,8 +42,15 @@ routerLoja.get("/config", authenticateJWT, getLojaConfig);
 routerLoja.put("/config", authenticateJWT, saveLojaConfig);
 routerLoja.post("/config/banner", authenticateJWT, uploadBanner.single("file"), uploadLojaBanner);
 routerLoja.delete("/config/banner", authenticateJWT, deleteLojaBanner);
+routerLoja.get("/secoes", authenticateJWT, listSecoes as any);
+routerLoja.post("/secoes", authenticateJWT, createSecao as any);
+routerLoja.patch("/secoes/:id", authenticateJWT, updateSecao as any);
+routerLoja.delete("/secoes/:id", authenticateJWT, deleteSecao as any);
+routerLoja.post("/secoes/:id/produtos", authenticateJWT, addProdutoSecao as any);
+routerLoja.delete("/secoes/:id/produtos/:produtoBaseId", authenticateJWT, removeProdutoSecao as any);
 routerLoja.get("/pedidos", authenticateJWT, listStoreOrders as any);
 routerLoja.get("/pedidos/:id", authenticateJWT, showStoreOrder as any);
+routerLoja.delete("/pedidos/:id", authenticateJWT, deleteStoreOrder as any);
 routerLoja.post("/pedidos/:id/:action", authenticateJWT, actOnStoreOrder as any);
 
 export { routerLoja };
