@@ -151,6 +151,38 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    etiquetaModelos: z
+      .array(
+        z.object({
+          id: z.string(),
+          nome: z.string().max(120),
+          papel: z.enum(["A4", "A5", "Letter", "CUSTOM"]),
+          larguraPapelMm: z.number().positive().optional().nullable(),
+          alturaPapelMm: z.number().positive().optional().nullable(),
+          margemTopoMm: z.number().min(0),
+          margemEsquerdaMm: z.number().min(0),
+          colunas: z.number().int().positive(),
+          linhas: z.number().int().positive(),
+          larguraEtiquetaMm: z.number().positive(),
+          alturaEtiquetaMm: z.number().positive(),
+          espacamentoHorizontalMm: z.number().min(0),
+          espacamentoVerticalMm: z.number().min(0),
+          paddingMm: z.number().min(0),
+          mostrarNome: z.boolean(),
+          mostrarPreco: z.boolean(),
+          mostrarCodigoTexto: z.boolean(),
+          mostrarBorda: z.boolean(),
+          fonteNomePt: z.number().positive(),
+          fontePrecoPt: z.number().positive(),
+          simbologia: z.enum(["code128", "ean13"]),
+        }),
+        {
+          invalid_type_error:
+            "O campo etiquetaModelos deve ser uma lista de modelos de etiqueta",
+        }
+      )
+      .optional()
+      .nullable(),
     whatsappNotificacoesAtivo: z
       .boolean({
         invalid_type_error: "O campo whatsappNotificacoesAtivo deve ser um booleano",

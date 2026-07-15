@@ -624,6 +624,7 @@ model ParametrosConta {
   cadastrosPermitidosLinkPublico         Int?     @default(1)
   chavePix                               String?
   menusVisiveis                          Json?
+  etiquetaModelos                        Json?
   whatsappNotificacoesAtivo              Boolean? @default(false)
   whatsappNotificacoesInstanciaId        Int?
   whatsappEventoNovaVenda                Boolean? @default(true)

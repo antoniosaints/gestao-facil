@@ -6,6 +6,11 @@ import { formatarValorMonetario } from "../../utils/formatters";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { generateBarcodesStream } from "../../services/barcodeService";
+import {
+  generateLabelSheetStream,
+  EtiquetaModelo,
+  LabelSheetItem,
+} from "../../services/labelSheetService";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 import { ResponseHandler } from "../../utils/response";
 
@@ -1084,6 +1089,78 @@ export const gerarEtiquetasProduto = async (
       quantity: quantidade,
       mostrarNome,
       mostrarPreco,
+    });
+    pdfStream.pipe(res);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const gerarFolhaEtiquetas = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { contaId } = getCustomRequest(req).customData;
+    const { modeloId, posicaoInicial, itens } = req.body ?? {};
+
+    if (!modeloId || typeof modeloId !== "string") {
+      return ResponseHandler(res, "Selecione um modelo de etiqueta.", null, 400);
+    }
+
+    if (!Array.isArray(itens) || itens.length === 0) {
+      return ResponseHandler(res, "Adicione ao menos um produto.", null, 400);
+    }
+
+    const parametros = await prisma.parametrosConta.findFirst({
+      where: { contaId },
+    });
+
+    const modelos = ((parametros as any)?.etiquetaModelos ??
+      []) as EtiquetaModelo[];
+    const modelo = Array.isArray(modelos)
+      ? modelos.find((m) => m?.id === modeloId)
+      : undefined;
+
+    if (!modelo) {
+      return ResponseHandler(
+        res,
+        "Modelo de etiqueta não encontrado. Cadastre-o em Configurações → Impressão.",
+        null,
+        404
+      );
+    }
+
+    const itensSanitizados: LabelSheetItem[] = itens
+      .map((i: any) => ({
+        produtoId: Number(i?.produtoId),
+        quantidade: Number(i?.quantidade),
+      }))
+      .filter(
+        (i: LabelSheetItem) =>
+          Number.isFinite(i.produtoId) && i.quantidade > 0
+      );
+
+    if (itensSanitizados.length === 0) {
+      return ResponseHandler(
+        res,
+        "Informe produtos e quantidades válidas.",
+        null,
+        400
+      );
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="etiquetas_${modelo.id}.pdf"`
+    );
+
+    const pdfStream = await generateLabelSheetStream({
+      contaId,
+      modelo,
+      itens: itensSanitizados,
+      posicaoInicial: Number(posicaoInicial) || 1,
     });
     pdfStream.pipe(res);
   } catch (err: any) {

@@ -152,6 +152,7 @@ export const saveParametros = async (
         whatsappEventoCaixaAberto: body.data.whatsappEventoCaixaAberto,
         whatsappEventoCaixaFechado: body.data.whatsappEventoCaixaFechado,
         financeiroVencimentosNotificacoesAtivo: body.data.financeiroVencimentosNotificacoesAtivo,
+        ...({ etiquetaModelos: body.data.etiquetaModelos } as any),
         ...(isUpdatingMenuVisibility ? { menusVisiveis } : {} as any),
       },
       update: {
@@ -187,6 +188,7 @@ export const saveParametros = async (
         whatsappEventoCaixaAberto: body.data.whatsappEventoCaixaAberto,
         whatsappEventoCaixaFechado: body.data.whatsappEventoCaixaFechado,
         financeiroVencimentosNotificacoesAtivo: body.data.financeiroVencimentosNotificacoesAtivo,
+        ...({ etiquetaModelos: body.data.etiquetaModelos } as any),
         ...(isUpdatingMenuVisibility ? { menusVisiveis } : {} as any),
       },
     });

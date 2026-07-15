@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import {
   gerarEtiquetasProduto,
+  gerarFolhaEtiquetas,
   relatorioLucroProduto,
   relatorioProdutoMovimentacoes,
   relatorioProdutos,
@@ -109,6 +110,7 @@ routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 // rota genérica deve vir por último
 routerProdutos.get("/:id", authenticateJWT, getProduto);
 
+routerProdutos.post("/etiquetas/folha", authenticateJWT, gerarFolhaEtiquetas);
 routerProdutos.post("/", authenticateJWT, saveProduto);
 routerProdutos.post("/variantes", authenticateJWT, saveProdutoVariante);
 routerProdutos.post("/categorias", authenticateJWT, saveCategoriaProduto);
