@@ -9,6 +9,7 @@ import { renovarVencimento } from "../asaas/hooks";
 import { clearCacheAccount } from "./contas";
 import { reconcileStoreModulesAfterPayment } from "../../services/contas/storeModulesService";
 import { redisConnecion } from "../../utils/redis";
+import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 
 // Remove o cache do status da assinatura (assinaturaconta:conta{id}) que o endpoint
 // assinaturaConta grava por 1h. Sem isso, uma fatura excluída continua aparecendo
@@ -263,6 +264,133 @@ export const deleteFaturaAdmin = async (req: Request, res: Response): Promise<an
     await clearCacheAccount(fatura.contaId);
 
     return res.status(200).json({ message: "Fatura excluída com sucesso." });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+// Select2 de contas (assinantes) para o CEO escolher ao lançar uma fatura manual.
+export const select2ContasAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const isSuperAdmin = await assertSuperAdmin(customData.userId);
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Sem permissão." });
+    }
+
+    const search = String(req.query.search || "").trim();
+    const id = Number(req.query.id);
+
+    if (Number.isInteger(id) && id > 0) {
+      const conta = await prisma.contas.findUnique({
+        where: { id },
+        select: { id: true, nome: true, nomeFantasia: true, email: true },
+      });
+      return res.json({
+        results: conta
+          ? [{ id: conta.id, label: `${conta.nomeFantasia || conta.nome} • ${conta.email}` }]
+          : [],
+      });
+    }
+
+    const contas = await prisma.contas.findMany({
+      where: search
+        ? {
+            OR: [
+              { nome: { contains: search } },
+              { nomeFantasia: { contains: search } },
+              { email: { contains: search } },
+            ],
+          }
+        : {},
+      select: { id: true, nome: true, nomeFantasia: true, email: true },
+      take: 20,
+      orderBy: { nome: "asc" },
+    });
+
+    return res.json({
+      results: contas.map((conta) => ({
+        id: conta.id,
+        label: `${conta.nomeFantasia || conta.nome} • ${conta.email}`,
+      })),
+    });
+  } catch (error) {
+    return res.json({ results: [] });
+  }
+};
+
+// Lança uma fatura manual para um assinante que pagou por fora do sistema, permitindo
+// registrar o ganho no faturamento (status PAGO) e, opcionalmente, renovar a assinatura.
+export const createFaturaManualAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const isSuperAdmin = await assertSuperAdmin(customData.userId);
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Usuário não tem permissão para lançar faturas." });
+    }
+
+    const contaId = Number(req.body?.contaId);
+    const valor = Number(req.body?.valor);
+    const descricao = typeof req.body?.descricao === "string" ? req.body.descricao.trim() : "";
+    const statusRaw = String(req.body?.status || "PAGO").toUpperCase();
+    const renovarConta = req.body?.renovarConta !== false; // default: true
+    const vencimentoRaw = req.body?.vencimento;
+
+    if (!Number.isInteger(contaId) || contaId <= 0) {
+      return res.status(400).json({ message: "Selecione um assinante válido." });
+    }
+    if (!Number.isFinite(valor) || valor <= 0) {
+      return res.status(400).json({ message: "Informe um valor maior que zero." });
+    }
+    if (!["PAGO", "PENDENTE"].includes(statusRaw)) {
+      return res.status(400).json({ message: "Status inválido para a fatura manual." });
+    }
+
+    const conta = await prisma.contas.findUnique({ where: { id: contaId } });
+    if (!conta) {
+      return res.status(404).json({ message: "Assinante não encontrado." });
+    }
+
+    let vencimento = new Date();
+    if (vencimentoRaw) {
+      const parsed = new Date(vencimentoRaw);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ message: "Data de vencimento inválida." });
+      }
+      vencimento = parsed;
+    }
+
+    const fatura = await prisma.faturasContas.create({
+      data: {
+        contaId,
+        Uid: gerarIdUnicoComMetaFinal("INV"),
+        asaasPaymentId: gerarIdUnicoComMetaFinal("MANUAL"),
+        descricao: descricao || "Pagamento manual (fora do sistema)",
+        vencimento,
+        valor,
+        urlPagamento: "",
+        status: statusRaw as any,
+      },
+    });
+
+    // Fatura PAGA com renovação: estende a assinatura como um pagamento normal faria.
+    if (statusRaw === "PAGO" && renovarConta) {
+      const previousDueDate = conta.vencimento;
+      const novoVencimento = new Date(renovarVencimento(conta.vencimento, new Date().toISOString()));
+      await prisma.contas.update({
+        where: { id: contaId },
+        data: { status: "ATIVO", vencimento: novoVencimento },
+      });
+      await reconcileStoreModulesAfterPayment(contaId, previousDueDate, novoVencimento);
+    }
+
+    await clearAssinaturaContaCache(contaId);
+    await clearCacheAccount(contaId);
+
+    return res.status(201).json({
+      message: "Fatura manual lançada com sucesso.",
+      data: fatura,
+    });
   } catch (error) {
     return handleError(res, error);
   }

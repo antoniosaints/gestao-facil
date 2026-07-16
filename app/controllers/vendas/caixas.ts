@@ -703,6 +703,86 @@ function buildCaixaFechamentoWhatsAppBody(caixa: any) {
   return linhas.join("\n");
 }
 
+// Núcleo do fechamento de caixa, reutilizado pelo fluxo do PDV (operador) e pelo
+// fechamento gerencial (admin, pela tabela de caixas). `requireOperator` liga a
+// checagem de vínculo do usuário ao caixa — desligada no fechamento gerencial.
+async function performCaixaFechamento(args: {
+  contaId: number;
+  usuarioId: number;
+  caixaId: number;
+  valorFechamento: Decimal;
+  descricao?: string;
+  requireOperator: boolean;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const current = await getCaixaAbertoOrThrow(tx, args.contaId, args.caixaId);
+
+    if (args.requireOperator) {
+      await assertUserCanUseCaixa(tx, args.contaId, args.usuarioId, current.id);
+    }
+
+    const saldoEsperado = decimalFrom(current.saldoEsperado);
+    const diferenca = args.valorFechamento.minus(saldoEsperado);
+
+    await tx.caixaMovimento.create({
+      data: {
+        contaId: args.contaId,
+        caixaId: current.id,
+        usuarioId: args.usuarioId,
+        tipo: "FECHAMENTO",
+        valor: args.valorFechamento,
+        descricao: args.descricao || "Fechamento de caixa",
+      },
+    });
+
+    await tx.caixaOperador.updateMany({
+      where: { caixaId: current.id, ativo: true },
+      data: { ativo: false, saiuEm: new Date() },
+    });
+
+    await tx.caixaSessao.update({
+      where: { id: current.id },
+      data: {
+        status: "FECHADO",
+        fechadoPorId: args.usuarioId,
+        fechadoEm: new Date(),
+        saldoContado: args.valorFechamento,
+        diferenca,
+        observacaoFechamento: args.descricao,
+      },
+    });
+
+    return includeCaixa(tx, args.contaId, current.id);
+  });
+}
+
+async function notifyCaixaFechamentoWhatsapp(contaId: number, caixa: any) {
+  try {
+    const caixaDetalhado = await prisma.caixaSessao.findFirst({
+      where: { id: caixa.id, contaId },
+      include: {
+        fechadoPor: { select: { nome: true } },
+        movimentos: { orderBy: { createdAt: "asc" } },
+        vendas: { include: { PagamentoVendas: true } },
+      },
+    });
+
+    await enqueueWhatsAppNotificationByPreference(
+      "CAIXA_FECHADO",
+      {
+        title: "🔒 Caixa fechado.",
+        body: buildCaixaFechamentoWhatsAppBody(caixaDetalhado || caixa),
+      },
+      contaId
+    );
+  } catch (notificationError) {
+    console.warn(
+      `[caixa] Falha ao enviar resumo de fechamento via WhatsApp (conta ${contaId})`,
+      notificationError
+    );
+  }
+}
+
 export async function fecharCaixa(req: Request, res: Response) {
   try {
     const customData = getCustomRequest(req).customData;
@@ -713,102 +793,50 @@ export async function fecharCaixa(req: Request, res: Response) {
     }
 
     const data = parsed.data;
-    const valorFechamento = decimalFrom(data.valorFechamento);
-
-    const caixa = await prisma.$transaction(async (tx) => {
-      const current = await getCaixaAbertoOrThrow(
-        tx,
-        customData.contaId,
-        data.caixaId
-      );
-      await assertUserCanUseCaixa(
-        tx,
-        customData.contaId,
-        customData.userId,
-        current.id
-      );
-
-      const saldoEsperado = decimalFrom(current.saldoEsperado);
-      const diferenca = valorFechamento.minus(saldoEsperado);
-
-      await tx.caixaMovimento.create({
-        data: {
-          contaId: customData.contaId,
-          caixaId: current.id,
-          usuarioId: customData.userId,
-          tipo: "FECHAMENTO",
-          valor: valorFechamento,
-          descricao: data.descricao || "Fechamento de caixa",
-        },
-      });
-
-      await tx.caixaOperador.updateMany({
-        where: {
-          caixaId: current.id,
-          ativo: true,
-        },
-        data: {
-          ativo: false,
-          saiuEm: new Date(),
-        },
-      });
-
-      await tx.caixaSessao.update({
-        where: {
-          id: current.id,
-        },
-        data: {
-          status: "FECHADO",
-          fechadoPorId: customData.userId,
-          fechadoEm: new Date(),
-          saldoContado: valorFechamento,
-          diferenca,
-          observacaoFechamento: data.descricao,
-        },
-      });
-
-      return includeCaixa(tx, customData.contaId, current.id);
+    const caixa = await performCaixaFechamento({
+      contaId: customData.contaId,
+      usuarioId: customData.userId,
+      caixaId: data.caixaId,
+      valorFechamento: decimalFrom(data.valorFechamento),
+      descricao: data.descricao,
+      requireOperator: true,
     });
 
-    try {
-      const caixaDetalhado = await prisma.caixaSessao.findFirst({
-        where: {
-          id: caixa.id,
-          contaId: customData.contaId,
-        },
-        include: {
-          fechadoPor: {
-            select: {
-              nome: true,
-            },
-          },
-          movimentos: {
-            orderBy: {
-              createdAt: "asc",
-            },
-          },
-          vendas: {
-            include: {
-              PagamentoVendas: true,
-            },
-          },
-        },
-      });
+    await notifyCaixaFechamentoWhatsapp(customData.contaId, caixa);
 
-      await enqueueWhatsAppNotificationByPreference(
-        "CAIXA_FECHADO",
-        {
-          title: "🔒 Caixa fechado.",
-          body: buildCaixaFechamentoWhatsAppBody(caixaDetalhado || caixa),
-        },
-        customData.contaId
-      );
-    } catch (notificationError) {
-      console.warn(
-        `[caixa] Falha ao enviar resumo de fechamento via WhatsApp (conta ${customData.contaId})`,
-        notificationError
-      );
+    ResponseHandler(res, "Caixa fechado com sucesso", formatCaixa(caixa));
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+// Fechamento gerencial: admin fecha qualquer caixa aberto da conta pela tabela de caixas,
+// sem precisar ser o operador vinculado (não passa pelo PDV).
+export async function fecharCaixaGerencial(req: Request, res: Response) {
+  try {
+    const customData = getCustomRequest(req).customData;
+
+    const isAdmin = await hasPermission(customData, 4);
+    if (!isAdmin) {
+      return ResponseHandler(res, "Apenas administradores podem fechar caixas pela tabela.", null, 403);
     }
+
+    const parsed = fecharCaixaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return handleError(res, parsed.error);
+    }
+
+    const data = parsed.data;
+    const caixa = await performCaixaFechamento({
+      contaId: customData.contaId,
+      usuarioId: customData.userId,
+      caixaId: data.caixaId,
+      valorFechamento: decimalFrom(data.valorFechamento),
+      descricao: data.descricao,
+      requireOperator: false,
+    });
+
+    await notifyCaixaFechamentoWhatsapp(customData.contaId, caixa);
 
     ResponseHandler(res, "Caixa fechado com sucesso", formatCaixa(caixa));
   } catch (error) {

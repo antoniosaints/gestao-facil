@@ -12,7 +12,7 @@ import {
 } from "../../controllers/administracao/assinantes";
 import { getFinanceiroPainelAdmin } from "../../controllers/administracao/financeiro";
 import { getMonitoramentoAdmin } from "../../controllers/administracao/monitoramento";
-import { deleteFaturaAdmin, getDashboardFaturasAdmin, manageFaturaAdmin, tableFaturasAdmin } from "../../controllers/administracao/faturas";
+import { createFaturaManualAdmin, deleteFaturaAdmin, getDashboardFaturasAdmin, manageFaturaAdmin, select2ContasAdmin, tableFaturasAdmin } from "../../controllers/administracao/faturas";
 import {
   getAdminGatewayConfig,
   getAdminIndicacaoConfig,
@@ -54,6 +54,8 @@ routerAdminMain.post("/assinantes/:id/reset-senha-root", authenticateJWT, resetR
 routerAdminMain.get("/assinantes/:id/apps", authenticateJWT, listAssinanteAppsAdmin);
 routerAdminMain.post("/assinantes/:id/apps/:moduleId", authenticateJWT, toggleAssinanteAppAdmin);
 routerAdminMain.get("/faturas", authenticateJWT, tableFaturasAdmin);
+routerAdminMain.get("/faturas/contas/select2", authenticateJWT, select2ContasAdmin);
+routerAdminMain.post("/faturas/manual", authenticateJWT, createFaturaManualAdmin);
 routerAdminMain.post("/faturas/:id/controle", authenticateJWT, manageFaturaAdmin);
 routerAdminMain.delete("/faturas/:id", authenticateJWT, deleteFaturaAdmin);
 routerAdminMain.get("/faturas/dashboard", authenticateJWT, getDashboardFaturasAdmin);

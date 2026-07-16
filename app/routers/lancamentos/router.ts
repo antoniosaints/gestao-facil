@@ -25,6 +25,17 @@ import {
   updateAssinaturaPagarNotificacaoVencimento,
   updateAssinaturaPagarStatus,
 } from "../../controllers/financeiro/assinaturasPagar";
+import {
+  enviarLembreteAgora,
+  getInadimplenciaConfigController,
+  getInadimplenciaLista,
+  getInadimplenciaResumoController,
+  removerLembreteLancamento,
+  salvarInadimplenciaConfig,
+  salvarLembreteCliente,
+  salvarLembreteLancamento,
+  salvarLembretesEmMassa,
+} from "../../controllers/financeiro/inadimplencia";
 import multer from "multer";
 
 const routerLancamentos = Router();
@@ -63,6 +74,16 @@ routerLancamentos.post("/assinaturas-pagar/:id/gerar-financeiro", authenticateJW
 routerLancamentos.post("/assinaturas-pagar/:id/efetivar-manual", authenticateJWT, efetivarAssinaturaPagarManual);
 routerLancamentos.delete("/assinaturas-pagar/:id", authenticateJWT, deleteAssinaturaPagar);
 routerLancamentos.get("/dashboard/visao-geral", authenticateJWT, getDashboardFinanceiroVisaoGeral);
+// Inadimplência (registrado antes do "/:id" para não colidir com a rota curinga)
+routerLancamentos.get("/inadimplencia", authenticateJWT, getInadimplenciaLista);
+routerLancamentos.get("/inadimplencia/resumo", authenticateJWT, getInadimplenciaResumoController);
+routerLancamentos.get("/inadimplencia/config", authenticateJWT, getInadimplenciaConfigController);
+routerLancamentos.post("/inadimplencia/config", authenticateJWT, salvarInadimplenciaConfig);
+routerLancamentos.post("/inadimplencia/cliente/:clienteId/lembrete", authenticateJWT, salvarLembreteCliente);
+routerLancamentos.post("/inadimplencia/lancamento/:id/lembrete", authenticateJWT, salvarLembreteLancamento);
+routerLancamentos.delete("/inadimplencia/lancamento/:id/lembrete", authenticateJWT, removerLembreteLancamento);
+routerLancamentos.post("/inadimplencia/lancamento/:id/enviar-agora", authenticateJWT, enviarLembreteAgora);
+routerLancamentos.post("/inadimplencia/lembretes/massa", authenticateJWT, salvarLembretesEmMassa);
 routerLancamentos.post("/:id/notificacao-vencimento", authenticateJWT, updateLancamentoNotificacaoVencimento);
 routerLancamentos.post("/:id/notificacao-cliente-vencimento", authenticateJWT, updateLancamentoNotificacaoClienteVencimento);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);

@@ -32,7 +32,11 @@ export const assinaturaConta = async (req: Request, res: Response): Promise<any>
 
         const cacheKey = `assinaturaconta:conta${customData.contaId}`;
 
-        const cached = await redisConnecion.get(cacheKey);
+        // Permite forçar dados 100% frescos (ex.: botão de atualizar da tela de resumo).
+        // O cache continua sendo reconstruído logo abaixo, então só afeta esta requisição.
+        const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+
+        const cached = forceRefresh ? null : await redisConnecion.get(cacheKey);
 
         if (cached) {
             const cachedData = JSON.parse(cached);

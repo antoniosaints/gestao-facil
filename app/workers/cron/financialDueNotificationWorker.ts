@@ -5,25 +5,28 @@ import {
   financialDueNotificationQueue,
 } from "../../queues/financialDueNotificationQueue";
 import { processFinancialDueNotifications } from "../../services/financeiro/financialDueNotificationService";
+import { processInadimplenciaReminders } from "../../services/financeiro/inadimplenciaReminderService";
+import { DEFAULT_LEMBRETE_HORA } from "../../services/financeiro/inadimplenciaLembretePolicy";
 import { redisConnecion } from "../../utils/redis";
 
-async function ensureFinancialDueNotificationSchedule() {
-  const existing = await financialDueNotificationQueue.getJobSchedulers();
-  const exists = existing.some((job) => job.name === FINANCIAL_DUE_NOTIFICATION_QUEUE_NAME);
+// O job roda de HORA em hora. Os lembretes ao cliente são disparados na hora configurada
+// por cada conta (ParametrosConta.inadimplenciaHoraEnvio); as notificações internas da
+// equipe rodam uma vez ao dia, na hora padrão do sistema.
+const HOURLY_SCHEDULE_PATTERN = "0 * * * *";
+const INTERNAL_NOTIFICATION_HORA = DEFAULT_LEMBRETE_HORA;
 
-  if (!exists) {
-    await financialDueNotificationQueue.add(
-      FINANCIAL_DUE_NOTIFICATION_QUEUE_NAME,
-      {},
-      {
-        repeat: {
-          pattern: "0 8 * * *",
-        },
+async function ensureFinancialDueNotificationSchedule() {
+  await financialDueNotificationQueue.upsertJobScheduler(
+    FINANCIAL_DUE_NOTIFICATION_QUEUE_NAME,
+    { pattern: HOURLY_SCHEDULE_PATTERN },
+    {
+      name: FINANCIAL_DUE_NOTIFICATION_QUEUE_NAME,
+      opts: {
         removeOnComplete: 20,
         removeOnFail: 20,
       },
-    );
-  }
+    },
+  );
 }
 
 export const financialDueNotificationWorker = () => {
@@ -34,16 +37,32 @@ export const financialDueNotificationWorker = () => {
   const worker = new Worker(
     FINANCIAL_DUE_NOTIFICATION_QUEUE_NAME,
     async (job: Job) => {
-      const summary = await processFinancialDueNotifications();
-      console.log(
-        `[financialDueNotifications] job=${job.id} checked=${summary.checked} sent=${summary.sent} skipped=${summary.skipped} failed=${summary.failed}`,
-      );
+      const agora = new Date();
 
-      if (summary.errors.length) {
-        console.error("[financialDueNotifications] errors:", summary.errors);
+      // Notificações internas da equipe: uma vez ao dia, na hora padrão do sistema.
+      let interno = null as Awaited<ReturnType<typeof processFinancialDueNotifications>> | null;
+      if (agora.getHours() === INTERNAL_NOTIFICATION_HORA) {
+        interno = await processFinancialDueNotifications();
+        console.log(
+          `[financialDueNotifications] job=${job.id} checked=${interno.checked} sent=${interno.sent} skipped=${interno.skipped} failed=${interno.failed}`,
+        );
+        if (interno.errors.length) {
+          console.error("[financialDueNotifications] errors:", interno.errors);
+        }
       }
 
-      return summary;
+      // Lembretes ao cliente: rodam toda hora, mas cada conta só na sua hora configurada.
+      const inadimplencia = await processInadimplenciaReminders(agora);
+      if (inadimplencia.checked > 0 || inadimplencia.sent > 0) {
+        console.log(
+          `[inadimplenciaReminders] job=${job.id} checked=${inadimplencia.checked} sent=${inadimplencia.sent} skipped=${inadimplencia.skipped} failed=${inadimplencia.failed}`,
+        );
+      }
+      if (inadimplencia.errors.length) {
+        console.error("[inadimplenciaReminders] errors:", inadimplencia.errors);
+      }
+
+      return { interno, inadimplencia };
     },
     {
       connection: redisConnecion,

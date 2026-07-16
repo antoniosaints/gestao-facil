@@ -202,6 +202,9 @@ model Contas {
   WhatsAppInstanciaPagamento      WhatsAppInstanciaPagamento[]
   WhatsAppAgente                  WhatsAppAgente[]
   NotificacaoVencimentoFinanceiro NotificacaoVencimentoFinanceiro[]
+  ClienteLembreteConfig           ClienteLembreteConfig[]
+  LancamentoLembreteCliente       LancamentoLembreteCliente[]
+  LembreteInadimplenciaEnviado    LembreteInadimplenciaEnviado[]
   metas                           Meta[]
   PdvPonto                        PdvPonto[]
   CaixaSessao                     CaixaSessao[]
@@ -638,6 +641,9 @@ model ParametrosConta {
   whatsappEventoCaixaAberto              Boolean? @default(true)
   whatsappEventoCaixaFechado             Boolean? @default(true)
   financeiroVencimentosNotificacoesAtivo Boolean? @default(true)
+  inadimplenciaHoraEnvio                 Int?     @default(10)
+  inadimplenciaDiasPadrao                Json?
+  inadimplenciaMensagemPadrao            String?  @db.Text
   corPrimaria                            String?
   corSecundaria                          String?
   indicacaoAtiva                         Boolean? @default(false)
@@ -748,6 +754,7 @@ model ClientesFornecedores {
   WhatsAppConversas    WhatsAppConversa[]
   LojaClientes         LojaCliente[]
   LojaPedidos          LojaPedido[]
+  LembreteConfig       ClienteLembreteConfig?
 }
 
 enum TipoMovimentacao {
@@ -1574,6 +1581,7 @@ model LancamentoFinanceiro {
   createdAt                  DateTime                   @default(now())
   ContasFinanceiro           ContasFinanceiro?          @relation(fields: [contasFinanceiroId], references: [id])
   contasFinanceiroId         Int?
+  lembreteCliente            LancamentoLembreteCliente?
 
   @@unique([assinaturaPagarId, referenciaRecorrencia])
 }
@@ -1648,6 +1656,63 @@ model NotificacaoVencimentoFinanceiro {
 
   @@unique([origemTipo, origemId, marco, canal, dataReferencia], map: "notif_venc_fin_unique")
   @@index([contaId, sentAt], map: "notif_venc_fin_conta_sent_idx")
+}
+
+/// Agenda PADRÃO de lembretes de inadimplência de um cliente (menu Financeiro > Inadimplência).
+/// Vale para todos os lançamentos a receber do cliente, salvo override por lançamento.
+model ClienteLembreteConfig {
+  id             Int                  @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas               @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  clienteId      Int                  @unique
+  Cliente        ClientesFornecedores @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ativo          Boolean              @default(true)
+  diasLembrete   Json // array de inteiros com sinal relativos ao vencimento (ex.: [-3,-1,0,1])
+  canalWhatsapp  Boolean              @default(true)
+  canalEmail     Boolean              @default(false)
+  canalSms       Boolean              @default(false)
+  mensagemCustom String?              @db.Text
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([contaId])
+}
+
+/// Override de lembrete por lançamento. Se presente, sobrepõe a agenda do cliente.
+/// `ativo:false` serve para EXCLUIR um lançamento específico das notificações.
+model LancamentoLembreteCliente {
+  id             Int                  @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas               @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lancamentoId   Int                  @unique
+  Lancamento     LancamentoFinanceiro @relation(fields: [lancamentoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ativo          Boolean              @default(true)
+  diasLembrete   Json
+  canalWhatsapp  Boolean              @default(true)
+  canalEmail     Boolean              @default(false)
+  canalSms       Boolean              @default(false)
+  mensagemCustom String?              @db.Text
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([contaId])
+}
+
+/// Dedup dos lembretes de inadimplência enviados (isolado do motor de marcos legado).
+/// Uma linha por (parcela, offset de disparo, canal, data de referência do vencimento).
+model LembreteInadimplenciaEnviado {
+  id             Int                                  @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas                               @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  parcelaId      Int
+  diaOffset      Int
+  canal          CanalNotificacaoVencimentoFinanceiro @default(WHATSAPP)
+  dataReferencia DateTime
+  sentAt         DateTime                             @default(now())
+  createdAt      DateTime                             @default(now())
+
+  @@unique([parcelaId, diaOffset, canal, dataReferencia], map: "lembrete_inad_unique")
+  @@index([contaId, sentAt], map: "lembrete_inad_conta_sent_idx")
 }
 
 model ArenaQuadras {

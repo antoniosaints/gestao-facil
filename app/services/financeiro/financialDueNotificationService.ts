@@ -4,15 +4,20 @@ import { prisma } from "../../utils/prisma";
 import { formatCurrency, formatDateToPtBR } from "../../utils/formatters";
 import { enqueuePushNotification } from "../pushNotificationQueueService";
 import { enqueueWhatsAppNotificationByPreference } from "../notifications/whatsappNotificationQueueService";
-import { sendClienteWhatsappMessage } from "../clientes/clienteWhatsappService";
 import {
   getFinancialDueMilestone,
   getFinancialDueMilestoneLabel,
-  selectClientDueNotificationChannels,
-  type ClientDueNotificationChannel,
   type FinancialDueNotificationMilestone,
   type FinancialDueNotificationSourceType,
 } from "./financialDueNotificationPolicy";
+
+/**
+ * Motor de notificação INTERNA de vencimentos financeiros (avisa a equipe: root/admin).
+ * Usa marcos fixos [3, 1, 0, -1] dias → D3/D1/D0/D1_APOS.
+ *
+ * Os lembretes voltados ao CLIENTE (inadimplência) foram movidos para
+ * inadimplenciaReminderService.ts, que é config-driven (agenda por cliente/lançamento).
+ */
 
 type Candidate = {
   contaId: number;
@@ -21,9 +26,6 @@ type Candidate = {
   dueDate: Date;
   title: string;
   body: string;
-  target: "SYSTEM" | "CLIENT";
-  channel?: ClientDueNotificationChannel;
-  clienteId?: number | null;
 };
 
 type ProcessSummary = {
@@ -66,30 +68,10 @@ function buildPayload(args: {
   return { title, body };
 }
 
-function buildClientPayload(args: {
-  description: string;
-  value: number;
-  dueDate: Date;
-  milestone: FinancialDueNotificationMilestone;
-  parcelaNumero: number;
-}) {
-  const title = `Lembrete de pagamento ${getFinancialDueMilestoneLabel(args.milestone)}`;
-  const body = [
-    title,
-    `Lancamento: ${args.description}`,
-    `Parcela: ${args.parcelaNumero}`,
-    `Valor: ${formatCurrency(args.value)}`,
-    `Vencimento: ${formatDateToPtBR(args.dueDate)}`,
-  ].join("\n");
-
-  return { title, body };
-}
-
 async function getCandidates(today: Date): Promise<Candidate[]> {
   const dateRanges = buildDateRanges(today);
-  const clientChannels = selectClientDueNotificationChannels();
 
-  const [parcelas, parcelasCliente, assinaturas] = await Promise.all([
+  const [parcelas, assinaturas] = await Promise.all([
     prisma.parcelaFinanceiro.findMany({
       where: {
         pago: false,
@@ -108,30 +90,6 @@ async function getCandidates(today: Date): Promise<Candidate[]> {
             contaId: true,
             descricao: true,
             tipo: true,
-          },
-        },
-      },
-    }),
-    prisma.parcelaFinanceiro.findMany({
-      where: {
-        pago: false,
-        OR: dateRanges.map((range) => ({ vencimento: range })),
-        lancamento: {
-          notificarClienteVencimento: true,
-          tipo: "RECEITA",
-          clienteId: { not: null },
-        },
-      },
-      select: {
-        id: true,
-        numero: true,
-        valor: true,
-        vencimento: true,
-        lancamento: {
-          select: {
-            contaId: true,
-            descricao: true,
-            clienteId: true,
           },
         },
       },
@@ -167,30 +125,8 @@ async function getCandidates(today: Date): Promise<Candidate[]> {
         sourceType: "LANCAMENTO_PARCELA" as const,
         sourceId: parcela.id,
         dueDate: parcela.vencimento,
-        target: "SYSTEM" as const,
         ...payload,
       };
-    }),
-    ...parcelasCliente.flatMap((parcela) => {
-      const milestone = getFinancialDueMilestone(parcela.vencimento, today) || "D0";
-      const payload = buildClientPayload({
-        description: parcela.lancamento.descricao,
-        value: decimalToNumber(parcela.valor),
-        dueDate: parcela.vencimento,
-        milestone,
-        parcelaNumero: parcela.numero,
-      });
-
-      return clientChannels.map((channel) => ({
-        contaId: parcela.lancamento.contaId,
-        sourceType: "CLIENTE_LANCAMENTO_PARCELA" as const,
-        sourceId: parcela.id,
-        dueDate: parcela.vencimento,
-        target: "CLIENT" as const,
-        channel,
-        clienteId: parcela.lancamento.clienteId,
-        ...payload,
-      }));
     }),
     ...assinaturas
       .filter((assinatura) => assinatura.proximoVencimento)
@@ -209,7 +145,6 @@ async function getCandidates(today: Date): Promise<Candidate[]> {
           sourceType: "ASSINATURA_PAGAR" as const,
           sourceId: assinatura.id,
           dueDate,
-          target: "SYSTEM" as const,
           ...payload,
         };
       }),
@@ -232,22 +167,7 @@ async function markAsSent(candidate: Candidate, milestone: FinancialDueNotificat
       origemTipo: candidate.sourceType,
       origemId: candidate.sourceId,
       marco: milestone,
-      canal: candidate.channel || "WHATSAPP",
-      dataReferencia: startOfDay(candidate.dueDate),
-    },
-  });
-}
-
-async function unmarkClientSendFailure(candidate: Candidate, milestone: FinancialDueNotificationMilestone) {
-  if (candidate.target !== "CLIENT") return;
-
-  await prisma.notificacaoVencimentoFinanceiro.deleteMany({
-    where: {
-      contaId: candidate.contaId,
-      origemTipo: candidate.sourceType,
-      origemId: candidate.sourceId,
-      marco: milestone,
-      canal: candidate.channel || "WHATSAPP",
+      canal: "WHATSAPP",
       dataReferencia: startOfDay(candidate.dueDate),
     },
   });
@@ -255,22 +175,6 @@ async function unmarkClientSendFailure(candidate: Candidate, milestone: Financia
 
 async function sendCandidate(candidate: Candidate, milestone: FinancialDueNotificationMilestone) {
   await markAsSent(candidate, milestone);
-
-  if (candidate.target === "CLIENT") {
-    try {
-      if (candidate.channel === "WHATSAPP" && candidate.clienteId) {
-        await sendClienteWhatsappMessage(candidate.contaId, candidate.clienteId, {
-          tipo: "MENSAGEM",
-          mensagem: candidate.body,
-        });
-      }
-    } catch (error) {
-      await unmarkClientSendFailure(candidate, milestone);
-      throw error;
-    }
-
-    return;
-  }
 
   await Promise.all([
     enqueuePushNotification({ title: candidate.title, body: candidate.body }, candidate.contaId, true),

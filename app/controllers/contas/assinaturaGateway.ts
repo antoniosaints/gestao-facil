@@ -17,6 +17,7 @@ import {
 import { mercadoPagoPreference } from "../../utils/mercadoPago";
 import { AbacatePayService } from "../../services/financeiro/abacatePayService";
 import { clearCacheAccount } from "../administracao/contas";
+import { clearContaStatusCache } from "../../services/session/accountSessionCacheService";
 import { redisConnecion } from "../../utils/redis";
 import {
   normalizePlatformGateway,
@@ -256,6 +257,11 @@ export async function criarCheckoutAssinaturaConta(
         dueDate,
       });
 
+      // Gerar a cobrança altera as faturas da conta; invalida o cache do status
+      // (assinaturaconta:conta{id}) para a tela de resumo não exibir dados defasados
+      // quando o usuário voltar do gateway.
+      await clearContaStatusCache(conta.id);
+
       return res.json({
         link,
         gateway,
@@ -271,6 +277,11 @@ export async function criarCheckoutAssinaturaConta(
       recurringValue,
       dueDate,
     });
+
+    // Gerar a cobrança altera as faturas da conta; invalida o cache do status
+    // (assinaturaconta:conta{id}) para a tela de resumo não exibir dados defasados
+    // quando o usuário voltar do gateway.
+    await clearContaStatusCache(conta.id);
 
     return res.json({
       link,

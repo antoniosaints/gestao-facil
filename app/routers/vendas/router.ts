@@ -26,6 +26,7 @@ import {
   deletarCaixa,
   entrarCaixa,
   fecharCaixa,
+  fecharCaixaGerencial,
   finalizarVendaPdv,
   gerarCaixaPdf,
   reenviarCaixaWhatsapp,
@@ -68,6 +69,7 @@ routerVendas.post("/pdv/abrirCaixa", authenticateJWT, abrirCaixa);
 routerVendas.post("/pdv/entrarCaixa", authenticateJWT, entrarCaixa);
 routerVendas.post("/pdv/movimentarCaixa", authenticateJWT, movimentarCaixa);
 routerVendas.put("/pdv/fecharCaixa", authenticateJWT, fecharCaixa);
+routerVendas.put("/pdv/fecharCaixaGerencial", authenticateJWT, fecharCaixaGerencial);
 routerVendas.post("/pdv/criarPdv", authenticateJWT, criarPdv);
 routerVendas.get("/pdv/buscarPdv", authenticateJWT, buscarPdv);
 routerVendas.get("/pdv/buscarCaixa", authenticateJWT, buscarCaixa);
