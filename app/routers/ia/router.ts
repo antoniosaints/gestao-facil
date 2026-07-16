@@ -6,6 +6,12 @@ import {
   assistenteTexto,
   redigirOrdemServico,
 } from "../../controllers/ia/texto";
+import {
+  sugerirRespostaAtendimento,
+  resumoAtendimento,
+} from "../../controllers/ia/atendimento";
+import { insightsDashboard } from "../../controllers/ia/insights";
+import { categorizarLancamento } from "../../controllers/ia/financeiro";
 import { meuUsoIa } from "../../controllers/ia/uso";
 
 // Todas as features de IA exigem login e o app "core-ia" ativo.
@@ -19,3 +25,11 @@ routerIa.get("/uso", meuUsoIa);
 routerIa.post("/produto/descricao", gerarDescricaoProduto);
 routerIa.post("/texto", assistenteTexto);
 routerIa.post("/os/redigir", redigirOrdemServico);
+
+// ---- Fase 2: atendimento (WhatsApp) ----
+routerIa.post("/atendimento/sugerir-resposta", sugerirRespostaAtendimento);
+routerIa.post("/atendimento/resumo", resumoAtendimento);
+
+// ---- Fase 3: análise & inteligência ----
+routerIa.post("/insights/dashboard", insightsDashboard);
+routerIa.post("/financeiro/categorizar", categorizarLancamento);
