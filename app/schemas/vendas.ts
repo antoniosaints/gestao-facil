@@ -8,6 +8,7 @@ export const efetivarVendaSchema = z
           "PIX",
           "DINHEIRO",
           "CARTAO",
+          "CREDIARIO",
           "TRANSFERENCIA",
           "CHEQUE",
           "CREDITO",

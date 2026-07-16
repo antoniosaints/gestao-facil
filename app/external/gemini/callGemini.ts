@@ -4,6 +4,7 @@ import { env } from "../../utils/dotenv";
 import { CustomData } from "../../helpers/getCustomRequest";
 import { iaPlatformService } from "../../services/ia/iaPlatformService";
 import { iaUsageService } from "../../services/ia/iaUsageService";
+import { buildCoreIaKnowledgeContext } from "../../services/ia/coreIaKnowledgeMapper";
 
 export type CoreIaImageInput = {
   data: string;
@@ -62,6 +63,8 @@ export const callChatGeminiService = async (
 
   // Anexamos ao prompt do CEO um contexto dinâmico (data atual + link do site) para que as
   // ferramentas e a data continuem corretas independentemente do texto configurado.
+  const coreIaKnowledgeContext = buildCoreIaKnowledgeContext({ prompt: prompt || "" });
+
   const imageRuntimeRules = `Regras obrigatorias de execucao do Core IA:
 - Voce aceita e analisa imagens enviadas pelo usuario nesta conversa.
 - Quando houver imagem anexada, descreva e interprete o conteudo visual antes de relacionar com gestao/ERP.
@@ -72,12 +75,16 @@ export const callChatGeminiService = async (
 - Nunca mostre IDs internos ao usuario, salvo se ele pedir explicitamente para integracao/tecnico.
 - Se uma operacao precisar de cliente e o usuario informar apenas o nome, chame buscarClientePorNomeParaOperacao antes de pedir ID. Use o clienteId internamente quando houver um unico resultado.
 - Ao criar lancamento financeiro, sempre informe contaFinanceiraId ou contaFinanceira. Se a ferramenta retornar precisaEscolherContaFinanceira, mostre apenas os nomes das contas e peca para o usuario escolher uma.
+- Para duvidas de autoajuda, menus, funcionalidades ou passo a passo do sistema, use a Base compacta do sistema abaixo. Se o contexto automatico nao bastar, chame buscarAjudaSistema com a pergunta do usuario.
 - Antes de executar ferramentas de criacao ou alteracao de dados, confirme os dados essenciais com o usuario.`;
 
   const systemInstructionText = `${imageRuntimeRules}
 
 Prompt configurado pelo CEO:
 ${coreConfig.systemPrompt}
+
+Base compacta do sistema para autoajuda e navegacao:
+${coreIaKnowledgeContext}
 
 Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T")[0]}. Caso o usuário queira acessar o site, envie um link em formato markdown para "${env.BASE_URL_FRONTEND}/site".
 

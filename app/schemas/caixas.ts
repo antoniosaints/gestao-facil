@@ -4,6 +4,7 @@ const metodoPagamentoValues = [
   "PIX",
   "DINHEIRO",
   "CARTAO",
+  "CREDIARIO",
   "TRANSFERENCIA",
   "CHEQUE",
   "CREDITO",
@@ -75,6 +76,32 @@ export const finalizarVendaPdvSchema = z.object({
   desconto: z.number().min(0).optional().default(0),
   pagamento: z.enum(metodoPagamentoValues),
   valorRecebido: z.union([z.number(), z.string()]).nullable().optional(),
+  crediarioParcelas: z.number().int().min(1).max(36).nullable().optional(),
+  crediarioPrimeiroVencimento: z
+    .string()
+    .nullable()
+    .optional()
+    .refine((val) => !val || !Number.isNaN(Date.parse(val)), {
+      message: "Data da primeira parcela invalida",
+    }),
   itens: z.array(vendaItemSchema).min(1, "Informe ao menos um item"),
+}).superRefine((data, ctx) => {
+  if (data.pagamento !== "CREDIARIO") return;
+
+  if (!data.crediarioParcelas || data.crediarioParcelas < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["crediarioParcelas"],
+      message: "Informe em quantas vezes sera o crediario.",
+    });
+  }
+
+  if (!data.crediarioPrimeiroVencimento) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["crediarioPrimeiroVencimento"],
+      message: "Informe a data da primeira parcela do crediario.",
+    });
+  }
 });
 

@@ -5,11 +5,13 @@ import { CustomData } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { systemFunctionsProdutosIA, toolsProducts } from "./tools/products";
 import { systemFunctionsGestaoIA, toolsGestao } from "./tools/gestao";
+import { buscarAjudaSistemaParaIa } from "../../services/ia/coreIaKnowledgeMapper";
 
 // Funções reais do seu sistema
 export const systemFunctionsIA = {
   ...systemFunctionsProdutosIA,
   ...systemFunctionsGestaoIA,
+  buscarAjudaSistema: async (args: { consulta?: string }) => buscarAjudaSistemaParaIa(args),
   buscarClientePorNomeParaOperacao: async (args: { nome: string }, request: CustomData) => {
     const nome = String(args?.nome || "").trim();
     if (!nome) {
@@ -189,6 +191,21 @@ export const systemFunctionsIA = {
 export const toolsIA: Tool[] = [
   {
     functionDeclarations: [
+      {
+        name: "buscarAjudaSistema",
+        description:
+          "Busca no mapper compacto de conhecimento do Gestão Fácil para responder dúvidas de autoajuda, explicar funcionalidades, indicar menus, rotas e passos de operação. Use quando o usuário perguntar como fazer algo, onde fica uma função, o que um módulo faz ou como operar uma tela.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            consulta: {
+              type: SchemaType.STRING,
+              description: "Pergunta ou intenção do usuário sobre uso do sistema.",
+            },
+          },
+          required: ["consulta"],
+        },
+      },
       {
         name: "buscarClientePorNomeParaOperacao",
         description:
