@@ -60,10 +60,10 @@ export async function getAdminSiteConfig(req: Request, res: Response): Promise<a
   try {
     const customData = getCustomRequest(req).customData;
     if (!(await assertSuperAdmin(customData.userId))) {
-      return res.status(403).json({ message: "UsuÃ¡rio nÃ£o tem permissÃ£o para gerenciar o site." });
+      return res.status(403).json({ message: "Usuário não tem permissão para gerenciar o site." });
     }
 
-    const data = await getPlatformSiteConfig();
+    const data = await getPlatformSiteConfig(customData.contaId);
     return res.json({ data });
   } catch (error) {
     return handleError(res, error);
@@ -74,7 +74,7 @@ export async function saveAdminSiteConfig(req: Request, res: Response): Promise<
   try {
     const customData = getCustomRequest(req).customData;
     if (!(await assertSuperAdmin(customData.userId))) {
-      return res.status(403).json({ message: "UsuÃ¡rio nÃ£o tem permissÃ£o para gerenciar o site." });
+      return res.status(403).json({ message: "Usuário não tem permissão para gerenciar o site." });
     }
 
     const parsed = siteConfigSchema.safeParse(req.body);
@@ -84,7 +84,7 @@ export async function saveAdminSiteConfig(req: Request, res: Response): Promise<
 
     const data = await savePlatformSiteConfig(customData.contaId, parsed.data);
     return res.json({
-      message: "ConfiguraÃ§Ãµes do site atualizadas com sucesso.",
+      message: "Configurações do site atualizadas com sucesso.",
       data,
     });
   } catch (error) {
