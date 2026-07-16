@@ -42,6 +42,11 @@ function buildHistory(items: AgentHistoryItem[]): Content[] {
   return contents;
 }
 
+export interface AgentReplyResult {
+  text: string;
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+}
+
 export async function generateAgentReply(params: {
   apiKey: string;
   modelo: string;
@@ -49,7 +54,7 @@ export async function generateAgentReply(params: {
   history: AgentHistoryItem[];
   userText: string;
   media?: AgentMediaInput | null;
-}): Promise<string> {
+}): Promise<AgentReplyResult> {
   if (!params.apiKey) {
     throw new Error("Nenhuma chave de API de IA configurada pela plataforma");
   }
@@ -68,5 +73,13 @@ export async function generateAgentReply(params: {
   parts.push({ text: params.userText?.trim() || "(mensagem sem texto)" });
 
   const result = await chat.sendMessage(parts);
-  return result.response.text();
+  const meta = result.response.usageMetadata;
+  return {
+    text: result.response.text(),
+    usage: {
+      promptTokens: meta?.promptTokenCount || 0,
+      completionTokens: meta?.candidatesTokenCount || 0,
+      totalTokens: meta?.totalTokenCount || 0,
+    },
+  };
 }

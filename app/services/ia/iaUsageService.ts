@@ -76,19 +76,50 @@ export const iaUsageService = {
     return typeof padrao === "number" ? padrao : null;
   },
 
-  // Resumo do mês para uma conta (uso + limite efetivo).
+  // Custo estimado (na moeda do CEO) a partir de grupos [modelId -> prompt/completion tokens].
+  async estimateCost(
+    grupos: Array<{ modelId: string; promptTokens: number; completionTokens: number }>
+  ): Promise<number> {
+    const costMap = await iaPlatformService.getModelCostMap();
+    let custo = 0;
+    for (const g of grupos) {
+      const c = costMap.get(g.modelId) || { input: 0, output: 0 };
+      custo += (g.promptTokens / 1_000_000) * c.input + (g.completionTokens / 1_000_000) * c.output;
+    }
+    return Number(custo.toFixed(4));
+  },
+
+  // Resumo do mês para uma conta (uso + limite efetivo + custo estimado).
   async getContaMonthlySummary(contaId: number) {
-    const [usado, limite] = await Promise.all([
+    const start = startOfCurrentMonth();
+    const [usado, limite, porModelo] = await Promise.all([
       this.getMonthlyUsage(contaId),
       this.getEffectiveLimit(contaId),
+      db.iaUso.groupBy({
+        by: ["modelId"],
+        _sum: { promptTokens: true, completionTokens: true },
+        where: { contaId, createdAt: { gte: start } },
+      }),
     ]);
-    return { totalTokens: usado, limite, restante: limite == null ? null : Math.max(0, limite - usado) };
+    const custoEstimado = await this.estimateCost(
+      (porModelo || []).map((m: any) => ({
+        modelId: m.modelId,
+        promptTokens: m._sum?.promptTokens || 0,
+        completionTokens: m._sum?.completionTokens || 0,
+      }))
+    );
+    return {
+      totalTokens: usado,
+      limite,
+      restante: limite == null ? null : Math.max(0, limite - usado),
+      custoEstimado,
+    };
   },
 
   // Resumo do mês para toda a plataforma (para o painel do CEO).
   async getPlatformMonthlySummary() {
     const start = startOfCurrentMonth();
-    const [totalAgg, porFeature] = await Promise.all([
+    const [totalAgg, porFeature, porModelo] = await Promise.all([
       db.iaUso.aggregate({
         _sum: { totalTokens: true },
         _count: { _all: true },
@@ -99,14 +130,39 @@ export const iaUsageService = {
         _sum: { totalTokens: true },
         where: { createdAt: { gte: start } },
       }),
+      db.iaUso.groupBy({
+        by: ["modelId"],
+        _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
+        where: { createdAt: { gte: start } },
+      }),
     ]);
+
+    const costMap = await iaPlatformService.getModelCostMap();
+    let custoEstimado = 0;
+    const modelos = (porModelo || [])
+      .map((m: any) => {
+        const c = costMap.get(m.modelId) || { input: 0, output: 0 };
+        const custo =
+          ((m._sum?.promptTokens || 0) / 1_000_000) * c.input +
+          ((m._sum?.completionTokens || 0) / 1_000_000) * c.output;
+        custoEstimado += custo;
+        return {
+          modelId: m.modelId,
+          tokens: m._sum?.totalTokens || 0,
+          custoEstimado: Number(custo.toFixed(4)),
+        };
+      })
+      .sort((a: any, b: any) => b.tokens - a.tokens);
+
     return {
       mesInicio: start,
       totalTokens: totalAgg?._sum?.totalTokens || 0,
       chamadas: totalAgg?._count?._all || 0,
+      custoEstimado: Number(custoEstimado.toFixed(4)),
       porFeature: (porFeature || [])
         .map((f: any) => ({ feature: f.feature, tokens: f._sum?.totalTokens || 0 }))
         .sort((a: any, b: any) => b.tokens - a.tokens),
+      porModelo: modelos,
     };
   },
 

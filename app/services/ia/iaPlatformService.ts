@@ -42,6 +42,8 @@ export interface ModeloInput {
   nome: string;
   provider?: string;
   ativo?: boolean;
+  custoInputMilhao?: number | null;
+  custoOutputMilhao?: number | null;
 }
 
 export interface CoreConfigInput {
@@ -131,7 +133,9 @@ export const iaPlatformService = {
         nome: input.nome.trim(),
         provider: input.provider?.trim() || DEFAULT_PROVIDER,
         ativo: input.ativo ?? true,
-      },
+        custoInputMilhao: input.custoInputMilhao ?? null,
+        custoOutputMilhao: input.custoOutputMilhao ?? null,
+      } as any,
     });
   },
 
@@ -141,7 +145,26 @@ export const iaPlatformService = {
     if (typeof input.nome === "string") data.nome = input.nome.trim();
     if (typeof input.provider === "string" && input.provider.trim()) data.provider = input.provider.trim();
     if (typeof input.ativo === "boolean") data.ativo = input.ativo;
+    if (input.custoInputMilhao === null || typeof input.custoInputMilhao === "number") {
+      (data as any).custoInputMilhao = input.custoInputMilhao;
+    }
+    if (input.custoOutputMilhao === null || typeof input.custoOutputMilhao === "number") {
+      (data as any).custoOutputMilhao = input.custoOutputMilhao;
+    }
     return prisma.iaModelo.update({ where: { id }, data });
+  },
+
+  // Mapa modelId -> custo por milhão (entrada/saída) para estimar gasto a partir de IaUso.
+  async getModelCostMap(): Promise<Map<string, { input: number; output: number }>> {
+    const modelos = await prisma.iaModelo.findMany();
+    const map = new Map<string, { input: number; output: number }>();
+    for (const m of modelos as any[]) {
+      map.set(m.modelId, {
+        input: Number(m.custoInputMilhao ?? 0),
+        output: Number(m.custoOutputMilhao ?? 0),
+      });
+    }
+    return map;
   },
 
   async removeModelo(id: number) {

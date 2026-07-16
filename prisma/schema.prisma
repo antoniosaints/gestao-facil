@@ -2087,6 +2087,9 @@ model IaModelo {
   nome      String
   provider  String   @default("gemini")
   ativo     Boolean  @default(true)
+  // Custo por 1 milhão de tokens (na moeda do CEO). Usado para estimar o gasto a partir de IaUso.
+  custoInputMilhao  Decimal? @db.Decimal(12, 6)
+  custoOutputMilhao Decimal? @db.Decimal(12, 6)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

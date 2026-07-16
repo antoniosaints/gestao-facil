@@ -28,6 +28,8 @@ const modeloSchema = z.object({
   nome: z.string().min(2, "Nome do modelo é obrigatório"),
   provider: z.string().min(2).optional(),
   ativo: z.boolean().optional(),
+  custoInputMilhao: z.coerce.number().nonnegative().nullable().optional(),
+  custoOutputMilhao: z.coerce.number().nonnegative().nullable().optional(),
 });
 
 const coreConfigSchema = z.object({

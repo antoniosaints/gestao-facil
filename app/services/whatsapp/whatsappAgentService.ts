@@ -5,6 +5,7 @@ import { WApiClient } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia } from "./whatsappMedia";
 import { AgentHistoryItem, generateAgentReply, geminiSupportsMime } from "./whatsappAgentAI";
 import { iaPlatformService } from "../ia/iaPlatformService";
+import { iaUsageService } from "../ia/iaUsageService";
 import { sendWhatsAppConversationUpdated, sendWhatsAppMessageCreated } from "../../hooks/whatsapp/socket";
 
 export interface AgentInput {
@@ -271,8 +272,16 @@ export const whatsAppAgentService = {
         media,
       });
 
-      if (reply?.trim()) {
-        await this.sendAgentMessage(contaId, instance, conversa.id, conversa.telefone, reply.trim());
+      // Registra o consumo do agente (o modelo é o escolhido pelo cliente no agente).
+      await iaUsageService.recordUsage({
+        contaId,
+        feature: "atendimento_agente",
+        modelId: agent.modelo,
+        ...reply.usage,
+      });
+
+      if (reply.text?.trim()) {
+        await this.sendAgentMessage(contaId, instance, conversa.id, conversa.telefone, reply.text.trim());
       }
     } catch (error) {
       console.warn(`[whatsapp-agent] falha no autoatendimento conversa=${conversa.id}`, error);
