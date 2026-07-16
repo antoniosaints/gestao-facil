@@ -625,6 +625,8 @@ model ParametrosConta {
   chavePix                               String?
   menusVisiveis                          Json?
   etiquetaModelos                        Json?
+  // Override do limite mensal de tokens de IA desta conta (null = usa o padrão global do CEO).
+  iaLimiteTokensMensal                   Int?
   whatsappNotificacoesAtivo              Boolean? @default(false)
   whatsappNotificacoesInstanciaId        Int?
   whatsappEventoNovaVenda                Boolean? @default(true)
@@ -2099,8 +2101,27 @@ model IaCoreConfig {
   apiKey       String?  @db.Text
   systemPrompt String?  @db.LongText
   ativo        Boolean  @default(true)
+  // Limite mensal padrão de tokens de IA por conta (null = ilimitado). O CEO define aqui o
+  // teto global; cada conta pode ter um override em ParametrosConta.iaLimiteTokensMensal.
+  limiteTokensMensalPadrao Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Consumo de tokens de IA por conta/feature (para medição e limite mensal). Uma linha por
+// chamada ao modelo. Não referencia FK forte de Contas para não travar limpezas.
+model IaUso {
+  id               Int      @id @default(autoincrement())
+  contaId          Int
+  feature          String
+  provider         String   @default("gemini")
+  modelId          String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  @@index([contaId, createdAt])
 }
 
 model WhatsAppContato {

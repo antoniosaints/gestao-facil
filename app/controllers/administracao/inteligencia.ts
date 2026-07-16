@@ -4,6 +4,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { handleError } from "../../utils/handleError";
 import { assertSuperAdmin } from "./assinantes";
 import { iaPlatformService } from "../../services/ia/iaPlatformService";
+import { iaUsageService } from "../../services/ia/iaUsageService";
 
 async function ensureSuperAdmin(req: Request, res: Response) {
   const customData = getCustomRequest(req).customData;
@@ -35,6 +36,7 @@ const coreConfigSchema = z.object({
   apiKey: z.string().min(10, "Informe a chave de API").optional(),
   systemPrompt: z.string().optional(),
   ativo: z.boolean().optional(),
+  limiteTokensMensalPadrao: z.number().int().nonnegative().nullable().optional(),
 });
 
 // ---------------- Chaves API ----------------
@@ -131,6 +133,16 @@ export async function saveCoreConfigIaAdmin(req: Request, res: Response): Promis
     if (!(await ensureSuperAdmin(req, res))) return;
     const data = coreConfigSchema.parse(req.body);
     res.json({ message: "Configuração do Core IA salva", data: await iaPlatformService.saveCoreConfig(data) });
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+// ---------------- Consumo de IA (painel do CEO) ----------------
+export async function getUsageIaAdmin(req: Request, res: Response): Promise<any> {
+  try {
+    if (!(await ensureSuperAdmin(req, res))) return;
+    res.json({ data: await iaUsageService.getPlatformMonthlySummary() });
   } catch (error) {
     handleError(res, error);
   }

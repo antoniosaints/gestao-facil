@@ -1,8 +1,9 @@
-import { Content, GoogleGenerativeAI } from "@google/generative-ai";
+import { Content, GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
 import { systemFunctionsIA, toolsIA } from "./gemini";
 import { env } from "../../utils/dotenv";
 import { CustomData } from "../../helpers/getCustomRequest";
 import { iaPlatformService } from "../../services/ia/iaPlatformService";
+import { iaUsageService } from "../../services/ia/iaUsageService";
 
 export const callChatGeminiService = async (
   request: CustomData,
@@ -44,8 +45,32 @@ Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T"
     history: history || [],
   });
 
+  // Acumula o consumo de tokens das chamadas ao modelo (registrado ao final).
+  const results: GenerateContentResult[] = [];
+  const recordUsage = async () => {
+    let prompt = 0;
+    let completion = 0;
+    let total = 0;
+    for (const r of results) {
+      const meta = r.response.usageMetadata;
+      prompt += meta?.promptTokenCount || 0;
+      completion += meta?.candidatesTokenCount || 0;
+      total += meta?.totalTokenCount || 0;
+    }
+    await iaUsageService.recordUsage({
+      contaId: request.contaId,
+      feature: "core_chat",
+      provider: coreConfig.provider,
+      modelId: coreConfig.modelId,
+      promptTokens: prompt,
+      completionTokens: completion,
+      totalTokens: total,
+    });
+  };
+
   // Envia a mensagem do usuário
   let result = await chat.sendMessage(prompt);
+  results.push(result);
   let response = result.response;
 
   // Lógica de Chamada de Função (Function Calling)
@@ -71,12 +96,16 @@ Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T"
 
     // Envia os resultados das funções de volta para a IA para o texto final
     const finalResult = await chat.sendMessage(functionResponses);
+    results.push(finalResult);
+    await recordUsage();
 
     return {
       reply: finalResult.response.text(),
       history: await chat.getHistory(), // Retorna o histórico atualizado
     };
   }
+
+  await recordUsage();
 
   return {
     reply: response.text(),

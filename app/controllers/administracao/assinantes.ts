@@ -11,6 +11,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { handleError } from "../../utils/handleError";
 import { prisma } from "../../utils/prisma";
 import { clearCacheAccount } from "./contas";
+import { iaUsageService } from "../../services/ia/iaUsageService";
 import {
   cancelOutstandingModuleCharges,
   ensureDefaultStoreModules,
@@ -456,6 +457,7 @@ const manageAssinanteSchema = z.object({
   telefone: z.string().trim().optional().nullable(),
   documento: z.string().trim().optional().nullable(),
   valorBasePlano: z.coerce.number().min(0, "Mensalidade inválida.").optional(),
+  iaLimiteTokensMensal: z.coerce.number().int().nonnegative("Limite de IA inválido.").nullable().optional(),
 });
 
 export const manageAssinanteAdmin = async (req: Request, res: Response): Promise<any> => {
@@ -544,6 +546,18 @@ export const manageAssinanteAdmin = async (req: Request, res: Response): Promise
     // Mudou a mensalidade base: recomputa valor (base + apps) e sincroniza gateway/faturas.
     if (valorBaseMudou) {
       await syncContaRecurringBilling(contaId);
+    }
+
+    // Limite mensal de tokens de IA (override desta conta). null limpa (volta ao padrão global).
+    if (body.iaLimiteTokensMensal !== undefined) {
+      const limite = body.iaLimiteTokensMensal && body.iaLimiteTokensMensal > 0
+        ? body.iaLimiteTokensMensal
+        : null;
+      await prisma.parametrosConta.upsert({
+        where: { contaId },
+        create: { contaId, iaLimiteTokensMensal: limite } as any,
+        update: { iaLimiteTokensMensal: limite } as any,
+      });
     }
 
     await clearCacheAccount(contaId);
@@ -641,6 +655,12 @@ export const listAssinanteAppsAdmin = async (req: Request, res: Response): Promi
       };
     });
 
+    // Limite de IA (override da conta) + consumo do mês, para o painel do CEO.
+    const [parametros, iaUsoMes] = await Promise.all([
+      prisma.parametrosConta.findFirst({ where: { contaId } }),
+      iaUsageService.getContaMonthlySummary(contaId),
+    ]);
+
     return res.json({
       data,
       resumo: {
@@ -652,6 +672,8 @@ export const listAssinanteAppsAdmin = async (req: Request, res: Response): Promi
         totalAppsAtivos: data.filter((item) => item.ativo).length,
         totalAppsPendentes: data.filter((item) => item.pendenteAtivacao).length,
         vencimento: conta.vencimento,
+        iaLimiteTokensMensal: (parametros as any)?.iaLimiteTokensMensal ?? null,
+        iaUsoMes,
       },
     });
   } catch (error) {

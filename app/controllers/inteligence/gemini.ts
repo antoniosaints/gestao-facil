@@ -5,6 +5,7 @@ import { z } from "zod";
 import { callChatGeminiService } from "../../external/gemini/callGemini";
 import { ResponseHandler } from "../../utils/response";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import { iaUsageService, IaQuotaExcededError } from "../../services/ia/iaUsageService";
 
 export const callChatGemini = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -30,10 +31,15 @@ export const callChatGemini = async (req: Request, res: Response): Promise<any> 
             return handleError(res, error);
         }
 
+        await iaUsageService.assertWithinQuota(custom.contaId);
+
         const result = await callChatGeminiService(custom, data.prompt, data.history);
 
         return ResponseHandler(res, "Sucesso", result);
     }catch (err: any) {
+        if (err instanceof IaQuotaExcededError) {
+            return res.status(429).json({ message: err.message });
+        }
         handleError(res, err);
     }
 };

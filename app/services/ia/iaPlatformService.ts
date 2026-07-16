@@ -50,6 +50,7 @@ export interface CoreConfigInput {
   apiKey?: string;
   systemPrompt?: string;
   ativo?: boolean;
+  limiteTokensMensalPadrao?: number | null;
 }
 
 // Prompt de sistema padrão do Core IA (usado enquanto o CEO não define um próprio). A data atual
@@ -201,6 +202,9 @@ export const iaPlatformService = {
     if (typeof input.apiKey === "string" && input.apiKey.trim()) data.apiKey = input.apiKey.trim();
     if (typeof input.systemPrompt === "string") data.systemPrompt = input.systemPrompt.trim() || null;
     if (typeof input.ativo === "boolean") data.ativo = input.ativo;
+    if (input.limiteTokensMensalPadrao === null || typeof input.limiteTokensMensalPadrao === "number") {
+      (data as any).limiteTokensMensalPadrao = input.limiteTokensMensalPadrao;
+    }
     await prisma.iaCoreConfig.update({ where: { id: cfg.id }, data });
     return this.getCoreConfig();
   },
