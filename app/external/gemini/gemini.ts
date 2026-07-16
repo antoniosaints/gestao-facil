@@ -4,10 +4,12 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { CustomData } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { systemFunctionsProdutosIA, toolsProducts } from "./tools/products";
+import { systemFunctionsGestaoIA, toolsGestao } from "./tools/gestao";
 
 // Funções reais do seu sistema
 export const systemFunctionsIA = {
   ...systemFunctionsProdutosIA,
+  ...systemFunctionsGestaoIA,
   getClientesSistema: async (args: { cliente: string }, request: CustomData) => {
     const response = await prisma.clientesFornecedores.findMany({
       where: {
@@ -186,7 +188,8 @@ export const toolsIA: Tool[] = [
           required: ["nome"],
         },
       },
-      ...toolsProducts
+      ...toolsProducts,
+      ...toolsGestao,
     ],
   },
 ];
