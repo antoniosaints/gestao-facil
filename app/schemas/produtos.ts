@@ -142,6 +142,17 @@ export const ProdutoSchema = z.object({
   materiaPrima: parseBoolean("materiaPrima", false).optional().nullable(),
   custoMedioProducao: parseDecimal("custoMedioProducao").optional().nullable(),
   controlaEstoque: parseBoolean("controlaEstoque", true).optional().nullable(),
+  // Campos fiscais (NF-e) — todos opcionais.
+  ncm: parseOptionalText("ncm").nullable(),
+  cest: parseOptionalText("cest").nullable(),
+  cfop: parseOptionalText("cfop").nullable(),
+  origem: parseInteger("origem").nullable(),
+  codigoProduto: parseOptionalText("codigoProduto").nullable(),
+  aliquotaIcms: parseDecimal("aliquotaIcms").optional().nullable(),
+  aliquotaIpi: parseDecimal("aliquotaIpi").optional().nullable(),
+  aliquotaPis: parseDecimal("aliquotaPis").optional().nullable(),
+  aliquotaCofins: parseDecimal("aliquotaCofins").optional().nullable(),
+  issAliquota: parseDecimal("issAliquota").optional().nullable(),
 });
 
 export const DescarteEstoqueSchema = z.object({

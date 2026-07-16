@@ -570,6 +570,20 @@ export const saveProduto = async (
     }
     const data = parsedProduto.data;
 
+    // Campos fiscais gravados na variante (padrão). null limpa; undefined (não enviado) é ignorado pelo Prisma.
+    const fiscalData = {
+      ncm: data.ncm,
+      cest: data.cest,
+      cfop: data.cfop,
+      origem: data.origem,
+      codigoProduto: data.codigoProduto,
+      aliquotaIcms: data.aliquotaIcms,
+      aliquotaIpi: data.aliquotaIpi,
+      aliquotaPis: data.aliquotaPis,
+      aliquotaCofins: data.aliquotaCofins,
+      issAliquota: data.issAliquota,
+    };
+
     if (data.id) {
       const produto = await prisma.$transaction(async (tx) => {
         const produtoBase = await tx.produtoBase.findFirst({
@@ -601,6 +615,7 @@ export const saveProduto = async (
             nome: data.nome,
             descricao: data.descricao ?? null,
             categoriaId: data.categoriaId ?? null,
+            ...fiscalData,
           },
         });
 
@@ -642,6 +657,7 @@ export const saveProduto = async (
               mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
               materiaPrima: data.materiaPrima,
               custoMedioProducao: data.custoMedioProducao,
+              ...fiscalData,
             },
           });
         } else {
@@ -677,6 +693,7 @@ export const saveProduto = async (
               mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
               materiaPrima: data.materiaPrima,
               custoMedioProducao: data.custoMedioProducao,
+              ...fiscalData,
               categoria: categoriaNome,
             },
           });
@@ -719,6 +736,7 @@ export const saveProduto = async (
           nome: data.nome,
           descricao: data.descricao,
           categoriaId: data.categoriaId ?? null,
+          ...fiscalData,
         },
       });
 
@@ -755,6 +773,7 @@ export const saveProduto = async (
           materiaPrima: data.materiaPrima,
           custoMedioProducao: data.custoMedioProducao,
           categoria: categoriaNome,
+          ...fiscalData,
         },
       });
 
@@ -1305,6 +1324,20 @@ export const saveProdutoVariante = async (
 
     const data = parsedVariante.data;
 
+    // Campos fiscais da variante. null limpa; undefined é ignorado pelo Prisma.
+    const fiscalData = {
+      ncm: data.ncm,
+      cest: data.cest,
+      cfop: data.cfop,
+      origem: data.origem,
+      codigoProduto: data.codigoProduto,
+      aliquotaIcms: data.aliquotaIcms,
+      aliquotaIpi: data.aliquotaIpi,
+      aliquotaPis: data.aliquotaPis,
+      aliquotaCofins: data.aliquotaCofins,
+      issAliquota: data.issAliquota,
+    };
+
     const variante = await prisma.$transaction(async (tx) => {
       const base = await tx.produtoBase.findFirst({
         where: {
@@ -1360,6 +1393,7 @@ export const saveProdutoVariante = async (
             mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
             materiaPrima: data.materiaPrima,
             custoMedioProducao: data.custoMedioProducao,
+            ...fiscalData,
           },
         });
       }
@@ -1399,6 +1433,7 @@ export const saveProdutoVariante = async (
           materiaPrima: data.materiaPrima,
           custoMedioProducao: data.custoMedioProducao,
           ehPadrao: false,
+          ...fiscalData,
         },
       });
     });
