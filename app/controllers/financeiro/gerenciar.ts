@@ -21,6 +21,12 @@ import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { canDeleteParcelaFinanceira } from "../../services/financeiro/parcelaFinanceiraPolicy";
 import { canEnableClientDueNotification } from "../../services/financeiro/financialDueNotificationPolicy";
+import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
+import {
+  syncVendasStatusByLancamentosFinanceiros,
+  syncVendasStatusByVendaIds,
+} from "../../services/vendas/vendaFinanceiroStatusService";
+import { sendUpdateTable as sendVendasUpdateTable } from "../../hooks/vendas/socket";
 
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -101,6 +107,10 @@ export const updateParcela = async (req: Request, res: Response): Promise<any> =
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [parcela.lancamentoId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcela-atualizada" });
 
     return ResponseHandler(res, "Parcela atualizada", {
@@ -141,23 +151,23 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
       : null;
 
     if (!Number.isInteger(lancamentoId) || lancamentoId <= 0) {
-      return res.status(400).json({ message: "Informe um lanÃ§amento vÃ¡lido." });
+      return res.status(400).json({ message: "Informe um lançamento válido." });
     }
 
     if (valor.lte(0)) {
-      return res.status(400).json({ message: "Informe um valor vÃ¡lido para a parcela." });
+      return res.status(400).json({ message: "Informe um valor válido para a parcela." });
     }
 
     if (!vencimento || Number.isNaN(vencimento.getTime())) {
-      return res.status(400).json({ message: "Informe uma data de vencimento vÃ¡lida." });
+      return res.status(400).json({ message: "Informe uma data de vencimento válida." });
     }
 
     if (contaFinanceira !== null && Number.isNaN(contaFinanceira)) {
-      return res.status(400).json({ message: "Informe uma conta financeira vÃ¡lida." });
+      return res.status(400).json({ message: "Informe uma conta financeira válida." });
     }
 
     if (formaPagamento && !formasPagamentoValidas.includes(formaPagamento)) {
-      return res.status(400).json({ message: "Informe uma forma de pagamento vÃ¡lida." });
+      return res.status(400).json({ message: "Informe uma forma de pagamento válida." });
     }
 
     const lancamento = await prisma.lancamentoFinanceiro.findFirst({
@@ -175,11 +185,7 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
     });
 
     if (!lancamento) {
-      return res.status(404).json({ message: "LanÃ§amento nÃ£o encontrado." });
-    }
-
-    if (lancamento.vendaId) {
-      return res.status(400).json({ message: "LanÃ§amentos automÃ¡ticos de venda nÃ£o permitem alterar parcelas manualmente." });
+      return res.status(404).json({ message: "Laçamento não encontrado." });
     }
 
     const contaFinanceiraId = contaFinanceira ?? lancamento.contasFinanceiroId ?? null;
@@ -190,7 +196,7 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
       });
 
       if (!conta) {
-        return res.status(400).json({ message: "Conta financeira invÃ¡lida para esta conta." });
+        return res.status(400).json({ message: "Conta financeira inválida para esta conta." });
       }
     }
 
@@ -209,6 +215,10 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [lancamentoId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcela-adicionada", parcelaId: parcela.id, lancamentoId });
 
     return ResponseHandler(res, "Parcela adicionada com sucesso.", parcela, 201);
@@ -256,16 +266,12 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
       return res.status(404).json({ message: "Parcela nÃ£o encontrada." });
     }
 
-    if (parcela.lancamento.vendaId) {
-      return res.status(400).json({ message: "LanÃ§amentos automÃ¡ticos de venda nÃ£o permitem alterar parcelas manualmente." });
-    }
-
     if (!canDeleteParcelaFinanceira(parcela)) {
       return res.status(400).json({ message: "Apenas parcelas pendentes podem ser excluÃ­das." });
     }
 
     if (parcela.lancamento.parcelas.length <= 1) {
-      return res.status(400).json({ message: "O lanÃ§amento deve manter ao menos uma parcela." });
+      return res.status(400).json({ message: "O lançamento deve manter ao menos uma parcela." });
     }
 
     if (parcela.CobrancasFinanceiras.length > 0) {
@@ -275,6 +281,10 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
     await prisma.parcelaFinanceiro.delete({ where: { id: parcela.id } });
 
     await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [parcela.lancamentoId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcela-excluida", parcelaId: parcela.id, lancamentoId: parcela.lancamentoId });
 
     return ResponseHandler(res, "Parcela excluÃ­da com sucesso.", { id: parcela.id, lancamentoId: parcela.lancamentoId });
@@ -920,8 +930,14 @@ export const pagarParcela = async (
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   if (!req.body) return res.status(400).json({ message: "Dados obrigatorio!" });
-  if (!req.body.metodoPagamento || !req.body.dataPagamento || !req.body.contaPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento, contaPagamento)!" });
+  if (!req.body.metodoPagamento || !req.body.dataPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento)!" });
   try {
+    const contaPagamento = await requireContaFinanceiraPadrao(
+      prisma,
+      customData.contaId,
+      req.body.contaPagamento,
+    );
+
     const parcela = await prisma.parcelaFinanceiro.findFirst({
       where: {
         id: parcelaId,
@@ -949,7 +965,7 @@ export const pagarParcela = async (
           valorPago: parcela.valor,
           formaPagamento: req.body.metodoPagamento,
           dataPagamento: startOfDay(new Date(req.body.dataPagamento)),
-          contaFinanceira: req.body.contaPagamento,
+          contaFinanceira: contaPagamento,
         },
       });
 
@@ -969,6 +985,10 @@ export const pagarParcela = async (
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [pagamentoResult.lancamentoId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcela-paga", parcelaId, lancamentoId: pagamentoResult.lancamentoId });
 
     if (pagamentoResult.automacao?.generated && pagamentoResult.automacao.lancamentoId) {
@@ -998,6 +1018,7 @@ export const pagarMultiplasParcelas = async (
   }
 
   try {
+    const contaPagamento = await requireContaFinanceiraPadrao(prisma, customData.contaId);
     const parcelasPermitidas = await prisma.parcelaFinanceiro.findMany({
       where: {
         id: { in: parcelas },
@@ -1019,6 +1040,7 @@ export const pagarMultiplasParcelas = async (
         pago: true,
         formaPagamento: "PIX",
         dataPagamento: startOfDay(new Date()),
+        contaFinanceira: contaPagamento,
       },
     });
 
@@ -1030,6 +1052,10 @@ export const pagarMultiplasParcelas = async (
     }
 
     await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, lancamentosAfetados);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcelas-pagas-em-lote", total: parcelasPermitidas.length });
 
     return res.json({ message: "Parcelas pagas com sucesso." });
@@ -1062,7 +1088,7 @@ export const estornarParcela = async (
         .json({ message: "Parcela não existe ou não foi paga." });
     }
 
-    await prisma.parcelaFinanceiro.update({
+    const parcelaAtualizada = await prisma.parcelaFinanceiro.update({
       where: { id: parcelaId },
       data: {
         pago: false,
@@ -1071,9 +1097,16 @@ export const estornarParcela = async (
         dataPagamento: null,
         contaFinanceira: null,
       },
+      select: {
+        lancamentoId: true,
+      },
     });
 
     await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [parcelaAtualizada.lancamentoId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcela-estornada", parcelaId });
 
     return res.json({ message: "Pagamento estornado com sucesso." });
@@ -1195,6 +1228,10 @@ export const deletarLancamento = async (
   try {
     const lancamento = await prisma.lancamentoFinanceiro.findFirst({
       where: { id, contaId: customData.contaId },
+      select: {
+        id: true,
+        vendaId: true,
+      },
     });
 
     if (!lancamento) {
@@ -1205,6 +1242,10 @@ export const deletarLancamento = async (
       where: { id, contaId: customData.contaId },
     });
 
+    const vendasAtualizadas = await syncVendasStatusByVendaIds(prisma, customData.contaId, [lancamento.vendaId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-removido", vendaIds: vendasAtualizadas });
+    }
     sendFinanceiroUpdated(customData.contaId, { reason: "lancamento-deletado", lancamentoId: id });
 
     return res.json({ message: "Lançamento deletado com sucesso." });

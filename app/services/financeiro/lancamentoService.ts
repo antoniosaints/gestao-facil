@@ -8,6 +8,7 @@ import { enqueueWhatsAppNotificationByPreference } from '../notifications/whatsa
 import { formatCurrency } from '../../utils/formatters'
 import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from './financeiroPolicyService'
 import { canEnableClientDueNotification } from './financialDueNotificationPolicy'
+import { requireContaFinanceiraPadrao } from './contaFinanceiraPadraoService'
 
 export type TipoLancamentoModo = 'AVISTA' | 'PARCELADO'
 export type PeriodoParcelamento = 'MENSAL' | 'SEMANAL' | 'DIARIO' | 'QUINZENAL' | 'PERSONALIZADO'
@@ -43,7 +44,7 @@ export type LancamentoFinanceiroPayload = {
   categoriaId: number | string
   dataLancamento: string | Date
   parcelas?: number | string
-  contasFinanceiroId: number | string
+  contasFinanceiroId?: number | string | null
   periodoParcelamento?: PeriodoParcelamento
   intervaloDiasPersonalizado?: number | string | null
   modoValorParcelamento?: ModoValorParcelamento
@@ -303,6 +304,15 @@ export async function criarLancamentoFinanceiro(
     skipNotification?: boolean
   },
 ) {
+  const contasFinanceiroIdResolvida = await requireContaFinanceiraPadrao(
+    db,
+    contaId,
+    payload.contasFinanceiroId,
+  )
+  const payloadComConta: LancamentoFinanceiroPayload = {
+    ...payload,
+    contasFinanceiroId: contasFinanceiroIdResolvida,
+  }
   const {
     descricao,
     tipo,
@@ -313,7 +323,7 @@ export async function criarLancamentoFinanceiro(
     dataLancamento,
     dataEntrada = null,
     contasFinanceiroId,
-  } = payload
+  } = payloadComConta
 
   const {
     valorBrutoTotal,
@@ -326,17 +336,17 @@ export async function criarLancamentoFinanceiro(
     hasEfetivadoTotal,
     periodoParcelamento,
     intervaloDiasPersonalizado,
-  } = calcularValoresLancamento(payload)
+  } = calcularValoresLancamento(payloadComConta)
 
-  await assertLancamentoDateAllowed(contaId, payload.dataLancamento)
+  await assertLancamentoDateAllowed(contaId, payloadComConta.dataLancamento)
 
   if (hasEfetivadoTotal) {
     const datasEfetivadas = valoresParcelas.map((_, index) =>
-      calcularProximoVencimento(payload.dataLancamento, index, periodoParcelamento, intervaloDiasPersonalizado),
+      calcularProximoVencimento(payloadComConta.dataLancamento, index, periodoParcelamento, intervaloDiasPersonalizado),
     )
 
-    if (valorEntradaDecimal.gt(0) && payload.dataEntrada) {
-      datasEfetivadas.push(startOfDay(new Date(payload.dataEntrada)))
+    if (valorEntradaDecimal.gt(0) && payloadComConta.dataEntrada) {
+      datasEfetivadas.push(startOfDay(new Date(payloadComConta.dataEntrada)))
     }
 
     await assertFutureSettlementAllowed(contaId, datasEfetivadas)
@@ -355,7 +365,7 @@ export async function criarLancamentoFinanceiro(
       formaPagamento: formaPagamento as any,
       status: hasEfetivadoTotal ? 'PAGO' : status || 'PENDENTE',
       notificarVencimento: Boolean(payload.notificarVencimento),
-      notificarClienteVencimento: canEnableClientDueNotification(payload),
+      notificarClienteVencimento: canEnableClientDueNotification(payloadComConta),
       clienteId: Number(clienteId) || null,
       categoriaId: Number(categoriaId),
       contaId,

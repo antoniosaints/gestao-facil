@@ -618,6 +618,7 @@ model ParametrosConta {
   permitirEfetivacaoFutura               Boolean? @default(true)
   permitirTransferenciaContaFinanceira   Boolean? @default(true)
   permitirCriacaoCobranca                Boolean? @default(true)
+  contaFinanceiraPadraoId                Int?
   modeloPdv                              String?  @default("BASICO")
   temaPersonalizado                      Json?
   linkPublicoAtivo                       Boolean? @default(false)

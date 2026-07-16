@@ -114,6 +114,25 @@ export const saveParametros = async (
       }
     }
 
+    if (body.data.contaFinanceiraPadraoId) {
+      const contaFinanceira = await prisma.contasFinanceiro.findFirst({
+        where: {
+          id: body.data.contaFinanceiraPadraoId,
+          contaId: customData.contaId,
+        },
+        select: { id: true },
+      });
+
+      if (!contaFinanceira) {
+        return ResponseHandler(
+          res,
+          "Conta financeira padrao invalida para esta conta.",
+          null,
+          400
+        );
+      }
+    }
+
     const parametros = await prisma.parametrosConta.upsert({
       where: {
         contaId: customData.contaId,
@@ -132,6 +151,7 @@ export const saveParametros = async (
         permitirEfetivacaoFutura: body.data.permitirEfetivacaoFutura,
         permitirTransferenciaContaFinanceira: body.data.permitirTransferenciaContaFinanceira,
         permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
+        ...({ contaFinanceiraPadraoId: body.data.contaFinanceiraPadraoId } as any),
         modeloPdv: body.data.modeloPdv,
         temaPersonalizado: body.data.temaPersonalizado,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
@@ -168,6 +188,7 @@ export const saveParametros = async (
         permitirEfetivacaoFutura: body.data.permitirEfetivacaoFutura,
         permitirTransferenciaContaFinanceira: body.data.permitirTransferenciaContaFinanceira,
         permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
+        ...({ contaFinanceiraPadraoId: body.data.contaFinanceiraPadraoId } as any),
         modeloPdv: body.data.modeloPdv,
         temaPersonalizado: body.data.temaPersonalizado,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,

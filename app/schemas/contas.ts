@@ -121,6 +121,18 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    contaFinanceiraPadraoId: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z
+        .coerce
+        .number({
+          invalid_type_error: "O campo contaFinanceiraPadraoId deve ser um numero",
+        })
+        .int("O campo contaFinanceiraPadraoId deve ser um inteiro")
+        .positive("A conta financeira padrao deve ser valida")
+        .optional()
+        .nullable(),
+    ),
     menusVisiveis: z
       .array(
         z.string({

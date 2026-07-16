@@ -22,6 +22,7 @@ import {
   shouldReportCaixaMovimento,
 } from "../../services/vendas/caixaService";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
+import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
 import {
   abrirCaixaSchema,
   caixaRelatorioQuerySchema,
@@ -107,6 +108,7 @@ async function criarLancamentoCrediarioPdv(
   }
 ) {
   const categoriaId = await getOrCreateCategoriaCrediarioPdv(tx, params.contaId);
+  const contaFinanceiraId = await requireContaFinanceiraPadrao(tx, params.contaId);
   const valoresParcelas = dividirValorEmParcelas(params.valorTotal, params.parcelas);
 
   const lancamento = await tx.lancamentoFinanceiro.create({
@@ -126,7 +128,7 @@ async function criarLancamentoCrediarioPdv(
       status: "PENDENTE",
       recorrente: params.parcelas > 1,
       origemSistema: "MANUAL",
-      contasFinanceiroId: null,
+      contasFinanceiroId: contaFinanceiraId,
       dataLancamento: startOfDay(params.dataVenda),
       parcelas: {
         create: valoresParcelas.map((valor, index) => ({
@@ -138,7 +140,7 @@ async function criarLancamentoCrediarioPdv(
           valorPago: null,
           dataPagamento: null,
           formaPagamento: null,
-          contaFinanceira: null,
+          contaFinanceira: contaFinanceiraId,
           descricao: `Parcela ${index + 1}/${params.parcelas} - Venda ${params.vendaUid}`,
         })),
       },
@@ -1663,6 +1665,7 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
 
       const valorTotal = valorBruto.minus(desconto);
       const dataVenda = data.data ? new Date(data.data) : new Date();
+      const isCrediario = data.pagamento === "CREDIARIO";
 
       if (data.pagamento === "DINHEIRO" && valorRecebido.lessThan(valorTotal)) {
         throw new Error("Valor recebido insuficiente.");
@@ -1677,8 +1680,8 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
           contaId: customData.contaId,
           caixaId: caixa.id,
           data: dataVenda,
-          status: "FATURADO",
-          faturado: true,
+          status: isCrediario ? "PENDENTE" : "FATURADO",
+          faturado: !isCrediario,
           desconto,
           PagamentoVendas: {
             create: {

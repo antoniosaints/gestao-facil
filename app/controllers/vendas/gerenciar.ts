@@ -21,6 +21,7 @@ import {
   getSaldoAdjustmentForDeletedSaleMovements,
 } from "../../services/vendas/caixaService";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
+import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -134,6 +135,31 @@ export const efetivarVenda = async (
         throw Error("Venda ja efetivada");
       }
 
+      const lancamentosVinculados = await tx.lancamentoFinanceiro.findMany({
+        where: {
+          vendaId: venda.id,
+          contaId: customData.contaId,
+        },
+        select: {
+          id: true,
+          status: true,
+          parcelas: {
+            select: {
+              pago: true,
+            },
+          },
+        },
+      });
+
+      const possuiFinanceiroPendente = lancamentosVinculados.some((lancamento) => {
+        if (lancamento.status !== "PAGO") return true;
+        return lancamento.parcelas.some((parcela) => !parcela.pago);
+      });
+
+      if (possuiFinanceiroPendente) {
+        throw new Error("Esta venda possui lancamento financeiro pendente. Receba o financeiro antes de marcar como faturada.");
+      }
+
       await tx.vendas.update({
         where: {
           id: Number(req.params.id),
@@ -174,11 +200,12 @@ export const efetivarVenda = async (
       });
 
       if (!resultado.lancamentoManual) {
-        if (!categoria || !contaId) {
+        if (!categoria) {
           throw new Error(
-            "Conta e categoria sao obrigatorias quando o lancamento automatico estiver ativo."
+            "Categoria e obrigatoria quando o lancamento automatico estiver ativo."
           );
         }
+        const contaFinanceiraId = await requireContaFinanceiraPadrao(tx, venda.contaId, contaId);
 
         await tx.lancamentoFinanceiro.create({
           data: {
@@ -193,7 +220,7 @@ export const efetivarVenda = async (
             descricao: `Venda ${venda.Uid}`,
             status: "PAGO",
             categoriaId: categoria,
-            contasFinanceiroId: contaId,
+            contasFinanceiroId: contaFinanceiraId,
             formaPagamento: pagamento,
             tipo: "RECEITA",
             parcelas: {
@@ -206,6 +233,7 @@ export const efetivarVenda = async (
                 Uid: gerarIdUnicoComMetaFinal("PAR"),
                 valorPago: venda.valor,
                 valor: venda.valor,
+                contaFinanceira: contaFinanceiraId,
               },
             },
           },
@@ -341,6 +369,15 @@ export const getVenda = async (req: Request, res: Response) => {
         },
         PagamentoVendas: true,
         CobrancasFinanceiras: true,
+        LancamentoFinanceiro: {
+          include: {
+            parcelas: {
+              orderBy: {
+                numero: "asc",
+              },
+            },
+          },
+        },
         ItensVendas: {
           include: {
             produto: {
