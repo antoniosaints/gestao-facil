@@ -1,16 +1,52 @@
-import { Content, GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
+import { Content, GoogleGenerativeAI, GenerateContentResult, Part } from "@google/generative-ai";
 import { systemFunctionsIA, toolsIA } from "./gemini";
 import { env } from "../../utils/dotenv";
 import { CustomData } from "../../helpers/getCustomRequest";
 import { iaPlatformService } from "../../services/ia/iaPlatformService";
 import { iaUsageService } from "../../services/ia/iaUsageService";
 
+export type CoreIaImageInput = {
+  data: string;
+  mimeType: string;
+  name?: string;
+};
+
+function sanitizeHistory(history: Content[] = []): Content[] {
+  return history.map((item) => ({
+    ...item,
+    parts: (item.parts || []).map((part: any) => {
+      if (part?.inlineData) {
+        return { text: "[Imagem enviada anteriormente e descartada após processamento]" };
+      }
+      return part;
+    }),
+  }));
+}
+
+function normalizeImageInput(image?: CoreIaImageInput): CoreIaImageInput | null {
+  if (!image?.data?.trim() || !image?.mimeType?.trim()) return null;
+
+  const data = image.data.includes(",") ? image.data.split(",").pop() || "" : image.data;
+  const mimeType = image.mimeType.trim().toLowerCase();
+
+  if (!mimeType.startsWith("image/") || !data.trim()) return null;
+
+  return {
+    data: data.trim(),
+    mimeType,
+    name: image.name,
+  };
+}
+
 export const callChatGeminiService = async (
   request: CustomData,
   prompt: string,
-  history?: Content[]
+  history?: Content[],
+  image?: CoreIaImageInput,
 ): Promise<any> => {
-  if (!prompt) {
+  const normalizedImage = normalizeImageInput(image);
+
+  if (!prompt && !normalizedImage) {
     return { error: "Mensagem é obrigatória" };
   }
 
@@ -26,9 +62,36 @@ export const callChatGeminiService = async (
 
   // Anexamos ao prompt do CEO um contexto dinâmico (data atual + link do site) para que as
   // ferramentas e a data continuem corretas independentemente do texto configurado.
-  const systemInstructionText = `${coreConfig.systemPrompt}
+  const imageRuntimeRules = `Regras obrigatorias de execucao do Core IA:
+- Voce aceita e analisa imagens enviadas pelo usuario nesta conversa.
+- Quando houver imagem anexada, descreva e interprete o conteudo visual antes de relacionar com gestao/ERP.
+- Nunca diga que nao consegue analisar imagens se uma imagem foi anexada e recebida no prompt.
+- A imagem e usada somente na solicitacao atual e nao deve ser considerada armazenada no historico.
+- Nao renderize dados em tabela Markdown ou HTML no chat.
+- Quando listar dados, use secoes curtas, bullets e resumo objetivo.
+- Nunca mostre IDs internos ao usuario, salvo se ele pedir explicitamente para integracao/tecnico.
+- Se uma operacao precisar de cliente e o usuario informar apenas o nome, chame buscarClientePorNomeParaOperacao antes de pedir ID. Use o clienteId internamente quando houver um unico resultado.
+- Ao criar lancamento financeiro, sempre informe contaFinanceiraId ou contaFinanceira. Se a ferramenta retornar precisaEscolherContaFinanceira, mostre apenas os nomes das contas e peca para o usuario escolher uma.
+- Antes de executar ferramentas de criacao ou alteracao de dados, confirme os dados essenciais com o usuario.`;
 
-Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T")[0]}. Caso o usuário queira acessar o site, envie um link em formato markdown para "${env.BASE_URL_FRONTEND}/site".`;
+  const systemInstructionText = `${imageRuntimeRules}
+
+Prompt configurado pelo CEO:
+${coreConfig.systemPrompt}
+
+Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T")[0]}. Caso o usuário queira acessar o site, envie um link em formato markdown para "${env.BASE_URL_FRONTEND}/site".
+
+Regras de resposta do Core IA:
+- Não renderize dados em tabela Markdown ou HTML no chat.
+- Quando listar dados, use seções curtas, bullets e resumo objetivo.
+- Nunca mostre IDs internos ao usuário, salvo se ele pedir explicitamente para integração/técnico.
+- Antes de executar ferramentas de criação ou alteração de dados, confirme os dados essenciais com o usuário.
+- Se uma imagem for enviada, analise apenas para responder à solicitação atual; ela não fica armazenada no histórico.
+- Nunca confirmar que fez uma operação de escrita sem realmente fazer, exemplo "registrei o lançamento" sem realmente ter registrado.`;
+
+  const finalSystemInstructionText = `${systemInstructionText}
+
+${imageRuntimeRules}`;
 
   const genAI = new GoogleGenerativeAI(coreConfig.apiKey);
   const model = genAI.getGenerativeModel({
@@ -36,13 +99,13 @@ Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T"
     tools: toolsIA,
     systemInstruction: {
       role: "system",
-      parts: [{ text: systemInstructionText }],
+      parts: [{ text: finalSystemInstructionText }],
     },
   });
 
   // Inicia o chat com o histórico enviado pelo front-end
   const chat = model.startChat({
-    history: history || [],
+    history: sanitizeHistory(history || []),
   });
 
   // Acumula o consumo de tokens das chamadas ao modelo (registrado ao final).
@@ -69,7 +132,19 @@ Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T"
   };
 
   // Envia a mensagem do usuário
-  let result = await chat.sendMessage(prompt);
+  const userMessage: string | Part[] = normalizedImage
+    ? [
+        { inlineData: { mimeType: normalizedImage.mimeType, data: normalizedImage.data } },
+        {
+          text: [
+            "A mensagem do usuario contem uma imagem anexada.",
+            "Analise obrigatoriamente o conteudo visual da imagem.",
+            prompt?.trim() || "Descreva a imagem em portugues e destaque informacoes uteis.",
+          ].join("\n"),
+        },
+      ]
+    : prompt;
+  let result = await chat.sendMessage(userMessage);
   results.push(result);
 
   // Lógica de Chamada de Função (Function Calling) em múltiplas rodadas: o modelo pode encadear
@@ -134,6 +209,6 @@ Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T"
 
   return {
     reply,
-    history: await chat.getHistory(),
+    history: sanitizeHistory(await chat.getHistory()),
   };
 };

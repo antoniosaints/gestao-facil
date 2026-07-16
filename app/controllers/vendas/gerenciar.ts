@@ -825,10 +825,10 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     await enqueuePushNotificationByPreference(
       "VENDA_CONCLUIDA",
       {
-        title: "Opa! Nova venda.",
+        title: "Opa! 🏷️Nova venda.",
         body: `Uma nova venda no valor de ${formatCurrency(
           valorTotal.minus(descontoTotal)
-        )} foi realizada`,
+        )} foi realizada!`,
       },
       customData.contaId
     );

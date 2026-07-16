@@ -20,6 +20,10 @@ import {
   saveAdminIndicacaoConfig,
 } from "../../controllers/administracao/configuracoes";
 import {
+  getAdminSiteConfig,
+  saveAdminSiteConfig,
+} from "../../controllers/site/site";
+import {
   listModulosAdmin,
   updateModuloAdmin,
 } from "../../controllers/administracao/modulos";
@@ -59,6 +63,8 @@ routerAdminMain.get("/modulos", authenticateJWT, listModulosAdmin);
 routerAdminMain.patch("/modulos/:id", authenticateJWT, updateModuloAdmin);
 routerAdminMain.get("/configuracoes/indicacao", authenticateJWT, getAdminIndicacaoConfig);
 routerAdminMain.post("/configuracoes/indicacao", authenticateJWT, saveAdminIndicacaoConfig);
+routerAdminMain.get("/site", authenticateJWT, getAdminSiteConfig);
+routerAdminMain.put("/site", authenticateJWT, saveAdminSiteConfig);
 
 // Inteligência (IA) — chaves de API e modelos da plataforma (super admin)
 routerAdminMain.get("/ia/chaves", authenticateJWT, listChavesIaAdmin);

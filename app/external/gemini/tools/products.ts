@@ -38,12 +38,11 @@ export const systemFunctionsProdutosIA = {
           error: "Acesso negado, informe o usuario que ele não tem permissão!",
         },
       };
+    const product = String(args?.product || "").trim();
     const produtos = await prisma.produto.findMany({
       where: {
         contaId: request.contaId,
-        nome: {
-          contains: args.product,
-        },
+        ...(product ? { nome: { contains: product } } : {}),
       },
       select: {
         id: true,
@@ -54,10 +53,10 @@ export const systemFunctionsProdutosIA = {
         preco: true,
         codigo: true,
       },
+      orderBy: { nome: "asc" },
+      take: 20,
     });
-    return {
-      produtos,
-    };
+    return { produtos, totalRetornado: produtos.length };
   },
   getProdutoReposicao: async (
     args: { produto: string },
@@ -192,7 +191,7 @@ export const toolsProducts: FunctionDeclaration[] = [
   {
     name: "getProdutosSistema",
     description:
-      "Consulta os produtos do sistema, peça o nome apenas se o usuario quiser um produto especifico, retorne em formato de tabela, não mostre o ID do produto ao usuario.",
+      "Consulta os produtos do sistema. Peça o nome apenas se o usuário quiser um produto específico. Responda em texto curto ou bullets, sem tabela, e não mostre o ID do produto ao usuário.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {

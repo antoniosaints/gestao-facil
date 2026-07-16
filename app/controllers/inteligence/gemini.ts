@@ -20,7 +20,12 @@ export const callChatGemini = async (req: Request, res: Response): Promise<any> 
 
         const body = z.object({
             prompt: z.string(),
-            history: z.any()
+            history: z.any(),
+            image: z.object({
+                data: z.string().max(12 * 1024 * 1024),
+                mimeType: z.string().regex(/^image\//),
+                name: z.string().optional(),
+            }).optional(),
         }, {
             required_error: "Preencha o objeto JSON com os campos prompt e history",
             invalid_type_error: "Preencha o objeto JSON com os campos prompt e history"
@@ -33,7 +38,7 @@ export const callChatGemini = async (req: Request, res: Response): Promise<any> 
 
         await iaUsageService.assertWithinQuota(custom.contaId);
 
-        const result = await callChatGeminiService(custom, data.prompt, data.history);
+        const result = await callChatGeminiService(custom, data.prompt, data.history, data.image);
 
         return ResponseHandler(res, "Sucesso", result);
     }catch (err: any) {

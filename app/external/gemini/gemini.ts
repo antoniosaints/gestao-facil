@@ -10,13 +10,73 @@ import { systemFunctionsGestaoIA, toolsGestao } from "./tools/gestao";
 export const systemFunctionsIA = {
   ...systemFunctionsProdutosIA,
   ...systemFunctionsGestaoIA,
+  buscarClientePorNomeParaOperacao: async (args: { nome: string }, request: CustomData) => {
+    const nome = String(args?.nome || "").trim();
+    if (!nome) {
+      return {
+        encontrado: false,
+        precisaConfirmacao: true,
+        mensagem: "Informe o nome do cliente para buscar.",
+        clientes: [],
+      };
+    }
+
+    const clientes = await prisma.clientesFornecedores.findMany({
+      where: {
+        contaId: request.contaId,
+        nome: { contains: nome },
+      },
+      select: {
+        id: true,
+        nome: true,
+        status: true,
+        documento: true,
+        telefone: true,
+        email: true,
+      },
+      orderBy: { nome: "asc" },
+      take: 8,
+    });
+
+    const termo = nome.toLocaleLowerCase();
+    const ordenados = clientes.sort((a, b) => {
+      const an = a.nome.toLocaleLowerCase();
+      const bn = b.nome.toLocaleLowerCase();
+      const aExact = an === termo ? 0 : 1;
+      const bExact = bn === termo ? 0 : 1;
+      if (aExact !== bExact) return aExact - bExact;
+      const aStarts = an.startsWith(termo) ? 0 : 1;
+      const bStarts = bn.startsWith(termo) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      return a.nome.localeCompare(b.nome);
+    });
+
+    if (!ordenados.length) {
+      return {
+        encontrado: false,
+        precisaConfirmacao: true,
+        mensagem: `Nenhum cliente encontrado com o nome "${nome}". Pergunte se deve cadastrar um novo cliente ou se o usuario quer tentar outro nome.`,
+        clientes: [],
+      };
+    }
+
+    return {
+      encontrado: true,
+      precisaConfirmacao: ordenados.length > 1,
+      clienteId: ordenados.length === 1 ? ordenados[0].id : undefined,
+      cliente: ordenados.length === 1 ? ordenados[0] : undefined,
+      clientes: ordenados,
+      mensagem: ordenados.length === 1
+        ? "Cliente encontrado. Use clienteId internamente na proxima ferramenta; nao peca o ID ao usuario."
+        : "Mais de um cliente encontrado. Peca ao usuario para confirmar qual cliente usando nome, documento, telefone ou email; nao peca o ID.",
+    };
+  },
   getClientesSistema: async (args: { cliente: string }, request: CustomData) => {
+    const cliente = String(args?.cliente || "").trim();
     const response = await prisma.clientesFornecedores.findMany({
       where: {
         contaId: request.contaId,
-        nome: {
-          contains: args.cliente,
-        },
+        ...(cliente ? { nome: { contains: cliente } } : {}),
       },
       select: {
         id: true,
@@ -27,10 +87,12 @@ export const systemFunctionsIA = {
         email: true,
         telefone: true,
       },
-      take: 50,
+      orderBy: { nome: "asc" },
+      take: 20,
     });
     return {
       response,
+      totalRetornado: response.length,
     };
   },
   getResumoFinanceiro: async (args: any, request: CustomData) => {
@@ -128,8 +190,23 @@ export const toolsIA: Tool[] = [
   {
     functionDeclarations: [
       {
+        name: "buscarClientePorNomeParaOperacao",
+        description:
+          "Busca clientes por nome para resolver o ID interno antes de criar vendas, lancamentos, ordens de servico ou outras operacoes. Use esta ferramenta quando o usuario informar apenas o nome do cliente. Se encontrar um unico cliente, use clienteId internamente na proxima ferramenta e nao peca ID ao usuario. Se encontrar varios, peca confirmacao pelo nome/documento/telefone/email. Se nao encontrar, pergunte se deve cadastrar novo cliente ou tentar outro nome.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            nome: {
+              type: SchemaType.STRING,
+              description: "Nome ou parte do nome do cliente informado pelo usuario.",
+            },
+          },
+          required: ["nome"],
+        },
+      },
+      {
         name: "getClientesSistema",
-        description: "Consulta os clientes e fornecedores do sistema, retorne em formato de tabela, não mostre o ID do cliente ao usuario.",
+        description: "Consulta os clientes e fornecedores do sistema. Responda em texto curto ou bullets, sem tabela, e não mostre o ID do cliente ao usuário.",
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -144,7 +221,7 @@ export const toolsIA: Tool[] = [
       {
         name: "getResumoVendas",
         description: `Busca as vendas do sistema e cria um relatorio de vendas com base nos dados recuperados. 
-        formate de forma resumida e só mostre os dados essenciais. formate datas para o padrão brasileiro e mostre em tabela`,
+        formate de forma resumida, sem tabela, e só mostre os dados essenciais. formate datas para o padrão brasileiro`,
       },
       {
         name: "getResumoFinanceiro",
