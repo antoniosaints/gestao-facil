@@ -116,37 +116,47 @@ export const iaUsageService = {
     };
   },
 
-  // Resumo do mês para toda a plataforma (painel de Consumo do CEO).
-  // Traz totais, quebra por modelo, por função (feature) e por assinante (conta) — com
-  // tokens, chamadas e custo estimado em cada dimensão.
-  async getPlatformMonthlySummary() {
-    const start = startOfCurrentMonth();
-    const [totalAgg, porModeloRaw, porFeatureModelRaw, porContaModelRaw] = await Promise.all([
+  // Resumo para o painel de Consumo do CEO. Aceita filtro de período (inicio/fim) e de assinante
+  // (contaId). Traz totais, quebra por modelo, por função (feature) e por assinante (conta), além
+  // da lista de assinantes que usaram IA no período (para o seletor do filtro).
+  async getPlatformMonthlySummary(
+    opts: { inicio?: Date | null; fim?: Date | null; contaId?: number | null } = {}
+  ) {
+    const start = opts.inicio ?? startOfCurrentMonth();
+    const end = opts.fim ?? null;
+    const createdAt = { gte: start, ...(end ? { lte: end } : {}) };
+    // Período (todos os assinantes) e escopo (aplica o filtro de assinante, se houver).
+    const wherePeriodo: any = { createdAt };
+    const whereScoped: any = { ...wherePeriodo, ...(opts.contaId ? { contaId: opts.contaId } : {}) };
+
+    const [totalAgg, porModeloRaw, porFeatureModelRaw, porContaModelRaw, assinantesRaw] = await Promise.all([
       db.iaUso.aggregate({
         _sum: { totalTokens: true, promptTokens: true, completionTokens: true },
         _count: { _all: true },
-        where: { createdAt: { gte: start } },
+        where: whereScoped,
       }),
       db.iaUso.groupBy({
         by: ["modelId"],
         _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
         _count: { _all: true },
-        where: { createdAt: { gte: start } },
+        where: whereScoped,
       }),
       // Custo por função depende do modelo usado — agrupa por (feature, modelId).
       db.iaUso.groupBy({
         by: ["feature", "modelId"],
         _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
         _count: { _all: true },
-        where: { createdAt: { gte: start } },
+        where: whereScoped,
       }),
       // Custo por assinante depende do modelo usado — agrupa por (contaId, modelId).
       db.iaUso.groupBy({
         by: ["contaId", "modelId"],
         _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
         _count: { _all: true },
-        where: { createdAt: { gte: start } },
+        where: whereScoped,
       }),
+      // Lista de assinantes com uso no período (ignora o filtro de assinante, para o seletor).
+      db.iaUso.groupBy({ by: ["contaId"], where: wherePeriodo }),
     ]);
 
     const costMap = await iaPlatformService.getModelCostMap();
@@ -203,9 +213,12 @@ export const iaUsageService = {
       contaMap.set(row.contaId, acc);
     }
     const contaIds = Array.from(contaMap.keys());
-    const contas = contaIds.length
+    // Ids de todos os assinantes do período (para o seletor) + os do escopo atual.
+    const assinantesIds = (assinantesRaw || []).map((a: any) => a.contaId);
+    const todosIds = Array.from(new Set<number>([...contaIds, ...assinantesIds]));
+    const contas = todosIds.length
       ? await prisma.contas.findMany({
-          where: { id: { in: contaIds } },
+          where: { id: { in: todosIds } },
           select: { id: true, nome: true, nomeFantasia: true },
         })
       : [];
@@ -222,8 +235,14 @@ export const iaUsageService = {
       }))
       .sort((a, b) => b.tokens - a.tokens);
 
+    // Assinantes disponíveis no período (para o filtro), em ordem alfabética.
+    const assinantes = assinantesIds
+      .map((id: number) => ({ contaId: id, nome: nomeConta.get(id) || `Conta #${id}` }))
+      .sort((a: any, b: any) => a.nome.localeCompare(b.nome, "pt-BR"));
+
     return {
       mesInicio: start,
+      mesFim: end,
       totalTokens: totalAgg?._sum?.totalTokens || 0,
       promptTokens: totalAgg?._sum?.promptTokens || 0,
       completionTokens: totalAgg?._sum?.completionTokens || 0,
@@ -233,6 +252,7 @@ export const iaUsageService = {
       porFeature,
       porModelo,
       porConta,
+      assinantes,
     };
   },
 

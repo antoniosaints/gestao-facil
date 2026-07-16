@@ -25,9 +25,9 @@ export const systemFunctionsIA = {
         documento: true,
         endereco: true,
         email: true,
-        Vendas: true,
         telefone: true,
       },
+      take: 50,
     });
     return {
       response,
@@ -42,7 +42,9 @@ export const systemFunctionsIA = {
       },
       include: {
         parcelas: true,
-      }
+      },
+      orderBy: { dataLancamento: "desc" },
+      take: 50,
     });
 
     return {
@@ -61,7 +63,9 @@ export const systemFunctionsIA = {
           },
         },
         ItensOrdensServico: true,
-      }
+      },
+      orderBy: { data: "desc" },
+      take: 50,
     });
 
     return {
@@ -80,6 +84,8 @@ export const systemFunctionsIA = {
           },
         },
       },
+      orderBy: { data: "desc" },
+      take: 50,
     });
 
     return {

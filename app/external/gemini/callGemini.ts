@@ -71,44 +71,69 @@ Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T"
   // Envia a mensagem do usuário
   let result = await chat.sendMessage(prompt);
   results.push(result);
-  let response = result.response;
 
-  // Lógica de Chamada de Função (Function Calling)
-  const calls = response.functionCalls();
+  // Lógica de Chamada de Função (Function Calling) em múltiplas rodadas: o modelo pode encadear
+  // ferramentas (ex.: buscar o ID de um produto e depois repor o estoque). Iteramos até ele
+  // devolver texto, com um limite de segurança contra loops.
+  const MAX_ROUNDS = 6;
+  let calls = result.response.functionCalls();
+  let rounds = 0;
 
-  if (calls) {
+  while (calls && calls.length && rounds < MAX_ROUNDS) {
+    rounds++;
     const functionResponses = [];
 
     for (const call of calls) {
       const fnName = call.name as keyof typeof systemFunctionsIA;
-      const fnArgs = call.args;
+      const fn = systemFunctionsIA[fnName];
 
-      // Executa a lógica do seu sistema
-      const apiResponse = await systemFunctionsIA[fnName](fnArgs as any, request);
+      // Executa a lógica do sistema. Falhas de uma ferramenta (ex.: dado inválido numa escrita)
+      // viram um erro devolvido ao modelo — que explica ao usuário — em vez de derrubar a request.
+      let apiResponse: any;
+      if (typeof fn !== "function") {
+        apiResponse = { error: `Função "${String(fnName)}" não encontrada.` };
+      } else {
+        try {
+          apiResponse = await fn(call.args as any, request);
+        } catch (err: any) {
+          console.warn(`[core-ia] falha na ferramenta ${String(fnName)}:`, err);
+          apiResponse = { error: err?.message || "Não foi possível executar a operação." };
+        }
+      }
 
       functionResponses.push({
-        functionResponse: {
-          name: fnName,
-          response: apiResponse,
-        },
+        functionResponse: { name: fnName, response: apiResponse },
       });
     }
 
-    // Envia os resultados das funções de volta para a IA para o texto final
-    const finalResult = await chat.sendMessage(functionResponses);
-    results.push(finalResult);
-    await recordUsage();
-
-    return {
-      reply: finalResult.response.text(),
-      history: await chat.getHistory(), // Retorna o histórico atualizado
-    };
+    // Envia os resultados das funções de volta para a IA (pode gerar novas chamadas).
+    result = await chat.sendMessage(functionResponses);
+    results.push(result);
+    calls = result.response.functionCalls();
   }
 
   await recordUsage();
 
+  // Se ainda restarem chamadas pendentes (limite atingido), não há texto para extrair.
+  let reply = "";
+  if (calls && calls.length) {
+    reply = "Não consegui concluir a operação em etapas suficientes. Tente reformular o pedido.";
+  } else {
+    try {
+      reply = result.response.text();
+    } catch {
+      reply = "";
+    }
+  }
+
+  // Nunca devolve resposta vazia (ex.: o modelo executa uma ferramenta e não escreve texto no
+  // fim) — isso deixaria um balão vazio no chat. Damos um retorno neutro de confirmação.
+  if (!reply.trim()) {
+    reply = "Pronto! ✅ Posso ajudar em mais alguma coisa?";
+  }
+
   return {
-    reply: response.text(),
+    reply,
     history: await chat.getHistory(),
   };
 };

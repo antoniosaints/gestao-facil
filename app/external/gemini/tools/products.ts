@@ -4,6 +4,28 @@ import { hasPermission } from "../../../helpers/userPermission";
 import { gerarIdUnicoComMetaFinal } from "../../../helpers/generateUUID";
 import { CustomData } from "../../../helpers/getCustomRequest";
 
+// Normaliza um texto para compor um SKU (sem acentos, só alfanumérico, maiúsculo).
+function normalizarParteSku(texto: string, max: number): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, max);
+}
+
+// Gera um SKU único para a conta (mesmo padrão do cadastro normal de produtos).
+async function gerarSkuUnicoTool(tx: any, contaId: number, nome: string): Promise<string> {
+  const prefixo = normalizarParteSku(nome, 6) || "SKU";
+  for (let i = 0; i < 25; i++) {
+    const sufixo = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const codigo = `${prefixo}-${sufixo}`;
+    const existente = await tx.produto.findFirst({ where: { contaId, codigo }, select: { id: true } });
+    if (!existente) return codigo;
+  }
+  return `${prefixo}-${Date.now().toString(36).toUpperCase()}`;
+}
+
 export const systemFunctionsProdutosIA = {
   getProdutosSistema: async (
     args: { product: string },
@@ -65,23 +87,52 @@ export const systemFunctionsProdutosIA = {
           error: "Acesso negado, informe o usuario que ele não tem permissão!",
         },
       };
-    const response = await prisma.produto.create({
-      data: {
-        contaId: request.contaId,
-        nome: args.nome,
-        estoque: args.estoque,
-        minimo: args.minimo,
-        preco: args.preco,
-        entradas: true,
-        saidas: true,
-        controlaEstoque: true,
-        unidade: "un",
-        Uid: gerarIdUnicoComMetaFinal("PRO"),
-      },
+
+    // Validação básica dos argumentos vindos da IA.
+    const nome = String(args.nome || "").trim();
+    if (!nome) return { response: { error: "Informe o nome do produto." } };
+    const preco = Number(args.preco);
+    if (!Number.isFinite(preco) || preco < 0) {
+      return { response: { error: "Informe um preço válido (maior ou igual a zero)." } };
+    }
+    const estoque = Math.max(0, Math.round(Number(args.estoque) || 0));
+    const minimo = Math.max(0, Math.round(Number(args.minimo) || 0));
+
+    // Todo produto é uma variante de um ProdutoBase. Criamos os dois numa transação (mesmo
+    // fluxo do cadastro normal), senão a variante fica órfã e quebra a listagem de produtos.
+    const response = await prisma.$transaction(async (tx) => {
+      const base = await tx.produtoBase.create({
+        data: {
+          Uid: gerarIdUnicoComMetaFinal("PB"),
+          contaId: request.contaId,
+          nome,
+        },
+      });
+
+      const codigo = await gerarSkuUnicoTool(tx, request.contaId, nome);
+
+      return tx.produto.create({
+        data: {
+          Uid: gerarIdUnicoComMetaFinal("PRO"),
+          contaId: request.contaId,
+          produtoBaseId: base.id,
+          nome,
+          nomeVariante: "Padrão",
+          ehPadrao: true,
+          preco,
+          estoque,
+          minimo,
+          codigo,
+          unidade: "un",
+          controlaEstoque: true,
+          entradas: true,
+          saidas: true,
+        },
+        select: { id: true, nome: true, preco: true, estoque: true, minimo: true, codigo: true },
+      });
     });
-    return {
-      response,
-    };
+
+    return { response: { ...response, mensagem: "Produto criado com sucesso." } };
   },
   createReposicaoEstoqueProduto: async (
     args: {
@@ -99,30 +150,37 @@ export const systemFunctionsProdutosIA = {
           error: "Acesso negado, informe o usuario que ele não tem permissão!",
         },
       };
-    const response = await prisma.produto.update({
-      where: {
-        contaId: request.contaId,
-        id: args.idProduto,
-      },
-      data: {
-        estoque: {
-          increment: args.quantidade,
-        },
-      },
+    // Garante que o produto é da conta antes de mexer no estoque.
+    const produto = await prisma.produto.findFirst({
+      where: { id: args.idProduto, contaId: request.contaId },
+      select: { id: true },
     });
+    if (!produto) {
+      return { response: { error: "Produto não encontrado para esta conta." } };
+    }
+    if (!Number.isFinite(args.quantidade) || args.quantidade <= 0) {
+      return { response: { error: "Informe uma quantidade maior que zero." } };
+    }
 
-    const reposicao = await prisma.movimentacoesEstoque.create({
-      data: {
-        contaId: request.contaId,
-        produtoId: args.idProduto,
-        tipo: "ENTRADA",
-        status: "CONCLUIDO",
-        quantidade: args.quantidade,
-        data: new Date(),
-        notaFiscal: args.nota,
-        custo: args.valor || 0,
-      },
-    });
+    // Incremento de estoque + registro da movimentação numa transação (consistência).
+    const [response, reposicao] = await prisma.$transaction([
+      prisma.produto.update({
+        where: { id: args.idProduto },
+        data: { estoque: { increment: args.quantidade } },
+      }),
+      prisma.movimentacoesEstoque.create({
+        data: {
+          contaId: request.contaId,
+          produtoId: args.idProduto,
+          tipo: "ENTRADA",
+          status: "CONCLUIDO",
+          quantidade: args.quantidade,
+          data: new Date(),
+          notaFiscal: args.nota,
+          custo: args.valor || 0,
+        },
+      }),
+    ]);
     return {
       response,
       reposicao,

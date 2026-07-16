@@ -15,7 +15,9 @@ const optionalEnvUrl = z.preprocess(emptyToUndefined, z.string().url().optional(
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "production"]).default("development"),
-    GEMINI_API_KEY: z.string({ required_error: "GEMINI_API_KEY é obrigatório" }),
+    // Legado: não é mais usado em runtime (a IA usa as chaves da tela "Chaves de API"). Mantido
+    // como opcional só para compatibilidade — pode ser removido do ambiente.
+    GEMINI_API_KEY: optionalEnvString,
     BASE_URL: z
       .string({
         required_error: "BASE_URL é obrigatório",

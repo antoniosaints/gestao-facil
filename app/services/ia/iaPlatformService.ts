@@ -1,6 +1,5 @@
 import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
-import { env } from "../../utils/dotenv";
 
 // Configuração de IA da plataforma (gerenciada pelo CEO/super admin). Centraliza as chaves de
 // API e os modelos que os assinantes podem usar nos agentes — o cliente final não informa a
@@ -173,14 +172,16 @@ export const iaPlatformService = {
   },
 
   // ---------------- Consumo pelos agentes ----------------
-  // Chave de API (texto puro) usada pelos assinantes. Fallback para a env enquanto o CEO não
-  // configura nenhuma, para os agentes não pararem.
+  // Chave de API (texto puro) usada por TODOS os recursos de IA. Fonte única: a tela "Chaves de
+  // API" do CEO (IaChaveApi). Prioriza a chave marcada como padrão; senão, qualquer chave ativa
+  // do provider. Sem fallback para a env — se não houver chave ATIVA, a IA para em todas as
+  // contas (retorna null). A env GEMINI_API_KEY não é mais usada.
   async getDefaultApiKey(provider = DEFAULT_PROVIDER): Promise<string | null> {
     const chave = await prisma.iaChaveApi.findFirst({
-      where: { provider, ativo: true, isPadrao: true },
-      orderBy: { updatedAt: "desc" },
+      where: { provider, ativo: true },
+      orderBy: [{ isPadrao: "desc" }, { updatedAt: "desc" }],
     });
-    return chave?.apiKey || env.GEMINI_API_KEY || null;
+    return chave?.apiKey || null;
   },
 
   // IDs dos modelos ativos ofertados aos assinantes. Se o CEO ainda não cadastrou modelos,
@@ -232,8 +233,9 @@ export const iaPlatformService = {
     return this.getCoreConfig();
   },
 
-  // Config efetiva usada em runtime pelo Core IA: chave em texto puro + fallbacks para não
-  // travar o assistente enquanto o CEO não configurar tudo.
+  // Config efetiva usada em runtime pelo Core IA e por todas as features de texto. A chave vem
+  // SEMPRE da tela "Chaves de API" (getDefaultApiKey), nunca da env nem da chave dedicada do
+  // Core IA — assim, desativar a chave no painel do CEO para a IA em toda a plataforma.
   async getCoreRuntimeConfig(): Promise<{
     ativo: boolean;
     provider: string;
@@ -242,11 +244,12 @@ export const iaPlatformService = {
     systemPrompt: string;
   }> {
     const cfg = await this.getCoreConfigRow();
+    const provider = cfg.provider || DEFAULT_PROVIDER;
     return {
       ativo: cfg.ativo,
-      provider: cfg.provider || DEFAULT_PROVIDER,
+      provider,
       modelId: cfg.modelId?.trim() || DEFAULT_CORE_MODEL,
-      apiKey: cfg.apiKey?.trim() || env.GEMINI_API_KEY || null,
+      apiKey: await this.getDefaultApiKey(provider),
       systemPrompt: cfg.systemPrompt?.trim() || DEFAULT_CORE_SYSTEM_PROMPT,
     };
   },

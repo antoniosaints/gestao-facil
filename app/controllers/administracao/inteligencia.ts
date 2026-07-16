@@ -144,7 +144,17 @@ export async function saveCoreConfigIaAdmin(req: Request, res: Response): Promis
 export async function getUsageIaAdmin(req: Request, res: Response): Promise<any> {
   try {
     if (!(await ensureSuperAdmin(req, res))) return;
-    res.json({ data: await iaUsageService.getPlatformMonthlySummary() });
+    const { inicio, fim, contaId } = req.query as { inicio?: string; fim?: string; contaId?: string };
+    const inicioDate = inicio ? new Date(inicio) : null;
+    const fimDate = fim ? new Date(fim) : null;
+    const contaIdNum = contaId ? Number(contaId) : null;
+    res.json({
+      data: await iaUsageService.getPlatformMonthlySummary({
+        inicio: inicioDate && !isNaN(inicioDate.getTime()) ? inicioDate : null,
+        fim: fimDate && !isNaN(fimDate.getTime()) ? fimDate : null,
+        contaId: contaIdNum && !isNaN(contaIdNum) ? contaIdNum : null,
+      }),
+    });
   } catch (error) {
     handleError(res, error);
   }
