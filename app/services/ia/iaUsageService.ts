@@ -116,53 +116,123 @@ export const iaUsageService = {
     };
   },
 
-  // Resumo do mês para toda a plataforma (para o painel do CEO).
+  // Resumo do mês para toda a plataforma (painel de Consumo do CEO).
+  // Traz totais, quebra por modelo, por função (feature) e por assinante (conta) — com
+  // tokens, chamadas e custo estimado em cada dimensão.
   async getPlatformMonthlySummary() {
     const start = startOfCurrentMonth();
-    const [totalAgg, porFeature, porModelo] = await Promise.all([
+    const [totalAgg, porModeloRaw, porFeatureModelRaw, porContaModelRaw] = await Promise.all([
       db.iaUso.aggregate({
-        _sum: { totalTokens: true },
+        _sum: { totalTokens: true, promptTokens: true, completionTokens: true },
         _count: { _all: true },
-        where: { createdAt: { gte: start } },
-      }),
-      db.iaUso.groupBy({
-        by: ["feature"],
-        _sum: { totalTokens: true },
         where: { createdAt: { gte: start } },
       }),
       db.iaUso.groupBy({
         by: ["modelId"],
         _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
+        _count: { _all: true },
+        where: { createdAt: { gte: start } },
+      }),
+      // Custo por função depende do modelo usado — agrupa por (feature, modelId).
+      db.iaUso.groupBy({
+        by: ["feature", "modelId"],
+        _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
+        _count: { _all: true },
+        where: { createdAt: { gte: start } },
+      }),
+      // Custo por assinante depende do modelo usado — agrupa por (contaId, modelId).
+      db.iaUso.groupBy({
+        by: ["contaId", "modelId"],
+        _sum: { promptTokens: true, completionTokens: true, totalTokens: true },
+        _count: { _all: true },
         where: { createdAt: { gte: start } },
       }),
     ]);
 
     const costMap = await iaPlatformService.getModelCostMap();
-    let custoEstimado = 0;
-    const modelos = (porModelo || [])
+    const custoDe = (prompt: number, completion: number, modelId: string) => {
+      const c = costMap.get(modelId) || { input: 0, output: 0 };
+      return (prompt / 1_000_000) * c.input + (completion / 1_000_000) * c.output;
+    };
+
+    // ---- Por modelo ----
+    const modelosMeta = await iaPlatformService.listModelos();
+    const nomeModelo = new Map<string, string>(
+      (modelosMeta as any[]).map((m) => [m.modelId, m.nome])
+    );
+    let custoTotal = 0;
+    const porModelo = (porModeloRaw || [])
       .map((m: any) => {
-        const c = costMap.get(m.modelId) || { input: 0, output: 0 };
-        const custo =
-          ((m._sum?.promptTokens || 0) / 1_000_000) * c.input +
-          ((m._sum?.completionTokens || 0) / 1_000_000) * c.output;
-        custoEstimado += custo;
+        const custo = custoDe(m._sum?.promptTokens || 0, m._sum?.completionTokens || 0, m.modelId);
+        custoTotal += custo;
         return {
           modelId: m.modelId,
+          nome: nomeModelo.get(m.modelId) || m.modelId,
           tokens: m._sum?.totalTokens || 0,
+          chamadas: m._count?._all || 0,
           custoEstimado: Number(custo.toFixed(4)),
         };
       })
       .sort((a: any, b: any) => b.tokens - a.tokens);
 
+    // ---- Por função (feature) ----
+    const featureMap = new Map<string, { tokens: number; chamadas: number; custo: number }>();
+    for (const row of porFeatureModelRaw || []) {
+      const acc = featureMap.get(row.feature) || { tokens: 0, chamadas: 0, custo: 0 };
+      acc.tokens += row._sum?.totalTokens || 0;
+      acc.chamadas += row._count?._all || 0;
+      acc.custo += custoDe(row._sum?.promptTokens || 0, row._sum?.completionTokens || 0, row.modelId);
+      featureMap.set(row.feature, acc);
+    }
+    const porFeature = Array.from(featureMap.entries())
+      .map(([feature, v]) => ({
+        feature,
+        tokens: v.tokens,
+        chamadas: v.chamadas,
+        custoEstimado: Number(v.custo.toFixed(4)),
+      }))
+      .sort((a, b) => b.tokens - a.tokens);
+
+    // ---- Por assinante (conta) ----
+    const contaMap = new Map<number, { tokens: number; chamadas: number; custo: number }>();
+    for (const row of porContaModelRaw || []) {
+      const acc = contaMap.get(row.contaId) || { tokens: 0, chamadas: 0, custo: 0 };
+      acc.tokens += row._sum?.totalTokens || 0;
+      acc.chamadas += row._count?._all || 0;
+      acc.custo += custoDe(row._sum?.promptTokens || 0, row._sum?.completionTokens || 0, row.modelId);
+      contaMap.set(row.contaId, acc);
+    }
+    const contaIds = Array.from(contaMap.keys());
+    const contas = contaIds.length
+      ? await prisma.contas.findMany({
+          where: { id: { in: contaIds } },
+          select: { id: true, nome: true, nomeFantasia: true },
+        })
+      : [];
+    const nomeConta = new Map<number, string>(
+      contas.map((c) => [c.id, c.nomeFantasia?.trim() || c.nome])
+    );
+    const porConta = Array.from(contaMap.entries())
+      .map(([contaId, v]) => ({
+        contaId,
+        nome: nomeConta.get(contaId) || `Conta #${contaId}`,
+        tokens: v.tokens,
+        chamadas: v.chamadas,
+        custoEstimado: Number(v.custo.toFixed(4)),
+      }))
+      .sort((a, b) => b.tokens - a.tokens);
+
     return {
       mesInicio: start,
       totalTokens: totalAgg?._sum?.totalTokens || 0,
+      promptTokens: totalAgg?._sum?.promptTokens || 0,
+      completionTokens: totalAgg?._sum?.completionTokens || 0,
       chamadas: totalAgg?._count?._all || 0,
-      custoEstimado: Number(custoEstimado.toFixed(4)),
-      porFeature: (porFeature || [])
-        .map((f: any) => ({ feature: f.feature, tokens: f._sum?.totalTokens || 0 }))
-        .sort((a: any, b: any) => b.tokens - a.tokens),
-      porModelo: modelos,
+      custoEstimado: Number(custoTotal.toFixed(4)),
+      assinantesAtivos: contaIds.length,
+      porFeature,
+      porModelo,
+      porConta,
     };
   },
 
