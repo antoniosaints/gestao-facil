@@ -178,14 +178,17 @@ export type ReminderTemplateVars = {
   cliente: string;
   descricao: string;
   valor: string;
+  valorparcela: string;
   vencimento: string;
   parcela: string;
+  totalparcelas: string;
 };
 
 /**
  * Aplica variáveis num template de mensagem custom. Suporta os placeholders
- * `{cliente}`, `{descricao}`, `{valor}`, `{vencimento}` e `{parcela}`
- * (case-insensitive). Placeholders desconhecidos são mantidos como estão.
+ * `{cliente}`, `{descricao}`, `{valor}`, `{valorParcela}`, `{vencimento}`,
+ * `{parcela}` e `{totalParcelas}` (case-insensitive). Placeholders desconhecidos
+ * são mantidos como estão.
  */
 export function applyMensagemTemplate(template: string, vars: ReminderTemplateVars): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) => {

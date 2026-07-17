@@ -24,7 +24,7 @@ function isImageMimeType(mimeType?: string | null): boolean {
 }
 
 // Reescala e recomprime uma imagem para perder qualidade/tamanho, independentemente da dimensão
-// original (nunca amplia). Anima­ções (GIF/WebP animado) e SVG são preservados como estão para não
+// original (nunca amplia). Animações (GIF/WebP animado) e SVG são preservados como estão para não
 // quebrar. Saída em JPEG (ou PNG quando há transparência) para maximizar a compressão.
 export async function downscaleImage(
   input: Buffer,

@@ -294,8 +294,10 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
         cliente: lancamento.cliente?.nome || "",
         descricao: lancamento.descricao,
         valor: formatCurrency(valorPendente),
+        valorparcela: formatCurrency(Number(proxima.valor || 0)),
         vencimento: formatDateToPtBR(proxima.vencimento),
         parcela: String(proxima.numero),
+        totalparcelas: String(lancamento.parcelas.length),
       });
       await sendClienteWhatsappMessage(contaId, lancamento.clienteId, { tipo: "MENSAGEM", mensagem });
     } else {
@@ -312,9 +314,11 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
         clienteNome: lancamento.cliente?.nome || "",
         descricao: lancamento.descricao,
         valor: valorPendente,
+        valorParcela: Number(proxima.valor || 0),
         dueDate: proxima.vencimento,
         offset: computeDueOffset(proxima.vencimento),
         parcelaNumero: proxima.numero,
+        totalParcelas: lancamento.parcelas.length,
         mensagemCustom: schedule?.mensagemCustom ?? null,
         mensagemPadraoConta: parametros?.inadimplenciaMensagemPadrao ?? null,
       });

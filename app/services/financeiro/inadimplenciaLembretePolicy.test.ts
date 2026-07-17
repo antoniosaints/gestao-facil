@@ -144,8 +144,10 @@ describe("inadimplenciaLembretePolicy", () => {
       cliente: "João",
       descricao: "Mensalidade",
       valor: "R$ 100,00",
+      valorparcela: "R$ 25,00",
       vencimento: "10/07/2026",
       parcela: "2",
+      totalparcelas: "4",
     };
 
     it("substitui placeholders conhecidos (case-insensitive)", () => {
@@ -157,6 +159,13 @@ describe("inadimplenciaLembretePolicy", () => {
 
     it("mantém placeholders desconhecidos intactos", () => {
       assert.equal(applyMensagemTemplate("{cliente} {foo}", vars), "João {foo}");
+    });
+
+    it("substitui valor da parcela e total de parcelas", () => {
+      assert.equal(
+        applyMensagemTemplate("Parcela {parcela}/{totalParcelas}: {valorParcela}. Total: {valor}.", vars),
+        "Parcela 2/4: R$ 25,00. Total: R$ 100,00.",
+      );
     });
   });
 

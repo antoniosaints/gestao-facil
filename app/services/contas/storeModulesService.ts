@@ -43,8 +43,8 @@ const DEFAULT_MODULES = [
   },
   {
     codigo: "assinaturas",
-    nome: "Assinaturas",
-    descricao: "Gestao de contratos recorrentes, ciclos, comodatos e cobrancas do modulo de assinaturas.",
+    nome: "Contratos",
+    descricao: "Gestao de contratos recorrentes, ciclos, comodatos e cobrancas.",
     categoria: "Recorrencia",
     preco: 5,
   },

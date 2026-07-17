@@ -55,7 +55,7 @@ export const DEFAULT_SITE_PUBLIC_CONFIG: SitePublicConfig = {
     { title: "WhatsApp", category: "Notificações", description: "Integração com WhatsApp para comunicação e notificações.", price: 19.9, icon: "MessageCircle" },
     { title: "Atendimento", category: "Central de conversas", description: "Chat via WhatsApp com conversas, filas, atendentes e vínculo com clientes.", price: 29.9, icon: "Headset" },
     { title: "Loja Virtual", category: "Vendas online", description: "Vitrine online personalizável com cores, banners, login e cadastro de clientes.", price: 39.9, icon: "Store" },
-    { title: "Assinaturas", category: "Recorrência", description: "Gestão de contratos recorrentes, ciclos, comodatos e cobranças.", price: 5, icon: "Repeat" },
+    { title: "Contratos", category: "Recorrência", description: "Gestão de contratos recorrentes, ciclos, comodatos e cobranças.", price: 5, icon: "Repeat" },
     { title: "Mercado Pago", category: "Gateway gratuito", description: "Configure as credenciais operacionais do Mercado Pago da conta.", price: 0, icon: "CreditCard" },
   ],
   benefits: [
@@ -84,7 +84,7 @@ export const DEFAULT_SITE_PUBLIC_CONFIG: SitePublicConfig = {
   faqs: [
     { q: "Preciso de cartão de crédito para testar?", a: "Não. O teste de 7 dias é totalmente gratuito e não pedimos cartão de crédito para começar." },
     { q: "O que acontece depois dos 7 dias grátis?", a: "A mensalidade de R$ 70 passa a valer pelo sistema completo. Você pode cancelar quando quiser, sem multa ou fidelidade." },
-    { q: "Como funcionam os apps adicionais?", a: "São módulos opcionais, como CORE IA, WhatsApp, Atendimento, Loja Virtual e Assinaturas. Você ativa e desativa direto na App Store; apps pagos entram na mensalidade de forma proporcional e apps de valor zerado aparecem como gratuitos." },
+    { q: "Como funcionam os apps adicionais?", a: "São módulos opcionais, como CORE IA, WhatsApp, Atendimento, Loja Virtual e Contratos. Você ativa e desativa direto na App Store; apps pagos entram na mensalidade de forma proporcional e apps de valor zerado aparecem como gratuitos." },
     { q: "Posso usar em mais de um dispositivo?", a: "Sim. O Gestão Fácil é 100% online e você acessa do computador, tablet ou celular, de onde estiver." },
     { q: "Meus dados ficam seguros?", a: "Sim. Fazemos backup automático diário e seus dados ficam protegidos e disponíveis sempre que você precisar." },
     { q: "Tem fidelidade ou taxa de cancelamento?", a: "Não. Você paga mês a mês e pode cancelar a qualquer momento, sem taxas escondidas." },

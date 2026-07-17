@@ -233,7 +233,7 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
     const parcelaId = Number(req.params.id);
 
     if (!Number.isInteger(parcelaId) || parcelaId <= 0) {
-      return res.status(400).json({ message: "Informe uma parcela vÃ¡lida." });
+      return res.status(400).json({ message: "Informe uma parcela válida." });
     }
 
     const parcela = await prisma.parcelaFinanceiro.findFirst({
@@ -263,11 +263,11 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
     });
 
     if (!parcela) {
-      return res.status(404).json({ message: "Parcela nÃ£o encontrada." });
+      return res.status(404).json({ message: "Parcela não encontrada." });
     }
 
     if (!canDeleteParcelaFinanceira(parcela)) {
-      return res.status(400).json({ message: "Apenas parcelas pendentes podem ser excluÃ­das." });
+      return res.status(400).json({ message: "Apenas parcelas pendentes podem ser excluídas." });
     }
 
     if (parcela.lancamento.parcelas.length <= 1) {
@@ -275,7 +275,7 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
     }
 
     if (parcela.CobrancasFinanceiras.length > 0) {
-      return res.status(400).json({ message: "Remova ou cancele a cobranÃ§a vinculada antes de excluir esta parcela." });
+      return res.status(400).json({ message: "Remova ou cancele a cobrança vinculada antes de excluir esta parcela." });
     }
 
     await prisma.parcelaFinanceiro.delete({ where: { id: parcela.id } });
@@ -287,7 +287,7 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
     }
     sendFinanceiroUpdated(customData.contaId, { reason: "parcela-excluida", parcelaId: parcela.id, lancamentoId: parcela.lancamentoId });
 
-    return ResponseHandler(res, "Parcela excluÃ­da com sucesso.", { id: parcela.id, lancamentoId: parcela.lancamentoId });
+    return ResponseHandler(res, "Parcela excluída com sucesso.", { id: parcela.id, lancamentoId: parcela.lancamentoId });
   } catch (error) {
     handleError(res, error);
   }

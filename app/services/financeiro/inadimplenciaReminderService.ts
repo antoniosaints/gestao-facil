@@ -91,9 +91,11 @@ export function buildMensagemInadimplencia(args: {
   clienteNome: string;
   descricao: string;
   valor: number;
+  valorParcela?: number;
   dueDate: Date;
   offset: number;
   parcelaNumero: number;
+  totalParcelas?: number;
   mensagemCustom: string | null;
   mensagemPadraoConta: string | null;
 }): string {
@@ -101,8 +103,10 @@ export function buildMensagemInadimplencia(args: {
     cliente: args.clienteNome,
     descricao: args.descricao,
     valor: formatCurrency(args.valor),
+    valorparcela: formatCurrency(args.valorParcela ?? args.valor),
     vencimento: formatDateToPtBR(args.dueDate),
     parcela: String(args.parcelaNumero),
+    totalparcelas: String(args.totalParcelas ?? 1),
   };
 
   // Prioridade: mensagem do próprio lembrete → template padrão da conta → texto de fábrica.
@@ -196,6 +200,10 @@ async function fetchPendingParcelas(today: Date) {
               LembreteConfig: { select: CONFIG_SELECT },
             },
           },
+          parcelas: {
+            where: { pago: false },
+            select: { valor: true },
+          },
         },
       },
     },
@@ -238,10 +246,12 @@ async function getReminderCandidates(today: Date): Promise<ReminderCandidate[]> 
     const mensagem = buildMensagemInadimplencia({
       clienteNome: lancamento.cliente.nome,
       descricao: lancamento.descricao,
-      valor: decimalToNumber(parcela.valor),
+      valor: lancamento.parcelas.reduce((acc, p) => acc + decimalToNumber(p.valor), 0),
+      valorParcela: decimalToNumber(parcela.valor),
       dueDate: parcela.vencimento,
       offset,
       parcelaNumero: parcela.numero,
+      totalParcelas: lancamento.parcelas.length,
       mensagemCustom: schedule.mensagemCustom,
       mensagemPadraoConta: defaults.defaultMensagem,
     });

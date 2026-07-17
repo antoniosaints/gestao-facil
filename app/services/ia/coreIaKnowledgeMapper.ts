@@ -53,7 +53,7 @@ export const CORE_IA_KNOWLEDGE_BASE: CoreIaKnowledgeChunk[] = [
     intent: ["explicar sistema", "onde fica", "menu principal", "primeiro uso"],
     keywords: ["gestao", "facil", "erp", "sistema", "dashboard", "home", "menu", "inicio", "visao", "geral"],
     summary:
-      "O Gestão Fácil centraliza vendas, financeiro, produtos, serviços, clientes, assinaturas, loja, atendimento, WhatsApp e Core IA. Use o menu lateral para acessar módulos; alguns apps aparecem apenas quando ativos na conta.",
+      "O Gestão Fácil centraliza vendas, financeiro, produtos, serviços, clientes, contratos, loja, atendimento, WhatsApp e Core IA. Use o menu lateral para acessar módulos; alguns apps aparecem apenas quando ativos na conta.",
     steps: [
       "Abrir o menu lateral.",
       "Escolher o módulo desejado.",
@@ -172,15 +172,15 @@ export const CORE_IA_KNOWLEDGE_BASE: CoreIaKnowledgeChunk[] = [
   },
   {
     id: "assinaturas.comodatos",
-    module: "Assinaturas",
-    title: "Assinaturas, planos, cobranças e comodatos",
+    module: "Contratos",
+    title: "Contratos, planos, cobranças e comodatos",
     intent: ["assinatura", "plano recorrente", "comodato", "cobrança assinatura"],
     keywords: ["assinatura", "assinaturas", "plano", "planos", "recorrencia", "recorrência", "cobranca", "comodato", "contrato"],
     summary:
-      "Assinaturas gerencia planos recorrentes, clientes assinantes, cobranças e comodatos vinculados.",
+      "Contratos gerencia planos recorrentes, contratos de clientes, cobranças e comodatos vinculados.",
     steps: [
-      "Ir em Assinaturas > Planos para definir planos.",
-      "Ir em Assinaturas > Assinaturas para cadastrar assinatura de cliente.",
+      "Ir em Contratos > Planos para definir planos.",
+      "Ir em Contratos > Contratos para cadastrar contrato de cliente.",
       "Acompanhar cobranças e comodatos nos menus próprios.",
       "Usar o painel para visão consolidada.",
     ],
