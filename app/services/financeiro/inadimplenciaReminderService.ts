@@ -87,7 +87,7 @@ function toConfigInput(row: {
   };
 }
 
-function buildMensagem(args: {
+export function buildMensagemInadimplencia(args: {
   clienteNome: string;
   descricao: string;
   valor: number;
@@ -235,7 +235,7 @@ async function getReminderCandidates(today: Date): Promise<ReminderCandidate[]> 
     const canais = getEnabledChannels(schedule.canais).filter(isChannelImplemented);
     if (!canais.length) continue;
 
-    const mensagem = buildMensagem({
+    const mensagem = buildMensagemInadimplencia({
       clienteNome: lancamento.cliente.nome,
       descricao: lancamento.descricao,
       valor: decimalToNumber(parcela.valor),

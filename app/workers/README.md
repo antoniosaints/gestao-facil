@@ -7,13 +7,16 @@
 - `sendEmailWorker.ts`: consome a fila de email.
 - `pushNotificationWorker.ts`: consome a fila de push.
 - `whatsappNotificationWorker.ts`: consome a fila de notificações administrativas por WhatsApp.
-- `cronJobsWorker.ts`: dispara rotinas recorrentes.
-- `cron/recurrencyFinanceWorker.ts`: agenda e processa a geração automática de ciclos/cobranças recorrentes de assinaturas a cada 5 minutos.
+- `cronJobsWorker.ts`: processo separado que inicializa os workers/schedulers recorrentes; ele não é importado por `server.ts`.
+- `cron/financialDueNotificationWorker.ts`: agenda o job horário de vencimentos financeiros; nesse ciclo também processa os lembretes de inadimplência ao cliente, respeitando a hora configurada por conta.
+- `cron/recurrencyFinanceWorker.ts`: agenda e processa ciclos recorrentes de assinaturas a cada 10 minutos; na inicialização remove schedulers legados da mesma fila com padrão diferente.
 - `cron/storeReservationExpirationWorker.ts`: consome a fila `store-reservation-expiration`; o scheduler de `cronJobsWorker.ts` roda a cada minuto e libera, em lotes idempotentes, reservas de pedidos vencidos.
 - `cron/`: implementações auxiliares de tarefas agendadas.
 
 ## Infraestrutura
 - Workers usam BullMQ e Redis.
+- O servidor HTTP (`npm run dev`/`npm run start`) não sobe o cron automaticamente. Em desenvolvimento use `npm run cron:dev`; em produção use `npm run cron` ou o processo `worker-cron` do PM2/Docker Compose.
+- A recorrência financeira usa o scheduler `recurrencyFinance` com cron `*/10 * * * *` (10 minutos). Não use cron de 6 campos (ex.: `*/5 * * * * *`), que roda em segundos.
 - A expiração de reservas depende do processo `npm run cron`; retries são seguros porque pedido e reserva só mudam quando ainda estão ativos e vencidos.
 - As filas são definidas em `app/queues`.
 - O enfileiramento é acionado por services ou controllers.

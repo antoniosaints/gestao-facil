@@ -10,9 +10,12 @@ import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { sendClienteWhatsappMessage } from "../../services/clientes/clienteWhatsappService";
 import {
   applyMensagemTemplate,
+  computeDueOffset,
   MAX_DIA_OFFSET,
   MIN_DIA_OFFSET,
+  resolveLembreteSchedule,
 } from "../../services/financeiro/inadimplenciaLembretePolicy";
+import { buildMensagemInadimplencia } from "../../services/financeiro/inadimplenciaReminderService";
 import {
   bulkUpsertLancamentoOverrides,
   getInadimplenciaConfig,
@@ -50,6 +53,34 @@ const configSistemaSchema = z.object({
   dias: z.array(diaSchema).default([]),
   mensagem: z.string().trim().max(1000).optional().nullable(),
 });
+
+const CONFIG_SELECT = {
+  ativo: true,
+  diasLembrete: true,
+  canalWhatsapp: true,
+  canalEmail: true,
+  canalSms: true,
+  mensagemCustom: true,
+} as const;
+
+function toConfigInput(row: {
+  ativo: boolean;
+  diasLembrete: unknown;
+  canalWhatsapp: boolean;
+  canalEmail: boolean;
+  canalSms: boolean;
+  mensagemCustom: string | null;
+} | null | undefined) {
+  if (!row) return null;
+  return {
+    ativo: row.ativo,
+    diasLembrete: row.diasLembrete,
+    canalWhatsapp: row.canalWhatsapp,
+    canalEmail: row.canalEmail,
+    canalSms: row.canalSms,
+    mensagemCustom: row.mensagemCustom,
+  };
+}
 
 function toPayload(parsed: z.infer<typeof configSchema>): LembreteConfigPayload {
   return {
@@ -223,8 +254,15 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
       where: { id: lancamentoId, contaId, tipo: "RECEITA", clienteId: { not: null } },
       select: {
         clienteId: true,
+        notificarClienteVencimento: true,
         descricao: true,
-        cliente: { select: { nome: true } },
+        cliente: {
+          select: {
+            nome: true,
+            LembreteConfig: { select: CONFIG_SELECT },
+          },
+        },
+        lembreteCliente: { select: CONFIG_SELECT },
         parcelas: {
           where: { pago: false },
           select: { valor: true, vencimento: true, numero: true },
@@ -241,6 +279,13 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
     }
 
     const mensagemCustom = parsed.data.mensagem?.trim();
+    const parametros = await prisma.parametrosConta.findUnique({
+      where: { contaId },
+      select: {
+        inadimplenciaDiasPadrao: true,
+        inadimplenciaMensagemPadrao: true,
+      },
+    });
 
     if (mensagemCustom) {
       const proxima = lancamento.parcelas[0];
@@ -254,11 +299,27 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
       });
       await sendClienteWhatsappMessage(contaId, lancamento.clienteId, { tipo: "MENSAGEM", mensagem });
     } else {
-      // Sem mensagem custom: usa o template padrão de lançamento (lista parcelas pendentes).
-      await sendClienteWhatsappMessage(contaId, lancamento.clienteId, {
-        tipo: "LANCAMENTO",
-        lancamentoId,
+      const proxima = lancamento.parcelas[0];
+      const valorPendente = lancamento.parcelas.reduce((acc, p) => acc + Number(p.valor || 0), 0);
+      const schedule = resolveLembreteSchedule({
+        override: toConfigInput(lancamento.lembreteCliente),
+        clienteConfig: toConfigInput(lancamento.cliente?.LembreteConfig),
+        legacyFlag: lancamento.notificarClienteVencimento,
+        defaultDias: parametros?.inadimplenciaDiasPadrao,
       });
+
+      const mensagem = buildMensagemInadimplencia({
+        clienteNome: lancamento.cliente?.nome || "",
+        descricao: lancamento.descricao,
+        valor: valorPendente,
+        dueDate: proxima.vencimento,
+        offset: computeDueOffset(proxima.vencimento),
+        parcelaNumero: proxima.numero,
+        mensagemCustom: schedule?.mensagemCustom ?? null,
+        mensagemPadraoConta: parametros?.inadimplenciaMensagemPadrao ?? null,
+      });
+
+      await sendClienteWhatsappMessage(contaId, lancamento.clienteId, { tipo: "MENSAGEM", mensagem });
     }
 
     return ResponseHandler(res, "Lembrete enviado ao cliente pelo WhatsApp.", null, 200);
