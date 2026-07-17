@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma";
 import { formatarValorMonetario } from "../../utils/formatters";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { getNomeItemVenda } from "../../helpers/nomeItemVenda";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 
 export const gerarCupomPdf = async (
@@ -17,13 +18,19 @@ export const gerarCupomPdf = async (
     const conta = await prisma.contas.findUniqueOrThrow({
       where: { id: customData.contaId },
     });
-    const venda = await prisma.vendas.findUnique({
-      where: { id: vendaId },
+    // contaId no where: sem ele o PDF sai com o cabeçalho DESTA conta e os dados da
+    // venda de outro assinante, bastando trocar o id da URL.
+    const venda = await prisma.vendas.findFirst({
+      where: {
+        id: vendaId,
+        contaId: customData.contaId,
+      },
       include: {
         cliente: true,
         vendedor: true,
         ItensVendas: {
-          include: { produto: true },
+          // servico junto: o item pode ser um serviço ou ter perdido o produto (SetNull).
+          include: { produto: true, servico: true },
         },
         PagamentoVendas: true,
       },
@@ -98,7 +105,7 @@ export const gerarCupomPdf = async (
       doc
         .font("Roboto")
         .fontSize(8)
-        .text(`${item.produto.nome.substring(0, 30)}`, { continued: false })
+        .text(`${getNomeItemVenda(item).substring(0, 30)}`, { continued: false })
         .text(`${item.quantidade} x ${formatarValorMonetario(item.valor)}`, {
           continued: true,
         })
