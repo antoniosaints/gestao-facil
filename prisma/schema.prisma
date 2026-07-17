@@ -1105,6 +1105,12 @@ enum TipoItemAssinatura {
   PRODUTO
 }
 
+enum ModoCobrancaItem {
+  MENSALIDADE
+  UNICA
+  PARCELADA
+}
+
 enum StatusComodatoAssinatura {
   EM_USO
   DEVOLVIDO
@@ -1184,6 +1190,10 @@ model AssinaturaCliente {
   gateway                    String?
   tipoCobranca               String?
   gerarLancamentoFinanceiro  Boolean                 @default(false)
+  contaFinanceiraId          Int?
+  contaFinanceira            ContasFinanceiro?       @relation(fields: [contaFinanceiraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  categoriaId                Int?
+  categoria                  CategoriaFinanceiro?    @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   observacoes                String?                 @db.Text
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
@@ -1207,6 +1217,9 @@ model AssinaturaItem {
   cobrar            Boolean              @default(true)
   comodato          Boolean              @default(false)
   ativo             Boolean              @default(true)
+  modoCobranca      ModoCobrancaItem     @default(MENSALIDADE)
+  cobrarVezes       Int?
+  vezesCobradas     Int                  @default(0)
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   comodatos         AssinaturaComodato[]
@@ -1498,6 +1511,7 @@ model ContasFinanceiro {
   saldoInicial      Decimal                @default(0)
   lancamentos       LancamentoFinanceiro[]
   assinaturasPagar  AssinaturaPagar[]
+  assinaturasCliente AssinaturaCliente[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   ParcelaFinanceiro ParcelaFinanceiro[]
@@ -1513,6 +1527,7 @@ model CategoriaFinanceiro {
   Parent              CategoriaFinanceiro?   @relation("Subcategorias", fields: [parentId], references: [id])
   lancamentos         LancamentoFinanceiro[]
   assinaturasPagar    AssinaturaPagar[]
+  assinaturasCliente  AssinaturaCliente[]
   createdAt           DateTime               @default(now())
   CategoriaFinanceiro CategoriaFinanceiro[]  @relation("Subcategorias")
 }

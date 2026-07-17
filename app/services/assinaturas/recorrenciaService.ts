@@ -60,17 +60,52 @@ function getCycleReference(base: Date, periodicidade: string) {
   return format(base, 'yyyy-MM')
 }
 
-function calculateItemsValue(items: Array<{ quantidade: number; valorUnitario: number; cobrar?: boolean; ativo?: boolean }>) {
+type CycleItem = {
+  quantidade: number
+  valorUnitario: number
+  cobrar?: boolean
+  ativo?: boolean
+  modoCobranca?: 'MENSALIDADE' | 'UNICA' | 'PARCELADA'
+  cobrarVezes?: number | null
+  vezesCobradas?: number | null
+}
+
+function itemLineValue(item: CycleItem) {
+  return Number(item.quantidade || 0) * Number(item.valorUnitario || 0)
+}
+
+function isBillable(item: CycleItem) {
+  return item.cobrar !== false && item.ativo !== false
+}
+
+// Valor recorrente (mensalidade): somente itens MENSALIDADE compõem o valor de todo ciclo.
+function calculateItemsValue(items: Array<CycleItem>) {
   return items
-    .filter((item) => item.cobrar !== false && item.ativo !== false)
-    .reduce((acc, item) => acc + Number(item.quantidade || 0) * Number(item.valorUnitario || 0), 0)
+    .filter(isBillable)
+    .filter((item) => (item.modoCobranca ?? 'MENSALIDADE') === 'MENSALIDADE')
+    .reduce((acc, item) => acc + itemLineValue(item), 0)
+}
+
+// Um item pontual (UNICA/PARCELADA) ainda deve ser cobrado neste ciclo?
+function isOneOffDueThisCycle(item: CycleItem) {
+  if (!isBillable(item)) return false
+  const mode = item.modoCobranca ?? 'MENSALIDADE'
+  const vezesCobradas = Number(item.vezesCobradas ?? 0)
+  if (mode === 'UNICA') return vezesCobradas < 1
+  if (mode === 'PARCELADA') return vezesCobradas < Number(item.cobrarVezes ?? 0)
+  return false
+}
+
+// Soma dos adicionais pontuais devidos neste ciclo (única / parcelada ainda dentro do limite).
+function calculateOneOffItemsValue(items: Array<CycleItem>) {
+  return items.filter(isOneOffDueThisCycle).reduce((acc, item) => acc + itemLineValue(item), 0)
 }
 
 function resolveSubscriptionValue(args: {
   modoValor: 'MANUAL' | 'DINAMICO'
   valorManual?: number | null
   planBaseValue?: number | null
-  itens: Array<{ quantidade: number; valorUnitario: number; cobrar?: boolean; ativo?: boolean }>
+  itens: Array<CycleItem>
 }) {
   if (args.modoValor === 'MANUAL') {
     return Number(args.valorManual ?? args.planBaseValue ?? 0)
@@ -102,14 +137,18 @@ function resolveFormaPagamento(tipoCobranca?: string | null) {
   return 'PIX' as const
 }
 
-async function ensureFinancialContext(contaId: number) {
+async function ensureFinancialContext(
+  contaId: number,
+  overrides?: { contaFinanceiraId?: number | null; categoriaId?: number | null },
+) {
+  // Usa a categoria/conta escolhidas no contrato quando setadas (validando o dono); senão, fallback para a primeira.
   const [categoria, contaFinanceira] = await Promise.all([
     prisma.categoriaFinanceiro.findFirst({
-      where: { contaId },
+      where: { contaId, ...(overrides?.categoriaId ? { id: overrides.categoriaId } : {}) },
       orderBy: { id: 'asc' },
     }),
     prisma.contasFinanceiro.findFirst({
-      where: { contaId },
+      where: { contaId, ...(overrides?.contaFinanceiraId ? { id: overrides.contaFinanceiraId } : {}) },
       orderBy: { id: 'asc' },
     }),
   ])
@@ -141,7 +180,10 @@ export async function gerarLancamentoFinanceiroAutomatico(cicloId: number, usuar
     return { lancamentoId: ciclo.lancamentoFinanceiroId, parcelaId: null }
   }
 
-  const { categoria, contaFinanceira } = await ensureFinancialContext(ciclo.assinatura.contaId)
+  const { categoria, contaFinanceira } = await ensureFinancialContext(ciclo.assinatura.contaId, {
+    contaFinanceiraId: ciclo.assinatura.contaFinanceiraId,
+    categoriaId: ciclo.assinatura.categoriaId,
+  })
 
   const result = await prisma.$transaction(async (tx) => {
     const created = await criarLancamentoFinanceiro(
@@ -358,17 +400,38 @@ export async function createCycleForSubscription(
     return existente
   }
 
-  const valorResolvido = resolveSubscriptionValue({
+  const cycleItems: CycleItem[] = assinatura.itens.map((item) => ({
+    quantidade: item.quantidade,
+    valorUnitario: Number(item.valorUnitario),
+    cobrar: item.cobrar,
+    ativo: item.ativo,
+    modoCobranca: item.modoCobranca,
+    cobrarVezes: item.cobrarVezes,
+    vezesCobradas: item.vezesCobradas,
+  }))
+
+  // Valor recorrente (mensalidade) + adicionais pontuais devidos neste ciclo (única / parcelada).
+  const valorRecorrente = resolveSubscriptionValue({
     modoValor: assinatura.modoValor,
     valorManual: assinatura.valorManual ? Number(assinatura.valorManual) : null,
     planBaseValue: assinatura.plano ? Number(assinatura.plano.valorBase) : null,
-    itens: assinatura.itens.map((item) => ({
+    itens: cycleItems,
+  })
+  const valorAdicionais = calculateOneOffItemsValue(cycleItems)
+  const valorResolvido = valorRecorrente + valorAdicionais
+
+  // Itens pontuais efetivamente incluídos neste ciclo — precisam ter o contador incrementado.
+  const itensPontuaisCobrados = assinatura.itens.filter((item) =>
+    isOneOffDueThisCycle({
       quantidade: item.quantidade,
       valorUnitario: Number(item.valorUnitario),
       cobrar: item.cobrar,
       ativo: item.ativo,
-    })),
-  })
+      modoCobranca: item.modoCobranca,
+      cobrarVezes: item.cobrarVezes,
+      vezesCobradas: item.vezesCobradas,
+    }),
+  )
 
   const periodo = getCyclePeriod(referenceDate, assinatura.periodicidade, assinatura.intervaloDiasPersonalizado)
 
@@ -393,10 +456,20 @@ export async function createCycleForSubscription(
     },
   })
 
+  if (itensPontuaisCobrados.length) {
+    await prisma.assinaturaItem.updateMany({
+      where: { id: { in: itensPontuaisCobrados.map((item) => item.id) } },
+      data: { vezesCobradas: { increment: 1 } },
+    })
+  }
+
   await registerHistory(assinatura.id, usuarioId, 'CICLO_GERADO', {
     cicloId: ciclo.id,
     referencia,
     valorCobrado: valorResolvido,
+    valorRecorrente,
+    valorAdicionais,
+    itensPontuaisCobrados: itensPontuaisCobrados.map((item) => item.id),
   })
 
   try {

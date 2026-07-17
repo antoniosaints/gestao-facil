@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { addDays, addMonths, addWeeks, addYears, format, subDays } from 'date-fns'
+import { addDays, addMonths, addWeeks, addYears, format, startOfMonth, subDays, subMonths } from 'date-fns'
 import { z } from 'zod'
 
 import { prisma } from '../../utils/prisma'
@@ -44,20 +44,27 @@ const planoSchema = z.object({
   itens: z.array(planoItemSchema).default([]),
 })
 
-const assinaturaItemSchema = z.object({
-  tipoItem: z.enum(['SERVICO', 'PRODUTO']),
-  servicoId: z.number().int().positive().optional().nullable(),
-  produtoId: z.number().int().positive().optional().nullable(),
-  descricaoSnapshot: z.string().trim().min(1),
-  quantidade: z.number().int().positive().default(1),
-  valorUnitario: z.number().min(0),
-  cobrar: z.boolean().default(true),
-  comodato: z.boolean().default(false),
-  ativo: z.boolean().default(true),
-  identificacao: z.string().trim().optional().nullable(),
-  dataPrevistaDevolucao: z.string().datetime().optional().nullable(),
-  observacoes: z.string().trim().optional().nullable(),
-})
+const assinaturaItemSchema = z
+  .object({
+    tipoItem: z.enum(['SERVICO', 'PRODUTO']),
+    servicoId: z.number().int().positive().optional().nullable(),
+    produtoId: z.number().int().positive().optional().nullable(),
+    descricaoSnapshot: z.string().trim().min(1),
+    quantidade: z.number().int().positive().default(1),
+    valorUnitario: z.number().min(0),
+    cobrar: z.boolean().default(true),
+    comodato: z.boolean().default(false),
+    ativo: z.boolean().default(true),
+    modoCobranca: z.enum(['MENSALIDADE', 'UNICA', 'PARCELADA']).default('MENSALIDADE'),
+    cobrarVezes: z.number().int().positive().optional().nullable(),
+    identificacao: z.string().trim().optional().nullable(),
+    dataPrevistaDevolucao: z.string().datetime().optional().nullable(),
+    observacoes: z.string().trim().optional().nullable(),
+  })
+  .refine((item) => item.modoCobranca !== 'PARCELADA' || (item.cobrarVezes ?? 0) >= 1, {
+    message: 'Informe quantas vezes o item será cobrado (cobrarVezes >= 1) quando o modo for PARCELADA.',
+    path: ['cobrarVezes'],
+  })
 
 const assinaturaSchema = z.object({
   id: z.number().int().positive().optional(),
@@ -79,6 +86,8 @@ const assinaturaSchema = z.object({
   gateway: z.enum(['mercadopago', 'abacatepay', 'asaas', 'pagseguro']).optional().nullable(),
   tipoCobranca: z.enum(['PIX', 'BOLETO', 'LINK']).optional().nullable(),
   gerarLancamentoFinanceiro: z.boolean().default(false),
+  contaFinanceiraId: z.number().int().positive().optional().nullable(),
+  categoriaId: z.number().int().positive().optional().nullable(),
   observacoes: z.string().trim().optional().nullable(),
   itens: z.array(assinaturaItemSchema).default([]),
   gerarPrimeiroCiclo: z.boolean().default(true),
@@ -103,6 +112,41 @@ const reajusteCicloSchema = z.object({
 function toNumber(value: unknown) {
   if (value === null || value === undefined) return 0
   return Number(value)
+}
+
+// Valida que a conta financeira informada pertence à conta; retorna o id, null (não informado) ou false (erro já respondido).
+async function resolveContaFinanceiraId(
+  contaId: number,
+  contaFinanceiraId: number | null | undefined,
+  res: Response,
+): Promise<number | null | false> {
+  if (!contaFinanceiraId) return null
+  const exists = await prisma.contasFinanceiro.findFirst({
+    where: { id: contaFinanceiraId, contaId },
+    select: { id: true },
+  })
+  if (!exists) {
+    res.status(400).json({ message: 'Conta financeira inválida para esta conta.' })
+    return false
+  }
+  return contaFinanceiraId
+}
+
+async function resolveCategoriaFinanceiraId(
+  contaId: number,
+  categoriaId: number | null | undefined,
+  res: Response,
+): Promise<number | null | false> {
+  if (!categoriaId) return null
+  const exists = await prisma.categoriaFinanceiro.findFirst({
+    where: { id: categoriaId, contaId },
+    select: { id: true },
+  })
+  if (!exists) {
+    res.status(400).json({ message: 'Categoria financeira inválida para esta conta.' })
+    return false
+  }
+  return categoriaId
 }
 
 function getPeriodStep(periodicidade: string, intervaloDias?: number | null) {
@@ -152,17 +196,48 @@ function getCycleReference(base: Date, periodicidade: string) {
   return format(base, 'yyyy-MM')
 }
 
-function calculateItemsValue(items: Array<{ quantidade: number; valorUnitario: number; cobrar?: boolean; ativo?: boolean }>) {
+type ValorItem = {
+  quantidade: number
+  valorUnitario: number
+  cobrar?: boolean
+  ativo?: boolean
+  modoCobranca?: 'MENSALIDADE' | 'UNICA' | 'PARCELADA'
+}
+
+// Valor recorrente (mensalidade) do contrato: apenas itens MENSALIDADE compõem o valor de cada ciclo.
+// Itens UNICA/PARCELADA são adicionais pontuais tratados na geração do ciclo (recorrenciaService).
+function calculateItemsValue(items: Array<ValorItem>) {
   return items
     .filter((item) => item.cobrar !== false && item.ativo !== false)
+    .filter((item) => (item.modoCobranca ?? 'MENSALIDADE') === 'MENSALIDADE')
     .reduce((acc, item) => acc + Number(item.quantidade || 0) * Number(item.valorUnitario || 0), 0)
+}
+
+// Converte o valor de um ciclo para o equivalente mensal (MRR), conforme a periodicidade.
+function mensalizarValor(valorBase: number, periodicidade: string) {
+  switch (periodicidade) {
+    case 'SEMANAL':
+      return valorBase * 4
+    case 'QUINZENAL':
+      return valorBase * 2
+    case 'BIMESTRAL':
+      return valorBase / 2
+    case 'TRIMESTRAL':
+      return valorBase / 3
+    case 'SEMESTRAL':
+      return valorBase / 6
+    case 'ANUAL':
+      return valorBase / 12
+    default:
+      return valorBase
+  }
 }
 
 function resolveSubscriptionValue(args: {
   modoValor: 'MANUAL' | 'DINAMICO'
   valorManual?: number | null
   planBaseValue?: number | null
-  itens: Array<{ quantidade: number; valorUnitario: number; cobrar?: boolean; ativo?: boolean }>
+  itens: Array<ValorItem>
 }) {
   if (args.modoValor === 'MANUAL') {
     return Number(args.valorManual ?? args.planBaseValue ?? 0)
@@ -293,6 +368,7 @@ function mapAssinaturaListItem(item: any) {
       valorUnitario: Number(subItem.valorUnitario),
       cobrar: subItem.cobrar,
       ativo: subItem.ativo,
+      modoCobranca: subItem.modoCobranca,
     })),
   })
 
@@ -569,7 +645,7 @@ export async function getAssinaturasDashboard(req: Request, res: Response): Prom
     prisma.assinaturaComodato.count({ where: { assinaturaItem: { assinatura: { contaId } }, status: 'EM_USO' } }),
     prisma.assinaturaCliente.findMany({
       where: { contaId, status: 'ATIVA' },
-      include: { plano: true, itens: true },
+      include: { plano: true, itens: true, cliente: true },
     }),
     prisma.assinaturaCliente.findMany({
       where: { contaId },
@@ -583,7 +659,12 @@ export async function getAssinaturasDashboard(req: Request, res: Response): Prom
     }),
   ])
 
-  const mrrEstimado = assinaturas.reduce((acc, assinatura) => {
+  // MRR total + agrupamentos (por cliente e por periodicidade) num único passo sobre os contratos ativos.
+  const mrrPorCliente = new Map<number, { nome: string; valor: number }>()
+  const contratosPorPeriodicidade = new Map<string, number>()
+  let mrrEstimado = 0
+
+  for (const assinatura of assinaturas) {
     const valorBase = resolveSubscriptionValue({
       modoValor: assinatura.modoValor,
       valorManual: assinatura.valorManual ? Number(assinatura.valorManual) : null,
@@ -593,34 +674,68 @@ export async function getAssinaturasDashboard(req: Request, res: Response): Prom
         valorUnitario: Number(item.valorUnitario),
         cobrar: item.cobrar,
         ativo: item.ativo,
+        modoCobranca: item.modoCobranca,
       })),
     })
 
-    switch (assinatura.periodicidade) {
-      case 'SEMANAL':
-        return acc + valorBase * 4
-      case 'QUINZENAL':
-        return acc + valorBase * 2
-      case 'BIMESTRAL':
-        return acc + valorBase / 2
-      case 'TRIMESTRAL':
-        return acc + valorBase / 3
-      case 'SEMESTRAL':
-        return acc + valorBase / 6
-      case 'ANUAL':
-        return acc + valorBase / 12
-      default:
-        return acc + valorBase
-    }
-  }, 0)
+    const mensal = mensalizarValor(valorBase, assinatura.periodicidade)
+    mrrEstimado += mensal
 
-  const inadimplencia = await prisma.assinaturaCiclo.aggregate({
-    where: {
-      assinatura: { contaId },
-      status: 'ATRASADO',
-    },
-    _sum: { valorCobrado: true },
-  })
+    contratosPorPeriodicidade.set(
+      assinatura.periodicidade,
+      (contratosPorPeriodicidade.get(assinatura.periodicidade) || 0) + 1,
+    )
+
+    if (assinatura.clienteId) {
+      const atual = mrrPorCliente.get(assinatura.clienteId)
+      mrrPorCliente.set(assinatura.clienteId, {
+        nome: assinatura.cliente?.nome || 'Cliente não informado',
+        valor: (atual?.valor || 0) + mensal,
+      })
+    }
+  }
+
+  // Janela dos últimos 6 meses para a série de receita (recebido x previsto por mês).
+  const meses: string[] = []
+  for (let i = 5; i >= 0; i--) meses.push(format(subMonths(hoje, i), 'yyyy-MM'))
+  const inicioJanela = startOfMonth(subMonths(hoje, 5))
+
+  const [inadimplencia, ciclosJanela, ciclosPorStatus] = await Promise.all([
+    prisma.assinaturaCiclo.aggregate({
+      where: { assinatura: { contaId }, status: 'ATRASADO' },
+      _sum: { valorCobrado: true },
+    }),
+    prisma.assinaturaCiclo.findMany({
+      where: { assinatura: { contaId }, inicioPeriodo: { gte: inicioJanela } },
+      select: { inicioPeriodo: true, valorCobrado: true, status: true },
+    }),
+    prisma.assinaturaCiclo.groupBy({
+      by: ['status'],
+      where: { assinatura: { contaId } },
+      _count: { _all: true },
+    }),
+  ])
+
+  const recebidoPorMes: Record<string, number> = Object.fromEntries(meses.map((m) => [m, 0]))
+  const previstoPorMes: Record<string, number> = Object.fromEntries(meses.map((m) => [m, 0]))
+  for (const ciclo of ciclosJanela) {
+    const key = format(ciclo.inicioPeriodo, 'yyyy-MM')
+    if (!(key in previstoPorMes)) continue
+    const valor = toNumber(ciclo.valorCobrado)
+    previstoPorMes[key] += valor
+    if (ciclo.status === 'PAGO') recebidoPorMes[key] += valor
+  }
+
+  const mesAtualKey = format(hoje, 'yyyy-MM')
+  const recebidoMes = recebidoPorMes[mesAtualKey] || 0
+
+  const statusCicloOrdem = ['PENDENTE', 'COBRADO', 'PAGO', 'ATRASADO', 'CANCELADO', 'FALHA'] as const
+  const cobrancasStatusMap = new Map(ciclosPorStatus.map((row) => [row.status, row._count._all]))
+
+  const topClientes = Array.from(mrrPorCliente.values())
+    .filter((item) => item.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 5)
 
   return res.json({
     data: {
@@ -630,11 +745,31 @@ export async function getAssinaturasDashboard(req: Request, res: Response): Prom
         assinaturasSuspensas: suspensas,
         assinaturasCanceladas: canceladas,
         mrrEstimado,
+        ticketMedio: ativas > 0 ? mrrEstimado / ativas : 0,
+        recebidoMes,
         inadimplencia: toNumber(inadimplencia._sum.valorCobrado),
         cobrancasPendentes: ciclosPendentes,
         cobrancasAtrasadas: ciclosAtrasados,
         comodatosEmUso,
       },
+      serieReceita: {
+        labels: meses,
+        recebido: meses.map((m) => recebidoPorMes[m]),
+        previsto: meses.map((m) => previstoPorMes[m]),
+      },
+      contratosPorStatus: {
+        labels: ['Ativos', 'Suspensos', 'Cancelados/Encerrados'],
+        data: [ativas, suspensas, canceladas],
+      },
+      cobrancasPorStatus: {
+        labels: [...statusCicloOrdem],
+        data: statusCicloOrdem.map((status) => cobrancasStatusMap.get(status) || 0),
+      },
+      contratosPorPeriodicidade: {
+        labels: Array.from(contratosPorPeriodicidade.keys()),
+        data: Array.from(contratosPorPeriodicidade.values()),
+      },
+      topClientes,
       proximosVencimentos: proximosCiclos.map((item) => ({
         id: item.id,
         Uid: item.Uid,
@@ -651,6 +786,7 @@ export async function getAssinaturasDashboard(req: Request, res: Response): Prom
             valorUnitario: Number(subItem.valorUnitario),
             cobrar: subItem.cobrar,
             ativo: subItem.ativo,
+            modoCobranca: subItem.modoCobranca,
           })),
         }),
         status: item.status,
@@ -665,7 +801,7 @@ export async function getAssinaturasOpcoes(req: Request, res: Response): Promise
 
   const { contaId } = getCustomRequest(req).customData
 
-  const [clientes, servicos, produtos] = await Promise.all([
+  const [clientes, servicos, produtos, contasFinanceiro, categorias] = await Promise.all([
     prisma.clientesFornecedores.findMany({
       where: { contaId, tipo: 'CLIENTE' },
       select: { id: true, nome: true, Uid: true },
@@ -684,6 +820,18 @@ export async function getAssinaturasOpcoes(req: Request, res: Response): Promise
       take: 100,
       orderBy: [{ nome: 'asc' }, { nomeVariante: 'asc' }],
     }),
+    prisma.contasFinanceiro.findMany({
+      where: { contaId },
+      select: { id: true, nome: true },
+      take: 100,
+      orderBy: { nome: 'asc' },
+    }),
+    prisma.categoriaFinanceiro.findMany({
+      where: { contaId },
+      select: { id: true, nome: true },
+      take: 200,
+      orderBy: { nome: 'asc' },
+    }),
   ])
 
   return res.json({
@@ -694,6 +842,8 @@ export async function getAssinaturasOpcoes(req: Request, res: Response): Promise
         id: item.id,
         label: `${item.nome}${item.nomeVariante ? ` / ${item.nomeVariante}` : ''} • ${toNumber(item.preco).toFixed(2)}`,
       })),
+      contasFinanceiro: contasFinanceiro.map((item) => ({ id: item.id, label: item.nome })),
+      categorias: categorias.map((item) => ({ id: item.id, label: item.nome })),
     },
   })
 }
@@ -1133,10 +1283,17 @@ export async function saveAssinatura(req: Request, res: Response): Promise<any> 
         cobrar: item.cobrar,
         comodato: item.comodato,
         ativo: true,
+        modoCobranca: 'MENSALIDADE' as const,
+        cobrarVezes: null,
         identificacao: null,
         dataPrevistaDevolucao: null,
         observacoes: null,
       }))
+
+  const contaFinanceiraId = await resolveContaFinanceiraId(contaId, payload.contaFinanceiraId, res)
+  if (contaFinanceiraId === false) return
+  const categoriaId = await resolveCategoriaFinanceiraId(contaId, payload.categoriaId, res)
+  if (categoriaId === false) return
 
   if (!itemsToPersist.length && payload.modoValor === 'DINAMICO' && !plan) {
     return res.status(400).json({ message: 'Assinaturas dinâmicas exigem ao menos um item ou um plano base.' })
@@ -1170,6 +1327,8 @@ export async function saveAssinatura(req: Request, res: Response): Promise<any> 
             gateway: payload.gateway || null,
             tipoCobranca: payload.tipoCobranca || null,
             gerarLancamentoFinanceiro: payload.gerarLancamentoFinanceiro,
+            contaFinanceiraId,
+            categoriaId,
             observacoes: payload.observacoes || null,
           },
         })
@@ -1193,6 +1352,8 @@ export async function saveAssinatura(req: Request, res: Response): Promise<any> 
             gateway: payload.gateway || null,
             tipoCobranca: payload.tipoCobranca || null,
             gerarLancamentoFinanceiro: payload.gerarLancamentoFinanceiro,
+            contaFinanceiraId,
+            categoriaId,
             observacoes: payload.observacoes || null,
           },
         })
@@ -1213,6 +1374,8 @@ export async function saveAssinatura(req: Request, res: Response): Promise<any> 
           cobrar: item.cobrar,
           comodato: item.comodato,
           ativo: item.ativo,
+          modoCobranca: item.modoCobranca,
+          cobrarVezes: item.modoCobranca === 'PARCELADA' ? item.cobrarVezes ?? null : null,
         },
       })
 
@@ -1251,6 +1414,110 @@ export async function saveAssinatura(req: Request, res: Response): Promise<any> 
     message: payload.id ? 'Assinatura atualizada com sucesso.' : 'Assinatura criada com sucesso.',
     data: { id: saved.id },
   })
+}
+
+export async function adicionarItemAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const assinaturaId = Number(req.params.id)
+
+  if (!assinaturaId) {
+    return res.status(400).json({ message: 'Assinatura inválida.' })
+  }
+
+  const parsed = assinaturaItemSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ message: parsed.error.errors[0]?.message || 'Dados inválidos para o item.' })
+  }
+  const item = parsed.data
+
+  const assinatura = await prisma.assinaturaCliente.findFirst({
+    where: { id: assinaturaId, contaId },
+    select: { id: true, inicio: true },
+  })
+  if (!assinatura) {
+    return res.status(404).json({ message: 'Assinatura não encontrada.' })
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    const assinaturaItem = await tx.assinaturaItem.create({
+      data: {
+        assinaturaId: assinatura.id,
+        tipoItem: item.tipoItem,
+        servicoId: item.servicoId || null,
+        produtoId: item.produtoId || null,
+        descricaoSnapshot: item.descricaoSnapshot,
+        quantidade: item.quantidade,
+        valorUnitario: item.valorUnitario,
+        cobrar: item.cobrar,
+        comodato: item.comodato,
+        ativo: item.ativo,
+        modoCobranca: item.modoCobranca,
+        cobrarVezes: item.modoCobranca === 'PARCELADA' ? item.cobrarVezes ?? null : null,
+      },
+    })
+
+    if (item.comodato && item.produtoId) {
+      await tx.assinaturaComodato.create({
+        data: {
+          assinaturaItemId: assinaturaItem.id,
+          produtoId: item.produtoId,
+          quantidade: item.quantidade,
+          identificacao: item.identificacao || null,
+          status: 'EM_USO',
+          dataEntrega: new Date(),
+          dataPrevistaDevolucao: item.dataPrevistaDevolucao ? new Date(item.dataPrevistaDevolucao) : null,
+          observacoes: item.observacoes || null,
+        },
+      })
+    }
+
+    return assinaturaItem
+  })
+
+  await registerHistory(assinatura.id, userId, 'ITEM_ADICIONADO', {
+    itemId: created.id,
+    descricao: item.descricaoSnapshot,
+    modoCobranca: item.modoCobranca,
+    cobrarVezes: created.cobrarVezes,
+  })
+
+  return res.json({ message: 'Item adicionado ao contrato com sucesso.', data: { id: created.id } })
+}
+
+export async function removerItemAssinatura(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId, userId } = getCustomRequest(req).customData
+  const assinaturaId = Number(req.params.id)
+  const itemId = Number(req.params.itemId)
+
+  if (!assinaturaId || !itemId) {
+    return res.status(400).json({ message: 'Assinatura ou item inválido.' })
+  }
+
+  const item = await prisma.assinaturaItem.findFirst({
+    where: { id: itemId, assinaturaId, assinatura: { contaId } },
+    include: { comodatos: true },
+  })
+  if (!item) {
+    return res.status(404).json({ message: 'Item não encontrado neste contrato.' })
+  }
+
+  const possuiComodatoEmUso = item.comodatos.some((comodato) => comodato.status === 'EM_USO')
+  if (possuiComodatoEmUso) {
+    return res.status(400).json({ message: 'O item possui comodato em uso e não pode ser removido.' })
+  }
+
+  await prisma.assinaturaItem.delete({ where: { id: item.id } })
+
+  await registerHistory(assinaturaId, userId, 'ITEM_REMOVIDO', {
+    itemId: item.id,
+    descricao: item.descricaoSnapshot,
+  })
+
+  return res.json({ message: 'Item removido do contrato com sucesso.' })
 }
 
 export async function deleteAssinatura(req: Request, res: Response): Promise<any> {
@@ -1330,6 +1597,8 @@ export async function getAssinaturaDetalhe(req: Request, res: Response): Promise
     include: {
       cliente: true,
       plano: { include: { itens: true } },
+      contaFinanceira: true,
+      categoria: true,
       itens: {
         include: {
           servico: true,
@@ -1368,6 +1637,7 @@ export async function getAssinaturaDetalhe(req: Request, res: Response): Promise
       valorUnitario: Number(item.valorUnitario),
       cobrar: item.cobrar,
       ativo: item.ativo,
+      modoCobranca: item.modoCobranca,
     })),
   })
 
@@ -1390,6 +1660,10 @@ export async function getAssinaturaDetalhe(req: Request, res: Response): Promise
       gateway: data.gateway,
       tipoCobranca: data.tipoCobranca,
       gerarLancamentoFinanceiro: data.gerarLancamentoFinanceiro,
+      contaFinanceiraId: data.contaFinanceiraId,
+      categoriaId: data.categoriaId,
+      contaFinanceira: data.contaFinanceira ? { id: data.contaFinanceira.id, nome: data.contaFinanceira.nome } : null,
+      categoria: data.categoria ? { id: data.categoria.id, nome: data.categoria.nome } : null,
       observacoes: data.observacoes,
       cliente: data.cliente ? { id: data.cliente.id, nome: data.cliente.nome, Uid: data.cliente.Uid } : null,
       plano: data.plano
@@ -1419,6 +1693,9 @@ export async function getAssinaturaDetalhe(req: Request, res: Response): Promise
         cobrar: item.cobrar,
         comodato: item.comodato,
         ativo: item.ativo,
+        modoCobranca: item.modoCobranca,
+        cobrarVezes: item.cobrarVezes,
+        vezesCobradas: item.vezesCobradas,
         servico: item.servico ? { id: item.servico.id, nome: item.servico.nome } : null,
         produto: item.produto ? { id: item.produto.id, nome: item.produto.nome, variante: item.produto.nomeVariante } : null,
         comodatos: item.comodatos.map((comodato) => ({
@@ -1896,10 +2173,12 @@ export async function getCobrancasAssinaturaTable(req: Request, res: Response): 
   const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
   const search = normalizeSearch(req.query.search)
   const status = normalizeSearch(req.query.status)
+  const assinaturaId = parsePositiveQueryNumber(req.query.assinaturaId, 0)
   const sortBy = resolveCobrancaSortField(req.query.sortBy)
   const order = parseSortOrder(req.query.order)
 
   const where = {
+    ...(assinaturaId ? { assinaturaId } : {}),
     assinatura: {
       contaId,
       ...(search
@@ -2083,11 +2362,13 @@ export async function getComodatosAssinaturaTable(req: Request, res: Response): 
   const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
   const search = normalizeSearch(req.query.search)
   const status = normalizeSearch(req.query.status)
+  const assinaturaId = parsePositiveQueryNumber(req.query.assinaturaId, 0)
   const sortBy = resolveComodatoSortField(req.query.sortBy)
   const order = parseSortOrder(req.query.order)
 
   const where = {
     assinaturaItem: {
+      ...(assinaturaId ? { assinaturaId } : {}),
       assinatura: {
         contaId,
         ...(search
@@ -2196,6 +2477,47 @@ export async function getComodatosAssinaturaMobile(req: Request, res: Response):
       limit: take,
       totalPages: Math.ceil(total / take),
     },
+  })
+}
+
+export async function getHistoricoAssinaturaTable(req: Request, res: Response): Promise<any> {
+  if (!(await ensurePermission(req, res))) return
+
+  const { contaId } = getCustomRequest(req).customData
+  const page = parsePositiveQueryNumber(req.query.page, 1)
+  const pageSize = parsePositiveQueryNumber(req.query.pageSize, 10)
+  const search = normalizeSearch(req.query.search)
+  const assinaturaId = parsePositiveQueryNumber(req.query.assinaturaId, 0)
+  const order: 'asc' | 'desc' = req.query.order === 'asc' ? 'asc' : 'desc'
+
+  const where = {
+    assinatura: { contaId, ...(assinaturaId ? { id: assinaturaId } : {}) },
+    ...(search ? { evento: { contains: search } } : {}),
+  }
+
+  const [total, data] = await Promise.all([
+    prisma.assinaturaHistorico.count({ where }),
+    prisma.assinaturaHistorico.findMany({
+      where,
+      include: { Autor: true },
+      orderBy: { createdAt: order },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ])
+
+  return res.json({
+    data: data.map((item) => ({
+      id: item.id,
+      evento: item.evento,
+      payloadJson: item.payloadJson,
+      autor: item.Autor?.nome || 'Sistema',
+      createdAt: item.createdAt,
+    })),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize),
   })
 }
 
