@@ -1,5 +1,4 @@
 import Decimal from "decimal.js";
-import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { Request, Response } from "express";
 import { format } from "date-fns";
@@ -11,7 +10,8 @@ export const getResumoFaturasAssinantesSistema = async (
   res: Response
 ): Promise<any> => {
   try {
-    const customData = getCustomRequest(req).customData;
+    // Agregado de toda a plataforma de propósito: a rota é restrita a
+    // superAdmin no router, então não há contaId para filtrar aqui.
     const faturas = await prisma.faturasContas.findMany({
         where: {
             status: "PAGO"

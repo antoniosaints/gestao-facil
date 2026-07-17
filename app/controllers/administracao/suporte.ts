@@ -9,6 +9,9 @@ import { prisma } from "../../utils/prisma";
 import { redisConnecion } from "../../utils/redis";
 import { assertSuperAdmin } from "./assinantes";
 
+// Allowlist de ordenação: sortBy vem da query e vai direto para o orderBy.
+const SORT_FIELDS_SUPORTE = new Set(["id", "iniciadoEm", "expiraEm", "encerradoEm", "contaNome"]);
+
 const iniciarAcessoSchema = z.object({
   senha: z.string().min(1, "Informe sua senha para continuar."),
   motivo: z
@@ -217,16 +220,36 @@ export const listarAcessosSuporte = async (req: Request, res: Response): Promise
     const page = Number(req.query.page) > 0 ? Number(req.query.page) : 1;
     const pageSize = Number(req.query.pageSize) > 0 ? Number(req.query.pageSize) : 10;
     const search = String(req.query.search || "").trim();
+    const situacao = String(req.query.situacao || "TODOS").toUpperCase();
 
+    const agora = new Date();
     const where: Prisma.AcessoSuporteLogWhereInput = {};
-    if (search) {
-      where.OR = [
-        { contaNome: { contains: search } },
-        { superAdminEmail: { contains: search } },
-        { usuarioAlvoEmail: { contains: search } },
-        { motivo: { contains: search } },
-      ];
+
+    // "Em andamento" é a mesma definição que o middleware usa para aceitar o token:
+    // sem encerradoEm e ainda dentro da validade.
+    if (situacao === "ATIVAS") {
+      where.encerradoEm = null;
+      where.expiraEm = { gt: agora };
+    } else if (situacao === "ENCERRADAS") {
+      where.OR = [{ encerradoEm: { not: null } }, { expiraEm: { lte: agora } }];
     }
+
+    if (search) {
+      const busca: Prisma.AcessoSuporteLogWhereInput = {
+        OR: [
+          { contaNome: { contains: search } },
+          { superAdminEmail: { contains: search } },
+          { usuarioAlvoEmail: { contains: search } },
+          { motivo: { contains: search } },
+        ],
+      };
+      // AND explícito: o filtro de situação já pode ter ocupado o OR do where.
+      where.AND = where.AND ? [where.AND as any, busca] : busca;
+    }
+
+    const requestedSortBy = String(req.query.sortBy || "");
+    const sortBy = SORT_FIELDS_SUPORTE.has(requestedSortBy) ? requestedSortBy : "iniciadoEm";
+    const order: Prisma.SortOrder = req.query.order === "asc" ? "asc" : "desc";
 
     const [total, registros] = await Promise.all([
       prisma.acessoSuporteLog.count({ where }),
@@ -234,11 +257,10 @@ export const listarAcessosSuporte = async (req: Request, res: Response): Promise
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: { iniciadoEm: "desc" },
+        orderBy: { [sortBy]: order },
       }),
     ]);
 
-    const agora = new Date();
     const data = registros.map((registro) => ({
       ...registro,
       Uid: `#${registro.id}`,

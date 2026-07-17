@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { getCustomRequest } from "../helpers/getCustomRequest";
 
 /**
- * Barra sessões de suporte nas rotas da plataforma (/api/admin/*).
+ * Barra sessões de suporte nas rotas da plataforma (/api/admin/*, /api/gerencia/*).
  *
  * Durante o suporte o token carrega a identidade do root do assinante, então
  * o assertSuperAdmin — que consulta o banco só pelo userId — voltaria a passar
