@@ -4,6 +4,17 @@ import { env } from "./dotenv";
 const JWT_SECRET = env.JWT_SECRET || "chave-secreta-padrão";
 const JWT_EXPIRES_IN = "6h";
 
+// Sessão de suporte do superadmin dentro da conta de um assinante.
+// Fonte única do TTL: se o expiresIn do JWT e o expiraEm do AcessoSuporteLog
+// divergirem, a revogação por expiração fica furada.
+export const SUPPORT_TOKEN_TTL_SECONDS = 3600;
+
+export interface SupportClaims {
+  imp: true;
+  impBy: number;
+  impSessao: number;
+}
+
 interface Payload {
   id: number;
   email: string;

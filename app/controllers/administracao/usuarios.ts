@@ -17,8 +17,12 @@ export const getMinhaConexao = async (req: Request, res: Response): Promise<any>
     const cacheKey = getUserSessionCacheKey(customData.userId, customData.contaId);
     const cached = await redisConnecion.get(cacheKey);
 
+    // _suporte fica fora do cache: é uma propriedade da sessão atual, não do usuário
+    // (a chave do cache é a do próprio root alvo, compartilhada com o acesso normal dele).
+    const suporte = customData.impersonacao ?? null;
+
     if (cached) {
-      return res.json({ status: "success", data: JSON.parse(cached) });
+      return res.json({ status: "success", data: { ...JSON.parse(cached), _suporte: suporte } });
     }
 
     const usuario = await prisma.usuarios.findUniqueOrThrow({
@@ -30,7 +34,7 @@ export const getMinhaConexao = async (req: Request, res: Response): Promise<any>
 
     await redisConnecion.set(cacheKey, JSON.stringify(usuario), "EX", 3600);
 
-    return res.json({ status: "success", data: usuario });
+    return res.json({ status: "success", data: { ...usuario, _suporte: suporte } });
   } catch (error) {
     return handleError(res, error);
   }
@@ -232,9 +236,10 @@ export const saveUsuario = async (
     const senhaParaGravar = await hashPasswordIfNeeded(String(req.body.senha));
 
     if (hasId) {
-      const user = await prisma.usuarios.findUnique({
+      const user = await prisma.usuarios.findFirst({
         where: {
           id: Number(req.body.id),
+          contaId: customData.contaId,
         },
       });
 
@@ -242,14 +247,16 @@ export const saveUsuario = async (
         req.body.permissao = "root";
       }
 
-      data = await prisma.usuarios.update({
+      // O contaId no where impede editar usuário de outro assinante.
+      // superAdmin/gerencialMode não são editáveis por aqui: são flags da plataforma.
+      const updated = await prisma.usuarios.updateMany({
         where: {
           id: Number(req.body.id),
+          contaId: customData.contaId,
         },
         data: {
           emailReceiver: req.body.emailReceiver,
           pushReceiver: req.body.pushReceiver,
-          contaId: customData.contaId,
           nome: req.body.nome,
           email: req.body.email,
           senha: senhaParaGravar,
@@ -258,9 +265,15 @@ export const saveUsuario = async (
           biografia: req.body.biografia,
           telefone: req.body.telefone,
           endereco: req.body.endereco,
-          gerencialMode: req.body.gerencialMode,
-          superAdmin: req.body.superAdmin,
         },
+      });
+
+      if (!updated.count) {
+        return ResponseHandler(res, "Usuário não encontrado!", null, 404);
+      }
+
+      data = await prisma.usuarios.findUniqueOrThrow({
+        where: { id: Number(req.body.id) },
       });
     } else {
       data = await prisma.usuarios.create({
@@ -276,8 +289,6 @@ export const saveUsuario = async (
           biografia: req.body.biografia,
           telefone: req.body.telefone,
           endereco: req.body.endereco,
-          gerencialMode: req.body.gerencialMode,
-          superAdmin: req.body.superAdmin,
         },
       });
     }

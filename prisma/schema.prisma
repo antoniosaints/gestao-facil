@@ -2340,3 +2340,30 @@ model WhatsAppWebhookEvento {
   @@index([contaId, tipo, createdAt])
   @@index([instanciaId, telefone])
 }
+
+// Trilha de auditoria dos acessos de suporte do superadmin às contas dos assinantes.
+// Sem relations de propósito: deleteContaService apaga tabela a tabela e o log
+// precisa sobreviver à exclusão da conta auditada.
+model AcessoSuporteLog {
+  id               Int       @id @default(autoincrement())
+  contaId          Int
+  contaNome        String
+  superAdminId     Int
+  superAdminNome   String
+  superAdminEmail  String
+  usuarioAlvoId    Int
+  usuarioAlvoEmail String
+  motivo           String    @db.Text
+  ip               String?
+  userAgent        String?   @db.Text
+  iniciadoEm       DateTime  @default(now())
+  expiraEm         DateTime
+  encerradoEm      DateTime?
+  encerradoPor     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([contaId])
+  @@index([superAdminId])
+  @@index([iniciadoEm])
+}

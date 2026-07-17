@@ -229,7 +229,19 @@ export const renewToken = async (req: Request, res: Response): Promise<any> => {
         message: "Token inválido ou expirado",
       });
     }
-    
+
+    // Sessão de suporte não se renova: este endpoint recarrega o usuário do banco
+    // e reemite access + refresh SEM as claims `imp`, o que transformaria um token
+    // de suporte de 1h numa sessão root irrestrita de 7 dias, sem motivo e fora da
+    // auditoria. Ao expirar, o superadmin abre um novo acesso pelo painel CEO.
+    if (decodeToken.imp === true) {
+      return res.status(401).json({
+        authenticated: false,
+        supportEnded: true,
+        message: "Sessão de suporte não pode ser renovada",
+      });
+    }
+
     const usuario = await prisma.usuarios.findFirstOrThrow({
       where: {
         id: decodeToken.id,

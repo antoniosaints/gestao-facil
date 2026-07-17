@@ -6,6 +6,12 @@ export interface CustomData {
   permissao: string;
   contaId: number;
   contaStatus: string;
+  // Preenchido só quando a requisição vem de uma sessão de suporte do superadmin
+  // (token com claim `imp`). Ausente em sessões normais.
+  impersonacao?: {
+    sessaoId: number;
+    superAdminId: number;
+  };
 }
 
 export interface CustomRequest extends Request {

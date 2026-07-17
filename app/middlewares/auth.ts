@@ -28,6 +28,39 @@ export async function authenticateJWT(
   try {
     const decoded = JwtUtil.verify(token);
     if (decoded) {
+      // Sessão de suporte: o JWT é stateless, então sem consultar a linha de
+      // auditoria o "encerrar"/"revogar" seria decorativo e o token continuaria
+      // valendo até expirar. A query extra só acontece em sessões de suporte.
+      let impersonacao: CustomData["impersonacao"];
+      if (decoded.imp === true) {
+        const sessaoId = Number(decoded.impSessao);
+        const sessao = Number.isInteger(sessaoId)
+          ? await prisma.acessoSuporteLog.findUnique({ where: { id: sessaoId } })
+          : null;
+
+        const sessaoValida =
+          sessao &&
+          !sessao.encerradoEm &&
+          sessao.expiraEm > new Date() &&
+          sessao.contaId === decoded.contaId &&
+          sessao.usuarioAlvoId === decoded.id &&
+          sessao.superAdminId === decoded.impBy;
+
+        if (!sessaoValida) {
+          return res.status(401).json({
+            status: 401,
+            supportEnded: true,
+            message: "Sessão de suporte encerrada ou expirada",
+            title: "Acesso negado",
+          });
+        }
+
+        impersonacao = {
+          sessaoId: sessao.id,
+          superAdminId: sessao.superAdminId,
+        };
+      }
+
       const conta = await prisma.contas.findUnique({
         where: {
           id: decoded.contaId,
@@ -40,6 +73,7 @@ export async function authenticateJWT(
         permissao: decoded.permissao,
         contaId: decoded.contaId,
         contaStatus: conta?.status ?? "BLOQUEADO",
+        impersonacao,
       };
 
       return next();
