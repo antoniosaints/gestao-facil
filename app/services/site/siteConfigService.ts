@@ -180,6 +180,42 @@ export async function getPlatformSiteConfig(preferredContaId?: number): Promise<
   return mergeSiteConfig(getSiteConfigFromTheme(configHolder?.temaPersonalizado));
 }
 
+/**
+ * O JSON `temaPersonalizado` guarda duas coisas sem relação: o tema do ERP (cores,
+ * fonte, radius) e a configuração do site público (chave `sitePublico`). Quem grava
+ * o tema precisa passar por aqui, senão sobrescreve o JSON inteiro e apaga o site —
+ * era o que fazia as configurações do site voltarem sozinhas para o padrão assim que
+ * alguém salvasse a Aparência.
+ *
+ * Retorna `undefined` quando não há nada a atualizar, o que o Prisma interpreta como
+ * "não toque neste campo".
+ */
+export async function mergeTemaPersonalizado(
+  contaId: number,
+  incoming: Record<string, unknown> | null | undefined,
+): Promise<Record<string, unknown> | null | undefined> {
+  if (incoming === undefined) return undefined;
+
+  const current = await prisma.parametrosConta.findUnique({
+    where: { contaId },
+    select: { temaPersonalizado: true },
+  });
+
+  const currentTheme = isPlainObject(current?.temaPersonalizado)
+    ? (current.temaPersonalizado as Record<string, unknown>)
+    : {};
+
+  const siteConfig = currentTheme[SITE_PUBLIC_CONFIG_KEY];
+  const preservado = siteConfig !== undefined ? { [SITE_PUBLIC_CONFIG_KEY]: siteConfig } : {};
+
+  // Limpar o tema não pode levar o site junto.
+  if (incoming === null) {
+    return siteConfig !== undefined ? preservado : null;
+  }
+
+  return { ...currentTheme, ...incoming };
+}
+
 export async function savePlatformSiteConfig(contaId: number, config: SitePublicConfig): Promise<SitePublicConfig> {
   const current = await prisma.parametrosConta.findUnique({
     where: { contaId },

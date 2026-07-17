@@ -16,6 +16,7 @@ import {
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { hasPermission } from "../../helpers/userPermission";
 import { canConfigureWhatsAppNotifications } from "../../services/notifications/whatsappNotificationPolicy";
+import { mergeTemaPersonalizado } from "../../services/site/siteConfigService";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 
 const WHATSAPP_NOTIFICATION_PARAM_FIELDS = [
@@ -133,6 +134,13 @@ export const saveParametros = async (
       }
     }
 
+    // temaPersonalizado divide o mesmo JSON com a configuração do site público
+    // (chave sitePublico), então precisa ser mesclado em vez de sobrescrito.
+    const temaPersonalizado = await mergeTemaPersonalizado(
+      customData.contaId,
+      body.data.temaPersonalizado as Record<string, unknown> | null | undefined,
+    );
+
     const parametros = await prisma.parametrosConta.upsert({
       where: {
         contaId: customData.contaId,
@@ -153,7 +161,7 @@ export const saveParametros = async (
         permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
         ...({ contaFinanceiraPadraoId: body.data.contaFinanceiraPadraoId } as any),
         modeloPdv: body.data.modeloPdv,
-        temaPersonalizado: body.data.temaPersonalizado,
+        temaPersonalizado: temaPersonalizado as any,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
@@ -190,7 +198,7 @@ export const saveParametros = async (
         permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
         ...({ contaFinanceiraPadraoId: body.data.contaFinanceiraPadraoId } as any),
         modeloPdv: body.data.modeloPdv,
-        temaPersonalizado: body.data.temaPersonalizado,
+        temaPersonalizado: temaPersonalizado as any,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
