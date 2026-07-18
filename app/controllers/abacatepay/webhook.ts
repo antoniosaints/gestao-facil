@@ -22,6 +22,7 @@ import { recalculateComandaStatus } from "../vendas/comandas";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { applyStorePaymentEvent } from "../../services/loja/lojaOrderService";
+import { faturarOrdemServicoPorPagamento } from "../../services/servicos/faturarOrdemServicoService";
 
 type WebhookResource = {
   id?: string;
@@ -476,6 +477,12 @@ async function handleTenantWebhook(args: {
         cobranca.contaId,
       );
     }
+  }
+
+  // Ordem de serviço: pagamento da cobrança fatura a OS automaticamente.
+  // Neste ponto statusNovo já é EFETIVADO (early-return acima).
+  if (cobranca.ordemServicoId) {
+    await faturarOrdemServicoPorPagamento(cobranca.ordemServicoId, cobranca.contaId);
   }
 }
 

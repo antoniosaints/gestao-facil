@@ -24,6 +24,7 @@ import { concederRecompensaIndicador } from "../../services/contas/indicacaoServ
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { applyStorePaymentEvent } from "../../services/loja/lojaOrderService";
+import { faturarOrdemServicoPorPagamento } from "../../services/servicos/faturarOrdemServicoService";
 
 function extractChargeUidFromExternalReference(externalReference?: string | null) {
   if (!externalReference) return null;
@@ -382,6 +383,11 @@ export async function webhookMercadoPagoCobrancas(
       if (venda.comandaId) {
         await recalculateComandaStatus(prisma, venda.comandaId, cobranca.contaId);
       }
+    }
+
+    // Ordem de serviço: pagamento da cobrança fatura a OS automaticamente.
+    if (cobranca.ordemServicoId && statusNovo === "EFETIVADO") {
+      await faturarOrdemServicoPorPagamento(cobranca.ordemServicoId, cobranca.contaId);
     }
 
     res.sendStatus(200);
