@@ -22,6 +22,7 @@ import {
 } from "../../services/vendas/caixaService";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
+import { criarLancamentoCrediarioVenda } from "../../services/vendas/crediarioVendaService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -790,7 +791,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           PagamentoVendas: {
             create: {
               valor: 0,
-              metodo: "OUTRO",
+              metodo: data.pagamento || "OUTRO",
               status: "PENDENTE",
             },
           },
@@ -854,6 +855,22 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           });
         }
 
+      }
+
+      // Crediario: gera o financeiro parcelado a receber da venda (mesma logica do PDV PRO).
+      if (data.pagamento === "CREDIARIO") {
+        await criarLancamentoCrediarioVenda(tx, {
+          contaId: customData.contaId,
+          vendaId: venda.id,
+          vendaUid: venda.Uid,
+          clienteId: data.clienteId || null,
+          dataVenda: data.data,
+          valorBruto: valorTotal,
+          valorTotal: valorTotal.minus(descontoTotal),
+          desconto: descontoTotal,
+          parcelas: data.crediarioParcelas || 1,
+          primeiroVencimento: new Date(data.crediarioPrimeiroVencimento as string),
+        });
       }
 
       return venda;

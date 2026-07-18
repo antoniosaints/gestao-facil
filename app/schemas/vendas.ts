@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+const metodoPagamentoVendaValues = [
+  "PIX",
+  "DINHEIRO",
+  "CARTAO",
+  "CREDIARIO",
+  "TRANSFERENCIA",
+  "CHEQUE",
+  "CREDITO",
+  "DEBITO",
+  "BOLETO",
+  "OUTRO",
+  "GATEWAY",
+] as const;
+
 export const efetivarVendaSchema = z
   .object(
     {
@@ -140,6 +154,32 @@ export const vendaSchema = z.object(
         message: "Garantia invalida",
       })
       .transform((val) => (val ? Number(val) : undefined)),
+    pagamento: z
+      .enum(metodoPagamentoVendaValues, {
+        invalid_type_error:
+          "O campo pagamento deve ser um metodo de pagamento valido",
+      })
+      .optional()
+      .default("OUTRO"),
+    crediarioParcelas: z
+      .number({
+        invalid_type_error: "O campo crediarioParcelas deve ser um numero",
+      })
+      .int()
+      .min(1)
+      .max(36)
+      .nullable()
+      .optional(),
+    crediarioPrimeiroVencimento: z
+      .string({
+        invalid_type_error:
+          "O campo crediarioPrimeiroVencimento deve ser uma string",
+      })
+      .nullable()
+      .optional()
+      .refine((val) => !val || !Number.isNaN(Date.parse(val)), {
+        message: "Data da primeira parcela invalida",
+      }),
     itens: z.array(
       z.object(
         {
@@ -186,4 +226,30 @@ export const vendaSchema = z.object(
     ),
   },
   { required_error: "Informe os dados da venda" }
-);
+).superRefine((data, ctx) => {
+  if (data.pagamento !== "CREDIARIO") return;
+
+  if (!data.clienteId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["clienteId"],
+      message: "Selecione um cliente para lancar o crediario da venda.",
+    });
+  }
+
+  if (!data.crediarioParcelas || data.crediarioParcelas < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["crediarioParcelas"],
+      message: "Informe em quantas vezes sera o crediario.",
+    });
+  }
+
+  if (!data.crediarioPrimeiroVencimento) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["crediarioPrimeiroVencimento"],
+      message: "Informe a data da primeira parcela do crediario.",
+    });
+  }
+});

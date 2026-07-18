@@ -210,7 +210,7 @@ export const saveCategoria = async (
     const { contaId } = getCustomRequest(req).customData;
 
     if (id) {
-      await prisma.categoriaFinanceiro.update({
+      const categoria = await prisma.categoriaFinanceiro.update({
         where: {
           id: Number(id),
           contaId,
@@ -219,19 +219,22 @@ export const saveCategoria = async (
           nome,
           parentId: categoriaPai ? Number(categoriaPai) : null,
         },
+        select: { id: true, nome: true },
       });
-    } else {
-      await prisma.categoriaFinanceiro.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("CAT"),
-          contaId,
-          nome,
-          parentId: categoriaPai ? Number(categoriaPai) : null,
-        },
-      });
+      return ResponseHandler(res, "Categoria salva com sucesso!", categoria, 200);
     }
 
-    return ResponseHandler(res, "Categoria salva com sucesso!", null, 200);
+    const categoria = await prisma.categoriaFinanceiro.create({
+      data: {
+        Uid: gerarIdUnicoComMetaFinal("CAT"),
+        contaId,
+        nome,
+        parentId: categoriaPai ? Number(categoriaPai) : null,
+      },
+      select: { id: true, nome: true },
+    });
+
+    return ResponseHandler(res, "Categoria salva com sucesso!", categoria, 200);
   } catch (error) {
     handleError(res, error);
   }
