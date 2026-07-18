@@ -557,8 +557,8 @@ function buildCaixaFechamentoWhatsAppBody(caixa: any) {
   linhas.push(`🛒 Vendas: *${vendas.length}* (${formatCurrency(totalVendido)})`);
   linhas.push(`🔺 Reforços: ${formatCurrency(totalReforcos)}`);
   linhas.push(`🔻 Sangrias: ${formatCurrency(totalSangrias)}`);
-  linhas.push(`🎯 Saldo esperado: *${formatCurrency(decimalToNumber(caixa.saldoEsperado))}*`);
-  linhas.push(`💰 Saldo contado: *${formatCurrency(decimalToNumber(caixa.saldoContado))}*`);
+  linhas.push(`🎯 Dinheiro esperado: *${formatCurrency(decimalToNumber(caixa.saldoEsperado))}*`);
+  linhas.push(`💰 Dinheiro contado: *${formatCurrency(decimalToNumber(caixa.saldoContado))}*`);
   if (diferenca !== null) {
     const iconeDiferenca = diferenca === 0 ? "✅" : "⚠️";
     linhas.push(`${iconeDiferenca} Diferença: *${formatCurrency(diferenca)}*`);
