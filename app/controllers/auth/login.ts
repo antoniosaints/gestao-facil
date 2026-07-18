@@ -66,12 +66,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       permissao: usuario.permissao,
       nome: usuario.nome,
       email: usuario.email,
+      tv: usuario.tokenVersion,
     });
 
     const refreshToken = JwtUtil.encode({
       id: usuario.id,
       contaId: usuario.contaId,
       email: usuario.email,
+      tv: usuario.tokenVersion,
     }, '7d');
 
     return res.status(200).json({
@@ -256,18 +258,31 @@ export const renewToken = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    // Se a senha foi trocada depois deste token, o tokenVersion diverge e a
+    // sessão não pode mais ser renovada.
+    if ((usuario.tokenVersion ?? 0) !== (decodeToken.tv ?? 0)) {
+      return res.status(401).json({
+        authenticated: false,
+        returnLogin: true,
+        sessionRevoked: true,
+        message: "Sessão expirada, faça login novamente",
+      });
+    }
+
     const jwtToken = JwtUtil.encode({
       id: usuario.id,
       contaId: usuario.contaId,
       permissao: usuario.permissao,
       nome: usuario.nome,
       email: usuario.email,
+      tv: usuario.tokenVersion,
     });
 
     const refreshToken = JwtUtil.encode({
       id: usuario.id,
       contaId: usuario.contaId,
       email: usuario.email,
+      tv: usuario.tokenVersion,
     }, '7d');
 
     return res.status(200).json({

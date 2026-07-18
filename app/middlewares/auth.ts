@@ -61,11 +61,40 @@ export async function authenticateJWT(
         };
       }
 
-      const conta = await prisma.contas.findUnique({
-        where: {
-          id: decoded.contaId,
-        },
-      });
+      let conta;
+      if (decoded.imp === true) {
+        // Sessão de suporte: já validada acima via AcessoSuporteLog (revogável),
+        // então não aplicamos a checagem de tokenVersion aqui.
+        conta = await prisma.contas.findUnique({
+          where: { id: decoded.contaId },
+        });
+      } else {
+        const usuario = await prisma.usuarios.findUnique({
+          where: { id: decoded.id },
+          include: { Contas: true },
+        });
+
+        if (!usuario) {
+          return res.status(401).json({
+            status: 401,
+            message: "Usuário não encontrado",
+            title: "Não autorizado",
+          });
+        }
+
+        // tokenVersion muda a cada troca de senha; se divergir da claim `tv`, o
+        // token foi emitido antes da troca e a sessão está revogada.
+        if ((usuario.tokenVersion ?? 0) !== (decoded.tv ?? 0)) {
+          return res.status(401).json({
+            status: 401,
+            sessionRevoked: true,
+            message: "Sessão expirada, faça login novamente",
+            title: "Acesso negado",
+          });
+        }
+
+        conta = usuario.Contas;
+      }
 
       (req as Request & { customData: CustomData }).customData = {
         userId: decoded.id,

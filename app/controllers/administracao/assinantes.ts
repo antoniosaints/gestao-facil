@@ -294,6 +294,7 @@ export const resetRootPasswordAdmin = async (req: Request, res: Response): Promi
       },
       data: {
         senha: await hashPassword(parsed.data.senha),
+        tokenVersion: { increment: 1 },
       },
     });
 

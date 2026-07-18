@@ -677,6 +677,9 @@ model Usuarios {
   nome                            String
   email                           String                            @unique
   senha                           String
+  // Incrementado a cada troca de senha: invalida access/refresh tokens já
+  // emitidos (o middleware compara com a claim `tv` do JWT).
+  tokenVersion                    Int                               @default(0)
   superAdmin                      Boolean                           @default(false)
   gerencialMode                   Boolean                           @default(false)
   permissao                       PermissaoUsuario                  @default(usuario)
@@ -755,6 +758,8 @@ model ClientesFornecedores {
   LojaClientes         LojaCliente[]
   LojaPedidos          LojaPedido[]
   LembreteConfig       ClienteLembreteConfig?
+
+  @@index([contaId, status])
 }
 
 enum TipoMovimentacao {
@@ -853,6 +858,7 @@ model Produto {
 
   @@unique([id, contaId])
   @@index([produtoBaseId])
+  @@index([contaId, status])
 }
 
 model ProdutoCategoria {
@@ -926,6 +932,8 @@ model Servicos {
   ItensOrdensServico   ItensOrdensServico[]
   itensVendas          ItensVendas[]
   ComandaItens         ComandaItem[]
+
+  @@index([contaId, status])
 }
 
 model NotaFiscal {
@@ -1373,6 +1381,8 @@ model Vendas {
   PedidoLoja           LojaPedido?
 
   @@index([caixaId])
+  @@index([contaId, status])
+  @@index([contaId, data])
 }
 
 model ItensVendas {
@@ -1602,6 +1612,7 @@ model LancamentoFinanceiro {
   lembreteCliente            LancamentoLembreteCliente?
 
   @@unique([assinaturaPagarId, referenciaRecorrencia])
+  @@index([contaId, status, dataLancamento])
 }
 
 model ParcelaFinanceiro {

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import crypto from "crypto";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 import { subDays } from "date-fns";
@@ -13,14 +14,22 @@ import {
   handleSubscriptionDeleted,
 } from "./hooks";
 
+// Comparação em tempo constante e independente de tamanho (hash de ambos os
+// lados): evita timing attack ao conferir o token estático do webhook.
+function safeCompare(a: string, b: string): boolean {
+  const ha = crypto.createHash("sha256").update(a).digest();
+  const hb = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 export const webhookAsaasCheck = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const auth = req.headers["asaas-access-token"] as string;
 
-  if (!auth || auth !== env.ASAAS_WEBHOOK_SECRET) {
-    console.log(`Erro ao processar webhook: ${auth}`);
+  if (!auth || !safeCompare(auth, env.ASAAS_WEBHOOK_SECRET)) {
+    console.log("Erro ao processar webhook Asaas: token inválido");
     return res.status(401).json({ error: "Assinatura do webhook inválida" });
   }
 

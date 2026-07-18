@@ -247,6 +247,10 @@ export const saveUsuario = async (
         req.body.permissao = "root";
       }
 
+      // Só invalida sessões se a senha realmente mudou: ao editar outros campos o
+      // formulário reenvia o hash atual, e hashPasswordIfNeeded o mantém igual.
+      const senhaAlterada = senhaParaGravar !== user?.senha;
+
       // O contaId no where impede editar usuário de outro assinante.
       // superAdmin/gerencialMode não são editáveis por aqui: são flags da plataforma.
       const updated = await prisma.usuarios.updateMany({
@@ -260,6 +264,7 @@ export const saveUsuario = async (
           nome: req.body.nome,
           email: req.body.email,
           senha: senhaParaGravar,
+          tokenVersion: senhaAlterada ? { increment: 1 } : undefined,
           permissao: req.body.permissao,
           status: req.body.status,
           biografia: req.body.biografia,
@@ -381,6 +386,7 @@ export const updateSenha = async (req: Request, res: Response): Promise<any> => 
       },
       data: {
         senha: await hashPassword(novaSenha),
+        tokenVersion: { increment: 1 },
       },
     });
 
