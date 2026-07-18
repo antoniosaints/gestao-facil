@@ -387,6 +387,7 @@ export const getProdutos = async (
     const query = req.query;
     const produtos = await prisma.produto.findMany({
       take: query?.limit ? Number(query?.limit) : 10,
+      ...(query?.skip ? { skip: Number(query.skip) } : {}),
       where: {
         contaId: customData.contaId,
         ...(String(query?.pdv).toLowerCase() === "true"

@@ -1454,6 +1454,9 @@ model CaixaSessao {
   saldoEsperado        Decimal          @default(0) @db.Decimal(10, 2)
   saldoContado         Decimal?         @db.Decimal(10, 2)
   diferenca            Decimal?         @db.Decimal(10, 2)
+  // Contagem informada por método no fechamento (opcional): [{ metodo, esperado, contado, diferenca }].
+  // Dinheiro é sempre contado (saldoContado); os demais métodos só entram aqui quando o operador informa.
+  fechamentoMetodos    Json?
   observacaoAbertura   String?          @db.Text
   observacaoFechamento String?          @db.Text
   operadores           CaixaOperador[]

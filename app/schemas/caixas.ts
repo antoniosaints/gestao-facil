@@ -48,6 +48,17 @@ export const fecharCaixaSchema = z.object({
   caixaId: z.number().int().positive(),
   valorFechamento: z.number().min(0),
   descricao: z.string().optional(),
+  // Contagem opcional por método (usado pelo PDV PRO). Dinheiro segue em valorFechamento.
+  metodosContados: z
+    .array(
+      z.object({
+        metodo: z.string(),
+        esperado: z.number(),
+        contado: z.number(),
+        diferenca: z.number(),
+      })
+    )
+    .optional(),
 });
 
 export const criarPdvSchema = z.object({
@@ -62,6 +73,8 @@ export const caixaRelatorioQuerySchema = z.object({
   caixaId: z.string().optional(),
   usuarioId: z.string().optional(),
   status: z.enum(["ABERTO", "FECHADO", "CANCELADO"]).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export const finalizarVendaPdvSchema = z.object({

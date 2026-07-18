@@ -676,28 +676,28 @@ function buildCaixaFechamentoWhatsAppBody(caixa: any) {
     });
   }
 
-  linhas.push("");
-  linhas.push(`📋 *Movimentações (${movimentos.length})*`);
-  if (!movimentos.length) {
-    linhas.push("Nenhuma movimentação registrada.");
-  } else {
-    movimentos.slice(0, MAX_WHATSAPP_MOVIMENTOS).forEach((movimento: any) => {
-      const icone = CAIXA_MOVIMENTO_WHATSAPP_ICONS[movimento.tipo] || "🔹";
-      const hora = movimento.createdAt
-        ? format(new Date(movimento.createdAt), "dd/MM HH:mm")
-        : "-";
-      const metodo = movimento.metodoPagamento
-        ? ` (${movimento.metodoPagamento})`
-        : "";
-      linhas.push(
-        `${icone} ${hora} ${movimento.tipo}${metodo}: ${formatCurrency(decimalToNumber(movimento.valor))}`
-      );
+  // Conferência por método informada no fechamento (PDV PRO): mostra a diferença
+  // de cada método para o usuário saber onde bateu ou não.
+  const fechamentoMetodos = Array.isArray(caixa.fechamentoMetodos)
+    ? (caixa.fechamentoMetodos as Array<{
+        metodo: string;
+        esperado: number;
+        contado: number;
+        diferenca: number;
+      }>)
+    : [];
+  if (fechamentoMetodos.length) {
+    linhas.push("");
+    linhas.push("🧾 *Conferência por método*");
+    fechamentoMetodos.forEach((m) => {
+      const dif = Number(m.diferenca) || 0;
+      const icone = dif === 0 ? "✅" : "⚠️";
+      const label = getPaymentMethodLabel(m.metodo);
+      const base = `${icone} ${label}: contado ${formatCurrency(
+        Number(m.contado) || 0
+      )} · esperado ${formatCurrency(Number(m.esperado) || 0)}`;
+      linhas.push(dif === 0 ? base : `${base} · dif ${formatCurrency(dif)}`);
     });
-
-    const restantes = movimentos.length - MAX_WHATSAPP_MOVIMENTOS;
-    if (restantes > 0) {
-      linhas.push(`… e mais ${restantes} movimentações (veja o relatório no sistema).`);
-    }
   }
 
   return linhas.join("\n");
@@ -713,6 +713,12 @@ async function performCaixaFechamento(args: {
   valorFechamento: Decimal;
   descricao?: string;
   requireOperator: boolean;
+  metodosContados?: Array<{
+    metodo: string;
+    esperado: number;
+    contado: number;
+    diferenca: number;
+  }>;
 }) {
   return prisma.$transaction(async (tx) => {
     const current = await getCaixaAbertoOrThrow(tx, args.contaId, args.caixaId);
@@ -749,6 +755,10 @@ async function performCaixaFechamento(args: {
         saldoContado: args.valorFechamento,
         diferenca,
         observacaoFechamento: args.descricao,
+        fechamentoMetodos:
+          args.metodosContados && args.metodosContados.length
+            ? args.metodosContados
+            : undefined,
       },
     });
 
@@ -800,6 +810,7 @@ export async function fecharCaixa(req: Request, res: Response) {
       valorFechamento: decimalFrom(data.valorFechamento),
       descricao: data.descricao,
       requireOperator: true,
+      metodosContados: data.metodosContados,
     });
 
     await notifyCaixaFechamentoWhatsapp(customData.contaId, caixa);
@@ -834,6 +845,7 @@ export async function fecharCaixaGerencial(req: Request, res: Response) {
       valorFechamento: decimalFrom(data.valorFechamento),
       descricao: data.descricao,
       requireOperator: false,
+      metodosContados: data.metodosContados,
     });
 
     await notifyCaixaFechamentoWhatsapp(customData.contaId, caixa);
@@ -1146,6 +1158,7 @@ function buildCaixaResumo(caixa: any) {
         caixa.diferenca === null || caixa.diferenca === undefined
           ? null
           : decimalToNumber(caixa.diferenca),
+      fechamentoMetodos: caixa.fechamentoMetodos ?? null,
     },
     produtosMaisVendidos,
     movimentos: movimentosReportaveis,
@@ -1541,6 +1554,15 @@ export async function relatorioCaixa(req: Request, res: Response) {
     });
 
     const detalhados = caixas.map(buildCaixaResumo);
+
+    const page = parsed.data.page;
+    const limit = parsed.data.limit;
+    const total = detalhados.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const currentPage = Math.min(page, totalPages);
+    const inicioSlice = (currentPage - 1) * limit;
+    const detalhadosPagina = detalhados.slice(inicioSlice, inicioSlice + limit);
+
     const resumo = detalhados.reduce(
       (acc, item) => {
         acc.totalVendido += item.resumo.totalVendido;
@@ -1595,7 +1617,13 @@ export async function relatorioCaixa(req: Request, res: Response) {
       produtosMaisVendidos: Array.from(resumo.produtosMap.values())
         .sort((a, b) => b.quantidade - a.quantidade)
         .slice(0, 10),
-      caixas: detalhados,
+      caixas: detalhadosPagina,
+      pagination: {
+        page: currentPage,
+        limit,
+        total,
+        totalPages,
+      },
     });
   } catch (error) {
     handleError(res, error);
