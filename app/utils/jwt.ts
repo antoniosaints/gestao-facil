@@ -1,7 +1,9 @@
 import jwt from "jsonwebtoken";
 import { env } from "./dotenv";
 
-const JWT_SECRET = env.JWT_SECRET || "chave-secreta-padrão";
+// O env (dotenv.ts) garante presença e mínimo de 32 caracteres — sem fallback,
+// para nunca cair num segredo previsível.
+const JWT_SECRET = env.JWT_SECRET;
 const JWT_EXPIRES_IN = "6h";
 
 // Sessão de suporte do superadmin dentro da conta de um assinante.

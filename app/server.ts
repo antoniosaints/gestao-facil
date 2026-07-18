@@ -2,14 +2,30 @@ import express, { NextFunction, Request, Response } from "express";
 import path from "path";
 import http from "http";
 import cors from "cors";
+import helmet from "helmet";
 import { RouterMain } from "./routers/api";
 import { initSocket } from "./utils/socket";
 import { env } from "./utils/dotenv";
 import { routerPrinter } from "./routers/impressao/router";
+import { globalLimiter } from "./middlewares/rateLimit";
 
 const app = express();
 const server = http.createServer(app);
 const JSON_BODY_LIMIT = "15mb";
+
+// Em produção o app fica atrás de proxy (nginx/Cloudflare); sem isto o
+// express-rate-limit veria o IP do proxy para todos e o `req.ip` ficaria errado.
+app.set("trust proxy", 1);
+
+app.use(
+  helmet({
+    // O backend serve imagens/uploads consumidos pelo frontend em outra origem.
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    // CSP dedicada fica para uma leva posterior; habilitar agora quebraria o app
+    // servido e as views handlebars.
+    contentSecurityPolicy: false,
+  })
+);
 
 app.use(
   cors({
@@ -45,6 +61,7 @@ app.use((err: any, _req: Request, res: Response, next: NextFunction): any => {
   return next(err);
 });
 
+app.use(globalLimiter);
 app.use(RouterMain);
 initSocket(server);
 

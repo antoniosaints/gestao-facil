@@ -27,7 +27,7 @@ const envSchema = z
         message: "BASE_URL inválida",
       }),
     PORT: z.string().transform(Number).default("3000"),
-    JWT_SECRET: z.string().min(1, "JWT_SECRET é obrigatório"),
+    JWT_SECRET: z.string().min(32, "JWT_SECRET deve ter no mínimo 32 caracteres"),
     LOJA_CUSTOMER_JWT_SECRET: optionalEnvString,
     LOJA_CORS_ALLOWLIST: optionalEnvString,
     REQUIRED_JWT: z.enum(["true", "false"]).default("true"),
@@ -77,6 +77,22 @@ const envSchema = z
     R2_BUCKET: optionalEnvString,
   })
   .superRefine((data, ctx) => {
+    // Em produção a autenticação nunca pode ser desligada: com REQUIRED_JWT=false
+    // o middleware authenticateJWT libera todas as rotas sem validar token.
+    if (data.NODE_ENV === "production" && data.REQUIRED_JWT !== "true") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["REQUIRED_JWT"],
+        message: "REQUIRED_JWT deve ser 'true' em produção",
+      });
+    }
+    if (data.LOJA_CUSTOMER_JWT_SECRET && data.LOJA_CUSTOMER_JWT_SECRET.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["LOJA_CUSTOMER_JWT_SECRET"],
+        message: "LOJA_CUSTOMER_JWT_SECRET deve ter no mínimo 32 caracteres",
+      });
+    }
     if (data.NODE_ENV === "production" && !data.LOJA_CUSTOMER_JWT_SECRET) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

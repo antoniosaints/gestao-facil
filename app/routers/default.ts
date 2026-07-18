@@ -9,6 +9,7 @@ import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "../controllers/
 import { sendNotification, subscribe, unsubscribe } from "../controllers/notifications/push";
 import { getPublicSiteConfig } from "../controllers/site/site";
 import { env } from "../utils/dotenv";
+import { authLimiter } from "../middlewares/rateLimit";
 
 const routerDefault = Router();
 
@@ -22,13 +23,13 @@ routerDefault.get("/", (req, res) => {
   });
 });
 
-routerDefault.post("/api/login", login);
+routerDefault.post("/api/login", authLimiter, login);
 routerDefault.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
 routerDefault.get("/api/site/config", getPublicSiteConfig);
 
 routerDefault.get("/api/auth/check", authenticateJWT, checkAuth);
 routerDefault.get("/api/auth/verify", authenticateJWT, verify);
-routerDefault.get("/api/auth/renew", authenticateJWT, renewToken);
+routerDefault.get("/api/auth/renew", authLimiter, authenticateJWT, renewToken);
 routerDefault.post("/api/auth/senha", authenticateJWT, verificarSenha);
 routerDefault.post("/api/auth/suporte/encerrar", authenticateJWT, encerrarAcessoSuporte);
 
