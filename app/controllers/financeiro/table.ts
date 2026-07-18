@@ -1,4 +1,5 @@
 import { Request, Response } from 'express'
+import { clampPageSize } from '../../utils/pagination'
 import { prisma } from '../../utils/prisma'
 import { Prisma } from '../../../generated'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
@@ -100,7 +101,7 @@ export const tableFinanceiro = async (
   }
 
   const page = parseInt(req.query.page as string) || 1
-  const pageSize = parseInt(req.query.pageSize as string) || 10
+  const pageSize = clampPageSize(req.query.pageSize)
   const filters = parseFinanceiroFilters(req)
   const sortBy = resolveSortField(req.query.sortBy)
   const order = resolveSortOrder(req.query.order)

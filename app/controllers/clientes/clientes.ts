@@ -53,6 +53,7 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
             const cliente = await prisma.clientesFornecedores.update({
                 where: {
                     id: Number(data.id),
+                    contaId: customData.contaId,
                 },
                 data: {
                     nome: data.nome,

@@ -295,7 +295,9 @@ export const createReserva = async (
         }
 
         booking = await prismaTx.arenaAgendamentos.update({
-          where: { id: Number(req.query.id) },
+          // ArenaAgendamentos não tem contaId direto: escopamos pela Quadra para
+          // impedir que uma conta reagende/roube a reserva de outra pelo id.
+          where: { id: Number(req.query.id), Quadra: { contaId: customData.contaId } },
           data: {
             quadraId: dto.quadraId,
             clienteId: dto.clienteId,

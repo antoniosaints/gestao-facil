@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { clampPageSize, sanitizeSort } from "../../utils/pagination";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { isAccountOverdue } from "../../routers/web";
@@ -13,7 +14,7 @@ export const tableClientes = async (req: Request, res: Response): Promise<any> =
     });
 
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const pageSize = clampPageSize(req.query.pageSize);
   const search = (req.query.search as string) || "";
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
@@ -33,7 +34,7 @@ export const tableClientes = async (req: Request, res: Response): Promise<any> =
   const total = await prisma.clientesFornecedores.count({ where });
   const data = await prisma.clientesFornecedores.findMany({
     where,
-    orderBy: { [sortBy]: order },
+    orderBy: sanitizeSort(sortBy, order),
     skip: (page - 1) * pageSize,
     take: pageSize,
   });

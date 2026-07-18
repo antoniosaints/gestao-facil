@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { clampPageSize, sanitizeSort } from "../../utils/pagination";
 import { prisma } from "../../utils/prisma";
 import { Prisma } from "../../../generated";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
@@ -18,7 +19,7 @@ export const tableCobrancas = async (
         }
       
         const page = parseInt(req.query.page as string) || 1;
-        const pageSize = parseInt(req.query.pageSize as string) || 10;
+        const pageSize = clampPageSize(req.query.pageSize);
         const search = (req.query.search as string) || "";
         const sortBy = (req.query.sortBy as string) || "dataVencimento";
         const order = req.query.order || "asc";
@@ -44,7 +45,7 @@ export const tableCobrancas = async (
             LancamentoParcela: true,
             Ordemservico: true,
           },
-          orderBy: { [sortBy]: order },
+          orderBy: sanitizeSort(sortBy, order, { fallback: "dataVencimento" }),
           skip: (page - 1) * pageSize,
           take: pageSize,
         });

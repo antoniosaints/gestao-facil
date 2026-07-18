@@ -1,3 +1,5 @@
+import { clampPageSize, sanitizeOrder } from "../utils/pagination";
+
 export type Formatter<T> = (
   value: any,
   row: T,
@@ -184,16 +186,21 @@ export class PrismaDataTableBuilder<T> {
       ? await this.model.count({ where })
       : recordsTotal;
 
-    const sort = order.map((o) => {
-      const field = columns[o.column].data;
-      return { [field]: o.dir };
-    });
+    // Sanitiza a ordenação: só usa colunas realmente declaradas na requisição e
+    // direção asc/desc válida, ignorando índices fora de faixa.
+    const sort = order
+      .map((o) => {
+        const col = columns[o.column];
+        if (!col || !col.data) return null;
+        return { [col.data]: sanitizeOrder(o.dir) };
+      })
+      .filter((entry): entry is Record<string, "asc" | "desc"> => entry !== null);
 
     const rows: T[] = await this.model.findMany({
       where: hasValidFilter ? where : this.baseWhere,
       orderBy: sort,
-      skip: start,
-      take: length,
+      skip: Math.max(0, start),
+      take: clampPageSize(length),
     });
 
     const data = await Promise.all(

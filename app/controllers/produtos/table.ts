@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { clampPageSize } from "../../utils/pagination";
 import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
@@ -115,7 +116,7 @@ function mapBaseRow(base: any) {
 export const tableProdutos = async (req: Request, res: Response) => {
   const customData = getCustomRequest(req).customData;
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const pageSize = clampPageSize(req.query.pageSize);
   const search = (req.query.search as string) || "";
   const sortBy = (req.query.sortBy as string) || "id";
   const order = getSortOrder(req.query.order as string);

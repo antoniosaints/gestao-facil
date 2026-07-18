@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { clampPageSize } from "../../utils/pagination";
 import Decimal from "decimal.js";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
@@ -444,7 +445,7 @@ export async function listComandas(req: Request, res: Response): Promise<any> {
   try {
     const customData = getCustomRequest(req).customData;
     const page = Number(req.query.page || 1);
-    const pageSize = Number(req.query.pageSize || 10);
+    const pageSize = clampPageSize(req.query.pageSize);
     const search = String(req.query.search || "").trim();
     const statuses = parseStatusQuery(String(req.query.status || "").trim());
     const inicio = req.query.inicio ? new Date(String(req.query.inicio)) : null;

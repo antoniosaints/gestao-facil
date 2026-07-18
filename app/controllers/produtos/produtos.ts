@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { clampPageSize, sanitizeSort } from "../../utils/pagination";
 import { randomUUID } from "crypto";
 import Decimal from "decimal.js";
 import { Prisma, Status } from "../../../generated";
@@ -1680,7 +1681,7 @@ export const getCategoriasProduto = async (
   try {
     const customData = getCustomRequest(req).customData;
     const page = Number(req.query.page) || 1;
-    const pageSize = Number(req.query.pageSize) || 10;
+    const pageSize = clampPageSize(req.query.pageSize);
     const search = (req.query.search as string) || "";
     const sortBy = (req.query.sortBy as string) || "nome";
     const order = (req.query.order as Prisma.SortOrder) || "asc";
@@ -1695,7 +1696,7 @@ export const getCategoriasProduto = async (
     const total = await prisma.produtoCategoria.count({ where });
     const categorias = await prisma.produtoCategoria.findMany({
       where,
-      orderBy: { [sortBy]: order },
+      orderBy: sanitizeSort(sortBy, order, { fallback: "nome" }),
       skip: (page - 1) * pageSize,
       take: pageSize,
     });

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { clampPageSize, sanitizeSort } from "../../utils/pagination";
 import { handleError } from "../../utils/handleError";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
@@ -116,7 +117,7 @@ export const tableServico = async (
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.pageSize as string) || 10;
+  const pageSize = clampPageSize(req.query.pageSize);
   const search = (req.query.search as string) || "";
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
@@ -139,7 +140,7 @@ export const tableServico = async (
   const total = await prisma.servicos.count({ where });
   const data = await prisma.servicos.findMany({
     where,
-    orderBy: { [sortBy]: order },
+    orderBy: sanitizeSort(sortBy, order),
     skip: (page - 1) * pageSize,
     take: pageSize,
   });

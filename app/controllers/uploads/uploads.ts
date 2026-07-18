@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import multer from "multer";
+import multer, { MulterError } from "multer";
 import { randomUUID } from "crypto";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import {
@@ -12,7 +12,24 @@ import {
 import { downscaleIfImage } from "../../services/uploads/imageProcessingService";
 
 const routerUploadArquivos = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Sem limite/filtro o multer aceitaria arquivo de qualquer tipo e tamanho em
+// memória (DoS/OOM) e subiria conteúdo arbitrário para um bucket público. O
+// único consumidor desta rota envia imagens; restringimos a imagens e a 8MB
+// (imagens ainda são reescaladas por downscaleIfImage antes de subir).
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 8;
+const ALLOWED_UPLOAD_MIMES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_UPLOAD_MIMES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Formato inválido. Envie apenas imagens JPEG, PNG, GIF ou WebP."));
+    }
+  },
+});
 
 function sanitizeDirectory(input?: string) {
   if (!input) return "";
@@ -26,48 +43,59 @@ function sanitizeDirectory(input?: string) {
     .join("/");
 }
 
-routerUploadArquivos.post("/r2", upload.single("file"), async (req, res): Promise<any> => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ status: 400, message: "Nenhum arquivo enviado" });
+routerUploadArquivos.post("/r2", (req, res): any => {
+  upload.single("file")(req, res, async (err): Promise<any> => {
+    if (err instanceof MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({ status: 413, message: "Arquivo excede o limite de 8MB." });
+      }
+      return res.status(400).json({ status: 400, message: err.message });
+    } else if (err) {
+      return res.status(400).json({ status: 400, message: err.message });
     }
 
-    const customData = getCustomRequest(req).customData;
-    const { originalname, buffer, mimetype } = req.file;
+    try {
+      if (!req.file) {
+        return res.status(400).json({ status: 400, message: "Nenhum arquivo enviado" });
+      }
 
-    const diretorio = sanitizeDirectory(req.body.diretorio);
-    if (!diretorio) {
-      return res.status(400).json({ status: 400, message: "Nenhum diretorio enviado, especifique o local de armazenamento" });
+      const customData = getCustomRequest(req).customData;
+      const { originalname, buffer, mimetype } = req.file;
+
+      const diretorio = sanitizeDirectory(req.body.diretorio);
+      if (!diretorio) {
+        return res.status(400).json({ status: 400, message: "Nenhum diretorio enviado, especifique o local de armazenamento" });
+      }
+
+      // Scale down para qualquer imagem: reescala/comprime antes de subir. Não-imagens passam direto.
+      const processed = await downscaleIfImage(buffer, mimetype);
+      const body = processed?.buffer ?? buffer;
+      const contentType = processed?.contentType ?? mimetype;
+
+      const ext = processed?.extension
+        ?? (originalname.includes(".") ? originalname.split(".").pop() : undefined);
+      const generatedFileName = `${Date.now()}-${randomUUID()}${ext ? `.${ext}` : ""}`;
+      const key = buildScopedUploadKey(customData.contaId, diretorio, generatedFileName);
+
+      const file = await uploadPublicFile({
+        key,
+        body,
+        contentType,
+      });
+
+      res.json({
+        success: true,
+        key: file.key,
+        reference: file.reference,
+        url: file.reference,
+        publicUrl: file.url,
+        driver: file.driver,
+      });
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ success: false, error: error.message });
     }
-
-    // Scale down para qualquer imagem: reescala/comprime antes de subir. Não-imagens passam direto.
-    const processed = await downscaleIfImage(buffer, mimetype);
-    const body = processed?.buffer ?? buffer;
-    const contentType = processed?.contentType ?? mimetype;
-
-    const ext = processed?.extension
-      ?? (originalname.includes(".") ? originalname.split(".").pop() : undefined);
-    const generatedFileName = `${Date.now()}-${randomUUID()}${ext ? `.${ext}` : ""}`;
-    const key = buildScopedUploadKey(customData.contaId, diretorio, generatedFileName);
-
-    const file = await uploadPublicFile({
-      key,
-      body,
-      contentType,
-    });
-
-    res.json({
-      success: true,
-      key: file.key,
-      reference: file.reference,
-      url: file.reference,
-      publicUrl: file.url,
-      driver: file.driver,
-    });
-  } catch (error: any) {
-    console.error(error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+  });
 });
 
 routerUploadArquivos.get("/r2/url", async (req, res): Promise<any> => {
