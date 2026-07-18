@@ -16,6 +16,7 @@ export const MAIN_VISIBLE_MENU_KEYS = [
   // A Loja Virtual passou a ser configurável como os demais menus. Contas anteriores a essa
   // mudança recebem a key por migration; sem isso a whitelist esconderia a loja delas.
   "loja-virtual",
+  "arena",
   "usuarios",
   "configuracoes",
   "changelog",
@@ -47,6 +48,11 @@ export const KNOWN_SUBMENU_KEYS = [
   "servicos:painel",
   "servicos:os",
   "servicos:lista",
+  "arena:painel",
+  "arena:calendario",
+  "arena:reservas",
+  "arena:quadras",
+  "arena:comandas",
   "assinaturas:painel",
   "assinaturas:lista",
   "assinaturas:planos",
