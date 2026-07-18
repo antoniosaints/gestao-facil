@@ -47,9 +47,12 @@ export const globalLimiter = rateLimit({
 // Limite estrito para rotas de autenticação: freia brute-force/credential-stuffing.
 // A chave combina IP + e-mail do corpo para não punir uma rede inteira por causa
 // de um único alvo, e ao mesmo tempo limitar tentativas contra um e-mail.
+const AUTH_WINDOW_MS = 60 * 1000; // 1 minuto
+const AUTH_LIMIT = 6;
+
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
+  windowMs: AUTH_WINDOW_MS,
+  limit: AUTH_LIMIT,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   store: makeStore("rl:auth:"),
@@ -58,5 +61,19 @@ export const authLimiter = rateLimit({
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     return `${ip}|${email}`;
   },
-  handler: jsonHandler("Muitas tentativas de autenticação. Tente novamente em alguns minutos."),
+  // Devolve os segundos restantes no corpo (retryAfter) para o front mostrar a
+  // contagem sem depender de expor o header Retry-After via CORS.
+  handler: (req: Request, res: Response) => {
+    const resetTime = (req as Request & { rateLimit?: { resetTime?: Date } }).rateLimit?.resetTime;
+    const retryAfter = resetTime
+      ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+      : Math.ceil(AUTH_WINDOW_MS / 1000);
+    return res.status(429).json({
+      status: 429,
+      title: "Muitas tentativas de login",
+      message: `Você atingiu o limite de ${AUTH_LIMIT} tentativas. Aguarde ${retryAfter}s e tente novamente.`,
+      retryAfter,
+      limit: AUTH_LIMIT,
+    });
+  },
 });
