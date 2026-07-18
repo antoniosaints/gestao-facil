@@ -67,6 +67,11 @@ const envSchema = z
     EMAIL_SENDER: z.string({
       required_error: "EMAIL_SENDER é obrigatório",
     }),
+    // Resend (envio de e-mails transacionais, ex.: recuperação de senha).
+    // RESEND_FROM precisa ser de um domínio verificado; sem domínio, use
+    // "onboarding@resend.dev" (só entrega para o e-mail dono da conta Resend).
+    RESEND_API_KEY: optionalEnvString,
+    RESEND_FROM: optionalEnvString,
     BASE_URL_FRONTEND: z.string({
       required_error: "BASE_URL_FRONTEND é obrigatório",
     }),

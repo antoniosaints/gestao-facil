@@ -10,6 +10,7 @@ import { sendNotification, subscribe, unsubscribe } from "../controllers/notific
 import { getPublicSiteConfig } from "../controllers/site/site";
 import { env } from "../utils/dotenv";
 import { authLimiter } from "../middlewares/rateLimit";
+import { recuperarSenha, redefinirSenha } from "../controllers/auth/passwordRecovery";
 
 const routerDefault = Router();
 
@@ -24,6 +25,8 @@ routerDefault.get("/", (req, res) => {
 });
 
 routerDefault.post("/api/login", authLimiter, login);
+routerDefault.post("/api/auth/recuperar-senha", authLimiter, recuperarSenha);
+routerDefault.post("/api/auth/redefinir-senha", authLimiter, redefinirSenha);
 routerDefault.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
 routerDefault.get("/api/site/config", getPublicSiteConfig);
 
