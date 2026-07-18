@@ -5,6 +5,7 @@ import {
   applyMensagemTemplate,
   computeDueOffset,
   DEFAULT_LEMBRETE_DIAS,
+  DEFAULT_MENSAGEM_INADIMPLENCIA,
   getEnabledChannels,
   getOffsetLabel,
   isChannelImplemented,
@@ -148,6 +149,7 @@ describe("inadimplenciaLembretePolicy", () => {
       vencimento: "10/07/2026",
       parcela: "2",
       totalparcelas: "4",
+      situacao: "vence em 3 dias",
     };
 
     it("substitui placeholders conhecidos (case-insensitive)", () => {
@@ -166,6 +168,16 @@ describe("inadimplenciaLembretePolicy", () => {
         applyMensagemTemplate("Parcela {parcela}/{totalParcelas}: {valorParcela}. Total: {valor}.", vars),
         "Parcela 2/4: R$ 25,00. Total: R$ 100,00.",
       );
+    });
+
+    it("mantém o texto de fábrica completo e editável por variáveis", () => {
+      const mensagem = applyMensagemTemplate(DEFAULT_MENSAGEM_INADIMPLENCIA, vars);
+
+      assert.match(mensagem, /Olá João/);
+      assert.match(mensagem, /pagamento \(vence em 3 dias\)/);
+      assert.match(mensagem, /Parcela: 2/);
+      assert.match(mensagem, /Valor: R\$ 100,00/);
+      assert.equal(mensagem.includes("{"), false);
     });
   });
 

@@ -41,6 +41,15 @@ export const DEFAULT_LEMBRETE_DIAS = [-3, -1, 0, 1] as const;
 /** Hora padrão de envio dos lembretes ao cliente quando a conta não configurou. */
 export const DEFAULT_LEMBRETE_HORA = 10;
 
+/** Texto de fábrica exibido na edição e usado quando a conta não definiu outro modelo. */
+export const DEFAULT_MENSAGEM_INADIMPLENCIA = [
+  "Olá {cliente}, este é um lembrete de pagamento ({situacao}).",
+  "Lançamento: {descricao}",
+  "Parcela: {parcela}",
+  "Valor: {valor}",
+  "Vencimento: {vencimento}",
+].join("\n");
+
 /** Limite de segurança para não gerar janelas absurdas de lembrete. */
 export const MIN_DIA_OFFSET = -60;
 export const MAX_DIA_OFFSET = 60;
@@ -182,6 +191,7 @@ export type ReminderTemplateVars = {
   vencimento: string;
   parcela: string;
   totalparcelas: string;
+  situacao: string;
 };
 
 /**

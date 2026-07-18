@@ -4,9 +4,11 @@ import { WApiClient } from "../whatsapp/wApiClient";
 import { prisma } from "../../utils/prisma";
 import { normalizeWhatsAppNotificationPhone } from "./whatsappNotificationPolicy";
 import { notifyAdminsWhatsAppUnavailable } from "./whatsappAvailabilityAlertService";
-import type { WhatsAppNotificationJobData } from "./whatsappNotificationQueueService";
+import type { WhatsAppQueueJobData } from "./whatsappNotificationQueueService";
 
-export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJobData) {
+export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) {
+  const isClientMessage = data.kind === "CLIENT_MESSAGE";
+  const eventLabel = isClientMessage ? "CLIENT_MESSAGE" : data.event;
   const phone = normalizeWhatsAppNotificationPhone(data.phone);
   if (!phone) {
     return { skipped: true, reason: "invalid-phone" };
@@ -27,7 +29,7 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJo
 
   if (!instance) {
     console.warn(
-      `[whatsapp-notifications] Instancia ${data.instanceId} indisponivel para conta ${data.contaId} (evento ${data.event})`,
+      `[whatsapp-notifications] Instancia ${data.instanceId} indisponivel para conta ${data.contaId} (evento ${eventLabel})`,
     );
     await notifyAdminsWhatsAppUnavailable(
       data.contaId,
@@ -36,7 +38,8 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJo
     return { skipped: true, reason: "instance-unavailable" };
   }
 
-  const messageId = `erp-wa-notif-${data.contaId}-${data.userId}-${Date.now()}-${crypto
+  const recipientId = isClientMessage ? `cliente-${data.clienteId}` : `usuario-${data.userId}`;
+  const messageId = `erp-wa-notif-${data.contaId}-${recipientId}-${Date.now()}-${crypto
     .randomBytes(4)
     .toString("hex")}`;
 
@@ -48,7 +51,7 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppNotificationJo
     });
   } catch (error: any) {
     console.warn(
-      `[whatsapp-notifications] Falha ao enviar mensagem (conta ${data.contaId}, evento ${data.event})`,
+      `[whatsapp-notifications] Falha ao enviar mensagem (conta ${data.contaId}, evento ${eventLabel})`,
       error?.response?.data || error?.message || error,
     );
     await notifyAdminsWhatsAppUnavailable(

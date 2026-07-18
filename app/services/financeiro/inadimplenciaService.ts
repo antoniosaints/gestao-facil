@@ -5,6 +5,7 @@ import { prisma } from "../../utils/prisma";
 import {
   DEFAULT_LEMBRETE_DIAS,
   DEFAULT_LEMBRETE_HORA,
+  DEFAULT_MENSAGEM_INADIMPLENCIA,
   normalizeDiasLembrete,
   resolveLembreteSchedule,
   type LembreteConfigInput,
@@ -235,6 +236,7 @@ export async function getInadimplenciaConfig(contaId: number) {
     horaEnvio: parametros?.inadimplenciaHoraEnvio ?? DEFAULT_LEMBRETE_HORA,
     dias: dias.length ? dias : [...DEFAULT_LEMBRETE_DIAS],
     mensagem: parametros?.inadimplenciaMensagemPadrao ?? null,
+    mensagemModelo: parametros?.inadimplenciaMensagemPadrao || DEFAULT_MENSAGEM_INADIMPLENCIA,
   };
 }
 

@@ -7,10 +7,11 @@ import { ResponseHandler } from "../../utils/response";
 import { prisma } from "../../utils/prisma";
 import { formatCurrency, formatDateToPtBR } from "../../utils/formatters";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
-import { sendClienteWhatsappMessage } from "../../services/clientes/clienteWhatsappService";
+import { enqueueWhatsAppClientMessage } from "../../services/notifications/whatsappNotificationQueueService";
 import {
   applyMensagemTemplate,
   computeDueOffset,
+  getOffsetLabel,
   MAX_DIA_OFFSET,
   MIN_DIA_OFFSET,
   resolveLembreteSchedule,
@@ -46,6 +47,7 @@ const bulkSchema = configSchema.extend({
 
 const enviarAgoraSchema = z.object({
   mensagem: z.string().trim().max(1000).optional().nullable(),
+  parcelaId: z.coerce.number().int().positive().optional(),
 });
 
 const configSistemaSchema = z.object({
@@ -265,7 +267,7 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
         lembreteCliente: { select: CONFIG_SELECT },
         parcelas: {
           where: { pago: false },
-          select: { valor: true, vencimento: true, numero: true },
+          select: { id: true, valor: true, vencimento: true, numero: true },
           orderBy: { vencimento: "asc" },
         },
       },
@@ -278,6 +280,13 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
       return res.status(400).json({ message: "Este lançamento não possui parcelas pendentes." });
     }
 
+    const parcelaSelecionada = parsed.data.parcelaId
+      ? lancamento.parcelas.find((parcela) => parcela.id === parsed.data.parcelaId)
+      : lancamento.parcelas[0];
+    if (!parcelaSelecionada) {
+      return res.status(400).json({ message: "A parcela selecionada não está pendente neste lançamento." });
+    }
+
     const mensagemCustom = parsed.data.mensagem?.trim();
     const parametros = await prisma.parametrosConta.findUnique({
       where: { contaId },
@@ -288,7 +297,7 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
     });
 
     if (mensagemCustom) {
-      const proxima = lancamento.parcelas[0];
+      const proxima = parcelaSelecionada;
       const valorPendente = lancamento.parcelas.reduce((acc, p) => acc + Number(p.valor || 0), 0);
       const mensagem = applyMensagemTemplate(mensagemCustom, {
         cliente: lancamento.cliente?.nome || "",
@@ -298,10 +307,11 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
         vencimento: formatDateToPtBR(proxima.vencimento),
         parcela: String(proxima.numero),
         totalparcelas: String(lancamento.parcelas.length),
+        situacao: getOffsetLabel(computeDueOffset(proxima.vencimento)),
       });
-      await sendClienteWhatsappMessage(contaId, lancamento.clienteId, { tipo: "MENSAGEM", mensagem });
+      await enqueueWhatsAppClientMessage(contaId, lancamento.clienteId, mensagem);
     } else {
-      const proxima = lancamento.parcelas[0];
+      const proxima = parcelaSelecionada;
       const valorPendente = lancamento.parcelas.reduce((acc, p) => acc + Number(p.valor || 0), 0);
       const schedule = resolveLembreteSchedule({
         override: toConfigInput(lancamento.lembreteCliente),
@@ -323,10 +333,10 @@ export async function enviarLembreteAgora(req: Request, res: Response): Promise<
         mensagemPadraoConta: parametros?.inadimplenciaMensagemPadrao ?? null,
       });
 
-      await sendClienteWhatsappMessage(contaId, lancamento.clienteId, { tipo: "MENSAGEM", mensagem });
+      await enqueueWhatsAppClientMessage(contaId, lancamento.clienteId, mensagem);
     }
 
-    return ResponseHandler(res, "Lembrete enviado ao cliente pelo WhatsApp.", null, 200);
+    return ResponseHandler(res, "Cobrança enfileirada para envio imediato pelo WhatsApp.", null, 202);
   } catch (error) {
     return handleError(res, error);
   }

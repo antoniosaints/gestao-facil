@@ -10,6 +10,7 @@ import {
   type WhatsAppNotificationEvent,
 } from "./whatsappNotificationPolicy";
 import { notifyAdminsWhatsAppUnavailable } from "./whatsappAvailabilityAlertService";
+import { normalizeClienteWhatsappPhone } from "../clientes/clienteWhatsappPolicy";
 
 export interface WhatsAppNotificationPayload {
   title: string;
@@ -17,6 +18,7 @@ export interface WhatsAppNotificationPayload {
 }
 
 export interface WhatsAppNotificationJobData extends WhatsAppNotificationPayload {
+  kind?: "INTERNAL_NOTIFICATION";
   contaId: number;
   event: WhatsAppNotificationEvent;
   instanceId: number;
@@ -24,6 +26,17 @@ export interface WhatsAppNotificationJobData extends WhatsAppNotificationPayload
   phone: string;
   message: string;
 }
+
+export interface WhatsAppClientMessageJobData {
+  kind: "CLIENT_MESSAGE";
+  contaId: number;
+  instanceId: number;
+  clienteId: number;
+  phone: string;
+  message: string;
+}
+
+export type WhatsAppQueueJobData = WhatsAppNotificationJobData | WhatsAppClientMessageJobData;
 
 const PARAMETER_SELECT = {
   whatsappNotificacoesAtivo: true,
@@ -278,4 +291,84 @@ export async function enqueueWhatsAppNotificationToInstance(
   );
 
   return { recipients: recipients.length };
+}
+
+/**
+ * Enfileira uma mensagem solicitada manualmente para um cliente. O job não recebe
+ * delay: fica disponível para o worker imediatamente e usa tentativas com backoff.
+ */
+export async function enqueueWhatsAppClientMessage(
+  contaId: number,
+  clienteId: number,
+  message: string,
+) {
+  const normalizedMessage = message.trim();
+  if (!normalizedMessage) {
+    throw new Error("Informe a mensagem para envio.");
+  }
+
+  const moduleActive = await contaHasActiveModule(contaId, "whatsapp");
+  if (!moduleActive) {
+    throw new Error("O modulo WhatsApp precisa estar ativo para enviar mensagens.");
+  }
+
+  const [parametros, cliente] = await Promise.all([
+    prisma.parametrosConta.findUnique({
+      where: { contaId },
+      select: { whatsappNotificacoesInstanciaId: true },
+    }),
+    prisma.clientesFornecedores.findFirst({
+      where: { id: clienteId, contaId },
+      select: { whastapp: true, telefone: true },
+    }),
+  ]);
+
+  if (!cliente) {
+    throw new Error("Cliente nao encontrado.");
+  }
+
+  const phone = normalizeClienteWhatsappPhone(cliente.whastapp || cliente.telefone);
+  if (!phone) {
+    throw new Error("Cliente sem telefone ou WhatsApp valido.");
+  }
+
+  if (!parametros?.whatsappNotificacoesInstanciaId) {
+    throw new Error("Configure a instancia principal de WhatsApp nas notificacoes.");
+  }
+
+  const instance = await prisma.whatsAppInstancia.findFirst({
+    where: {
+      id: parametros.whatsappNotificacoesInstanciaId,
+      contaId,
+      ativo: true,
+      status: WhatsAppInstanciaStatus.CONECTADA,
+    },
+    select: { id: true },
+  });
+
+  if (!instance) {
+    throw new Error("A instancia principal de WhatsApp precisa estar conectada.");
+  }
+
+  const jobId = `wa-client-${contaId}-${clienteId}-${crypto.randomUUID()}`;
+  await whatsappNotificationQueue.add(
+    "send-client-message",
+    {
+      kind: "CLIENT_MESSAGE",
+      contaId,
+      instanceId: instance.id,
+      clienteId,
+      phone,
+      message: normalizedMessage,
+    } satisfies WhatsAppClientMessageJobData,
+    {
+      jobId,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: true,
+      removeOnFail: 50,
+    },
+  );
+
+  return { jobId };
 }

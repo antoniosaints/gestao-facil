@@ -7,6 +7,7 @@ import {
   applyMensagemTemplate,
   computeDueOffset,
   DEFAULT_LEMBRETE_HORA,
+  DEFAULT_MENSAGEM_INADIMPLENCIA,
   getEnabledChannels,
   getOffsetLabel,
   isChannelImplemented,
@@ -107,6 +108,7 @@ export function buildMensagemInadimplencia(args: {
     vencimento: formatDateToPtBR(args.dueDate),
     parcela: String(args.parcelaNumero),
     totalparcelas: String(args.totalParcelas ?? 1),
+    situacao: getOffsetLabel(args.offset),
   };
 
   // Prioridade: mensagem do próprio lembrete → template padrão da conta → texto de fábrica.
@@ -115,13 +117,7 @@ export function buildMensagemInadimplencia(args: {
     return applyMensagemTemplate(template, vars);
   }
 
-  return [
-    `Olá ${args.clienteNome}, este é um lembrete de pagamento (${getOffsetLabel(args.offset)}).`,
-    `Lançamento: ${args.descricao}`,
-    `Parcela: ${args.parcelaNumero}`,
-    `Valor: ${vars.valor}`,
-    `Vencimento: ${vars.vencimento}`,
-  ].join("\n");
+  return applyMensagemTemplate(DEFAULT_MENSAGEM_INADIMPLENCIA, vars);
 }
 
 /** Defaults de lembrete por conta (hora, ativo, dias e mensagem padrão) das contas informadas. */
