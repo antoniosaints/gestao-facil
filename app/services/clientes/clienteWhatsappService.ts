@@ -95,8 +95,31 @@ async function getVendaForMessage(
     },
     include: {
       PagamentoVendas: true,
+      ItensVendas: {
+        include: {
+          produto: { select: { nome: true, nomeVariante: true } },
+          servico: { select: { nome: true } },
+        },
+      },
     },
   });
+}
+
+function resolveItemVendaNome(item: {
+  itemName?: string | null;
+  produto?: { nome: string; nomeVariante?: string | null } | null;
+  servico?: { nome: string } | null;
+}) {
+  const nome =
+    item.itemName?.trim() ||
+    item.produto?.nome?.trim() ||
+    item.servico?.nome?.trim() ||
+    "Item";
+  const variante = item.produto?.nomeVariante?.trim();
+  if (item.produto && variante && variante.toLowerCase() !== "padrão") {
+    return `${nome} (${variante})`;
+  }
+  return nome;
 }
 
 async function resolveConfiguredInstance(contaId: number) {
@@ -269,6 +292,12 @@ export async function sendClienteWhatsappMessage(
         vendaUid: venda.Uid,
         valor: getVendaTotal(venda),
         formaPagamento: venda.PagamentoVendas?.metodo || null,
+        desconto: Number(venda.desconto || 0),
+        itens: venda.ItensVendas.map((item) => ({
+          nome: resolveItemVendaNome(item),
+          quantidade: item.quantidade,
+          valorUnitario: Number(item.valor || 0),
+        })),
       });
     }
   }

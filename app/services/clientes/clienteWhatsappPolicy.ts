@@ -40,6 +40,12 @@ export type ClienteWhatsappMessageInput =
       vendaUid?: string | null;
       valor: number | string;
       formaPagamento?: string | null;
+      desconto?: number | string | null;
+      itens?: Array<{
+        nome: string;
+        quantidade: number | string;
+        valorUnitario: number | string;
+      }>;
     };
 
 export function normalizeClienteWhatsappPhone(value?: string | null) {
@@ -108,6 +114,43 @@ export function buildClienteWhatsappMessage(input: ClienteWhatsappMessageInput) 
     return `${greeting}\nSegue o orcamento da venda *${getVendaUid(input.vendaUid)}* no valor de *${formatCurrency(input.valor)}*.`;
   }
 
-  const paymentText = input.formaPagamento ? `\nForma de pagamento: ${input.formaPagamento}.` : "";
-  return `${greeting}\nSegue o comprovante da venda *${getVendaUid(input.vendaUid)}* no valor de *${formatCurrency(input.valor)}.${paymentText}*`;
+  const itens = input.itens ?? [];
+  const itensText = itens
+    .map((item) => {
+      const quantidade = Number(item.quantidade || 0);
+      const valorUnitario = Number(item.valorUnitario || 0);
+      const subtotalItem = quantidade * valorUnitario;
+      const unitarioText = quantidade > 1 ? ` (${formatCurrency(valorUnitario)} cada)` : "";
+      return `• ${quantidade}x ${item.nome}${unitarioText} - ${formatCurrency(subtotalItem)}`;
+    })
+    .join("\n");
+
+  const subtotal = itens.reduce(
+    (acc, item) => acc + Number(item.quantidade || 0) * Number(item.valorUnitario || 0),
+    0,
+  );
+  const desconto = Number(input.desconto || 0);
+
+  const linhas: string[] = [
+    greeting,
+    `Segue o comprovante da venda *${getVendaUid(input.vendaUid)}*.`,
+  ];
+
+  if (itensText) {
+    linhas.push("", "Itens:", itensText);
+  }
+
+  linhas.push("");
+  if (desconto > 0) {
+    if (itensText) {
+      linhas.push(`Subtotal: ${formatCurrency(subtotal)}`);
+    }
+    linhas.push(`Desconto: ${formatCurrency(desconto)}`);
+  }
+  linhas.push(`Total: *${formatCurrency(input.valor)}*`);
+  if (input.formaPagamento) {
+    linhas.push(`Forma de pagamento: ${input.formaPagamento}.`);
+  }
+
+  return linhas.join("\n");
 }

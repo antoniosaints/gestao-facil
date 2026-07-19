@@ -68,7 +68,25 @@ describe("clienteWhatsappPolicy", () => {
         valor: 85.5,
         formaPagamento: "PIX",
       }),
-      "Olá, Joao!\nSegue o comprovante da venda *VEN_456* no valor de *R$ 85,50.\nForma de pagamento: PIX.*",
+      "Olá, Joao!\nSegue o comprovante da venda *VEN_456*.\n\nTotal: *R$ 85,50*\nForma de pagamento: PIX.",
+    );
+  });
+
+  it("builds a detailed receipt with items and discount", () => {
+    assert.equal(
+      buildClienteWhatsappMessage({
+        tipo: "COMPROVANTE_VENDA",
+        clienteNome: "Joao",
+        vendaUid: "VEN_789",
+        valor: 30.5,
+        formaPagamento: "PIX",
+        desconto: 5,
+        itens: [
+          { nome: "Produto A", quantidade: 2, valorUnitario: 10 },
+          { nome: "Produto B", quantidade: 1, valorUnitario: 15.5 },
+        ],
+      }),
+      "Olá, Joao!\nSegue o comprovante da venda *VEN_789*.\n\nItens:\n• 2x Produto A (R$ 10,00 cada) - R$ 20,00\n• 1x Produto B - R$ 15,50\n\nSubtotal: R$ 35,50\nDesconto: R$ 5,00\nTotal: *R$ 30,50*\nForma de pagamento: PIX.",
     );
   });
 });
