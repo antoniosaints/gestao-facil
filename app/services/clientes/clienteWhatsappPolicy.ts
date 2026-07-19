@@ -54,6 +54,16 @@ export function normalizeClienteWhatsappPhone(value?: string | null) {
   return clean.startsWith("55") ? clean : `55${clean}`;
 }
 
+export function resolveClienteWhatsappPhone(
+  telefoneInformado?: string | null,
+  whatsappCadastrado?: string | null,
+  telefoneCadastrado?: string | null,
+) {
+  return normalizeClienteWhatsappPhone(
+    telefoneInformado || whatsappCadastrado || telefoneCadastrado,
+  );
+}
+
 function formatDate(value?: Date | string | null) {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(value);

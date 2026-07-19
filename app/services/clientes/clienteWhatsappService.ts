@@ -4,7 +4,7 @@ import { contaHasActiveModule } from "../contas/storeModulesService";
 import { WApiClient } from "../whatsapp/wApiClient";
 import {
   buildClienteWhatsappMessage,
-  normalizeClienteWhatsappPhone,
+  resolveClienteWhatsappPhone,
 } from "./clienteWhatsappPolicy";
 
 export type ClienteWhatsappSendInput =
@@ -27,6 +27,7 @@ export type ClienteWhatsappSendInput =
   | {
       tipo: "COMPROVANTE_VENDA";
       vendaId: number;
+      telefone?: string;
     };
 
 function hasChargeClienteVinculo(
@@ -154,9 +155,16 @@ export async function sendClienteWhatsappMessage(
     throw new Error("Cliente nao encontrado.");
   }
 
-  const phone = normalizeClienteWhatsappPhone(cliente.whastapp || cliente.telefone);
+  const telefoneInformado = input.tipo === "COMPROVANTE_VENDA"
+    ? input.telefone
+    : undefined;
+  const phone = resolveClienteWhatsappPhone(
+    telefoneInformado,
+    cliente.whastapp,
+    cliente.telefone,
+  );
   if (!phone) {
-    throw new Error("Cliente sem telefone ou WhatsApp valido.");
+    throw new Error("Informe um telefone ou WhatsApp valido para o envio.");
   }
 
   let message = "";

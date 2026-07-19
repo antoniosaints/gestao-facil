@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildClienteWhatsappMessage,
   normalizeClienteWhatsappPhone,
+  resolveClienteWhatsappPhone,
 } from "./clienteWhatsappPolicy";
 
 describe("clienteWhatsappPolicy", () => {
@@ -10,6 +11,17 @@ describe("clienteWhatsappPolicy", () => {
     assert.equal(normalizeClienteWhatsappPhone("(45) 99999-1111"), "5545999991111");
     assert.equal(normalizeClienteWhatsappPhone("5545999991111"), "5545999991111");
     assert.equal(normalizeClienteWhatsappPhone("9999"), "");
+  });
+
+  it("prioritizes a manually informed receipt destination without changing the fallback", () => {
+    assert.equal(
+      resolveClienteWhatsappPhone("(11) 98888-7777", "(45) 99999-1111", null),
+      "5511988887777",
+    );
+    assert.equal(
+      resolveClienteWhatsappPhone(undefined, "", "(45) 3333-2222"),
+      "554533332222",
+    );
   });
 
   it("builds a payment reminder with formatted amount and payment link", () => {
@@ -24,7 +36,7 @@ describe("clienteWhatsappPolicy", () => {
 
     assert.equal(
       message,
-      "Ola, Maria!\n\nLembrete de cobranca COB_123 no valor de R$ 149,90 com vencimento em 30/06/2026.\n\nLink para pagamento: https://pagamento.test/123",
+      "Olá, Maria!\nLembrete de cobranca COB_123 no valor de *R$ 149,90 com vencimento em 30/06/2026.\n\nLink para pagamento: https://pagamento.test/123*",
     );
   });
 
@@ -35,7 +47,7 @@ describe("clienteWhatsappPolicy", () => {
         clienteNome: "Joao",
         mensagem: "Mensagem personalizada",
       }),
-      "Ola, Joao!\n\nMensagem personalizada",
+      "Mensagem personalizada",
     );
 
     assert.equal(
@@ -45,7 +57,7 @@ describe("clienteWhatsappPolicy", () => {
         vendaUid: "VEN_321",
         valor: 220,
       }),
-      "Ola, Joao!\n\nSegue o orcamento da venda VEN_321 no valor de R$ 220,00.",
+      "Olá, Joao!\nSegue o orcamento da venda *VEN_321* no valor de *R$ 220,00*.",
     );
 
     assert.equal(
@@ -56,7 +68,7 @@ describe("clienteWhatsappPolicy", () => {
         valor: 85.5,
         formaPagamento: "PIX",
       }),
-      "Ola, Joao!\n\nSegue o comprovante da venda VEN_456 no valor de R$ 85,50.\nForma de pagamento: PIX.",
+      "Olá, Joao!\nSegue o comprovante da venda *VEN_456* no valor de *R$ 85,50.\nForma de pagamento: PIX.*",
     );
   });
 });

@@ -28,6 +28,7 @@ const sendClienteWhatsappSchema = z.discriminatedUnion("tipo", [
   z.object({
     tipo: z.literal("COMPROVANTE_VENDA"),
     vendaId: z.coerce.number().int().positive(),
+    telefone: z.string().trim().max(30).optional(),
   }),
 ]);
 
