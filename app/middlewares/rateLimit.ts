@@ -48,7 +48,7 @@ export const globalLimiter = rateLimit({
 // A chave combina IP + e-mail do corpo para não punir uma rede inteira por causa
 // de um único alvo, e ao mesmo tempo limitar tentativas contra um e-mail.
 const AUTH_WINDOW_MS = 60 * 1000; // 1 minuto
-const AUTH_LIMIT = 6;
+const AUTH_LIMIT = 10;
 
 export const authLimiter = rateLimit({
   windowMs: AUTH_WINDOW_MS,
