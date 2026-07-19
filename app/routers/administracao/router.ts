@@ -46,6 +46,14 @@ import {
   updateChaveIaAdmin,
   updateModeloIaAdmin,
 } from "../../controllers/administracao/inteligencia";
+import {
+  archiveInformativoAdmin,
+  createInformativoAdmin,
+  listInformativosAdmin,
+  publishInformativoAdmin,
+  resolveInformativoAdmin,
+  updateInformativoAdmin,
+} from "../../controllers/administracao/informativos";
 
 const routerAdminMain = Router();
 
@@ -60,6 +68,12 @@ routerAdminMain.post("/assinantes", createAssinanteAdmin);
 routerAdminMain.delete("/assinantes/:id", deleteAssinanteAdmin);
 routerAdminMain.get("/financeiro/painel", getFinanceiroPainelAdmin);
 routerAdminMain.get("/monitoramento", getMonitoramentoAdmin);
+routerAdminMain.get("/informativos", listInformativosAdmin);
+routerAdminMain.post("/informativos", createInformativoAdmin);
+routerAdminMain.put("/informativos/:id", updateInformativoAdmin);
+routerAdminMain.post("/informativos/:id/publicar", publishInformativoAdmin);
+routerAdminMain.post("/informativos/:id/resolver", resolveInformativoAdmin);
+routerAdminMain.post("/informativos/:id/arquivar", archiveInformativoAdmin);
 routerAdminMain.post("/assinantes/:id/controle", manageAssinanteAdmin);
 routerAdminMain.post("/assinantes/:id/reset-senha-root", resetRootPasswordAdmin);
 routerAdminMain.get("/assinantes/:id/apps", listAssinanteAppsAdmin);

@@ -14,6 +14,31 @@ enum Status {
   BLOQUEADO
 }
 
+enum InformativoSeveridade {
+  INFO
+  ATENCAO
+  INDISPONIBILIDADE
+}
+
+enum InformativoSituacao {
+  INVESTIGANDO
+  MONITORANDO
+  RESOLVIDO
+}
+
+enum InformativoStatus {
+  RASCUNHO
+  PUBLICADO
+  RESOLVIDO
+  ARQUIVADO
+}
+
+enum InformativoEscopo {
+  GLOBAL
+  MODULO
+  CONTAS
+}
+
 model Subscription {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -208,6 +233,8 @@ model Contas {
   metas                           Meta[]
   PdvPonto                        PdvPonto[]
   CaixaSessao                     CaixaSessao[]
+  InformativoContas               InformativoConta[]
+  InformativoLeituras             InformativoLeitura[]
 }
 
 model ModulosAdicionais {
@@ -244,6 +271,60 @@ model ModuloOnConta {
   updatedAt                DateTime                 @updatedAt
 
   @@unique([moduloId, contaId], map: "ModuloOnConta_moduloId_contaId_key")
+}
+
+model InformativoSistema {
+  id           Int                   @id @default(autoincrement())
+  titulo       String                @db.VarChar(120)
+  mensagem     String                @db.Text
+  integracao   String                @default("Sistema") @db.VarChar(60)
+  severidade   InformativoSeveridade @default(INFO)
+  situacao     InformativoSituacao   @default(INVESTIGANDO)
+  status       InformativoStatus     @default(RASCUNHO)
+  escopo       InformativoEscopo     @default(GLOBAL)
+  moduloCodigo String?               @db.VarChar(80)
+  inicioEm     DateTime?
+  fimEm        DateTime?
+  publicadoEm  DateTime?
+  resolvidoEm  DateTime?
+  criadoPorId  Int?
+  CriadoPor    Usuarios?             @relation("InformativoCriador", fields: [criadoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  contas       InformativoConta[]
+  leituras     InformativoLeitura[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([status, inicioEm, fimEm])
+  @@index([escopo, moduloCodigo])
+}
+
+model InformativoConta {
+  id            Int                @id @default(autoincrement())
+  informativoId Int
+  Informativo   InformativoSistema @relation(fields: [informativoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  contaId       Int
+  Conta         Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt     DateTime           @default(now())
+
+  @@unique([informativoId, contaId])
+  @@index([contaId])
+}
+
+model InformativoLeitura {
+  id            Int                @id @default(autoincrement())
+  informativoId Int
+  Informativo   InformativoSistema @relation(fields: [informativoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  usuarioId     Int
+  Usuario       Usuarios           @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  contaId       Int
+  Conta         Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lidoEm        DateTime?
+  dispensadoEm  DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([informativoId, usuarioId])
+  @@index([contaId, usuarioId])
 }
 
 // Configuração da Loja Virtual (módulo pago). Uma por conta. Guarda a customização visual da
@@ -704,6 +785,8 @@ model Usuarios {
   caixasFechados                  CaixaSessao[]                     @relation("CaixaFechadoPor")
   caixaOperadores                 CaixaOperador[]
   caixaMovimentos                 CaixaMovimento[]
+  InformativosCriados             InformativoSistema[]              @relation("InformativoCriador")
+  InformativoLeituras             InformativoLeitura[]
 }
 
 enum PermissaoUsuario {
