@@ -36,7 +36,7 @@ const WEBHOOK_PREFIXES = ["/asaas/webhook", "/abacatepay/webhook", "/mercadopago
 // Proteção anti-flood geral por IP. Teto alto para não atrapalhar uso legítimo.
 export const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 300,
+  limit: 1000,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   store: makeStore("rl:global:"),
