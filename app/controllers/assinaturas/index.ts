@@ -49,9 +49,9 @@ const assinaturaItemSchema = z
     tipoItem: z.enum(['SERVICO', 'PRODUTO']),
     servicoId: z.number().int().positive().optional().nullable(),
     produtoId: z.number().int().positive().optional().nullable(),
-    descricaoSnapshot: z.string().trim().min(1),
-    quantidade: z.number().int().positive().default(1),
-    valorUnitario: z.number().min(0),
+    descricaoSnapshot: z.string().trim().min(1, 'Informe a descrição de cada item do contrato.'),
+    quantidade: z.number().int().positive('A quantidade do item deve ser no mínimo 1.').default(1),
+    valorUnitario: z.number().min(0, 'O valor unitário do item não pode ser negativo.'),
     cobrar: z.boolean().default(true),
     comodato: z.boolean().default(false),
     ativo: z.boolean().default(true),
@@ -68,9 +68,9 @@ const assinaturaItemSchema = z
 
 const assinaturaSchema = z.object({
   id: z.number().int().positive().optional(),
-  clienteId: z.number().int().positive(),
+  clienteId: z.number().int().positive('Selecione o cliente do contrato.'),
   planoId: z.number().int().positive().optional().nullable(),
-  nomeContrato: z.string().trim().min(2),
+  nomeContrato: z.string().trim().min(2, 'Informe o nome do contrato (mínimo de 2 caracteres).'),
   status: z.enum(['ATIVA', 'SUSPENSA', 'CANCELADA', 'ENCERRADA']).default('ATIVA'),
   modoValor: z.enum(['MANUAL', 'DINAMICO']).default('DINAMICO'),
   valorManual: z.number().min(0).optional().nullable(),
@@ -78,7 +78,7 @@ const assinaturaSchema = z.object({
     .enum(['SEMANAL', 'QUINZENAL', 'MENSAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL', 'PERSONALIZADO'])
     .default('MENSAL'),
   intervaloDiasPersonalizado: z.number().int().positive().optional().nullable(),
-  inicio: z.string().datetime(),
+  inicio: z.string().datetime({ message: 'Informe a data de início do contrato.' }),
   fim: z.string().datetime().optional().nullable(),
   recorrenciaIndefinida: z.boolean().default(true),
   proximaCobranca: z.string().datetime().optional().nullable(),

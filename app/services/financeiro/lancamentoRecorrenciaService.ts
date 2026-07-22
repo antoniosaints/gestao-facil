@@ -8,6 +8,7 @@ import {
   estaNaJanelaDeGeracao,
   normalizarConfigRecorrencia,
   podeGerarOcorrencia,
+  recalcularCursorRecorrencia,
   resolverAlvoPendentes,
   type ModoGeracaoRecorrencia,
   type RecorrenciaConfigPayload,
@@ -195,6 +196,55 @@ export async function gerarParcelasRecorrentes(
     proximoVencimento: cursor,
     motivo,
   };
+}
+
+/// Chamado após excluir parcela(s) de um lançamento recorrente: rebobina o
+/// cursor para logo depois da última parcela que sobrou, para que a próxima
+/// geração não pule os vencimentos removidos.
+export async function sincronizarCursorRecorrencia(
+  db: DbClient,
+  lancamentoId: number | null | undefined,
+) {
+  if (!lancamentoId) return null;
+
+  const recorrencia = await db.lancamentoRecorrencia.findUnique({
+    where: { lancamentoId },
+  });
+
+  if (!recorrencia) return null;
+
+  const ultima = await db.parcelaFinanceiro.findFirst({
+    where: { lancamentoId, numero: { not: 0 } },
+    select: { vencimento: true },
+    orderBy: { vencimento: "desc" },
+  });
+
+  const { proximoVencimento, encerrada } = recalcularCursorRecorrencia({
+    ultimoVencimento: ultima?.vencimento || null,
+    dataInicio: recorrencia.dataInicio,
+    dataFim: recorrencia.dataFim,
+    frequencia: recorrencia.frequencia,
+    intervaloDias: recorrencia.intervaloDias,
+  });
+
+  const cursorAtual = recorrencia.proximoVencimento
+    ? startOfDay(recorrencia.proximoVencimento).getTime()
+    : null;
+  const cursorNovo = proximoVencimento ? proximoVencimento.getTime() : null;
+
+  if (cursorAtual === cursorNovo) return recorrencia;
+
+  return db.lancamentoRecorrencia.update({
+    where: { id: recorrencia.id },
+    data: {
+      proximoVencimento,
+      // Encerrar é automático; retomar continua sendo decisão do usuário, então
+      // `ativo` nunca é religado aqui — apenas o marco de encerramento é limpo.
+      ...(encerrada
+        ? { ativo: false, encerradaEm: recorrencia.encerradaEm ?? new Date() }
+        : { encerradaEm: null }),
+    },
+  });
 }
 
 /// Chamado após qualquer quitação de parcela: repõe as parcelas em aberto até o

@@ -187,6 +187,28 @@ export function estaNaJanelaDeGeracao(args: {
   return startOfDay(args.proximoVencimentoPendente) <= limite;
 }
 
+/// Recalcula o cursor da recorrência a partir das parcelas que sobraram.
+/// Sem isso o cursor continuaria à frente das parcelas existentes depois de uma
+/// exclusão, e a próxima geração pularia os vencimentos removidos.
+export function recalcularCursorRecorrencia(args: {
+  ultimoVencimento: Date | null;
+  dataInicio: Date;
+  dataFim: Date | null;
+  frequencia: FrequenciaRecorrencia;
+  intervaloDias: number | null;
+}): { proximoVencimento: Date | null; encerrada: boolean } {
+  // Sem nenhuma ocorrência restante o ciclo recomeça na data de início.
+  const cursor = args.ultimoVencimento
+    ? avancarDataRecorrencia(args.ultimoVencimento, args.frequencia, args.intervaloDias)
+    : startOfDay(args.dataInicio);
+
+  if (args.dataFim && cursor > startOfDay(args.dataFim)) {
+    return { proximoVencimento: null, encerrada: true };
+  }
+
+  return { proximoVencimento: cursor, encerrada: false };
+}
+
 export function podeGerarOcorrencia(args: {
   ativo: boolean;
   proximoVencimento: Date | null;

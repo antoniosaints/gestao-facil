@@ -17,10 +17,19 @@ import {
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
 import { assertFutureSettlementAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
-import { processarPosPagamentoRecorrencia } from "../../services/financeiro/lancamentoRecorrenciaService";
+import {
+  processarPosPagamentoRecorrencia,
+  sincronizarCursorRecorrencia,
+} from "../../services/financeiro/lancamentoRecorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
-import { canDeleteParcelaFinanceira } from "../../services/financeiro/parcelaFinanceiraPolicy";
+import {
+  canDeleteParcelaFinanceira,
+  separarParcelasParaEfetivar,
+  separarParcelasParaEstornar,
+  separarParcelasParaExcluir,
+  type ParcelaLoteInput,
+} from "../../services/financeiro/parcelaFinanceiraPolicy";
 import { canEnableClientDueNotification } from "../../services/financeiro/financialDueNotificationPolicy";
 import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
 import {
@@ -280,6 +289,7 @@ export const deletarParcela = async (req: Request, res: Response): Promise<any> 
     }
 
     await prisma.parcelaFinanceiro.delete({ where: { id: parcela.id } });
+    await sincronizarCursorRecorrencia(prisma, parcela.lancamentoId);
 
     await atualizarStatusLancamentos(customData.contaId);
     const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [parcela.lancamentoId]);
@@ -1018,46 +1028,115 @@ export const pagarParcela = async (
   }
 };
 
+type ParcelaLoteSelecionada = ParcelaLoteInput & { valor: Decimal };
+
+/**
+ * Carrega as parcelas informadas garantindo o escopo da conta e já no formato
+ * esperado pelas policies de lote.
+ */
+async function carregarParcelasDoLote(ids: number[], contaId: number): Promise<ParcelaLoteSelecionada[]> {
+  const parcelas = await prisma.parcelaFinanceiro.findMany({
+    where: {
+      id: { in: ids },
+      lancamento: {
+        contaId,
+      },
+    },
+    select: {
+      id: true,
+      numero: true,
+      pago: true,
+      valor: true,
+      lancamentoId: true,
+      CobrancasFinanceiras: {
+        select: { id: true },
+        take: 1,
+      },
+    },
+  });
+
+  return parcelas.map((parcela) => ({
+    id: parcela.id,
+    numero: parcela.numero,
+    pago: parcela.pago,
+    valor: parcela.valor,
+    lancamentoId: parcela.lancamentoId,
+    temCobranca: parcela.CobrancasFinanceiras.length > 0,
+  }));
+}
+
+function parseIdsDoLote(valor: unknown) {
+  if (!Array.isArray(valor)) return [];
+  return [...new Set(valor.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0))];
+}
+
+/**
+ * Propaga status, vendas e sockets após uma operação em lote de parcelas.
+ */
+async function propagarAtualizacaoParcelas(contaId: number, lancamentoIds: number[], payload: Record<string, unknown>) {
+  await atualizarStatusLancamentos(contaId);
+  const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, contaId, lancamentoIds);
+  if (vendasAtualizadas.length) {
+    sendVendasUpdateTable(contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
+  }
+  sendFinanceiroUpdated(contaId, payload);
+}
+
 export const pagarMultiplasParcelas = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { parcelas } = req.body; // Ex: [1, 2, 3]
   const customData = getCustomRequest(req).customData;
-  if (!Array.isArray(parcelas) || parcelas.length === 0) {
+  const ids = parseIdsDoLote(req.body?.parcelas);
+  if (!ids.length) {
     return res
       .status(400)
       .json({ message: "Informe um array de parcelas de parcelas." });
   }
 
   try {
-    const contaPagamento = await requireContaFinanceiraPadrao(prisma, customData.contaId);
-    const parcelasPermitidas = await prisma.parcelaFinanceiro.findMany({
-      where: {
-        id: { in: parcelas },
-        pago: false,
-        lancamento: {
-          contaId: customData.contaId,
-        },
-      },
-      select: { id: true, lancamentoId: true },
-    });
-
-    if (!parcelasPermitidas.length) {
-      return res.status(404).json({ message: "Nenhuma parcela válida encontrada para pagamento." });
+    const dataPagamento = startOfDay(new Date(req.body?.dataPagamento || new Date()));
+    if (Number.isNaN(dataPagamento.getTime())) {
+      return res.status(400).json({ message: "Informe uma data de pagamento válida." });
     }
 
-    await prisma.parcelaFinanceiro.updateMany({
-      where: { id: { in: parcelasPermitidas.map((item) => item.id) } },
-      data: {
-        pago: true,
-        formaPagamento: "PIX",
-        dataPagamento: startOfDay(new Date()),
-        contaFinanceira: contaPagamento,
-      },
+    const metodoPagamento = req.body?.metodoPagamento || "PIX";
+
+    // Erros de política (conta padrão ausente, efetivação futura bloqueada) são
+    // acionáveis pelo usuário, então voltam como 400 e não como erro genérico.
+    let contaPagamento: number;
+    try {
+      contaPagamento = await requireContaFinanceiraPadrao(prisma, customData.contaId, req.body?.contaPagamento);
+      await assertFutureSettlementAllowed(customData.contaId, [dataPagamento]);
+    } catch (error: any) {
+      return res.status(400).json({ message: error?.message || "Não foi possível efetivar as parcelas." });
+    }
+
+    const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
+    const { aplicar, ignoradas } = separarParcelasParaEfetivar(parcelas);
+
+    if (!aplicar.length) {
+      return res.status(404).json({ message: "Nenhuma parcela válida encontrada para pagamento.", data: { efetivadas: 0, ignoradas } });
+    }
+
+    const selecionadas = parcelas.filter((parcela) => aplicar.includes(parcela.id));
+
+    await prisma.$transaction(async (tx) => {
+      for (const parcela of selecionadas) {
+        await tx.parcelaFinanceiro.update({
+          where: { id: parcela.id },
+          data: {
+            pago: true,
+            valorPago: parcela.valor,
+            formaPagamento: metodoPagamento,
+            dataPagamento,
+            contaFinanceira: contaPagamento,
+          },
+        });
+      }
     });
 
-    const lancamentosAfetados = [...new Set(parcelasPermitidas.map((item) => item.lancamentoId))];
+    const lancamentosAfetados = [...new Set(selecionadas.map((item) => item.lancamentoId))];
     let parcelasRecorrentesGeradas = 0;
     for (const lancamentoId of lancamentosAfetados) {
       const resultado = await prisma.$transaction(async (tx) => {
@@ -1067,21 +1146,123 @@ export const pagarMultiplasParcelas = async (
       parcelasRecorrentesGeradas += resultado.criadas;
     }
 
-    await atualizarStatusLancamentos(customData.contaId);
-    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, lancamentosAfetados);
-    if (vendasAtualizadas.length) {
-      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
-    }
-    sendFinanceiroUpdated(customData.contaId, {
+    await propagarAtualizacaoParcelas(customData.contaId, lancamentosAfetados, {
       reason: "parcelas-pagas-em-lote",
-      total: parcelasPermitidas.length,
+      total: aplicar.length,
       parcelasRecorrentesGeradas,
     });
 
-    return res.json({ message: "Parcelas pagas com sucesso." });
+    return ResponseHandler(res, "Parcelas efetivadas com sucesso.", {
+      efetivadas: aplicar.length,
+      ignoradas,
+      parcelasRecorrentesGeradas,
+    });
   } catch (error: any) {
-    console.error("Erro ao pagar parcelas:", error);
-    return res.status(500).json({ message: "Erro ao pagar parcelas." });
+    handleError(res, error);
+  }
+};
+
+export const estornarMultiplasParcelas = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const ids = parseIdsDoLote(req.body?.parcelas);
+  if (!ids.length) {
+    return res.status(400).json({ message: "Informe as parcelas que deseja estornar." });
+  }
+
+  try {
+    const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
+    const { aplicar, ignoradas } = separarParcelasParaEstornar(parcelas);
+
+    if (!aplicar.length) {
+      return res.status(404).json({ message: "Nenhuma parcela válida encontrada para estorno.", data: { estornadas: 0, ignoradas } });
+    }
+
+    await prisma.parcelaFinanceiro.updateMany({
+      where: { id: { in: aplicar } },
+      data: {
+        pago: false,
+        formaPagamento: null,
+        valorPago: null,
+        dataPagamento: null,
+        contaFinanceira: null,
+      },
+    });
+
+    const lancamentosAfetados = [
+      ...new Set(parcelas.filter((parcela) => aplicar.includes(parcela.id)).map((item) => item.lancamentoId)),
+    ];
+
+    await propagarAtualizacaoParcelas(customData.contaId, lancamentosAfetados, {
+      reason: "parcelas-estornadas-em-lote",
+      total: aplicar.length,
+    });
+
+    return ResponseHandler(res, "Parcelas estornadas com sucesso.", {
+      estornadas: aplicar.length,
+      ignoradas,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const deletarMultiplasParcelas = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const customData = getCustomRequest(req).customData;
+  const ids = parseIdsDoLote(req.body?.parcelas);
+  if (!ids.length) {
+    return res.status(400).json({ message: "Informe as parcelas que deseja excluir." });
+  }
+
+  try {
+    const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
+
+    if (!parcelas.length) {
+      return res.status(404).json({ message: "Nenhuma parcela encontrada." });
+    }
+
+    const totaisPorLancamento = await prisma.parcelaFinanceiro.groupBy({
+      by: ["lancamentoId"],
+      where: { lancamentoId: { in: [...new Set(parcelas.map((item) => item.lancamentoId))] } },
+      _count: { _all: true },
+    });
+
+    const totalParcelasPorLancamento = Object.fromEntries(
+      totaisPorLancamento.map((item) => [item.lancamentoId, item._count._all]),
+    );
+
+    const { aplicar, ignoradas } = separarParcelasParaExcluir(parcelas, totalParcelasPorLancamento);
+
+    if (!aplicar.length) {
+      return res.status(400).json({ message: "Nenhuma parcela pôde ser excluída.", data: { excluidas: 0, ignoradas } });
+    }
+
+    const lancamentosAfetados = [
+      ...new Set(parcelas.filter((parcela) => aplicar.includes(parcela.id)).map((item) => item.lancamentoId)),
+    ];
+
+    await prisma.parcelaFinanceiro.deleteMany({ where: { id: { in: aplicar } } });
+
+    for (const lancamentoId of lancamentosAfetados) {
+      await sincronizarCursorRecorrencia(prisma, lancamentoId);
+    }
+
+    await propagarAtualizacaoParcelas(customData.contaId, lancamentosAfetados, {
+      reason: "parcelas-excluidas-em-lote",
+      total: aplicar.length,
+    });
+
+    return ResponseHandler(res, "Parcelas excluídas com sucesso.", {
+      excluidas: aplicar.length,
+      ignoradas,
+    });
+  } catch (error) {
+    handleError(res, error);
   }
 };
 

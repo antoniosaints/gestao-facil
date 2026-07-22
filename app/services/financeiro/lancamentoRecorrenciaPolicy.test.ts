@@ -7,6 +7,7 @@ import {
   normalizarConfigRecorrencia,
   normalizeFrequenciaRecorrencia,
   podeGerarOcorrencia,
+  recalcularCursorRecorrencia,
   resolverAlvoPendentes,
 } from "./lancamentoRecorrenciaPolicy";
 
@@ -123,5 +124,55 @@ describe("lancamentoRecorrenciaPolicy", () => {
       podeGerarOcorrencia({ ...comum, proximoVencimento: base, pendentes: 3 }).motivo,
       "ALVO_ATINGIDO",
     );
+  });
+});
+
+describe("recalcularCursorRecorrencia", () => {
+  const comum = {
+    dataInicio: new Date(2026, 6, 1),
+    dataFim: null,
+    frequencia: "MENSAL" as const,
+    intervaloDias: null,
+  };
+
+  it("rebobina o cursor para o mês seguinte à última parcela restante", () => {
+    // Cenário do bug: parcelas 01/07 e 01/08 com cursor em 01/09; ao apagar a de
+    // 01/08 o cursor precisa voltar para 01/08, e não pular agosto.
+    const resultado = recalcularCursorRecorrencia({
+      ...comum,
+      ultimoVencimento: new Date(2026, 6, 1),
+    });
+
+    assert.deepEqual(resultado.proximoVencimento, new Date(2026, 7, 1));
+    assert.equal(resultado.encerrada, false);
+  });
+
+  it("volta para a data de início quando não sobra nenhuma ocorrência", () => {
+    const resultado = recalcularCursorRecorrencia({ ...comum, ultimoVencimento: null });
+
+    assert.deepEqual(resultado.proximoVencimento, new Date(2026, 6, 1));
+    assert.equal(resultado.encerrada, false);
+  });
+
+  it("encerra quando o novo cursor passa da data de fim", () => {
+    const resultado = recalcularCursorRecorrencia({
+      ...comum,
+      dataFim: new Date(2026, 7, 15),
+      ultimoVencimento: new Date(2026, 7, 1),
+    });
+
+    assert.equal(resultado.proximoVencimento, null);
+    assert.equal(resultado.encerrada, true);
+  });
+
+  it("respeita a frequência personalizada", () => {
+    const resultado = recalcularCursorRecorrencia({
+      ...comum,
+      frequencia: "PERSONALIZADO",
+      intervaloDias: 10,
+      ultimoVencimento: new Date(2026, 6, 1),
+    });
+
+    assert.deepEqual(resultado.proximoVencimento, new Date(2026, 6, 11));
   });
 });
