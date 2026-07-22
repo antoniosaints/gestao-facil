@@ -639,6 +639,12 @@ export const updateVendaInternal = async (
       throw new Error("Venda nao encontrada");
     }
 
+    // Reescrever itens de uma venda faturada devolveria/baixaria estoque de algo
+    // já efetivado no financeiro. O fluxo correto é estornar antes de editar.
+    if (venda.status === "FATURADO") {
+      throw new Error("Venda faturada não pode ser editada. Estorne o faturamento antes.");
+    }
+
     const itensVendaOriginal = venda.ItensVendas || [];
 
     // Remove itens e movimentações antigas

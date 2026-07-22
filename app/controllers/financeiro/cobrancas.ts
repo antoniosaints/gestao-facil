@@ -39,7 +39,27 @@ export const generateCobranca = async (
       return res
         .status(400)
         .json({ message: "Dados inválidos, informe o corpo da requisição." });
-    const { type, value, gateway } = req.body as BodyCobranca;
+    const { type, value, gateway, vinculo } = req.body as BodyCobranca;
+
+    // Uma venda faturada já teve o recebimento registrado; gerar cobrança nela
+    // duplicaria o valor a receber.
+    if (vinculo?.tipo === "venda" && vinculo.id) {
+      const vendaVinculada = await prisma.vendas.findFirst({
+        where: { id: Number(vinculo.id), contaId: customData.contaId },
+        select: { status: true },
+      });
+
+      if (!vendaVinculada) {
+        return res.status(404).json({ message: "Venda não encontrada." });
+      }
+
+      if (vendaVinculada.status === "FATURADO") {
+        return res.status(400).json({
+          message: "Venda já faturada. Estorne o faturamento antes de gerar uma nova cobrança.",
+        });
+      }
+    }
+
     if (!type || !value || !gateway)
       return res.status(400).json({
         message:
