@@ -140,6 +140,15 @@ describe("calcularVariacao e calcularParticipacao", () => {
     assert.equal(calcularParticipacao(new Decimal(25), new Decimal(200)), 12.5);
     assert.equal(calcularParticipacao(new Decimal(25), new Decimal(0)), 0);
   });
+
+  it("preserva casas suficientes para a tela não arredondar duas vezes", () => {
+    // 925 / 7313,94 = 12,6471%. Arredondar aqui para 12,65 fazia a tela exibir
+    // 12,7% ao formatar com uma casa.
+    const participacao = calcularParticipacao(new Decimal("925"), new Decimal("7313.94"));
+
+    assert.equal(participacao, 12.6471);
+    assert.equal(participacao.toFixed(1), "12.6");
+  });
 });
 
 describe("agruparPorCategoria", () => {

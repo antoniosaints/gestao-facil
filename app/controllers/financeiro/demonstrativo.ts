@@ -65,6 +65,12 @@ function escaparCsv(valor: string) {
   return `"${String(valor).replace(/"/g, '""')}"`;
 }
 
+/// Percentuais chegam com casas extras de propósito; o arredondamento acontece
+/// aqui, uma única vez, na formatação de saída.
+function toPercentual(valor: number | null) {
+  return valor === null ? "" : valor.toFixed(2).replace(".", ",");
+}
+
 function montarLinhasCsv(demonstrativo: DemonstrativoPayload) {
   const linhas: string[] = [];
   const cabecalho = ["Grupo", "Categoria", "Valor", "AV %", "Período anterior", "AH %"];
@@ -82,9 +88,9 @@ function montarLinhasCsv(demonstrativo: DemonstrativoPayload) {
           titulo,
           grupo.nome,
           toNumero(grupo.valor),
-          String(grupo.participacao).replace(".", ","),
+          toPercentual(grupo.participacao),
           toNumero(grupo.anterior),
-          grupo.variacao === null ? "" : String(grupo.variacao).replace(".", ","),
+          toPercentual(grupo.variacao),
         ]
           .map(escaparCsv)
           .join(";"),
@@ -98,9 +104,9 @@ function montarLinhasCsv(demonstrativo: DemonstrativoPayload) {
               `${titulo} > ${grupo.nome}`,
               sub.nome,
               toNumero(sub.valor),
-              String(sub.participacao).replace(".", ","),
+              toPercentual(sub.participacao),
               toNumero(sub.anterior),
-              sub.variacao === null ? "" : String(sub.variacao).replace(".", ","),
+              toPercentual(sub.variacao),
             ]
               .map(escaparCsv)
               .join(";"),
@@ -114,7 +120,7 @@ function montarLinhasCsv(demonstrativo: DemonstrativoPayload) {
   linhas.push("");
   linhas.push(["RESULTADO", "Total de receitas", toNumero(resumo.receitas), "", toNumero(resumo.anterior.receitas), ""].map(escaparCsv).join(";"));
   linhas.push(["RESULTADO", "Total de despesas", toNumero(resumo.despesas), "", toNumero(resumo.anterior.despesas), ""].map(escaparCsv).join(";"));
-  linhas.push(["RESULTADO", "Resultado do período", toNumero(resumo.resultado), String(resumo.margem).replace(".", ","), toNumero(resumo.anterior.resultado), ""].map(escaparCsv).join(";"));
+  linhas.push(["RESULTADO", "Resultado do período", toNumero(resumo.resultado), toPercentual(resumo.margem), toNumero(resumo.anterior.resultado), ""].map(escaparCsv).join(";"));
 
   return linhas.join("\n");
 }

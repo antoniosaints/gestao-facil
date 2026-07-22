@@ -137,17 +137,27 @@ export function mapearRaizes(categorias: CategoriaArvore[]) {
   return raizes;
 }
 
+/// Casas decimais dos percentuais no payload. Fica acima do que qualquer saída
+/// exibe (1 ou 2 casas) para que o arredondamento aconteça só na formatação:
+/// arredondar aqui para 2 e de novo na tela transformava 12,647% em 12,7%.
+const CASAS_PERCENTUAL = 4;
+
 /// Variação percentual entre dois períodos. Sem base anterior a variação é
 /// indefinida (null) — devolver 100% ou Infinity distorceria a leitura.
 export function calcularVariacao(atual: Decimal, anterior: Decimal): number | null {
   if (anterior.isZero()) return null;
-  return atual.minus(anterior).dividedBy(anterior.abs()).times(100).toDecimalPlaces(2).toNumber();
+  return atual
+    .minus(anterior)
+    .dividedBy(anterior.abs())
+    .times(100)
+    .toDecimalPlaces(CASAS_PERCENTUAL)
+    .toNumber();
 }
 
 /// Análise vertical: participação da linha sobre a base (receita total do período).
 export function calcularParticipacao(valor: Decimal, base: Decimal): number {
   if (base.isZero()) return 0;
-  return valor.dividedBy(base).times(100).toDecimalPlaces(2).toNumber();
+  return valor.dividedBy(base).times(100).toDecimalPlaces(CASAS_PERCENTUAL).toNumber();
 }
 
 type AcumuladorCategoria = {
