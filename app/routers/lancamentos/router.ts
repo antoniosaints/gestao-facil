@@ -5,7 +5,7 @@ import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
 import { ListagemMobileLancamentos } from "../../controllers/financeiro/mobile";
-import { deleteCategoria, listCategorias, saveCategoria, select2Categorias, tableCategorias } from "../../controllers/financeiro/categorias";
+import { deleteCategoria, getArvoreCategorias, listCategorias, moverCategoria, saveCategoria, select2Categorias } from "../../controllers/financeiro/categorias";
 import { ajustarSaldoContaFinanceira, deleteContaFinanceiro, getContaFinanceiroDetalhes, getContaFinanceiroSaldoAtual, listContasFinanceiro, previewTransferirContaFinanceira, saveContaFinanceiro, tableContasFinanceiro, transferirContaFinanceira } from "../../controllers/financeiro/contas";
 import { select2ContasFinanceiras } from "../../controllers/financeiro/hooks";
 import { cancelarCobranca, cancelarMercadoPagoPagamento, deletarCobranca, estornarCobranca, generateCobranca, generateCobrancaPublico, getCobrancas } from "../../controllers/financeiro/cobrancas";
@@ -36,6 +36,11 @@ import {
   salvarLembreteLancamento,
   salvarLembretesEmMassa,
 } from "../../controllers/financeiro/inadimplencia";
+import {
+  atualizarStatusRecorrenciaLancamento,
+  gerarProximaOcorrenciaRecorrencia,
+  salvarRecorrenciaLancamento,
+} from "../../controllers/financeiro/recorrencias";
 import multer from "multer";
 
 const routerLancamentos = Router();
@@ -84,6 +89,9 @@ routerLancamentos.post("/inadimplencia/lancamento/:id/lembrete", authenticateJWT
 routerLancamentos.delete("/inadimplencia/lancamento/:id/lembrete", authenticateJWT, removerLembreteLancamento);
 routerLancamentos.post("/inadimplencia/lancamento/:id/enviar-agora", authenticateJWT, enviarLembreteAgora);
 routerLancamentos.post("/inadimplencia/lembretes/massa", authenticateJWT, salvarLembretesEmMassa);
+routerLancamentos.post("/:id/recorrencia", authenticateJWT, salvarRecorrenciaLancamento);
+routerLancamentos.post("/:id/recorrencia/status", authenticateJWT, atualizarStatusRecorrenciaLancamento);
+routerLancamentos.post("/:id/recorrencia/gerar", authenticateJWT, gerarProximaOcorrenciaRecorrencia);
 routerLancamentos.post("/:id/notificacao-vencimento", authenticateJWT, updateLancamentoNotificacaoVencimento);
 routerLancamentos.post("/:id/notificacao-cliente-vencimento", authenticateJWT, updateLancamentoNotificacaoClienteVencimento);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
@@ -108,8 +116,9 @@ routerLancamentos.get("/relatorios/valor-status", authenticateJWT, getLancamento
 routerLancamentos.get("/relatorios/valor-pagamento", authenticateJWT, getLancamentosPorPagamento);
 routerLancamentos.get("/relatorios/totais", authenticateJWT, getLancamentosTotaisGerais);
 // Categorias
-routerLancamentos.get("/categorias/getDataTable", authenticateJWT, tableCategorias);
+routerLancamentos.get("/categorias/arvore", authenticateJWT, getArvoreCategorias);
 routerLancamentos.get("/categorias/select2", authenticateJWT, select2Categorias);
+routerLancamentos.post("/categorias/:id/mover", authenticateJWT, moverCategoria);
 routerLancamentos.delete("/categorias/:id", authenticateJWT, deleteCategoria);
 routerLancamentos.post("/categorias", authenticateJWT, saveCategoria);
 // Contas

@@ -17,6 +17,7 @@ import {
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
 import { assertFutureSettlementAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
+import { processarPosPagamentoRecorrencia } from "../../services/financeiro/lancamentoRecorrenciaService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { canDeleteParcelaFinanceira } from "../../services/financeiro/parcelaFinanceiraPolicy";
@@ -633,6 +634,7 @@ export const getLacamento = async (
         categoria: true,
         cliente: true,
         ContasFinanceiro: true,
+        recorrencia: true,
         assinaturaPagar: {
           select: {
             id: true,
@@ -978,9 +980,12 @@ export const pagarParcela = async (
         ? await processarPosPagamentoAssinaturaPagar(tx, parcelaAtualizada.lancamentoId)
         : null;
 
+      const recorrencia = await processarPosPagamentoRecorrencia(tx, parcelaAtualizada?.lancamentoId);
+
       return {
         lancamentoId: parcelaAtualizada?.lancamentoId || null,
         automacao,
+        recorrencia,
       };
     });
 
@@ -995,6 +1000,14 @@ export const pagarParcela = async (
       sendFinanceiroUpdated(customData.contaId, {
         reason: "assinatura-pagar-proximo-lancamento-gerado",
         lancamentoId: pagamentoResult.automacao.lancamentoId,
+      });
+    }
+
+    if (pagamentoResult.recorrencia?.criadas) {
+      sendFinanceiroUpdated(customData.contaId, {
+        reason: "recorrencia-parcela-gerada",
+        lancamentoId: pagamentoResult.lancamentoId,
+        parcelasGeradas: pagamentoResult.recorrencia.criadas,
       });
     }
 
@@ -1045,10 +1058,13 @@ export const pagarMultiplasParcelas = async (
     });
 
     const lancamentosAfetados = [...new Set(parcelasPermitidas.map((item) => item.lancamentoId))];
+    let parcelasRecorrentesGeradas = 0;
     for (const lancamentoId of lancamentosAfetados) {
-      await prisma.$transaction(async (tx) => {
+      const resultado = await prisma.$transaction(async (tx) => {
         await processarPosPagamentoAssinaturaPagar(tx, lancamentoId);
+        return processarPosPagamentoRecorrencia(tx, lancamentoId);
       });
+      parcelasRecorrentesGeradas += resultado.criadas;
     }
 
     await atualizarStatusLancamentos(customData.contaId);
@@ -1056,7 +1072,11 @@ export const pagarMultiplasParcelas = async (
     if (vendasAtualizadas.length) {
       sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
     }
-    sendFinanceiroUpdated(customData.contaId, { reason: "parcelas-pagas-em-lote", total: parcelasPermitidas.length });
+    sendFinanceiroUpdated(customData.contaId, {
+      reason: "parcelas-pagas-em-lote",
+      total: parcelasPermitidas.length,
+      parcelasRecorrentesGeradas,
+    });
 
     return res.json({ message: "Parcelas pagas com sucesso." });
   } catch (error: any) {

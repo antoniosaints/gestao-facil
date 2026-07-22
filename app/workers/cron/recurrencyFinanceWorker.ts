@@ -2,6 +2,7 @@ import { Job, Queue, Worker } from 'bullmq'
 
 import { redisConnecion } from '../../utils/redis'
 import { processDueSubscriptionCycles } from '../../services/assinaturas/recorrenciaService'
+import { processarRecorrenciasAutomaticas } from '../../services/financeiro/lancamentoRecorrenciaService'
 
 const financeQueue = 'recurrencyFinance'
 const queue = new Queue(financeQueue, {
@@ -63,7 +64,20 @@ export const recurrencyFinanceWorker = () => {
         console.error('[recurrencyFinance] errors:', summary.errors)
       }
 
-      return summary
+      // Lançamentos recorrentes com geração automática ligada: gera a próxima
+      // ocorrência quando a parcela vigente entra na janela de antecedência.
+      const recorrencias = await processarRecorrenciasAutomaticas()
+      if (recorrencias.checked) {
+        console.log(
+          `[lancamentosRecorrentes] job=${job.id} checked=${recorrencias.checked} created=${recorrencias.created} finished=${recorrencias.finished} failed=${recorrencias.failed}`,
+        )
+      }
+
+      if (recorrencias.errors.length) {
+        console.error('[lancamentosRecorrentes] errors:', recorrencias.errors)
+      }
+
+      return { summary, recorrencias }
     },
     {
       connection: redisConnecion,

@@ -9,8 +9,10 @@ import { formatCurrency } from '../../utils/formatters'
 import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from './financeiroPolicyService'
 import { canEnableClientDueNotification } from './financialDueNotificationPolicy'
 import { requireContaFinanceiraPadrao } from './contaFinanceiraPadraoService'
+import { criarRecorrenciaLancamento } from './lancamentoRecorrenciaService'
+import type { RecorrenciaConfigPayload } from './lancamentoRecorrenciaPolicy'
 
-export type TipoLancamentoModo = 'AVISTA' | 'PARCELADO'
+export type TipoLancamentoModo = 'AVISTA' | 'PARCELADO' | 'RECORRENTE'
 export type PeriodoParcelamento = 'MENSAL' | 'SEMANAL' | 'DIARIO' | 'QUINZENAL' | 'PERSONALIZADO'
 export type ModoValorParcelamento = 'TOTAL' | 'FIXO_PARCELA'
 export type EscopoAtualizacaoParcela =
@@ -50,6 +52,8 @@ export type LancamentoFinanceiroPayload = {
   modoValorParcelamento?: ModoValorParcelamento
   notificarVencimento?: boolean
   notificarClienteVencimento?: boolean
+  /// Só no modo RECORRENTE: configuração das ocorrências seguintes.
+  recorrencia?: RecorrenciaConfigPayload
 }
 
 type DbClient = Prisma.TransactionClient | PrismaClient
@@ -111,6 +115,7 @@ export function normalizeTipoLancamentoModo(
   modo?: string | null,
 ): TipoLancamentoModo {
   if (modo === 'PARCELADO') return 'PARCELADO'
+  if (modo === 'RECORRENTE') return 'RECORRENTE'
   return 'AVISTA'
 }
 
@@ -204,6 +209,16 @@ export function validarPayloadLancamento(payload: LancamentoFinanceiroPayload) {
     throw new Error('Lançamentos à vista devem possuir apenas uma parcela.')
   }
 
+  if (tipoLancamentoModo === 'RECORRENTE') {
+    if (valorEntrada.gt(0)) {
+      throw new Error('Lançamentos recorrentes não aceitam valor de entrada.')
+    }
+
+    if (desconto.gt(0)) {
+      throw new Error('Lançamentos recorrentes não aceitam desconto: o valor é o mesmo em todas as ocorrências.')
+    }
+  }
+
   if (tipoLancamentoModo === 'PARCELADO' && totalParcelas < 1) {
     throw new Error('Informe o número de parcelas para o lançamento parcelado.')
   }
@@ -238,7 +253,9 @@ export function calcularValoresLancamento(
 
   const tipoLancamentoModo = normalizeTipoLancamentoModo(payload.tipoLancamentoModo)
   const modoValorParcelamento = normalizeModoValorParcelamento(payload.modoValorParcelamento)
-  const totalParcelas = tipoLancamentoModo === 'AVISTA' ? 1 : parsePositiveInt(payload.parcelas, 1)
+  // À vista e recorrente nascem com uma única parcela: no recorrente as demais
+  // ocorrências são geradas depois pelo motor de recorrência.
+  const totalParcelas = tipoLancamentoModo === 'PARCELADO' ? parsePositiveInt(payload.parcelas, 1) : 1
   const valorInformado = parseDecimal(payload.valorTotal)
   const valorEntradaDecimal = parseDecimal(payload.valorEntrada)
   const descontoDecimal = parseDecimal(payload.desconto)
@@ -287,7 +304,7 @@ export function calcularValoresLancamento(
     valorParcelado,
     valoresParcelas,
     totalParcelas,
-    recorrente: tipoLancamentoModo === 'PARCELADO' || totalParcelas > 1,
+    recorrente: tipoLancamentoModo !== 'AVISTA' || totalParcelas > 1,
     hasEfetivadoTotal,
     periodoParcelamento,
     intervaloDiasPersonalizado,
@@ -336,6 +353,7 @@ export async function criarLancamentoFinanceiro(
     hasEfetivadoTotal,
     periodoParcelamento,
     intervaloDiasPersonalizado,
+    tipoLancamentoModo,
   } = calcularValoresLancamento(payloadComConta)
 
   await assertLancamentoDateAllowed(contaId, payloadComConta.dataLancamento)
@@ -415,6 +433,16 @@ export async function criarLancamentoFinanceiro(
           contaFinanceira: Number(contasFinanceiroId) || null,
         }
       }),
+    })
+  }
+
+  if (tipoLancamentoModo === 'RECORRENTE') {
+    await criarRecorrenciaLancamento(db, {
+      contaId,
+      lancamentoId: novoLancamento.id,
+      valorParcela: valoresParcelas[0].toFixed(2),
+      payload: payloadComConta.recorrencia || {},
+      dataInicioFallback: dataLancamento,
     })
   }
 

@@ -229,6 +229,7 @@ model Contas {
   NotificacaoVencimentoFinanceiro NotificacaoVencimentoFinanceiro[]
   ClienteLembreteConfig           ClienteLembreteConfig[]
   LancamentoLembreteCliente       LancamentoLembreteCliente[]
+  LancamentoRecorrencia           LancamentoRecorrencia[]
   LembreteInadimplenciaEnviado    LembreteInadimplenciaEnviado[]
   metas                           Meta[]
   PdvPonto                        PdvPonto[]
@@ -1693,6 +1694,7 @@ model LancamentoFinanceiro {
   ContasFinanceiro           ContasFinanceiro?          @relation(fields: [contasFinanceiroId], references: [id])
   contasFinanceiroId         Int?
   lembreteCliente            LancamentoLembreteCliente?
+  recorrencia                LancamentoRecorrencia?
 
   @@unique([assinaturaPagarId, referenciaRecorrencia])
   @@index([contaId, status, dataLancamento])
@@ -1733,6 +1735,49 @@ enum StatusPagamentoFinanceiro {
 enum OrigemLancamentoFinanceiro {
   MANUAL
   ASSINATURA_PAGAR
+}
+
+enum FrequenciaRecorrenciaFinanceira {
+  DIARIO
+  SEMANAL
+  QUINZENAL
+  MENSAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+  PERSONALIZADO
+}
+
+/// Configuração de recorrência de um lançamento (contas fixas sem fim definido).
+/// As ocorrências são ParcelaFinanceiro do MESMO lançamento, geradas sob demanda
+/// (ao pagar uma parcela) ou pelo worker quando a geração automática está ativa.
+model LancamentoRecorrencia {
+  id                Int                             @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                          @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lancamentoId      Int                             @unique
+  Lancamento        LancamentoFinanceiro            @relation(fields: [lancamentoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ativo             Boolean                         @default(true)
+  valorParcela      Decimal                         @db.Decimal(10, 2)
+  frequencia        FrequenciaRecorrenciaFinanceira @default(MENSAL)
+  intervaloDias     Int?
+  dataInicio        DateTime
+  dataFim           DateTime?
+  /// Quantidade de parcelas em aberto que devem sempre existir.
+  minimoGerado      Int                             @default(1)
+  /// Teto de parcelas em aberto: trava a geração quando há atraso acumulado.
+  maximoEmAberto    Int                             @default(6)
+  geracaoAutomatica Boolean                         @default(false)
+  diasAntecedencia  Int                             @default(30)
+  /// Vencimento da PRÓXIMA parcela a ser gerada (null = recorrência encerrada).
+  proximoVencimento DateTime?
+  totalGerado       Int                             @default(0)
+  ultimaGeracaoEm   DateTime?
+  encerradaEm       DateTime?
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+
+  @@index([contaId, ativo, proximoVencimento])
 }
 
 enum TipoOrigemNotificacaoVencimentoFinanceiro {

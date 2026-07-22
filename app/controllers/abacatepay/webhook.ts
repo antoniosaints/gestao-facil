@@ -17,6 +17,7 @@ import { concederRecompensaIndicador } from "../../services/contas/indicacaoServ
 import { clearCacheAccount } from "../administracao/contas";
 import { env } from "../../utils/dotenv";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
+import { processarPosPagamentoRecorrencia } from "../../services/financeiro/lancamentoRecorrenciaService";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { recalculateComandaStatus } from "../vendas/comandas";
 import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenciaService";
@@ -402,14 +403,16 @@ async function handleTenantWebhook(args: {
   }
 
   if (cobranca.lancamentoId) {
-    await prisma.parcelaFinanceiro.update({
+    const parcelaLiquidada = await prisma.parcelaFinanceiro.update({
       where: { id: cobranca.lancamentoId },
       data: {
         pago: true,
         dataPagamento: new Date(),
         formaPagamento: metodoPago,
       },
+      select: { lancamentoId: true },
     });
+    await prisma.$transaction((tx) => processarPosPagamentoRecorrencia(tx, parcelaLiquidada.lancamentoId));
     await atualizarStatusLancamentos(cobranca.contaId);
     sendFinanceiroUpdated(cobranca.contaId, {
       reason: "cobranca-liquidada-webhook",

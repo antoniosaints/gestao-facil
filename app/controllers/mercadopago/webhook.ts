@@ -10,6 +10,7 @@ import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
+import { processarPosPagamentoRecorrencia } from "../../services/financeiro/lancamentoRecorrenciaService";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
 import { redisConnecion } from "../../utils/redis";
 import { clearCacheAccount } from "../administracao/contas";
@@ -314,14 +315,16 @@ export async function webhookMercadoPagoCobrancas(
     }
 
     if (cobranca.lancamentoId && statusNovo === "EFETIVADO") {
-      await prisma.parcelaFinanceiro.update({
+      const parcelaLiquidada = await prisma.parcelaFinanceiro.update({
         where: { id: cobranca.lancamentoId },
         data: {
           pago: true,
           dataPagamento: new Date(),
           formaPagamento: metodoPago,
         },
+        select: { lancamentoId: true },
       });
+      await prisma.$transaction((tx) => processarPosPagamentoRecorrencia(tx, parcelaLiquidada.lancamentoId));
       await atualizarStatusLancamentos(cobranca.contaId);
       sendFinanceiroUpdated(cobranca.contaId, {
         reason: "cobranca-liquidada-webhook",
