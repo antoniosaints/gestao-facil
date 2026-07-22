@@ -12,6 +12,11 @@ import { cancelarCobranca, cancelarMercadoPagoPagamento, deletarCobranca, estorn
 import { tableCobrancas } from "../../controllers/financeiro/table_cobrancas";
 import { ListagemMobileCobrancas } from "../../controllers/financeiro/mobile_cobrancas";
 import { getDashboardFinanceiroVisaoGeral } from "../../controllers/financeiro/dashboard";
+import {
+  getDemonstrativoCsv,
+  getDemonstrativoFinanceiro,
+  getDemonstrativoPdf,
+} from "../../controllers/financeiro/demonstrativo";
 import { getCsvBaseLancamentos, postImportarLancamentos } from "../../controllers/financeiro/lote/uploadcsv";
 import {
   deleteAssinaturaPagar,
@@ -106,6 +111,9 @@ routerLancamentos.get("/graficos/status", authenticateJWT, graficoByStatus);
 routerLancamentos.get("/graficos/saldo-mensal", authenticateJWT, graficoSaldoMensal);
 routerLancamentos.get("/graficos/receita-despesa-mensal", authenticateJWT, graficoReceitaDespesaMensal);
 // relatorios
+routerLancamentos.get("/relatorios/demonstrativo", authenticateJWT, getDemonstrativoFinanceiro);
+routerLancamentos.get("/relatorios/demonstrativo/csv", authenticateJWT, getDemonstrativoCsv);
+routerLancamentos.get("/relatorios/demonstrativo/pdf", authenticateJWT, getDemonstrativoPdf);
 routerLancamentos.get("/relatorios/dre-pdf", authenticateJWT, getDRELancamentosPDF);
 routerLancamentos.get("/relatorios/dre-pdf-2", authenticateJWT, getDRELancamentosPDFV2);
 routerLancamentos.get("/relatorios/dre", authenticateJWT, getDRELancamentos);
