@@ -704,6 +704,11 @@ model ParametrosConta {
   permitirTransferenciaContaFinanceira   Boolean? @default(true)
   permitirCriacaoCobranca                Boolean? @default(true)
   contaFinanceiraPadraoId                Int?
+  // Quando ativo, toda venda faturada (PDV e normal) nasce com um lançamento de
+  // receita já quitado. Crediário tem fluxo próprio e não é afetado.
+  vendaLancamentoAutomatico              Boolean? @default(false)
+  vendaCategoriaFinanceiraId             Int?
+  vendaContaFinanceiraId                 Int?
   modeloPdv                              String?  @default("BASICO")
   temaPersonalizado                      Json?
   linkPublicoAtivo                       Boolean? @default(false)

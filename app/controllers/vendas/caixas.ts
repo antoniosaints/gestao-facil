@@ -24,6 +24,11 @@ import {
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import { criarLancamentoCrediarioVenda } from "../../services/vendas/crediarioVendaService";
 import {
+  criarLancamentoVendaFaturada,
+  deveLancarFinanceiroVenda,
+  getParametrosLancamentoVenda,
+} from "../../services/vendas/vendaFinanceiroAutomaticoService";
+import {
   abrirCaixaSchema,
   caixaRelatorioQuerySchema,
   criarPdvSchema,
@@ -1716,6 +1721,29 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
           parcelas: data.crediarioParcelas || 1,
           primeiroVencimento: new Date(data.crediarioPrimeiroVencimento as string),
         });
+      } else {
+        // Venda de PDV já nasce faturada: com o parâmetro ativo, o lançamento de
+        // receita quitado acompanha a venda. O crediário acima tem fluxo próprio.
+        const parametrosLancamento = await getParametrosLancamentoVenda(tx, customData.contaId);
+
+        if (
+          deveLancarFinanceiroVenda({
+            parametroAtivo: parametrosLancamento.vendaLancamentoAutomatico,
+            lancamentoManual: true,
+          })
+        ) {
+          await criarLancamentoVendaFaturada(tx, {
+            contaId: customData.contaId,
+            vendaId: venda.id,
+            vendaUid: venda.Uid,
+            clienteId: data.clienteId || null,
+            valorTotal,
+            desconto,
+            dataPagamento: dataVenda,
+            formaPagamento: data.pagamento,
+            parametros: parametrosLancamento,
+          });
+        }
       }
 
       return tx.vendas.findUniqueOrThrow({

@@ -23,6 +23,11 @@ import {
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
 import { criarLancamentoCrediarioVenda } from "../../services/vendas/crediarioVendaService";
+import {
+  criarLancamentoVendaFaturada,
+  deveLancarFinanceiroVenda,
+  getParametrosLancamentoVenda,
+} from "../../services/vendas/vendaFinanceiroAutomaticoService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -200,44 +205,26 @@ export const efetivarVenda = async (
         },
       });
 
-      if (!resultado.lancamentoManual) {
-        if (!categoria) {
-          throw new Error(
-            "Categoria e obrigatoria quando o lancamento automatico estiver ativo."
-          );
-        }
-        const contaFinanceiraId = await requireContaFinanceiraPadrao(tx, venda.contaId, contaId);
+      const parametrosLancamento = await getParametrosLancamentoVenda(tx, venda.contaId);
 
-        await tx.lancamentoFinanceiro.create({
-          data: {
-            Uid: gerarIdUnicoComMetaFinal("FIN"),
-            contaId: venda.contaId,
-            vendaId: venda.id,
-            valorBruto: venda.valor.plus(venda.desconto || new Decimal(0)),
-            valorTotal: venda.valor,
-            desconto: venda.desconto,
-            recorrente: false,
-            dataLancamento: new Date(dataPagamento),
-            descricao: `Venda ${venda.Uid}`,
-            status: "PAGO",
-            categoriaId: categoria,
-            contasFinanceiroId: contaFinanceiraId,
-            formaPagamento: pagamento,
-            tipo: "RECEITA",
-            parcelas: {
-              create: {
-                dataPagamento: new Date(dataPagamento),
-                numero: 1,
-                vencimento: new Date(dataPagamento),
-                formaPagamento: pagamento,
-                pago: true,
-                Uid: gerarIdUnicoComMetaFinal("PAR"),
-                valorPago: venda.valor,
-                valor: venda.valor,
-                contaFinanceira: contaFinanceiraId,
-              },
-            },
-          },
+      const lancarFinanceiro = deveLancarFinanceiroVenda({
+        parametroAtivo: parametrosLancamento.vendaLancamentoAutomatico,
+        lancamentoManual: resultado.lancamentoManual,
+      });
+
+      if (lancarFinanceiro) {
+        await criarLancamentoVendaFaturada(tx, {
+          contaId: venda.contaId,
+          vendaId: venda.id,
+          vendaUid: venda.Uid,
+          clienteId: venda.clienteId,
+          valorTotal: venda.valor,
+          desconto: venda.desconto,
+          dataPagamento: new Date(dataPagamento),
+          formaPagamento: pagamento,
+          parametros: parametrosLancamento,
+          categoriaFallback: categoria,
+          contaFallback: contaId,
         });
       }
 

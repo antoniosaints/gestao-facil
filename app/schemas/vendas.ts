@@ -32,7 +32,7 @@ export const efetivarVendaSchema = z
           "GATEWAY",
         ],
         {
-          required_error: "O campo pagamento eh obrigatorio",
+          required_error: "O campo pagamento é obrigatorio",
           invalid_type_error:
             "O campo pagamento deve ser {PIX, DINHEIRO, CARTAO, TRANSFERENCIA, CHEQUE, CREDITO, DEBITO, BOLETO, OUTRO ou GATEWAY}",
         }
@@ -42,7 +42,7 @@ export const efetivarVendaSchema = z
         invalid_type_error: "O lancamento manual deve ser selecionado ou nao",
       }),
       dataPagamento: z.string({
-        required_error: "O campo dataPagamento eh obrigatorio",
+        required_error: "O campo dataPagamento é obrigatorio",
         invalid_type_error: "O campo dataPagamento deve ser uma string",
       }),
       conta: z
@@ -69,7 +69,7 @@ export const efetivarVendaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["conta"],
         message:
-          "O campo conta eh obrigatorio quando o lancamento automatico estiver ativo.",
+          "O campo conta é obrigatorio quando o lancamento automatico estiver ativo.",
       });
     }
 
@@ -78,7 +78,7 @@ export const efetivarVendaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["categoria"],
         message:
-          "O campo categoria eh obrigatorio quando o lancamento automatico estiver ativo.",
+          "O campo categoria é obrigatorio quando o lancamento automatico estiver ativo.",
       });
     }
   });

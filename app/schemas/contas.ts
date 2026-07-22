@@ -150,6 +150,30 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    vendaLancamentoAutomatico: z
+      .boolean({
+        invalid_type_error: "O lancamento automatico das vendas deve ser verdadeiro ou falso",
+      })
+      .optional()
+      .nullable(),
+    vendaCategoriaFinanceiraId: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.coerce
+        .number({ invalid_type_error: "A categoria financeira das vendas deve ser um numero" })
+        .int("A categoria financeira das vendas deve ser um inteiro")
+        .positive("A categoria financeira das vendas deve ser valida")
+        .optional()
+        .nullable(),
+    ),
+    vendaContaFinanceiraId: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.coerce
+        .number({ invalid_type_error: "A conta financeira das vendas deve ser um numero" })
+        .int("A conta financeira das vendas deve ser um inteiro")
+        .positive("A conta financeira das vendas deve ser valida")
+        .optional()
+        .nullable(),
+    ),
     temaPersonalizado: z
       .object({
         primariaLight: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor primaria clara invalida"),

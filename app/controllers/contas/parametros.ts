@@ -160,6 +160,11 @@ export const saveParametros = async (
         permitirTransferenciaContaFinanceira: body.data.permitirTransferenciaContaFinanceira,
         permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
         ...({ contaFinanceiraPadraoId: body.data.contaFinanceiraPadraoId } as any),
+        ...({
+          vendaLancamentoAutomatico: body.data.vendaLancamentoAutomatico,
+          vendaCategoriaFinanceiraId: body.data.vendaCategoriaFinanceiraId,
+          vendaContaFinanceiraId: body.data.vendaContaFinanceiraId,
+        } as any),
         modeloPdv: body.data.modeloPdv,
         temaPersonalizado: temaPersonalizado as any,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
@@ -197,6 +202,11 @@ export const saveParametros = async (
         permitirTransferenciaContaFinanceira: body.data.permitirTransferenciaContaFinanceira,
         permitirCriacaoCobranca: body.data.permitirCriacaoCobranca,
         ...({ contaFinanceiraPadraoId: body.data.contaFinanceiraPadraoId } as any),
+        ...({
+          vendaLancamentoAutomatico: body.data.vendaLancamentoAutomatico,
+          vendaCategoriaFinanceiraId: body.data.vendaCategoriaFinanceiraId,
+          vendaContaFinanceiraId: body.data.vendaContaFinanceiraId,
+        } as any),
         modeloPdv: body.data.modeloPdv,
         temaPersonalizado: temaPersonalizado as any,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
