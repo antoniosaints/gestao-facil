@@ -5,6 +5,7 @@ import { CustomData } from "../../helpers/getCustomRequest";
 import { iaPlatformService } from "../../services/ia/iaPlatformService";
 import { iaUsageService } from "../../services/ia/iaUsageService";
 import { buildCoreIaKnowledgeContext } from "../../services/ia/coreIaKnowledgeMapper";
+import { buildCoreIaSystemInstruction } from "../../services/ia/coreIaPromptBuilder";
 
 export type CoreIaImageInput = {
   data: string;
@@ -61,44 +62,16 @@ export const callChatGeminiService = async (
     return { error: "Nenhuma chave de API configurada para o Core IA. Contate o administrador da plataforma." };
   }
 
-  // Anexamos ao prompt do CEO um contexto dinâmico (data atual + link do site) para que as
-  // ferramentas e a data continuem corretas independentemente do texto configurado.
-  const coreIaKnowledgeContext = buildCoreIaKnowledgeContext({ prompt: prompt || "" });
-
-  const imageRuntimeRules = `Regras obrigatorias de execucao do Core IA:
-- Voce aceita e analisa imagens enviadas pelo usuario nesta conversa.
-- Quando houver imagem anexada, descreva e interprete o conteudo visual antes de relacionar com gestao/ERP.
-- Nunca diga que nao consegue analisar imagens se uma imagem foi anexada e recebida no prompt.
-- A imagem e usada somente na solicitacao atual e nao deve ser considerada armazenada no historico.
-- Nao renderize dados em tabela Markdown ou HTML no chat.
-- Quando listar dados, use secoes curtas, bullets e resumo objetivo.
-- Nunca mostre IDs internos ao usuario, salvo se ele pedir explicitamente para integracao/tecnico.
-- Se uma operacao precisar de cliente e o usuario informar apenas o nome, chame buscarClientePorNomeParaOperacao antes de pedir ID. Use o clienteId internamente quando houver um unico resultado.
-- Ao criar lancamento financeiro, sempre informe contaFinanceiraId ou contaFinanceira. Se a ferramenta retornar precisaEscolherContaFinanceira, mostre apenas os nomes das contas e peca para o usuario escolher uma.
-- Para duvidas de autoajuda, menus, funcionalidades ou passo a passo do sistema, use a Base compacta do sistema abaixo. Se o contexto automatico nao bastar, chame buscarAjudaSistema com a pergunta do usuario.
-- Antes de executar ferramentas de criacao ou alteracao de dados, confirme os dados essenciais com o usuario.`;
-
-  const systemInstructionText = `${imageRuntimeRules}
-
-Prompt configurado pelo CEO:
-${coreConfig.systemPrompt}
-
-Base compacta do sistema para autoajuda e navegacao:
-${coreIaKnowledgeContext}
-
-Contexto adicional: a data atual de hoje é ${new Date().toISOString().split("T")[0]}. Caso o usuário queira acessar o site, envie um link em formato markdown para "${env.BASE_URL_FRONTEND}/site".
-
-Regras de resposta do Core IA:
-- Não renderize dados em tabela Markdown ou HTML no chat.
-- Quando listar dados, use seções curtas, bullets e resumo objetivo.
-- Nunca mostre IDs internos ao usuário, salvo se ele pedir explicitamente para integração/técnico.
-- Antes de executar ferramentas de criação ou alteração de dados, confirme os dados essenciais com o usuário.
-- Se uma imagem for enviada, analise apenas para responder à solicitação atual; ela não fica armazenada no histórico.
-- Nunca confirmar que fez uma operação de escrita sem realmente fazer, exemplo "registrei o lançamento" sem realmente ter registrado.`;
-
-  const finalSystemInstructionText = `${systemInstructionText}
-
-${imageRuntimeRules}`;
+  // O prompt do CEO é a camada de identidade; o método de trabalho e as regras de
+  // execução vêm do builder, que roda sempre — inclusive para contas que salvaram
+  // um prompt customizado.
+  const finalSystemInstructionText = buildCoreIaSystemInstruction({
+    systemPrompt: coreConfig.systemPrompt,
+    knowledgeContext: buildCoreIaKnowledgeContext({ prompt: prompt || "" }),
+    hoje: new Date().toISOString().split("T")[0],
+    baseUrlFrontend: env.BASE_URL_FRONTEND,
+    temImagem: Boolean(normalizedImage),
+  });
 
   const genAI = new GoogleGenerativeAI(coreConfig.apiKey);
   const model = genAI.getGenerativeModel({
@@ -157,7 +130,9 @@ ${imageRuntimeRules}`;
   // Lógica de Chamada de Função (Function Calling) em múltiplas rodadas: o modelo pode encadear
   // ferramentas (ex.: buscar o ID de um produto e depois repor o estoque). Iteramos até ele
   // devolver texto, com um limite de segurança contra loops.
-  const MAX_ROUNDS = 6;
+  // Fluxos de análise reais encadeiam várias leituras antes de concluir; 6 rodadas
+  // estouravam no meio e devolviam a mensagem de limite.
+  const MAX_ROUNDS = 10;
   let calls = result.response.functionCalls();
   let rounds = 0;
 
@@ -199,7 +174,9 @@ ${imageRuntimeRules}`;
   // Se ainda restarem chamadas pendentes (limite atingido), não há texto para extrair.
   let reply = "";
   if (calls && calls.length) {
-    reply = "Não consegui concluir a operação em etapas suficientes. Tente reformular o pedido.";
+    reply =
+      "A consulta ficou complexa demais e não consegui concluir em uma única resposta. " +
+      "Tente dividir em partes — por exemplo, peça primeiro os números do período e depois a análise.";
   } else {
     try {
       reply = result.response.text();

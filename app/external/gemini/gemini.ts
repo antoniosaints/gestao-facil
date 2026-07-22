@@ -5,12 +5,17 @@ import { CustomData } from "../../helpers/getCustomRequest";
 import { hasPermission } from "../../helpers/userPermission";
 import { systemFunctionsProdutosIA, toolsProducts } from "./tools/products";
 import { systemFunctionsGestaoIA, toolsGestao } from "./tools/gestao";
+import { resolverPeriodoIa, systemFunctionsAnaliseIA, toolsAnalise } from "./tools/analise";
 import { buscarAjudaSistemaParaIa } from "../../services/ia/coreIaKnowledgeMapper";
+
+const brlIa = (valor: number) =>
+  Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 // Funções reais do seu sistema
 export const systemFunctionsIA = {
   ...systemFunctionsProdutosIA,
   ...systemFunctionsGestaoIA,
+  ...systemFunctionsAnaliseIA,
   buscarAjudaSistema: async (args: { consulta?: string }) => buscarAjudaSistemaParaIa(args),
   buscarClientePorNomeParaOperacao: async (args: { nome: string }, request: CustomData) => {
     const nome = String(args?.nome || "").trim();
@@ -97,63 +102,150 @@ export const systemFunctionsIA = {
       totalRetornado: response.length,
     };
   },
-  getResumoFinanceiro: async (args: any, request: CustomData) => {
+  // As três leituras abaixo devolvem TOTAIS já somados + uma amostra curta. Antes
+  // retornavam 50 linhas cruas sem filtro de período, e o modelo tinha que somar
+  // de cabeça — origem dos números errados em análises.
+  getResumoFinanceiro: async (args: { inicio?: string; fim?: string; tipo?: string }, request: CustomData) => {
     const auth = await hasPermission(request, 3);
     if (!auth) return { response: { error: "Acesso negado, informe o usuario que ele não tem permissão!" } };
-    const response = await prisma.lancamentoFinanceiro.findMany({
-      where: {
-        contaId: request.contaId,
-      },
-      include: {
-        parcelas: true,
-      },
-      orderBy: { dataLancamento: "desc" },
-      take: 50,
-    });
+
+    const periodo = resolverPeriodoIa(args?.inicio, args?.fim);
+    const tipo = String(args?.tipo || "").toUpperCase();
+
+    const where = {
+      contaId: request.contaId,
+      dataLancamento: { gte: periodo.inicio, lte: periodo.fim },
+      ...(tipo === "RECEITA" || tipo === "DESPESA" ? { tipo: tipo as any } : {}),
+    };
+
+    const [porTipo, lancamentos] = await Promise.all([
+      prisma.lancamentoFinanceiro.groupBy({
+        by: ["tipo"],
+        _sum: { valorTotal: true },
+        _count: { _all: true },
+        where,
+      }),
+      prisma.lancamentoFinanceiro.findMany({
+        where,
+        select: { descricao: true, tipo: true, valorTotal: true, status: true, dataLancamento: true },
+        orderBy: { valorTotal: "desc" },
+        take: 15,
+      }),
+    ]);
+
+    const soma = (t: string) => Number(porTipo.find((g) => g.tipo === t)?._sum.valorTotal ?? 0);
+    const receitas = soma("RECEITA");
+    const despesas = soma("DESPESA");
 
     return {
-      response,
+      periodo: {
+        inicio: periodo.inicio.toISOString().slice(0, 10),
+        fim: periodo.fim.toISOString().slice(0, 10),
+        assumido: periodo.assumido,
+      },
+      totais: {
+        receitas: brlIa(receitas),
+        despesas: brlIa(despesas),
+        saldo: brlIa(receitas - despesas),
+        quantidade: porTipo.reduce((acc, g) => acc + g._count._all, 0),
+      },
+      maioresLancamentos: lancamentos.map((l) => ({
+        descricao: l.descricao,
+        tipo: l.tipo,
+        valor: brlIa(Number(l.valorTotal || 0)),
+        status: l.status,
+        data: l.dataLancamento?.toISOString().slice(0, 10),
+      })),
     };
   },
-  getResumoOrdensServicos: async (args: any, request: CustomData) => {
-    const response = await prisma.ordensServico.findMany({
-      where: {
-        contaId: request.contaId,
-      },
-      include: {
-        Cliente: {
-          select: {
-            nome: true,
-          },
+  getResumoOrdensServicos: async (args: { inicio?: string; fim?: string }, request: CustomData) => {
+    const periodo = resolverPeriodoIa(args?.inicio, args?.fim);
+    const where = { contaId: request.contaId, data: { gte: periodo.inicio, lte: periodo.fim } };
+
+    const [porStatus, ordens] = await Promise.all([
+      prisma.ordensServico.groupBy({ by: ["status"], _count: { _all: true }, where }),
+      prisma.ordensServico.findMany({
+        where,
+        select: {
+          Uid: true,
+          status: true,
+          data: true,
+          desconto: true,
+          Cliente: { select: { nome: true } },
+          ItensOrdensServico: { select: { valor: true, quantidade: true } },
         },
-        ItensOrdensServico: true,
-      },
-      orderBy: { data: "desc" },
-      take: 50,
-    });
+        orderBy: { data: "desc" },
+        take: 15,
+      }),
+    ]);
+
+    const valorOrdem = (o: (typeof ordens)[number]) =>
+      o.ItensOrdensServico.reduce((acc, i) => acc + Number(i.valor || 0) * Number(i.quantidade || 0), 0) -
+      Number(o.desconto || 0);
 
     return {
-      response,
+      periodo: {
+        inicio: periodo.inicio.toISOString().slice(0, 10),
+        fim: periodo.fim.toISOString().slice(0, 10),
+        assumido: periodo.assumido,
+      },
+      totais: {
+        quantidade: porStatus.reduce((acc, g) => acc + g._count._all, 0),
+        porStatus: porStatus.map((g) => ({ status: g.status, quantidade: g._count._all })),
+      },
+      ordensRecentes: ordens.map((o) => ({
+        numero: o.Uid,
+        cliente: o.Cliente?.nome || "Sem cliente",
+        status: o.status,
+        valor: brlIa(valorOrdem(o)),
+        data: o.data?.toISOString().slice(0, 10),
+      })),
     };
   },
-  getResumoVendas: async (args: any, request: CustomData) => {
-    const response = await prisma.vendas.findMany({
-      where: {
-        contaId: request.contaId,
-      },
-      include: {
-        cliente: {
-          select: {
-            nome: true,
-          },
-        },
-      },
-      orderBy: { data: "desc" },
-      take: 50,
-    });
+  getResumoVendas: async (args: { inicio?: string; fim?: string }, request: CustomData) => {
+    const periodo = resolverPeriodoIa(args?.inicio, args?.fim);
+    const where = { contaId: request.contaId, data: { gte: periodo.inicio, lte: periodo.fim } };
+
+    const [agregado, faturadas, porStatus, vendas] = await Promise.all([
+      prisma.vendas.aggregate({ _sum: { valor: true }, _count: { _all: true }, where }),
+      prisma.vendas.aggregate({
+        _sum: { valor: true },
+        _count: { _all: true },
+        where: { ...where, status: { in: ["FATURADO", "FINALIZADO"] as any } },
+      }),
+      prisma.vendas.groupBy({ by: ["status"], _count: { _all: true }, where }),
+      prisma.vendas.findMany({
+        where,
+        select: { Uid: true, valor: true, status: true, data: true, cliente: { select: { nome: true } } },
+        orderBy: { valor: "desc" },
+        take: 15,
+      }),
+    ]);
+
+    const totalFaturado = Number(faturadas._sum.valor ?? 0);
+    const qtdFaturada = faturadas._count._all;
 
     return {
-      response,
+      periodo: {
+        inicio: periodo.inicio.toISOString().slice(0, 10),
+        fim: periodo.fim.toISOString().slice(0, 10),
+        assumido: periodo.assumido,
+      },
+      totais: {
+        faturado: brlIa(totalFaturado),
+        quantidadeFaturada: qtdFaturada,
+        ticketMedio: brlIa(qtdFaturada > 0 ? totalFaturado / qtdFaturada : 0),
+        quantidadeTotalRegistrada: agregado._count._all,
+        valorTotalRegistrado: brlIa(Number(agregado._sum.valor ?? 0)),
+        porStatus: porStatus.map((g) => ({ status: g.status, quantidade: g._count._all })),
+      },
+      maioresVendas: vendas.map((v) => ({
+        numero: v.Uid,
+        cliente: v.cliente?.nome || "Sem cliente",
+        valor: brlIa(Number(v.valor || 0)),
+        status: v.status,
+        data: v.data?.toISOString().slice(0, 10),
+      })),
     };
   },
   createServicoNovo: async (args: { servico: string, preco: number }, request: CustomData) => {
@@ -237,18 +329,40 @@ export const toolsIA: Tool[] = [
       },
       {
         name: "getResumoVendas",
-        description: `Busca as vendas do sistema e cria um relatorio de vendas com base nos dados recuperados. 
-        formate de forma resumida, sem tabela, e só mostre os dados essenciais. formate datas para o padrão brasileiro`,
+        description:
+          "Vendas de um periodo com TOTAIS JA CALCULADOS (faturado, quantidade, ticket medio, quebra por status) e as maiores vendas. Use para perguntas sobre vendas de um periodo especifico. Nao some os valores manualmente: use os totais retornados.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            inicio: { type: SchemaType.STRING, description: "Data inicial AAAA-MM-DD (opcional, padrao: mes atual)" },
+            fim: { type: SchemaType.STRING, description: "Data final AAAA-MM-DD (opcional, padrao: mes atual)" },
+          },
+        },
       },
       {
         name: "getResumoFinanceiro",
-        description: `Busca os lançamentos do sistema e cria um relatorio de financeiro com base nos dados recuperados. 
-        formate de forma resumida e só mostre os dados essenciais. formate datas para o padrão brasileiro`,
+        description:
+          "Lancamentos financeiros de um periodo com TOTAIS JA CALCULADOS (receitas, despesas, saldo, quantidade) e os maiores lancamentos. Use para perguntas sobre entradas e saidas de um periodo. Nao some os valores manualmente. Para analise por categoria com margem e comparativo, prefira getDemonstrativoFinanceiro.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            inicio: { type: SchemaType.STRING, description: "Data inicial AAAA-MM-DD (opcional, padrao: mes atual)" },
+            fim: { type: SchemaType.STRING, description: "Data final AAAA-MM-DD (opcional, padrao: mes atual)" },
+            tipo: { type: SchemaType.STRING, description: "RECEITA ou DESPESA (opcional, sem filtro traz os dois)" },
+          },
+        },
       },
       {
         name: "getResumoOrdensServicos",
-        description: `Busca as ordens de serviços do sistema e cria um relatorio de ordens de serviços com base nos dados recuperados. 
-        formate de forma resumida e só mostre os dados essenciais. formate datas para o padrão brasileiro`,
+        description:
+          "Ordens de servico de um periodo com quantidade total, quebra por status e as OS mais recentes com valor. Nao some os valores manualmente.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            inicio: { type: SchemaType.STRING, description: "Data inicial AAAA-MM-DD (opcional, padrao: mes atual)" },
+            fim: { type: SchemaType.STRING, description: "Data final AAAA-MM-DD (opcional, padrao: mes atual)" },
+          },
+        },
       },
       {
         name: "createServicoNovo",
@@ -290,6 +404,7 @@ export const toolsIA: Tool[] = [
       },
       ...toolsProducts,
       ...toolsGestao,
+      ...toolsAnalise,
     ],
   },
 ];
