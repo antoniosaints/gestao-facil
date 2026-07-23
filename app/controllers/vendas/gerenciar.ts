@@ -372,6 +372,7 @@ export const getVenda = async (req: Request, res: Response) => {
               select: {
                 id: true,
                 nome: true,
+                imagem: true,
               },
             },
           },

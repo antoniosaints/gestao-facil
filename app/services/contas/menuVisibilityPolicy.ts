@@ -33,6 +33,7 @@ export const ROOT_ALWAYS_VISIBLE_MENU_KEYS = ["configuracoes"] as const;
 export const KNOWN_SUBMENU_KEYS = [
   "vendas:painel",
   "vendas:lista",
+  "vendas:pdv",
   "vendas:caixas",
   "financeiro:painel",
   "financeiro:lancamentos",
@@ -40,7 +41,10 @@ export const KNOWN_SUBMENU_KEYS = [
   "financeiro:contas-a-receber",
   "financeiro:contas-a-pagar",
   "financeiro:assinaturas-a-pagar",
+  "financeiro:inadimplencia",
   "financeiro:cobrancas",
+  "financeiro:demonstrativo",
+  "financeiro:plano-de-contas",
   "produtos:painel",
   "produtos:lista",
   "produtos:reposicao",
@@ -60,6 +64,7 @@ export const KNOWN_SUBMENU_KEYS = [
   "assinaturas:comodatos",
   "atendimento:painel",
   "atendimento:chat",
+  "atendimento:contatos",
   "atendimento:agentes",
   "atendimento:relatorios",
 ] as const;
