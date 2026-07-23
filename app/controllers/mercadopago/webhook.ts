@@ -9,6 +9,7 @@ import {
 import { addDays, addHours, isBefore } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
+import { tryGetTenantMercadoPagoService } from "../../services/financeiro/tenantMercadoPagoService";
 import { atualizarStatusLancamentos } from "../financeiro/hooks";
 import { processarPosPagamentoRecorrencia } from "../../services/financeiro/lancamentoRecorrenciaService";
 import { sendUpdateTable } from "../../hooks/vendas/socket";
@@ -210,12 +211,14 @@ export async function webhookMercadoPagoCobrancas(
         where: { contaId: resolvedTenantId },
       });
 
-      if (!parametros?.MercadoPagoApiKey) {
-        console.warn(`Conta ${resolvedTenantId} sem chave Mercado Pago`);
+      const tenantMp = await tryGetTenantMercadoPagoService(resolvedTenantId, parametros);
+
+      if (!tenantMp) {
+        console.warn(`Conta ${resolvedTenantId} sem credencial do Mercado Pago`);
         return res.sendStatus(204);
       }
 
-      mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+      mp = tenantMp;
     }
 
     const payment = await mp.payment.get({ id: paymentId });

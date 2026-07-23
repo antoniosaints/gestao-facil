@@ -9,6 +9,11 @@ import {
 import { criarCheckoutAssinaturaConta, renovarAssinaturaGratis } from "../../controllers/contas/assinaturaGateway";
 import { getPaymentMercadoPago } from "../../controllers/mercadopago/webhook";
 import {
+  desconectarMercadoPago,
+  iniciarConexaoMercadoPago,
+  statusIntegracaoMercadoPago,
+} from "../../controllers/mercadopago/oauth";
+import {
   atualizarDadosConta,
   criarConta,
   dadosConta,
@@ -66,6 +71,21 @@ routerContas.get("/parametros", authenticateJWT, getParametros);
 routerContas.patch("/onboarding/tour", authenticateJWT, concluirTourOnboarding);
 routerContas.get("/parametros/whatsapp-instancias", authenticateJWT, getWhatsappNotificationInstances);
 routerContas.post("/parametros/linkpublico", authenticateJWT, gerenciarLinkPublicoCliente);
+routerContas.get(
+  "/integracoes/mercadopago/conectar",
+  authenticateJWT,
+  iniciarConexaoMercadoPago,
+);
+routerContas.get(
+  "/integracoes/mercadopago/status",
+  authenticateJWT,
+  statusIntegracaoMercadoPago,
+);
+routerContas.post(
+  "/integracoes/mercadopago/desconectar",
+  authenticateJWT,
+  desconectarMercadoPago,
+);
 routerContas.get("/store/modulos", authenticateJWT, listStoreModules);
 routerContas.post("/store/modulos/:id/ativar", authenticateJWT, activateStoreModule);
 routerContas.post("/store/modulos/:id/cancelar", authenticateJWT, cancelStoreModule);

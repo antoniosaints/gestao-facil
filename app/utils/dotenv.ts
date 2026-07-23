@@ -57,6 +57,14 @@ const envSchema = z
     MP_ACCESS_TOKEN: z.string({
       required_error: "MP_ACCESS_TOKEN é obrigatório",
     }),
+    // OAuth do Mercado Pago dos assinantes: credenciais da aplicação criada no painel
+    // de desenvolvedores do CEO. Opcionais — sem elas a integração OAuth fica desligada
+    // e as contas continuam usando a chave manual (ParametrosConta.MercadoPagoApiKey).
+    MP_OAUTH_CLIENT_ID: optionalEnvString,
+    MP_OAUTH_CLIENT_SECRET: optionalEnvString,
+    MP_OAUTH_REDIRECT_URI: optionalEnvUrl,
+    // Chave de 32 bytes em hex (64 caracteres) usada para cifrar os tokens OAuth em repouso.
+    MP_OAUTH_ENC_KEY: optionalEnvString,
     ABACATEPAY_API_KEY: z.string().optional(),
     ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
     WHATSAPP_WAPI_BASE_URL: optionalEnvUrl.default("https://api.w-api.app"),
@@ -103,6 +111,31 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ["LOJA_CUSTOMER_JWT_SECRET"],
         message: "LOJA_CUSTOMER_JWT_SECRET é obrigatório em produção",
+      });
+    }
+    // O OAuth só liga com o trio completo: sem a chave de criptografia os tokens do
+    // assinante ficariam em texto puro no banco, então preferimos falhar no boot.
+    const hasOauthClient = Boolean(data.MP_OAUTH_CLIENT_ID || data.MP_OAUTH_CLIENT_SECRET);
+    if (hasOauthClient && !data.MP_OAUTH_CLIENT_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MP_OAUTH_CLIENT_ID"],
+        message: "MP_OAUTH_CLIENT_ID é obrigatório quando o OAuth do Mercado Pago está habilitado",
+      });
+    }
+    if (hasOauthClient && !data.MP_OAUTH_CLIENT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MP_OAUTH_CLIENT_SECRET"],
+        message: "MP_OAUTH_CLIENT_SECRET é obrigatório quando o OAuth do Mercado Pago está habilitado",
+      });
+    }
+    if (hasOauthClient && !/^[0-9a-fA-F]{64}$/.test(data.MP_OAUTH_ENC_KEY || "")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["MP_OAUTH_ENC_KEY"],
+        message:
+          "MP_OAUTH_ENC_KEY deve ter 64 caracteres hexadecimais (32 bytes) quando o OAuth do Mercado Pago está habilitado",
       });
     }
     if (data.LOJA_CUSTOMER_JWT_SECRET && data.LOJA_CUSTOMER_JWT_SECRET === data.JWT_SECRET) {

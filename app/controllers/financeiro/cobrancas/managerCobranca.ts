@@ -1,17 +1,12 @@
 import { CobrancasFinanceiras, ParametrosConta } from "../../../../generated";
-import { MercadoPagoService } from "../../../services/financeiro/mercadoPagoService";
+import { getTenantMercadoPagoService } from "../../../services/financeiro/tenantMercadoPagoService";
 import { prisma } from "../../../utils/prisma";
 
 export const cancelarCobrancaMercadoPago = async (
   parametros: ParametrosConta,
   cobranca: CobrancasFinanceiras
 ) => {
-  if (!parametros.MercadoPagoApiKey)
-    throw new Error(
-      "API Key nao encontrada, adicione a chave do Mercado Pago."
-    );
-
-  const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+  const mp = await getTenantMercadoPagoService(parametros.contaId, parametros);
   const cancelamento = await mp.payment.cancel({
     id: cobranca.idCobranca,
   });
@@ -29,12 +24,7 @@ export const estornarCobrancaMercadoPago = async (
   parametros: ParametrosConta,
   cobranca: CobrancasFinanceiras
 ) => {
-  if (!parametros.MercadoPagoApiKey)
-    throw new Error(
-      "API Key nao encontrada, adicione a chave do Mercado Pago."
-    );
-
-  const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+  const mp = await getTenantMercadoPagoService(parametros.contaId, parametros);
   const estorno = await mp.refund.create({
     payment_id: cobranca.idCobranca,
   });

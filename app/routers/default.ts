@@ -6,6 +6,7 @@ import { resumoDashboard } from "../controllers/dashboard/resumo";
 import { webhookAsaasCheck } from "../controllers/asaas/webhook";
 import { webhookAbacatePay } from "../controllers/abacatepay/webhook";
 import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "../controllers/mercadopago/webhook";
+import { callbackOAuthMercadoPago } from "../controllers/mercadopago/oauth";
 import { sendNotification, subscribe, unsubscribe } from "../controllers/notifications/push";
 import { getPublicSiteConfig } from "../controllers/site/site";
 import { env } from "../utils/dotenv";
@@ -41,6 +42,8 @@ routerDefault.post("/asaas/webhook", webhookAsaasCheck);
 routerDefault.post("/abacatepay/webhook", webhookAbacatePay);
 routerDefault.post("/mercadopago/webhook", webhookMercadoPago);
 routerDefault.post("/mercadopago/webhook/cobrancas", webhookMercadoPagoCobrancas);
+// Retorno do OAuth do Mercado Pago (redirect do navegador, sem JWT: a conta vem do state)
+routerDefault.get("/mercadopago/oauth/callback", callbackOAuthMercadoPago);
 // Rotas Push
 routerDefault.post("/api/subscribe", authenticateJWT, subscribe);
 routerDefault.post("/api/unsubscribe", authenticateJWT, unsubscribe);

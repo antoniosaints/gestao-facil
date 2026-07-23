@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
-import { MercadoPagoService } from "../../services/financeiro/mercadoPagoService";
+import { getTenantMercadoPagoService } from "../../services/financeiro/tenantMercadoPagoService";
 import { generateCobrancaMercadoPago, generateCobrancaMercadoPagoPublico } from "./mercadoPago/gerarCobranca";
 import { generateCobrancaAbacatePay } from "./abacatePay/gerarCobranca";
 import {
@@ -317,11 +317,6 @@ export const cancelarMercadoPagoPagamento = async (
         message:
           "Parametros nao encontrados, informe os parametros da conta para continuar.",
       });
-    if (!parametros.MercadoPagoApiKey)
-      throw new Error(
-        "API Key nao encontrada, adicione a chave do Mercado Pago."
-      );
-
     const cobranca = await prisma.cobrancasFinanceiras.findUnique({
       where: { id: Number(cobrancaId), contaId: customData.contaId },
       include: {
@@ -337,7 +332,7 @@ export const cancelarMercadoPagoPagamento = async (
       }
     }
 
-    const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+    const mp = await getTenantMercadoPagoService(customData.contaId, parametros);
     const cancelamento = await mp.payment.cancel({
       id: cobrancaId,
     });

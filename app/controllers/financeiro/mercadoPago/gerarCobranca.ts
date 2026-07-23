@@ -3,6 +3,7 @@ import { validarCpfCnpj } from "../../../helpers/formatters";
 import { prisma } from "../../../utils/prisma";
 import { gerarIdUnicoComMetaFinal } from "../../../helpers/generateUUID";
 import { MercadoPagoService } from "../../../services/financeiro/mercadoPagoService";
+import { getTenantMercadoPagoService } from "../../../services/financeiro/tenantMercadoPagoService";
 import { BodyCobranca } from "../cobrancas";
 import { ParametrosConta, Prisma } from "../../../../generated";
 import { env } from "../../../utils/dotenv";
@@ -399,13 +400,9 @@ export const generateCobrancaMercadoPago = async (
   executor: PrismaExecutor = prisma
 ): Promise<GeneratedChargeResult> => {
   await assertChargeCreationAllowed(parametros.contaId);
-  if (!parametros.MercadoPagoApiKey)
-    throw new Error(
-      "API Key nao encontrada, adicione a chave do Mercado Pago."
-    );
 
   const tipo = body.type;
-  const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+  const mp = await getTenantMercadoPagoService(parametros.contaId, parametros);
   if (tipo === "LINK") {
     return gerarCobrancaMercadoPagoLink(mp, body, parametros, executor);
   }
@@ -425,13 +422,9 @@ export const generateCobrancaMercadoPagoPublico = async (
   executor: PrismaExecutor = prisma
 ) => {
   await assertChargeCreationAllowed(parametros.contaId);
-  if (!parametros.MercadoPagoApiKey)
-    throw new Error(
-      "API Key nao encontrada, adicione a chave do Mercado Pago."
-    );
 
   const tipo = body.type;
-  const mp = new MercadoPagoService(parametros.MercadoPagoApiKey);
+  const mp = await getTenantMercadoPagoService(parametros.contaId, parametros);
   if (tipo === "PIX") {
     return gerarCobrancaMercadoPagoPixPublico(mp, body, parametros, executor);
   }

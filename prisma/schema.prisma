@@ -199,6 +199,7 @@ model Contas {
   Servicos                        Servicos[]
   OrdensServico                   OrdensServico[]
   ParametrosConta                 ParametrosConta[]
+  MercadoPagoOAuth                MercadoPagoOAuthConta?
   CobrancasFinanceiras            CobrancasFinanceiras[]
   assinaturas                     Assinatura[]
   planosAssinatura                PlanoAssinatura[]
@@ -741,6 +742,26 @@ model ParametrosConta {
   tourOnboardingConcluido                Boolean  @default(false)
   createdAt                              DateTime @default(now())
   updatedAt                              DateTime @updatedAt
+}
+
+// Conexão OAuth da conta do assinante com o Mercado Pago. Substitui a chave manual
+// (ParametrosConta.MercadoPagoApiKey), que continua valendo como fallback legado.
+// Os tokens são cifrados em repouso (utils/secretCrypto).
+model MercadoPagoOAuthConta {
+  id                Int       @id @default(autoincrement())
+  contaId           Int       @unique
+  Contas            Contas    @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  mpUserId          String
+  accessTokenEnc    String    @db.Text
+  refreshTokenEnc   String    @db.Text
+  publicKey         String?
+  scope             String?
+  liveMode          Boolean   @default(true)
+  expiresAt         DateTime
+  ultimaRenovacaoEm DateTime?
+  ultimoErro        String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model IndicacaoRecompensa {

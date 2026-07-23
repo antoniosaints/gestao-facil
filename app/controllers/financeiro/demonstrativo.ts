@@ -5,6 +5,7 @@ import { endOfDay, format as formatDate, startOfDay } from "date-fns";
 
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { parseDataFiltro } from "../../helpers/periodo";
 import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
@@ -24,8 +25,8 @@ function parseFiltros(req: Request): FiltrosDemonstrativo | null {
   const { inicio, fim } = req.query;
   if (!inicio || !fim) return null;
 
-  const dataInicio = startOfDay(new Date(String(inicio)));
-  const dataFim = endOfDay(new Date(String(fim)));
+  const dataInicio = startOfDay(parseDataFiltro(String(inicio)));
+  const dataFim = endOfDay(parseDataFiltro(String(fim)));
 
   if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) return null;
   if (dataFim < dataInicio) return null;
