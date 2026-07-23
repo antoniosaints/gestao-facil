@@ -227,10 +227,11 @@ export async function criarCheckoutAssinaturaConta(
 
     // Se o crédito de indicação cobre toda a mensalidade, não há o que cobrar no gateway.
     // O fluxo correto é a renovação grátis (POST /contas/assinatura/renovar-gratis).
+    // Nada a cobrar (mensalidade zerada ou crédito cobrindo tudo): não existe checkout
+    // possível, o fluxo correto é a renovação sem custo (POST /contas/assinatura/renovar-gratis).
     if (recurringValue.lte(0)) {
       return res.status(400).json({
-        message:
-          "Sua mensalidade está totalmente coberta pelo saldo de indicação. Use a renovação grátis.",
+        message: "Não há valor a cobrar nesta renovação. Use a renovação sem custo.",
         renovarGratis: true,
       });
     }
@@ -306,7 +307,9 @@ export async function renovarAssinaturaGratis(
 
     const breakdown = await getContaRenovacaoBreakdown(contaId);
 
-    if (!breakdown.cobreTotalmente) {
+    // Vale tanto para o crédito de indicação cobrindo tudo quanto para a mensalidade
+    // zerada (plano gratuito): nos dois casos não há o que cobrar.
+    if (!breakdown.semCusto) {
       return res.status(400).json({
         message:
           "Seu saldo de indicação não cobre toda a mensalidade. Gere o pagamento da diferença.",
@@ -324,14 +327,16 @@ export async function renovarAssinaturaGratis(
       ? addDays(hoje, 30)
       : addDays(vencimentoAtual, 30);
 
-    // Comprovante da renovação coberta pelo crédito (fatura PAGA de valor 0).
+    // Comprovante da renovação sem custo (fatura PAGA de valor 0).
     await prisma.faturasContas.create({
       data: {
         contaId,
         Uid: gerarIdUnicoComMetaFinal("INV"),
         asaasPaymentId: gerarIdUnicoComMetaFinal("FREE"),
         urlPagamento: "",
-        descricao: "Renovação coberta pelo saldo de indicação",
+        descricao: breakdown.cobreTotalmente
+          ? "Renovação coberta pelo saldo de indicação"
+          : "Renovação sem custo (mensalidade gratuita)",
         vencimento: vencimentoNovo,
         valor: 0,
         status: "PAGO",
@@ -355,7 +360,9 @@ export async function renovarAssinaturaGratis(
     await clearCacheAccount(contaId);
 
     return res.json({
-      message: "Assinatura renovada com seu saldo de indicação.",
+      message: breakdown.cobreTotalmente
+        ? "Assinatura renovada com seu saldo de indicação."
+        : "Assinatura renovada sem custo.",
       vencimento: vencimentoNovo,
       breakdown,
     });

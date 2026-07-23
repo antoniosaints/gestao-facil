@@ -428,6 +428,8 @@ export interface RenovacaoBreakdown {
   desconto: number; // quanto do crédito é aplicado nesta renovação (min(crédito, subtotal))
   total: number; // valor a pagar (subtotal − desconto), nunca negativo
   cobreTotalmente: boolean; // crédito cobre toda a mensalidade → renovação grátis
+  planoGratuito: boolean; // não há mensalidade a cobrar (base + apps = 0)
+  semCusto: boolean; // nada a pagar nesta renovação, por crédito OU por plano gratuito
   saldoRestante: number; // crédito que sobra para os próximos ciclos
 }
 
@@ -457,8 +459,12 @@ export async function getContaRenovacaoBreakdown(contaId: number): Promise<Renov
     creditoIndicacao: money(credito),
     desconto: money(desconto),
     total: money(total),
-    // Só é "grátis" se há uma mensalidade real (subtotal > 0) e o crédito a cobre por inteiro.
+    // Só é "coberto pelo crédito" se há uma mensalidade real (subtotal > 0) e o
+    // saldo a cobre por inteiro. Mensalidade zerada é plano gratuito, não crédito.
     cobreTotalmente: subtotal.gt(0) && total.lte(0),
+    planoGratuito: subtotal.lte(0),
+    // Nada a cobrar: nos dois casos a renovação é concluída sem passar pelo gateway.
+    semCusto: total.lte(0),
     saldoRestante: money(credito.minus(desconto)),
   };
 }
