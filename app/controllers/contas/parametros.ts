@@ -285,6 +285,32 @@ export const getParametros = async (
   }
 };
 
+// Marca o tour de boas-vindas como concluído para a conta. Endpoint dedicado e mínimo:
+// faz upsert só desse flag, sem passar pelo zod/upsert gigante de saveParametros. A leitura
+// volta de graça em getParametros (retorna a linha inteira).
+export const concluirTourOnboarding = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    await prisma.parametrosConta.upsert({
+      where: { contaId: customData.contaId },
+      create: {
+        contaId: customData.contaId,
+        tourOnboardingConcluido: true,
+      },
+      update: {
+        tourOnboardingConcluido: true,
+      },
+    });
+    return ResponseHandler(res, "Tour concluído!", { tourOnboardingConcluido: true });
+  } catch (err: any) {
+    console.log(err);
+    handleError(res, err);
+  }
+};
+
 export const getWhatsappNotificationInstances = async (
   req: Request,
   res: Response

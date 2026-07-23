@@ -738,6 +738,7 @@ model ParametrosConta {
   indicacaoValorRecompensa               Decimal? @default(0) @db.Decimal(10, 2)
   indicacaoTipoBonusIndicado             String?  @default("PERCENTUAL")
   indicacaoValorBonusIndicado            Decimal? @default(0) @db.Decimal(10, 2)
+  tourOnboardingConcluido                Boolean  @default(false)
   createdAt                              DateTime @default(now())
   updatedAt                              DateTime @updatedAt
 }
