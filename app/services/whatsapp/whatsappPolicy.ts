@@ -101,6 +101,40 @@ export function mapWApiInstanceStatusFromPayload(payload: any): WhatsAppInstance
   return "PENDENTE";
 }
 
+export interface WApiFetchInstanceInfo {
+  status: WhatsAppInstanceStatus;
+  connectedPhone: string | null;
+  // Data de vencimento da assinatura da instância (transiente — não persistida no banco).
+  expiresAt: Date | null;
+  // Situação de pagamento reportada pela W-API, normalizada em maiúsculas (ex.: "PAID").
+  assinaturaStatus: string | null;
+}
+
+// Interpreta o retorno de `GET /v1/instance/fetch-instance` da W-API. Diferente de `status-instance`,
+// este payload traz `expires` (epoch em ms) e `paymentStatus`, usados para orientar o usuário sobre
+// vencimento e necessidade de pagamento. Reaproveita o mapeamento de status (que já lê `connected`).
+export function mapWApiFetchInstancePayload(payload: any): WApiFetchInstanceInfo {
+  const rawExpires = payload?.expires ?? payload?.data?.expires;
+  const expiresMs = Number(rawExpires);
+  const expiresAt =
+    Number.isFinite(expiresMs) && expiresMs > 0 ? new Date(expiresMs) : null;
+
+  const connectedPhone = String(
+    payload?.connectedPhone ?? payload?.data?.connectedPhone ?? ""
+  ).trim() || null;
+
+  const assinaturaStatus = String(
+    payload?.paymentStatus ?? payload?.data?.paymentStatus ?? ""
+  ).trim().toUpperCase() || null;
+
+  return {
+    status: mapWApiInstanceStatusFromPayload(payload),
+    connectedPhone,
+    expiresAt,
+    assinaturaStatus,
+  };
+}
+
 export function buildDeletedWhatsAppInstanceId(
   instanceId: string,
   id: number,

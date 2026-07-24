@@ -35,6 +35,7 @@ import {
   sendLocationMessage,
   sendMessage,
   startConversation,
+  syncAllInstances,
   updateContact,
   updateConversation,
   updateInstance,
@@ -52,6 +53,8 @@ routerWhatsapp.post("/payments/webhooks/:instanceId", receivePaymentWebhook);
 routerWhatsapp.use(authenticateJWT);
 routerWhatsapp.get("/instances", listInstances);
 routerWhatsapp.post("/instances", createInstance);
+// Registrada antes da catch-all `/instances/:id/:action` para não ser capturada por ela.
+routerWhatsapp.post("/instances/sync-all", syncAllInstances);
 routerWhatsapp.post("/instances/generate", createInstanceAuto);
 routerWhatsapp.put("/instances/:id", updateInstance);
 routerWhatsapp.patch("/instances/:id/atendimento", updateInstanceAtendimento);

@@ -127,6 +127,18 @@ export const listInstances = async (req: Request, res: Response): Promise<any> =
   }
 };
 
+// Recarrega o status de todas as instâncias da conta consultando a W-API (fetch-instance) e
+// devolve a lista com vencimento/situação de pagamento. Usado ao entrar na página de instâncias.
+export const syncAllInstances = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    ResponseHandler(res, "Instâncias sincronizadas", await whatsAppService.syncAllInstances(customData.contaId));
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const createInstance = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = await requirePermission(req, res, 5);

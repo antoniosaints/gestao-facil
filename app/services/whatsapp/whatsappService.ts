@@ -13,6 +13,7 @@ import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
   canDeleteWhatsAppPayment,
+  mapWApiFetchInstancePayload,
   mapWApiInstanceStatusFromPayload,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
@@ -542,6 +543,69 @@ export const whatsAppService = {
       orderBy: [{ ativo: "desc" }, { updatedAt: "desc" }],
     });
     return instances.map(publicInstance);
+  },
+
+  // Consulta a W-API (`fetch-instance`) de UMA instância e persiste o que já tem coluna
+  // (status/número/lastSync). Retorna `expiresAt`/`assinaturaStatus` de forma transiente (não são
+  // persistidos, por decisão de projeto). Em falha, grava `ultimoErro` e não devolve os transientes.
+  async refreshInstanceFromApi(instance: { id: number; contaId: number; instanceId: string; token: string; numeroConectado: string | null }) {
+    try {
+      const result = await new WApiClient(instance.instanceId, instance.token).fetchInstance();
+      const info = mapWApiFetchInstancePayload(result);
+
+      const updated = await prisma.whatsAppInstancia.update({
+        where: { id: instance.id },
+        data: {
+          status: info.status,
+          numeroConectado: normalizePhone(info.connectedPhone) || instance.numeroConectado,
+          lastSyncAt: new Date(),
+          ultimoErro: null,
+        },
+      });
+      sendWhatsAppInstanceUpdated(instance.contaId, publicInstance(updated));
+
+      return {
+        id: instance.id,
+        expiresAt: info.expiresAt,
+        assinaturaStatus: info.assinaturaStatus,
+      };
+    } catch (error: any) {
+      const mensagem = String(error?.response?.data?.message || error?.message || "Falha ao sincronizar com a W-API").slice(0, 250);
+      const updated = await prisma.whatsAppInstancia.update({
+        where: { id: instance.id },
+        data: { lastSyncAt: new Date(), ultimoErro: mensagem },
+      });
+      sendWhatsAppInstanceUpdated(instance.contaId, publicInstance(updated));
+      return { id: instance.id, expiresAt: null, assinaturaStatus: null };
+    }
+  },
+
+  // Recarrega o status de TODAS as instâncias ativas da conta consultando a W-API (N chamadas,
+  // isoladas por `allSettled` para uma falha não derrubar as demais). Devolve a lista sanitizada
+  // (via listInstances, já com `pagamentos`) mesclada com o vencimento/pagamento transientes.
+  async syncAllInstances(contaId: number) {
+    const instances = await prisma.whatsAppInstancia.findMany({
+      where: { contaId, ativo: true, NOT: { token: "" } },
+      select: { id: true, contaId: true, instanceId: true, token: true, numeroConectado: true },
+    });
+
+    const results = await Promise.allSettled(instances.map((instance) => this.refreshInstanceFromApi(instance)));
+
+    const transientById = new Map<number, { expiresAt: Date | null; assinaturaStatus: string | null }>();
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        transientById.set(result.value.id, {
+          expiresAt: result.value.expiresAt,
+          assinaturaStatus: result.value.assinaturaStatus,
+        });
+      }
+    }
+
+    const list = await this.listInstances(contaId);
+    return list.map((instance: any) => {
+      const extra = transientById.get(instance.id);
+      return extra ? { ...instance, ...extra } : instance;
+    });
   },
 
   async createInstance(contaId: number, input: CreateInstanceInput) {
