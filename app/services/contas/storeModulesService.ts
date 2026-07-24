@@ -8,7 +8,6 @@ import {
   deleteCharge,
 } from "../gateway/asaasService";
 import { clearCacheAccount } from "../../controllers/administracao/contas";
-import { MercadoPagoService } from "../financeiro/mercadoPagoService";
 import { env } from "../../utils/dotenv";
 import { getSaasMercadoPagoService } from "../../utils/mercadoPago";
 
