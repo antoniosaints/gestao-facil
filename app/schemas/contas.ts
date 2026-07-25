@@ -150,6 +150,36 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
+    osOcultarAssinatura: z
+      .boolean({
+        invalid_type_error: "O campo osOcultarAssinatura deve ser um booleano",
+      })
+      .optional()
+      .nullable(),
+    osLancamentoAutomatico: z
+      .boolean({
+        invalid_type_error: "O lancamento automatico das OS deve ser verdadeiro ou falso",
+      })
+      .optional()
+      .nullable(),
+    osCategoriaFinanceiraId: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.coerce
+        .number({ invalid_type_error: "A categoria financeira das OS deve ser um numero" })
+        .int("A categoria financeira das OS deve ser um inteiro")
+        .positive("A categoria financeira das OS deve ser valida")
+        .optional()
+        .nullable(),
+    ),
+    osContaFinanceiraId: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.coerce
+        .number({ invalid_type_error: "A conta financeira das OS deve ser um numero" })
+        .int("A conta financeira das OS deve ser um inteiro")
+        .positive("A conta financeira das OS deve ser valida")
+        .optional()
+        .nullable(),
+    ),
     vendaLancamentoAutomatico: z
       .boolean({
         invalid_type_error: "O lancamento automatico das vendas deve ser verdadeiro ou falso",

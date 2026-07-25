@@ -54,6 +54,11 @@ import {
   resolveInformativoAdmin,
   updateInformativoAdmin,
 } from "../../controllers/administracao/informativos";
+import {
+  deleteRelatoBugAdmin,
+  listRelatosBugAdmin,
+  updateRelatoBugAdmin,
+} from "../../controllers/administracao/bugs";
 
 const routerAdminMain = Router();
 
@@ -74,6 +79,9 @@ routerAdminMain.put("/informativos/:id", updateInformativoAdmin);
 routerAdminMain.post("/informativos/:id/publicar", publishInformativoAdmin);
 routerAdminMain.post("/informativos/:id/resolver", resolveInformativoAdmin);
 routerAdminMain.post("/informativos/:id/arquivar", archiveInformativoAdmin);
+routerAdminMain.get("/bugs", listRelatosBugAdmin);
+routerAdminMain.put("/bugs/:id", updateRelatoBugAdmin);
+routerAdminMain.delete("/bugs/:id", deleteRelatoBugAdmin);
 routerAdminMain.post("/assinantes/:id/controle", manageAssinanteAdmin);
 routerAdminMain.post("/assinantes/:id/reset-senha-root", resetRootPasswordAdmin);
 routerAdminMain.get("/assinantes/:id/apps", listAssinanteAppsAdmin);

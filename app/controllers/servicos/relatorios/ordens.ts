@@ -27,7 +27,12 @@ interface OrdemServicoData {
 export async function gerarPdfOrdemServico(
   ordem: OrdemServicoData,
   res: Response,
-  incluirPix: boolean = false
+  incluirPix: boolean = false,
+  mostrarAssinatura: boolean = true,
+  // Copia e cola (payload EMV) de uma cobrança PIX já gerada (ex.: Mercado Pago)
+  // vinculada à OS. Quando presente, o PDF usa esse payload em vez da chave PIX
+  // estática configurada na conta.
+  cobrancaPixCopiaCola: string | null = null
 ) {
   const doc = new PDFDocument({ size: "A4", margin: 50, bufferPages: true });
 
@@ -248,78 +253,87 @@ export async function gerarPdfOrdemServico(
   doc.y = resumoY + 72;
 
   // === Linhas de assinatura ===
-  ensureSpace(60);
-  const assinaturaY = doc.y + 30;
+  // Opcional: a conta pode escolher gerar o PDF sem os campos de assinatura.
+  if (mostrarAssinatura) {
+    ensureSpace(60);
+    const assinaturaY = doc.y + 30;
 
-  doc
-    .moveTo(80, assinaturaY)
-    .lineTo(250, assinaturaY)
-    .strokeColor("#000")
-    .stroke();
-  doc
-    .fillColor("#111827")
-    .font("Roboto")
-    .fontSize(10)
-    .text("Assinatura do Cliente", 80, assinaturaY + 5, {
-      width: 170,
-      align: "center",
-    });
-
-  doc
-    .moveTo(330, assinaturaY)
-    .lineTo(500, assinaturaY)
-    .strokeColor("#000")
-    .stroke();
-  doc.fontSize(10).text("Assinatura do Técnico", 330, assinaturaY + 5, {
-    width: 170,
-    align: "center",
-  });
-
-  // Nomes abaixo das linhas
-  doc
-    .fontSize(9)
-    .fillColor("#555")
-    .text(`${ordem.Cliente.nome}`, 80, assinaturaY + 25, {
-      width: 170,
-      align: "center",
-    });
-
-  doc
-    .fontSize(9)
-    .fillColor("#555")
-    .text(
-      `${ordem.Ordem.Operador?.nome || "Técnico Responsável"}`,
-      330,
-      assinaturaY + 25,
-      {
+    doc
+      .moveTo(80, assinaturaY)
+      .lineTo(250, assinaturaY)
+      .strokeColor("#000")
+      .stroke();
+    doc
+      .fillColor("#111827")
+      .font("Roboto")
+      .fontSize(10)
+      .text("Assinatura do Cliente", 80, assinaturaY + 5, {
         width: 170,
         align: "center",
-      }
-    );
-  doc.y = assinaturaY + 40;
+      });
+
+    doc
+      .moveTo(330, assinaturaY)
+      .lineTo(500, assinaturaY)
+      .strokeColor("#000")
+      .stroke();
+    doc.fontSize(10).text("Assinatura do Técnico", 330, assinaturaY + 5, {
+      width: 170,
+      align: "center",
+    });
+
+    // Nomes abaixo das linhas
+    doc
+      .fontSize(9)
+      .fillColor("#555")
+      .text(`${ordem.Cliente.nome}`, 80, assinaturaY + 25, {
+        width: 170,
+        align: "center",
+      });
+
+    doc
+      .fontSize(9)
+      .fillColor("#555")
+      .text(
+        `${ordem.Ordem.Operador?.nome || "Técnico Responsável"}`,
+        330,
+        assinaturaY + 25,
+        {
+          width: 170,
+          align: "center",
+        }
+      );
+    doc.y = assinaturaY + 40;
+  }
 
   // ============================================
   // 🔵 SEÇÃO OPCIONAL: PIX + QR CODE
   // ============================================
+  // Prioriza o copia e cola de uma cobrança já gerada (Mercado Pago). Sem ele,
+  // cai no PIX estático da chave configurada na conta (quando incluirPix).
+  const chaveEstatica =
+    ordem.Empresa.ParametrosConta.length > 0
+      ? ordem.Empresa.ParametrosConta[0].chavePix
+      : null;
 
-  if (
-    incluirPix &&
-    ordem.Empresa.ParametrosConta.length > 0 &&
-    ordem.Empresa.ParametrosConta[0].chavePix
-  ) {
-    const qrSize = 90;
-    const centerX = (doc.page.width - qrSize) / 2;
-
-    const pix = QrCodePix({
+  let pixPayload: string | null = null;
+  if (cobrancaPixCopiaCola) {
+    pixPayload = cobrancaPixCopiaCola;
+  } else if (incluirPix && chaveEstatica) {
+    pixPayload = QrCodePix({
       city: "Sao Mateus",
-      key: ordem.Empresa.ParametrosConta[0].chavePix,
+      key: chaveEstatica,
       name: ordem.Empresa.nome || "Gestão Facil",
       version: "01",
       value: valorFinal,
       message: `Ordem de Servico #${ordem.Ordem.id}`,
-    });
+    }).payload();
+  }
 
-    const qr = await gerarQrCodeBuffer(pix.payload());
+  if (pixPayload) {
+    const qrSize = 90;
+    const centerX = (doc.page.width - qrSize) / 2;
+    const qr = await gerarQrCodeBuffer(pixPayload);
 
     // Bloco de PIX inteiro em uma página (título + QR + payload)
     ensureSpace(qrSize + 90);
@@ -336,7 +350,7 @@ export async function gerarPdfOrdemServico(
       .font("Roboto")
       .fontSize(8)
       .fillColor("#4B5563")
-      .text(pix.payload(), left, doc.y, {
+      .text(pixPayload, left, doc.y, {
         width: contentWidth,
         align: "center",
       });

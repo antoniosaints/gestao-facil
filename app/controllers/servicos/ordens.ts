@@ -14,6 +14,7 @@ import { efetivarOsSchema, saveOrdemServicoSchema } from "../../schemas/ordemser
 import { ItensOrdensServico } from "../../../generated";
 import { hasPermission } from "../../helpers/userPermission";
 import { cancelarCobrancaMercadoPago } from "../financeiro/cobrancas/managerCobranca";
+import { generateCobrancaMercadoPago } from "../financeiro/mercadoPago/gerarCobranca";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 
 export const addNovaMensagemOrdem = async (req: Request, res: Response): Promise<any> => {
@@ -376,10 +377,30 @@ export const efetivarOrdemServico = async (
         },
       });
 
-      if (!lancamentoManual) {
-        if (!categoria || !conta) {
+      // Config da conta: quando o lançamento automático de OS está ativo,
+      // toda OS faturada gera lançamento (mesma lógica das vendas), usando a
+      // categoria/conta financeira definidas nas Configurações como padrão.
+      const parametrosOs = (await tx.parametrosConta.findUnique({
+        where: { contaId: customData.contaId },
+        select: {
+          osLancamentoAutomatico: true,
+          osCategoriaFinanceiraId: true,
+          osContaFinanceiraId: true,
+        } as any,
+      })) as any;
+
+      const configAutomatico = Boolean(parametrosOs?.osLancamentoAutomatico);
+      const deveLancar = configAutomatico ? true : !lancamentoManual;
+
+      if (deveLancar) {
+        const categoriaEfetiva = categoria ?? parametrosOs?.osCategoriaFinanceiraId ?? null;
+        const contaEfetiva = conta ?? parametrosOs?.osContaFinanceiraId ?? null;
+
+        if (!categoriaEfetiva || !contaEfetiva) {
           throw new Error(
-            "Conta e categoria são obrigatórias quando o lançamento automático estiver ativo."
+            configAutomatico
+              ? "Defina a categoria e a conta financeira padrão das OS em Configurações > Financeiro para lançar o financeiro automaticamente."
+              : "Conta e categoria são obrigatórias quando o lançamento automático estiver ativo."
           );
         }
 
@@ -397,8 +418,8 @@ export const efetivarOrdemServico = async (
             dataLancamento: new Date(dataPagamento),
             descricao: descricaoFinanceira,
             status: "PAGO",
-            categoriaId: categoria,
-            contasFinanceiroId: conta,
+            categoriaId: categoriaEfetiva,
+            contasFinanceiroId: contaEfetiva,
             formaPagamento: pagamento,
             tipo: "RECEITA",
             parcelas: {
@@ -456,6 +477,69 @@ export const efetivarOrdemServico = async (
         : "OS faturada com sucesso.";
 
     return ResponseHandler(res, message, transaction);
+  } catch (err: any) {
+    handleError(res, err);
+  }
+};
+
+/**
+ * Gera uma cobrança PIX no Mercado Pago vinculada à OS e devolve o "copia e cola"
+ * (payload PIX) para ser exibido/colado no PDV da OS. O valor é o total da OS,
+ * calculado no backend (não confiamos no valor vindo do cliente).
+ */
+export const gerarCobrancaPixOrdem = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+
+    if (!id || isNaN(id)) {
+      throw new Error("Id da ordem de serviço inválido.");
+    }
+
+    const ordem = await prisma.ordensServico.findUniqueOrThrow({
+      where: { id, contaId: customData.contaId },
+      include: { ItensOrdensServico: true },
+    });
+
+    if (ordem.status === "FATURADA") {
+      throw new Error("OS já faturada. Estorne o faturamento para gerar uma nova cobrança.");
+    }
+
+    const valorTotal = getOrdemServicoTotal(ordem);
+    if (valorTotal.lte(0)) {
+      throw new Error("A OS precisa ter valor maior que zero para gerar a cobrança PIX.");
+    }
+
+    const parametros = await prisma.parametrosConta.findUniqueOrThrow({
+      where: { contaId: customData.contaId },
+    });
+
+    const resp = await generateCobrancaMercadoPago(
+      {
+        type: "PIX",
+        value: Number(valorTotal.toFixed(2)),
+        gateway: "mercadopago",
+        clienteId: ordem.clienteId ?? undefined,
+        vinculo: { id: ordem.id, tipo: "os" },
+      },
+      parametros
+    );
+
+    if (!resp.pixCopiaCola) {
+      throw new Error(
+        "O Mercado Pago não retornou o código copia e cola do PIX. Tente novamente."
+      );
+    }
+
+    return ResponseHandler(res, "Cobrança PIX gerada com sucesso.", {
+      pixCopiaCola: resp.pixCopiaCola,
+      paymentLink: resp.paymentLink,
+      chargeId: resp.chargeId,
+      valor: Number(valorTotal.toFixed(2)),
+    });
   } catch (err: any) {
     handleError(res, err);
   }

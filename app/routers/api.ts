@@ -20,6 +20,7 @@ import { routerMetas } from "./metas/router";
 import { routerLoja } from "./loja/router";
 import { callChatGemini } from "../controllers/inteligence/gemini";
 import { routerIa } from "./ia/router";
+import { routerBugs } from "./bugs/router";
 import { authenticateJWT } from "../middlewares/auth";
 
 const RouterMain = Router();
@@ -45,5 +46,6 @@ RouterMain.use("/api/metas", routerMetas);
 RouterMain.use("/api/loja", routerLoja);
 RouterMain.post("/api/gemini/chat", authenticateJWT, callChatGemini);
 RouterMain.use("/api/ia", routerIa);
+RouterMain.use("/api/bugs", routerBugs);
 
 export { RouterMain };

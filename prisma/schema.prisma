@@ -39,6 +39,45 @@ enum InformativoEscopo {
   CONTAS
 }
 
+enum RelatoBugSeveridade {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum RelatoBugStatus {
+  ABERTO
+  EM_ANALISE
+  RESOLVIDO
+  DESCARTADO
+}
+
+// Relatos de bug enviados pelos usuários das contas. Acompanhados pelo CEO
+// (superadmin) no modo administração, que define a resolução.
+model RelatoBug {
+  id             Int                 @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas              @relation(fields: [contaId], references: [id], onDelete: Cascade)
+  usuarioId      Int?
+  Usuario        Usuarios?           @relation("RelatoBugAutor", fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  titulo         String              @db.VarChar(160)
+  descricao      String              @db.Text
+  severidade     RelatoBugSeveridade @default(MEDIA)
+  status         RelatoBugStatus     @default(ABERTO)
+  rota           String?             @db.VarChar(255)
+  userAgent      String?             @db.VarChar(500)
+  respostaAdmin  String?             @db.Text
+  resolvidoEm    DateTime?
+  resolvidoPorId Int?
+  ResolvidoPor   Usuarios?           @relation("RelatoBugResolvedor", fields: [resolvidoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([contaId])
+}
+
 model Subscription {
   id        Int      @id @default(autoincrement())
   userId    Int
@@ -237,6 +276,7 @@ model Contas {
   CaixaSessao                     CaixaSessao[]
   InformativoContas               InformativoConta[]
   InformativoLeituras             InformativoLeitura[]
+  RelatosBug                      RelatoBug[]
 }
 
 model ModulosAdicionais {
@@ -711,6 +751,13 @@ model ParametrosConta {
   vendaCategoriaFinanceiraId             Int?
   vendaContaFinanceiraId                 Int?
   modeloPdv                              String?  @default("BASICO")
+  // Quando ativo, o PDF de ordem de serviço é gerado sem os campos de assinatura.
+  osOcultarAssinatura                    Boolean? @default(false)
+  // Quando ativo, toda OS faturada nasce com um lançamento de receita já quitado,
+  // usando a categoria/conta financeira abaixo (mesma lógica das vendas).
+  osLancamentoAutomatico                 Boolean? @default(false)
+  osCategoriaFinanceiraId                Int?
+  osContaFinanceiraId                    Int?
   temaPersonalizado                      Json?
   linkPublicoAtivo                       Boolean? @default(false)
   cadastrosPermitidosLinkPublico         Int?     @default(1)
@@ -815,6 +862,8 @@ model Usuarios {
   caixaMovimentos                 CaixaMovimento[]
   InformativosCriados             InformativoSistema[]              @relation("InformativoCriador")
   InformativoLeituras             InformativoLeitura[]
+  RelatosBugCriados               RelatoBug[]                       @relation("RelatoBugAutor")
+  RelatosBugResolvidos            RelatoBug[]                       @relation("RelatoBugResolvedor")
 }
 
 enum PermissaoUsuario {
@@ -1663,6 +1712,7 @@ model CobrancasFinanceiras {
   idCobranca              String                    @default("COB_000")
   Uid                     String                    @default("COB_000")
   externalLink            String?                   @db.Text
+  pixCopiaCola            String?                   @db.Text
   valor                   Decimal
   gateway                 String
   dataVencimento          DateTime

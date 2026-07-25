@@ -16,6 +16,8 @@ export interface GeneratedChargeResult {
   paymentLink: string | null;
   chargeId: number | null;
   gatewayReference: string | null;
+  // Payload PIX "copia e cola" (qr_code). Só preenchido em cobranças PIX.
+  pixCopiaCola?: string | null;
 }
 
 function validarRetornoPixMercadoPago(
@@ -46,6 +48,7 @@ function validarRetornoPixMercadoPago(
   return {
     paymentId,
     ticketUrl,
+    qrCode,
   };
 }
 
@@ -57,6 +60,7 @@ async function criarRegistroCobranca(
     Uid: string;
     gatewayReference: string;
     externalLink?: string | null;
+    pixCopiaCola?: string | null;
     dataVencimento?: Date | null;
     observacao?: string | null;
     status?: "PENDENTE" | "EFETIVADO" | "ESTORNADO" | "CANCELADO";
@@ -70,6 +74,7 @@ async function criarRegistroCobranca(
       dataCadastro: new Date(),
       Uid: payload.Uid,
       idCobranca: payload.gatewayReference,
+      pixCopiaCola: payload.pixCopiaCola || null,
       vendaId:
         body.vinculo && body.vinculo.tipo === "venda"
           ? body.vinculo.id
@@ -242,12 +247,14 @@ export const gerarCobrancaMercadoPagoPix = async (
       ? new Date(pixGenerated.date_of_expiration)
       : new Date(),
     externalLink: pixData.ticketUrl,
+    pixCopiaCola: pixData.qrCode,
   });
 
   return {
     paymentLink: pixData.ticketUrl || null,
     chargeId: cobranca.id,
     gatewayReference: pixData.paymentId,
+    pixCopiaCola: pixData.qrCode || null,
   };
 };
 
@@ -290,6 +297,7 @@ export const gerarCobrancaMercadoPagoPixPublico = async (
         dataCadastro: new Date(),
         idCobranca: pixData.paymentId,
         externalLink: pixData.ticketUrl,
+        pixCopiaCola: pixData.qrCode || null,
         status: "PENDENTE",
         observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
         contaId: parametros.contaId,
@@ -333,6 +341,7 @@ export const gerarCobrancaMercadoPagoPixPublico = async (
           ? body.vinculo.id
           : null,
       externalLink: pixData.ticketUrl,
+      pixCopiaCola: pixData.qrCode || null,
       status: "PENDENTE",
       observacao: "Cobrança gerada pelo sistema - Gestão Fácil - ERP",
       contaId: parametros.contaId,
