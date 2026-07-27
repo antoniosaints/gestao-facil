@@ -230,7 +230,22 @@ export async function resolveRenderableImageSource(
 
   if (getUploadDriver() === "local") {
     const absolutePath = getLocalAbsolutePath(reference);
-    return fs.existsSync(absolutePath) ? absolutePath : fallbackAbsolutePath;
+    if (fs.existsSync(absolutePath)) {
+      return absolutePath;
+    }
+
+    if (isAbsoluteUrl(reference)) {
+      try {
+        const response = await fetch(reference);
+        if (response.ok) {
+          return Buffer.from(await response.arrayBuffer());
+        }
+      } catch {
+        // A logo padrão é usada abaixo quando a imagem remota está indisponível.
+      }
+    }
+
+    return fallbackAbsolutePath;
   }
 
   try {
