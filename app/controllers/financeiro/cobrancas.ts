@@ -3,7 +3,6 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { getTenantMercadoPagoService } from "../../services/financeiro/tenantMercadoPagoService";
 import { generateCobrancaMercadoPago, generateCobrancaMercadoPagoPublico } from "./mercadoPago/gerarCobranca";
-import { generateCobrancaAbacatePay } from "./abacatePay/gerarCobranca";
 import {
   cancelarCobrancaMercadoPago,
   estornarCobrancaMercadoPago,
@@ -87,16 +86,9 @@ export const generateCobranca = async (
       });
     }
 
-    if (gateway === "abacatepay") {
-      const resp = await generateCobrancaAbacatePay(req.body, customData.contaId);
-      sendFinanceiroUpdated(customData.contaId, { reason: "cobranca-gerada", gateway });
-      return res.status(200).json({
-        message: resp.paymentLink || "Cobranca gerada com sucesso.",
-        data: resp,
-      });
-    }
-
-    return res.status(200).json({ message: "Cobranca gerada com sucesso." });
+    return res.status(400).json({
+      message: "Apenas o Mercado Pago está disponível para gerar cobranças neste fluxo.",
+    });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }

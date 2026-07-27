@@ -9,6 +9,11 @@ import { ParametrosConta, Prisma } from "../../../../generated";
 import { env } from "../../../utils/dotenv";
 import { BodyCobrancaPublico } from "../../../schemas/arena/reservas";
 import { assertChargeCreationAllowed } from "../../../services/financeiro/financeiroPolicyService";
+import {
+  buildMercadoPagoChargeReference,
+  buildMercadoPagoOperationalWebhookUrl,
+} from "../../../services/financeiro/mercadoPagoChargeReference";
+import { assertOperationalChargeOriginBelongsToAccount } from "../../../services/financeiro/operationalChargeOriginService";
 
 type PrismaExecutor = Prisma.TransactionClient | typeof prisma;
 
@@ -358,6 +363,22 @@ export const gerarCobrancaMercadoPagoLink = async (
   executor: PrismaExecutor = prisma
 ): Promise<GeneratedChargeResult> => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
+  const origin = body.vinculo
+    ? { type: body.vinculo.tipo, id: Number(body.vinculo.id) }
+    : undefined;
+
+  await assertOperationalChargeOriginBelongsToAccount(
+    executor,
+    parametros.contaId,
+    origin,
+  );
+
+  const reference = {
+    contaId: parametros.contaId,
+    chargeUid: Uid,
+    kind: "link" as const,
+    origin,
+  };
   const link = await mp.preference.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
@@ -379,8 +400,8 @@ export const gerarCobrancaMercadoPagoLink = async (
         failure: `${env.BASE_URL_FRONTEND}/success?success=false`,
         pending: `${env.BASE_URL_FRONTEND}/success?success=pending`,
       },
-      notification_url: `${env.BASE_URL}/mercadopago/webhook/cobrancas?contaId=${parametros.contaId}`,
-      external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|link`,
+      notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
+      external_reference: buildMercadoPagoChargeReference(reference),
       auto_return: "approved",
     },
   });
@@ -388,17 +409,9 @@ export const gerarCobrancaMercadoPagoLink = async (
   const gatewayReference = String(link.id || Uid);
   const paymentLink = link.init_point || null;
 
-  const cobranca = await criarRegistroCobranca(executor, parametros, body, {
-    Uid,
-    gatewayReference,
-    externalLink: paymentLink,
-    observacao:
-      "Cobrança por link gerada pelo sistema - Gestão Fácil - ERP",
-  });
-
   return {
     paymentLink,
-    chargeId: cobranca.id,
+    chargeId: null,
     gatewayReference,
   };
 };

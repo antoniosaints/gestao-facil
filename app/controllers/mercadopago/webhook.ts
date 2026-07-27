@@ -27,17 +27,11 @@ import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenci
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { applyStorePaymentEvent } from "../../services/loja/lojaOrderService";
 import { faturarOrdemServicoPorPagamento } from "../../services/servicos/faturarOrdemServicoService";
-
-function extractChargeUidFromExternalReference(externalReference?: string | null) {
-  if (!externalReference) return null;
-  const match = externalReference.match(/cobranca:([^|]+)/i);
-  return match?.[1] || null;
-}
-
-function extractContaIdFromExternalReference(externalReference?: string | null) {
-  const match = externalReference?.match(/conta:(\d+)/i);
-  return match ? Number(match[1]) : null;
-}
+import {
+  buildMercadoPagoLinkChargeData,
+  parseMercadoPagoChargeReference,
+} from "../../services/financeiro/mercadoPagoChargeReference";
+import { assertOperationalChargeOriginBelongsToAccount } from "../../services/financeiro/operationalChargeOriginService";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -182,6 +176,8 @@ export async function webhookMercadoPagoCobrancas(
     }
 
     const tenantHint = Number(req.query.contaId);
+    const isOperationalLinkRoute =
+      req.query.escopo === "operacional" && req.query.tipo === "link";
     let candidate = Number.isInteger(tenantHint) && tenantHint > 0
       ? await prisma.cobrancasFinanceiras.findFirst({ where: { contaId: tenantHint, gateway: "mercadopago", idCobranca: String(paymentId) } })
       : null;
@@ -204,7 +200,7 @@ export async function webhookMercadoPagoCobrancas(
 
     let mp: MercadoPagoService;
 
-    if (moduleCharge) {
+    if (moduleCharge && !isOperationalLinkRoute) {
       mp = getSaasMercadoPagoService();
     } else {
       const parametros = await prisma.parametrosConta.findUniqueOrThrow({
@@ -222,13 +218,44 @@ export async function webhookMercadoPagoCobrancas(
     }
 
     const payment = await mp.payment.get({ id: paymentId });
-    const chargeUid = extractChargeUidFromExternalReference(payment.external_reference as string | undefined);
-    const authoritativeTenantId = extractContaIdFromExternalReference(payment.external_reference as string | undefined);
-    if (!chargeUid || authoritativeTenantId !== resolvedTenantId) return res.sendStatus(204);
+    const reference = parseMercadoPagoChargeReference(
+      payment.external_reference as string | undefined,
+    );
+    if (!reference || reference.contaId !== resolvedTenantId) {
+      return res.sendStatus(204);
+    }
+
+    if (
+      isOperationalLinkRoute &&
+      (reference.kind !== "link" ||
+        (req.query.cobrancaUid &&
+          String(req.query.cobrancaUid) !== reference.chargeUid))
+    ) {
+      return res.sendStatus(204);
+    }
+
     let cobranca = await prisma.cobrancasFinanceiras.findFirst({
       include: { cobrancasOnAgendamentos: true },
-      where: { contaId: resolvedTenantId, Uid: chargeUid, gateway: "mercadopago" },
+      where: {
+        contaId: resolvedTenantId,
+        Uid: reference.chargeUid,
+        gateway: "mercadopago",
+      },
     });
+
+    if (!cobranca && reference.kind === "link") {
+      await assertOperationalChargeOriginBelongsToAccount(
+        prisma,
+        resolvedTenantId,
+        reference.origin,
+      );
+
+      cobranca = await prisma.cobrancasFinanceiras.create({
+        data: buildMercadoPagoLinkChargeData(paymentId, payment, reference),
+        include: { cobrancasOnAgendamentos: true },
+      });
+    }
+
     if (!cobranca) return res.sendStatus(204);
     if (cobranca.idCobranca !== String(paymentId)) {
       cobranca = await prisma.cobrancasFinanceiras.update({ where: { id: cobranca.id }, data: { idCobranca: String(paymentId) }, include: { cobrancasOnAgendamentos: true } });
@@ -243,6 +270,9 @@ export async function webhookMercadoPagoCobrancas(
     const paymentMethodMap: Record<string, MetodoPagamento> = {
       ticket: "BOLETO",
       bank_transfer: "PIX",
+      credit_card: "CARTAO",
+      debit_card: "DEBITO",
+      account_money: "GATEWAY",
       atm: "OUTRO",
     };
 
