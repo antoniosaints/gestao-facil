@@ -59,6 +59,8 @@ import {
   listRelatosBugAdmin,
   updateRelatoBugAdmin,
 } from "../../controllers/administracao/bugs";
+import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
+import { routerAdminWhatsApp } from "./whatsapp";
 
 const routerAdminMain = Router();
 
@@ -66,6 +68,7 @@ const routerAdminMain = Router();
 // em sessão de suporte", e repetir os middlewares rota a rota faz a checagem falhar
 // por omissão assim que alguém adicionar um endpoint novo.
 routerAdminMain.use(authenticateJWT, blockImpersonation);
+routerAdminMain.use("/whatsapp", requireSuperAdmin, routerAdminWhatsApp);
 
 routerAdminMain.get("/resumo", getDashboardMain);
 routerAdminMain.get("/assinantes", tableAssinantesAdmin);

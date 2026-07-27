@@ -124,7 +124,7 @@ function hashPayload(payload: unknown) {
   return crypto.createHash("sha256").update(safeJson(payload)).digest("hex");
 }
 
-function publicInstance(instance: any) {
+export function publicInstance(instance: any) {
   if (!instance) return instance;
   const { token: _token, webhookSecret: _webhookSecret, pagamentos, ...rest } = instance;
   return {

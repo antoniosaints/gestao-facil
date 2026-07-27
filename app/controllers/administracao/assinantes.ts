@@ -19,6 +19,8 @@ import {
   syncContaRecurringBilling,
   type ModuleStatus,
 } from "../../services/contas/storeModulesService";
+import { sendWelcomeEmail } from "../../services/email/resendEmailService";
+import { env } from "../../utils/dotenv";
 
 const ALLOWED_SORT_FIELDS = new Set([
   "id",
@@ -176,6 +178,14 @@ export const createAssinanteAdmin = async (req: Request, res: Response): Promise
     await getOrCreateCodigoIndicacao(resultado.conta.id).catch((e) =>
       console.error("[indicacao] falha ao gerar código:", e),
     );
+
+    const loginUrl = `${env.BASE_URL_FRONTEND.replace(/\/+$/, "")}/login`;
+    await sendWelcomeEmail(
+      resultado.usuario.email,
+      resultado.usuario.nome,
+      resultado.conta.nome,
+      loginUrl,
+    ).catch((e) => console.error("[boas-vindas] falha ao enviar e-mail:", e));
 
     console.log(
       `[admin] Conta ${resultado.conta.id} (${resultado.conta.nome}) criada pelo superadmin ${customData.userId}`,

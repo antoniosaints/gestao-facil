@@ -16,6 +16,8 @@ import {
 } from "../../services/contas/indicacaoService";
 import { getContaInfoCacheKey, syncAuthenticatedSessionCaches } from "../../services/session/accountSessionCacheService";
 import { sendSessionUpdated } from "../../hooks/contas/socket";
+import { sendWelcomeEmail } from "../../services/email/resendEmailService";
+import { env } from "../../utils/dotenv";
 
 export const criarConta = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -106,6 +108,11 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
         valorBasePlano: data.created.valorBasePlano,
       }).catch((e) => console.error("[indicacao] falha ao vincular indicação:", e));
     }
+
+    const loginUrl = `${env.BASE_URL_FRONTEND.replace(/\/+$/, "")}/login`;
+    await sendWelcomeEmail(data.user.email, data.user.nome, data.created.nome, loginUrl).catch(
+      (e) => console.error("[boas-vindas] falha ao enviar e-mail:", e),
+    );
 
     ResponseHandler(res, "Conta criada com sucesso", data);
   } catch (err: any) {

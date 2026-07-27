@@ -1,5 +1,6 @@
 import axios from "axios";
 import { env } from "../../utils/dotenv";
+import { buildWelcomeEmail } from "./welcomeEmailTemplate";
 
 // Casca de envio de e-mails transacionais via Resend (HTTP API — sem SDK extra).
 // Se RESEND_API_KEY não estiver configurada, o envio é ignorado (não quebra o
@@ -66,6 +67,19 @@ export async function sendPasswordResetEmail(to: string, nome: string, resetUrl:
     `Se você não solicitou, ignore este e-mail — sua senha continua a mesma.`;
 
   return sendEmail({ to, subject, html: passwordResetTemplate(nome, resetUrl), text });
+}
+
+/**
+ * E-mail enviado ao usuário root logo após a criação da conta.
+ */
+export async function sendWelcomeEmail(
+  to: string,
+  nome: string,
+  conta: string,
+  loginUrl: string,
+) {
+  const content = buildWelcomeEmail({ nome, conta, loginUrl });
+  return sendEmail({ to, ...content });
 }
 
 function passwordResetTemplate(nome: string, resetUrl: string): string {
