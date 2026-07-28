@@ -19,8 +19,10 @@ import {
   cancelPublicReservation,
   createInternalReservation,
   createPublicReservation,
+  deleteCanceledReservation,
+  deleteReservationResource,
+  deleteReservationServiceConfig,
   deleteScheduleException,
-  disableReservationResource,
   ensureReservationConfig,
   getPublicReservation,
   getPublicReservationStore,
@@ -56,7 +58,9 @@ function errorResponse(res: Response, error: unknown) {
   const status =
     lower.includes("não encontrad") ? 404
     : lower.includes("token") ? 401
-    : lower.includes("outra sessão") || lower.includes("acabou de ser reservado") ? 409
+    : lower.includes("outra sessão")
+      || lower.includes("acabou de ser reservado")
+      || lower.includes("possui reservas vinculadas") ? 409
     : lower.includes("módulo") || lower.includes("permiss") ? 403
     : 422;
   return res.status(status).json({
@@ -192,12 +196,12 @@ export async function adminDeleteException(req: Request, res: Response) {
   } catch (error) { return errorResponse(res, error); }
 }
 
-export async function adminDisableResource(req: Request, res: Response) {
+export async function adminDeleteResource(req: Request, res: Response) {
   try {
     return ResponseHandler(
       res,
-      "Recurso desativado.",
-      await disableReservationResource(getCustomRequest(req).customData.contaId, Number(req.params.id)),
+      "Recurso excluído.",
+      await deleteReservationResource(getCustomRequest(req).customData.contaId, Number(req.params.id)),
     );
   } catch (error) { return errorResponse(res, error); }
 }
@@ -235,6 +239,16 @@ export async function adminSaveService(req: Request, res: Response) {
       res,
       "Serviço reservável salvo.",
       await saveReservationServiceConfig(getCustomRequest(req).customData.contaId, body as any),
+    );
+  } catch (error) { return errorResponse(res, error); }
+}
+
+export async function adminDeleteService(req: Request, res: Response) {
+  try {
+    return ResponseHandler(
+      res,
+      "Serviço removido das reservas.",
+      await deleteReservationServiceConfig(getCustomRequest(req).customData.contaId, Number(req.params.id)),
     );
   } catch (error) { return errorResponse(res, error); }
 }
@@ -360,6 +374,19 @@ export async function adminAction(req: Request, res: Response) {
         Number(req.params.id),
         action as "confirm" | "complete" | "cancel",
         req.body?.reason,
+      ),
+    );
+  } catch (error) { return errorResponse(res, error); }
+}
+
+export async function adminDeleteBooking(req: Request, res: Response) {
+  try {
+    return ResponseHandler(
+      res,
+      "Reserva excluída.",
+      await deleteCanceledReservation(
+        getCustomRequest(req).customData.contaId,
+        Number(req.params.id),
       ),
     );
   } catch (error) { return errorResponse(res, error); }

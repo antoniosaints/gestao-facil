@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assertCanceledReservationCanBeDeleted,
   assertReservationTransition,
   calculateReservationPayment,
   canChangePublicReservation,
@@ -30,6 +31,11 @@ describe("reservaPolicy", () => {
       assertReservationTransition("AGUARDANDO_PAGAMENTO", "CONFIRMADA"),
     );
     assert.throws(() => assertReservationTransition("CANCELADA", "CONFIRMADA"));
+  });
+
+  it("permite excluir somente reservas canceladas", () => {
+    assert.doesNotThrow(() => assertCanceledReservationCanBeDeleted("CANCELADA"));
+    assert.throws(() => assertCanceledReservationCanBeDeleted("CONFIRMADA"));
   });
 
   it("renderiza somente variáveis conhecidas", () => {

@@ -5,8 +5,10 @@ import {
   adminAction,
   adminAvailability,
   adminCreateBooking,
+  adminDeleteBooking,
   adminDeleteException,
-  adminDisableResource,
+  adminDeleteResource,
+  adminDeleteService,
   adminGetConfig,
   adminLinkCustomer,
   adminListBookings,
@@ -54,7 +56,7 @@ routerReservas.get("/recursos", permission("reservas:visualizar"), handler(admin
 routerReservas.get("/recursos/select2", permission("reservas:visualizar"), handler(adminResourceOptions));
 routerReservas.post("/recursos", permission("reservas:configurar"), handler(adminSaveResource));
 routerReservas.patch("/recursos/:id", permission("reservas:configurar"), handler(adminSaveResource));
-routerReservas.delete("/recursos/:id", permission("reservas:configurar"), handler(adminDisableResource));
+routerReservas.delete("/recursos/:id", permission("reservas:configurar"), handler(adminDeleteResource));
 routerReservas.put(
   "/recursos/:id/disponibilidades",
   permission("reservas:configurar"),
@@ -66,6 +68,7 @@ routerReservas.delete("/excecoes/:id", permission("reservas:configurar"), handle
 routerReservas.get("/servicos", permission("reservas:visualizar"), handler(adminListServices));
 routerReservas.get("/servicos/select2", permission("reservas:visualizar"), handler(adminServiceOptions));
 routerReservas.put("/servicos", permission("reservas:configurar"), handler(adminSaveService));
+routerReservas.delete("/servicos/:id", permission("reservas:configurar"), handler(adminDeleteService));
 routerReservas.get("/disponibilidade", permission("reservas:visualizar"), handler(adminAvailability));
 routerReservas.get("/", permission("reservas:visualizar"), handler(adminListBookings));
 routerReservas.post("/", permission("reservas:criar"), handler(adminCreateBooking));
@@ -76,5 +79,6 @@ routerReservas.post("/:id/estorno", permission("reservas:estornar"), handler(adm
 routerReservas.post("/:id/confirm", permission("reservas:editar"), handler(adminAction));
 routerReservas.post("/:id/complete", permission("reservas:editar"), handler(adminAction));
 routerReservas.post("/:id/cancel", permission("reservas:cancelar"), handler(adminAction));
+routerReservas.delete("/:id", permission("reservas:cancelar"), handler(adminDeleteBooking));
 
 export { routerReservas };

@@ -70,6 +70,12 @@ export function assertReservationTransition(
   }
 }
 
+export function assertCanceledReservationCanBeDeleted(status: ReservaStatusValue) {
+  if (status !== "CANCELADA") {
+    throw new Error("Somente reservas canceladas podem ser excluídas.");
+  }
+}
+
 export function renderReservationTemplate(
   template: string,
   variables: Record<string, string | number | null | undefined>,

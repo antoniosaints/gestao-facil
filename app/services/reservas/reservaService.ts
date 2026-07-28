@@ -19,6 +19,7 @@ import {
 } from "../financeiro/mercadoPagoChargeReference";
 import { enqueueWhatsAppReservationMessage } from "../notifications/whatsappNotificationQueueService";
 import {
+  assertCanceledReservationCanBeDeleted,
   assertReservationTransition,
   calculateReservationPayment,
   canChangePublicReservation,
@@ -403,13 +404,39 @@ export async function deleteScheduleException(contaId: number, exceptionId: numb
   return { id: exceptionId };
 }
 
-export async function disableReservationResource(contaId: number, resourceId: number) {
-  const updated = await prisma.reservaRecurso.updateMany({
+export async function deleteReservationResource(contaId: number, resourceId: number) {
+  const resource = await prisma.reservaRecurso.findFirst({
     where: { id: resourceId, contaId },
-    data: { ativo: false, publico: false },
+    select: {
+      id: true,
+      Servicos: { select: { servicoConfigId: true } },
+      _count: { select: { Reservas: true } },
+    },
   });
-  if (!updated.count) throw new Error("Recurso não encontrado.");
-  return { id: resourceId, ativo: false };
+  if (!resource) throw new Error("Recurso não encontrado.");
+  if (resource._count.Reservas > 0) {
+    throw new Error("Este recurso possui reservas vinculadas e não pode ser excluído.");
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.reservaRecurso.delete({ where: { id: resource.id } });
+    const linkedServiceIds = resource.Servicos.map((item) => item.servicoConfigId);
+    if (!linkedServiceIds.length) return;
+    const orphanedServices = await tx.reservaServicoConfig.findMany({
+      where: {
+        contaId,
+        id: { in: linkedServiceIds },
+        Recursos: { none: {} },
+      },
+      select: { id: true },
+    });
+    if (orphanedServices.length) {
+      await tx.reservaServicoConfig.updateMany({
+        where: { id: { in: orphanedServices.map((item) => item.id) }, contaId },
+        data: { ativo: false, publico: false },
+      });
+    }
+  });
+  return { id: resource.id };
 }
 
 export async function listReservationServiceConfigs(contaId: number, publicOnly = false) {
@@ -507,6 +534,19 @@ export async function saveReservationServiceConfig(
       include: { Servico: true, Recursos: { include: { Recurso: true } } },
     });
   });
+}
+
+export async function deleteReservationServiceConfig(contaId: number, serviceConfigId: number) {
+  const serviceConfig = await prisma.reservaServicoConfig.findFirst({
+    where: { id: serviceConfigId, contaId },
+    select: { id: true, _count: { select: { Reservas: true } } },
+  });
+  if (!serviceConfig) throw new Error("Serviço reservável não encontrado.");
+  if (serviceConfig._count.Reservas > 0) {
+    throw new Error("Este serviço possui reservas vinculadas e não pode ser excluído.");
+  }
+  await prisma.reservaServicoConfig.delete({ where: { id: serviceConfig.id } });
+  return { id: serviceConfig.id };
 }
 
 function dateRange(start: string, end: string) {
@@ -1885,6 +1925,22 @@ export async function actOnReservation(
     });
   }
   return updated;
+}
+
+export async function deleteCanceledReservation(contaId: number, bookingId: number) {
+  const booking = await prisma.reservaGeral.findFirst({
+    where: { id: bookingId, contaId },
+    select: { id: true, status: true },
+  });
+  if (!booking) throw new Error("Reserva não encontrada.");
+
+  assertCanceledReservationCanBeDeleted(booking.status);
+
+  await prisma.reservaGeral.delete({
+    where: { id: booking.id },
+  });
+
+  return { id: booking.id };
 }
 
 export async function processReservationAutomations(now = new Date()) {
