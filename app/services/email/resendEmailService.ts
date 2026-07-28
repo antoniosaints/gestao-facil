@@ -79,7 +79,7 @@ export async function sendWelcomeEmail(
   loginUrl: string,
 ) {
   const content = buildWelcomeEmail({ nome, conta, loginUrl });
-  return sendEmail({ to, ...content });
+  return sendEmail({ from: "noreply@userp.com.br", to, ...content });
 }
 
 function passwordResetTemplate(nome: string, resetUrl: string): string {
