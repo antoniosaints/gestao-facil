@@ -36,6 +36,8 @@ export async function deleteContaCompletely(contaId: number) {
         await tx.comandaOperacaoItem.deleteMany({ where: { Comanda: { contaId } } });
         await tx.comandaOperacaoPagamento.deleteMany({ where: { Comanda: { contaId } } });
         await tx.comandaOperacaoHistorico.deleteMany({ where: { Comanda: { contaId } } });
+        await tx.reservaNotificacao.deleteMany({ where: { contaId } });
+        await tx.reservaPagamento.deleteMany({ where: { contaId } });
 
         // ---- Modelos com contaId ----
         await tx.whatsAppMensagem.deleteMany({ where: { contaId } });
@@ -52,6 +54,14 @@ export async function deleteContaCompletely(contaId: number) {
         await tx.comandaOperacao.deleteMany({ where: { contaId } });
         await tx.comandaOperacaoConfiguracao.deleteMany({ where: { contaId } });
         await tx.arenaQuadras.deleteMany({ where: { contaId } });
+        await tx.reservaAgendaLock.deleteMany({ where: { contaId } });
+        await tx.reservaGeral.deleteMany({ where: { contaId } });
+        await tx.reservaExcecaoAgenda.deleteMany({ where: { contaId } });
+        await tx.reservaDisponibilidade.deleteMany({ where: { contaId } });
+        await tx.reservaServicoRecurso.deleteMany({ where: { contaId } });
+        await tx.reservaServicoConfig.deleteMany({ where: { contaId } });
+        await tx.reservaRecurso.deleteMany({ where: { contaId } });
+        await tx.reservaConfig.deleteMany({ where: { contaId } });
         await tx.notificacaoVencimentoFinanceiro.deleteMany({ where: { contaId } });
         await tx.cobrancasFinanceiras.deleteMany({ where: { contaId } });
         await tx.lancamentoFinanceiro.deleteMany({ where: { contaId } });

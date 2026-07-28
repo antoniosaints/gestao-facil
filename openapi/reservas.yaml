@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: Gestão Fácil — Reservas
+  version: 1.0.0
+  description: API multitenant de agendamento público e operação interna. Rotas públicas resolvem a conta exclusivamente pelo slug.
+servers:
+  - url: /api
+tags:
+  - name: Reservas públicas
+  - name: Operação de reservas
+  - name: Configuração de reservas
+paths:
+  /reservas/publica/{slug}:
+    get:
+      tags: [Reservas públicas]
+      summary: Retorna identidade, tema, textos e regras públicas
+      parameters: [$ref: "#/components/parameters/Slug"]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "404": { $ref: "#/components/responses/Error" }
+  /reservas/publica/{slug}/servicos:
+    get:
+      tags: [Reservas públicas]
+      summary: Lista serviços reserváveis e seus recursos públicos
+      parameters: [$ref: "#/components/parameters/Slug"]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /reservas/publica/{slug}/disponibilidade:
+    get:
+      tags: [Reservas públicas]
+      summary: Consulta até 31 dias de disponibilidade recalculada
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - { in: query, name: serviceConfigId, required: true, schema: { type: integer } }
+        - { in: query, name: resourceId, schema: { type: integer } }
+        - { in: query, name: dateFrom, required: true, schema: { type: string, format: date } }
+        - { in: query, name: dateTo, required: true, schema: { type: string, format: date } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "422": { $ref: "#/components/responses/Error" }
+  /reservas/publica/{slug}/checkout/preview:
+    post:
+      tags: [Reservas públicas]
+      summary: Recalcula preço, sinal, duração e fim no servidor
+      parameters: [$ref: "#/components/parameters/Slug"]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ReservationInput" } } } }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "422": { $ref: "#/components/responses/Error" }
+  /reservas/publica/{slug}/reservas:
+    post:
+      tags: [Reservas públicas]
+      summary: Cria uma reserva com lock de recurso e idempotência
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ReservationInput" } } } }
+      responses:
+        "201": { $ref: "#/components/responses/Success" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /reservas/publica/{slug}/reservas/{publicId}:
+    get:
+      tags: [Reservas públicas]
+      summary: Consulta a reserva usando token opaco Bearer
+      security: [{ reservationToken: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/PublicId"
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+  /reservas/publica/{slug}/reservas/{publicId}/remarcar:
+    post:
+      tags: [Reservas públicas]
+      summary: Remarca horário/recurso com versão otimista
+      security: [{ reservationToken: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/PublicId"
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "409": { $ref: "#/components/responses/Error" }
+  /reservas/publica/{slug}/reservas/{publicId}/cancelar:
+    post:
+      tags: [Reservas públicas]
+      summary: Cancela conforme o prazo da conta
+      security: [{ reservationToken: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/PublicId"
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /reservas/publica/{slug}/reservas/{publicId}/retry-payment:
+    post:
+      tags: [Reservas públicas]
+      summary: Repete checkout do Mercado Pago de forma idempotente
+      security: [{ reservationToken: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/PublicId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /reservas:
+    get:
+      tags: [Operação de reservas]
+      summary: Lista paginada com filtros
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+    post:
+      tags: [Operação de reservas]
+      summary: Cria reserva interna
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201": { $ref: "#/components/responses/Success" }
+  /reservas/{id}/remarcar:
+    post:
+      tags: [Operação de reservas]
+      summary: Remarca com lock diário e versão otimista
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "409": { $ref: "#/components/responses/Error" }
+  /reservas/{id}/pagamentos:
+    post:
+      tags: [Operação de reservas]
+      summary: Registra recebimento manual idempotente
+      security: [{ bearerAuth: [] }]
+      parameters: [$ref: "#/components/parameters/IdempotencyKey"]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /reservas/{id}/estorno:
+    post:
+      tags: [Operação de reservas]
+      summary: Solicita estorno e gera compensação financeira
+      security: [{ bearerAuth: [] }]
+      parameters: [$ref: "#/components/parameters/IdempotencyKey"]
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /reservas/config:
+    get:
+      tags: [Configuração de reservas]
+      security: [{ bearerAuth: [] }]
+      summary: Obtém configuração da conta
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+    put:
+      tags: [Configuração de reservas]
+      security: [{ bearerAuth: [] }]
+      summary: Atualiza página, regras, mensagens e financeiro
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    reservationToken: { type: http, scheme: bearer, description: Token opaco de gestão da reserva }
+  parameters:
+    Slug: { in: path, name: slug, required: true, schema: { type: string } }
+    PublicId: { in: path, name: publicId, required: true, schema: { type: string, format: uuid } }
+    IdempotencyKey: { in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 12, maxLength: 80 } }
+  schemas:
+    ReservationInput:
+      type: object
+      required: [serviceConfigId, startAt, customer, acceptedTerms]
+      properties:
+        serviceConfigId: { type: integer }
+        resourceId: { type: integer, nullable: true }
+        startAt: { type: string, format: date-time }
+        acceptedTerms: { type: boolean }
+        operationalConsent: { type: boolean }
+        afterSalesConsent: { type: boolean }
+        notes: { type: string, maxLength: 1000 }
+        customer:
+          type: object
+          required: [name, phone]
+          properties:
+            name: { type: string }
+            phone: { type: string }
+            email: { type: string, format: email }
+  responses:
+    Success:
+      description: Operação concluída
+      content: { application/json: { schema: { type: object } } }
+    Error:
+      description: Erro validado
+      content: { application/json: { schema: { type: object } } }

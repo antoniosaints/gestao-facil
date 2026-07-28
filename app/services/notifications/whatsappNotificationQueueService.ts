@@ -36,7 +36,20 @@ export interface WhatsAppClientMessageJobData {
   message: string;
 }
 
-export type WhatsAppQueueJobData = WhatsAppNotificationJobData | WhatsAppClientMessageJobData;
+export interface WhatsAppReservationMessageJobData {
+  kind: "RESERVATION_MESSAGE";
+  contaId: number;
+  instanceId: number;
+  reservaId: number;
+  notificationId?: number;
+  phone: string;
+  message: string;
+}
+
+export type WhatsAppQueueJobData =
+  | WhatsAppNotificationJobData
+  | WhatsAppClientMessageJobData
+  | WhatsAppReservationMessageJobData;
 
 const PARAMETER_SELECT = {
   whatsappNotificacoesAtivo: true,
@@ -370,5 +383,63 @@ export async function enqueueWhatsAppClientMessage(
     },
   );
 
+  return { jobId };
+}
+
+export async function enqueueWhatsAppReservationMessage(
+  contaId: number,
+  reservaId: number,
+  phone: string,
+  message: string,
+  notificationId?: number,
+) {
+  const normalizedMessage = message.trim();
+  const normalizedPhone = normalizeClienteWhatsappPhone(phone);
+  if (!normalizedMessage || !normalizedPhone) {
+    throw new Error("Mensagem ou telefone da reserva inválido.");
+  }
+
+  const moduleActive = await contaHasActiveModule(contaId, "whatsapp");
+  if (!moduleActive) throw new Error("O módulo WhatsApp precisa estar ativo.");
+
+  const parametros = await prisma.parametrosConta.findUnique({
+    where: { contaId },
+    select: { whatsappNotificacoesInstanciaId: true },
+  });
+  if (!parametros?.whatsappNotificacoesInstanciaId) {
+    throw new Error("Configure a instância principal de WhatsApp.");
+  }
+
+  const instance = await prisma.whatsAppInstancia.findFirst({
+    where: {
+      id: parametros.whatsappNotificacoesInstanciaId,
+      contaId,
+      ativo: true,
+      status: WhatsAppInstanciaStatus.CONECTADA,
+    },
+    select: { id: true },
+  });
+  if (!instance) throw new Error("A instância principal de WhatsApp está desconectada.");
+
+  const jobId = `wa-reserva-${contaId}-${reservaId}-${notificationId || crypto.randomUUID()}`;
+  await whatsappNotificationQueue.add(
+    "send-reservation-message",
+    {
+      kind: "RESERVATION_MESSAGE",
+      contaId,
+      instanceId: instance.id,
+      reservaId,
+      notificationId,
+      phone: normalizedPhone,
+      message: normalizedMessage,
+    } satisfies WhatsAppReservationMessageJobData,
+    {
+      jobId,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: true,
+      removeOnFail: true,
+    },
+  );
   return { jobId };
 }

@@ -39,6 +39,11 @@ const FRONTEND_SUBMENU_KEYS = [
   "arena:reservas",
   "arena:quadras",
   "arena:comandas",
+  "reservas:painel",
+  "reservas:calendario",
+  "reservas:lista",
+  "reservas:recursos",
+  "reservas:configuracoes",
   "assinaturas:painel",
   "assinaturas:lista",
   "assinaturas:planos",
@@ -75,6 +80,7 @@ describe("menuVisibilityPolicy", () => {
 
   it("keeps root recovery menus selected even when omitted from the payload", () => {
     const normalized = normalizeVisibleMenuKeys(["dashboard"]);
+    assert.ok(normalized);
 
     for (const key of ROOT_ALWAYS_VISIBLE_MENU_KEYS) {
       assert.equal(normalized.includes(key), true);

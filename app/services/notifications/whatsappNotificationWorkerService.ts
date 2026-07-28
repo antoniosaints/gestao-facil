@@ -8,9 +8,20 @@ import type { WhatsAppQueueJobData } from "./whatsappNotificationQueueService";
 
 export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) {
   const isClientMessage = data.kind === "CLIENT_MESSAGE";
-  const eventLabel = isClientMessage ? "CLIENT_MESSAGE" : data.event;
+  const isReservationMessage = data.kind === "RESERVATION_MESSAGE";
+  const eventLabel = isClientMessage
+    ? "CLIENT_MESSAGE"
+    : isReservationMessage
+      ? "RESERVATION_MESSAGE"
+      : data.event;
   const phone = normalizeWhatsAppNotificationPhone(data.phone);
   if (!phone) {
+    if (isReservationMessage && data.notificationId) {
+      await prisma.reservaNotificacao.updateMany({
+        where: { id: data.notificationId, contaId: data.contaId },
+        data: { status: "FALHOU", erro: "Telefone inválido." },
+      });
+    }
     return { skipped: true, reason: "invalid-phone" };
   }
 
@@ -35,10 +46,20 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) 
       data.contaId,
       "a instância está desconectada ou inativa",
     );
+    if (isReservationMessage && data.notificationId) {
+      await prisma.reservaNotificacao.updateMany({
+        where: { id: data.notificationId, contaId: data.contaId },
+        data: { status: "FALHOU", erro: "Instância de WhatsApp indisponível." },
+      });
+    }
     return { skipped: true, reason: "instance-unavailable" };
   }
 
-  const recipientId = isClientMessage ? `cliente-${data.clienteId}` : `usuario-${data.userId}`;
+  const recipientId = isClientMessage
+    ? `cliente-${data.clienteId}`
+    : isReservationMessage
+      ? `reserva-${data.reservaId}`
+      : `usuario-${data.userId}`;
   const messageId = `erp-wa-notif-${data.contaId}-${recipientId}-${Date.now()}-${crypto
     .randomBytes(4)
     .toString("hex")}`;
@@ -49,6 +70,12 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) 
       message: data.message,
       messageId,
     });
+    if (isReservationMessage && data.notificationId) {
+      await prisma.reservaNotificacao.updateMany({
+        where: { id: data.notificationId, contaId: data.contaId },
+        data: { status: "ENVIADA", enviadaEm: new Date(), erro: null },
+      });
+    }
   } catch (error: any) {
     console.warn(
       `[whatsapp-notifications] Falha ao enviar mensagem (conta ${data.contaId}, evento ${eventLabel})`,
@@ -58,6 +85,15 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) 
       data.contaId,
       "erro ao enviar mensagem pela instância conectada",
     );
+    if (isReservationMessage && data.notificationId) {
+      await prisma.reservaNotificacao.updateMany({
+        where: { id: data.notificationId, contaId: data.contaId },
+        data: {
+          status: "FALHOU",
+          erro: String(error?.response?.data?.message || error?.message || error),
+        },
+      });
+    }
     // Relanca o erro para o BullMQ aplicar as tentativas com backoff.
     throw error;
   }

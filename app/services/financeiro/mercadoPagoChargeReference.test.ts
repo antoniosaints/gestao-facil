@@ -87,3 +87,23 @@ test("cria os dados locais com payment.id e vínculo da entidade, nunca com pref
   assert.equal(data.vendaId, null);
   assert.equal(data.valor, 150.5);
 });
+
+test("preserva o vínculo próprio da reserva geral sem reutilizar a reserva da Arena", () => {
+  const reference = {
+    contaId: 12,
+    chargeUid: "COB_RESERVA",
+    kind: "link" as const,
+    origin: { type: "reserva-geral" as const, id: 345 },
+  };
+  const parsed = parseMercadoPagoChargeReference(buildMercadoPagoChargeReference(reference));
+  assert.deepEqual(parsed, reference);
+
+  const data = buildMercadoPagoLinkChargeData(
+    999,
+    { transaction_amount: 80, payment_type_id: "bank_transfer" },
+    reference,
+  );
+  assert.equal(data.reservaGeralId, 345);
+  assert.equal(data.reservaId, null);
+  assert.equal(data.contaId, 12);
+});

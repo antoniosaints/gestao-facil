@@ -46,6 +46,13 @@ export async function assertOperationalChargeOriginBelongsToAccount(
         select: { id: true },
       }),
     );
+  } else if (origin.type === "reserva-geral") {
+    exists = Boolean(
+      await executor.reservaGeral.findFirst({
+        where: { id: origin.id, contaId },
+        select: { id: true },
+      }),
+    );
   }
 
   if (!exists) {

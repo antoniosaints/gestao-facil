@@ -32,6 +32,7 @@ import {
   parseMercadoPagoChargeReference,
 } from "../../services/financeiro/mercadoPagoChargeReference";
 import { assertOperationalChargeOriginBelongsToAccount } from "../../services/financeiro/operationalChargeOriginService";
+import { applyReservationPaymentEvent } from "../../services/reservas/reservaService";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -345,6 +346,16 @@ export async function webhookMercadoPagoCobrancas(
       });
 
       await Promise.all(promises);
+    }
+
+    if (cobranca.reservaGeralId) {
+      await applyReservationPaymentEvent({
+        contaId: cobranca.contaId,
+        reservationId: cobranca.reservaGeralId,
+        chargeId: cobranca.id,
+        status: statusNovo,
+        method: metodoPago,
+      });
     }
 
     if (cobranca.lancamentoId && statusNovo === "EFETIVADO") {

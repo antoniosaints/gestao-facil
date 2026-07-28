@@ -277,6 +277,17 @@ model Contas {
   InformativoContas               InformativoConta[]
   InformativoLeituras             InformativoLeitura[]
   RelatosBug                      RelatoBug[]
+  ReservaConfig                   ReservaConfig?
+  ReservaRecursos                 ReservaRecurso[]
+  ReservaServicos                 ReservaServicoConfig[]
+  ReservaServicoRecursos          ReservaServicoRecurso[]
+  ReservaDisponibilidades         ReservaDisponibilidade[]
+  ReservaExcecoes                 ReservaExcecaoAgenda[]
+  ReservasGerais                  ReservaGeral[]
+  ReservaPagamentos               ReservaPagamento[]
+  ReservaNotificacoes             ReservaNotificacao[]
+  ReservaAgendaLocks              ReservaAgendaLock[]
+  ReservaHistoricos               ReservaHistorico[]
 }
 
 model ModulosAdicionais {
@@ -918,6 +929,7 @@ model ClientesFornecedores {
   LojaClientes         LojaCliente[]
   LojaPedidos          LojaPedido[]
   LembreteConfig       ClienteLembreteConfig?
+  ReservasGerais       ReservaGeral[]
 
   @@index([contaId, status])
 }
@@ -1036,28 +1048,28 @@ model ProdutoCategoria {
 }
 
 model ProdutoBase {
-  id             Int               @id @default(autoincrement())
+  id             Int                @id @default(autoincrement())
   contaId        Int
-  Contas         Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Contas         Contas             @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   categoriaId    Int?
-  Categoria      ProdutoCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  Uid            String            @default("PB_000")
+  Categoria      ProdutoCategoria?  @relation(fields: [categoriaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Uid            String             @default("PB_000")
   nome           String
   // Ver Produto.descricao: texto livre, fora do limite de VARCHAR(191).
-  descricao      String?           @db.Text
-  status         Status            @default(ATIVO)
+  descricao      String?            @db.Text
+  status         Status             @default(ATIVO)
   ncm            String?
   cest           String?
   cfop           String?
   origem         Int?
-  aliquotaIcms   Decimal?          @db.Decimal(5, 2)
-  aliquotaIpi    Decimal?          @db.Decimal(5, 2)
-  aliquotaPis    Decimal?          @db.Decimal(5, 2)
-  aliquotaCofins Decimal?          @db.Decimal(5, 2)
+  aliquotaIcms   Decimal?           @db.Decimal(5, 2)
+  aliquotaIpi    Decimal?           @db.Decimal(5, 2)
+  aliquotaPis    Decimal?           @db.Decimal(5, 2)
+  aliquotaCofins Decimal?           @db.Decimal(5, 2)
   codigoProduto  String?
-  issAliquota    Decimal?          @db.Decimal(5, 2)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  issAliquota    Decimal?           @db.Decimal(5, 2)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
   variantes      Produto[]
   LojaSecoes     LojaSecaoProduto[]
 
@@ -1092,6 +1104,7 @@ model Servicos {
   ItensOrdensServico   ItensOrdensServico[]
   itensVendas          ItensVendas[]
   ComandaItens         ComandaItem[]
+  ReservaConfig        ReservaServicoConfig?
 
   @@index([contaId, status])
 }
@@ -1674,20 +1687,20 @@ model CaixaMovimento {
 }
 
 model ContasFinanceiro {
-  id                Int                    @id @default(autoincrement())
-  contaId           Int
-  Contas            Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid               String                 @default("CON_000")
-  nome              String
-  icone             String?
-  corDestaque       String?
-  saldoInicial      Decimal                @default(0)
-  lancamentos       LancamentoFinanceiro[]
-  assinaturasPagar  AssinaturaPagar[]
+  id                 Int                    @id @default(autoincrement())
+  contaId            Int
+  Contas             Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                String                 @default("CON_000")
+  nome               String
+  icone              String?
+  corDestaque        String?
+  saldoInicial       Decimal                @default(0)
+  lancamentos        LancamentoFinanceiro[]
+  assinaturasPagar   AssinaturaPagar[]
   assinaturasCliente AssinaturaCliente[]
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-  ParcelaFinanceiro ParcelaFinanceiro[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  ParcelaFinanceiro  ParcelaFinanceiro[]
 }
 
 model CategoriaFinanceiro {
@@ -1732,9 +1745,13 @@ model CobrancasFinanceiras {
   moduloOnContaAtual      ModuloOnConta?            @relation("ModuloCobrancaAtual")
   pedidoLojaId            Int?
   PedidoLoja              LojaPedido?               @relation(fields: [pedidoLojaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  reservaGeralId          Int?
+  ReservaGeral            ReservaGeral?             @relation(fields: [reservaGeralId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  ReservaPagamento        ReservaPagamento?
 
   @@index([contaId, gateway, idCobranca])
   @@index([contaId, pedidoLojaId])
+  @@index([contaId, reservaGeralId])
 }
 
 model LancamentoFinanceiro {
@@ -1772,6 +1789,10 @@ model LancamentoFinanceiro {
   contasFinanceiroId         Int?
   lembreteCliente            LancamentoLembreteCliente?
   recorrencia                LancamentoRecorrencia?
+  reservaGeralId             Int?                       @unique
+  ReservaGeral               ReservaGeral?              @relation(fields: [reservaGeralId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  reservaPagamentoEstornoId  Int?                       @unique
+  ReservaPagamentoEstorno    ReservaPagamento?          @relation("ReservaPagamentoEstorno", fields: [reservaPagamentoEstornoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@unique([assinaturaPagarId, referenciaRecorrencia])
   @@index([contaId, status, dataLancamento])
@@ -1812,6 +1833,7 @@ enum StatusPagamentoFinanceiro {
 enum OrigemLancamentoFinanceiro {
   MANUAL
   ASSINATURA_PAGAR
+  RESERVA
 }
 
 enum FrequenciaRecorrenciaFinanceira {
@@ -2383,33 +2405,33 @@ model IaChaveApi {
 }
 
 model IaModelo {
-  id        Int      @id @default(autoincrement())
-  modelId   String   @unique
-  nome      String
-  provider  String   @default("gemini")
-  ativo     Boolean  @default(true)
+  id                Int      @id @default(autoincrement())
+  modelId           String   @unique
+  nome              String
+  provider          String   @default("gemini")
+  ativo             Boolean  @default(true)
   // Custo por 1 milhão de tokens (na moeda do CEO). Usado para estimar o gasto a partir de IaUso.
   custoInputMilhao  Decimal? @db.Decimal(12, 6)
   custoOutputMilhao Decimal? @db.Decimal(12, 6)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // Configuração (singleton) do chat "Core IA" — o assistente interno do ERP. Gerenciada pelo
 // CEO/super admin: define o modelo, a chave de API dedicada, o prompt de sistema e o
 // comportamento usados para atender os clientes do sistema.
 model IaCoreConfig {
-  id           Int      @id @default(autoincrement())
-  provider     String   @default("gemini")
-  modelId      String   @default("gemini-2.0-flash-lite")
-  apiKey       String?  @db.Text
-  systemPrompt String?  @db.LongText
-  ativo        Boolean  @default(true)
+  id                       Int      @id @default(autoincrement())
+  provider                 String   @default("gemini")
+  modelId                  String   @default("gemini-2.0-flash-lite")
+  apiKey                   String?  @db.Text
+  systemPrompt             String?  @db.LongText
+  ativo                    Boolean  @default(true)
   // Limite mensal padrão de tokens de IA por conta (null = ilimitado). O CEO define aqui o
   // teto global; cada conta pode ter um override em ParametrosConta.iaLimiteTokensMensal.
   limiteTokensMensalPadrao Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }
 
 // Consumo de tokens de IA por conta/feature (para medição e limite mensal). Uma linha por
@@ -2450,32 +2472,32 @@ model WhatsAppContato {
 }
 
 model WhatsAppConversa {
-  id                Int                    @id @default(autoincrement())
+  id                Int                      @id @default(autoincrement())
   contaId           Int
-  Conta             Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Conta             Contas                   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   instanciaId       Int
-  Instancia         WhatsAppInstancia      @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Instancia         WhatsAppInstancia        @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   contatoId         Int
-  Contato           WhatsAppContato        @relation(fields: [contatoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Contato           WhatsAppContato          @relation(fields: [contatoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   clienteId         Int?
-  Cliente           ClientesFornecedores?  @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Cliente           ClientesFornecedores?    @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   telefone          String
-  status            WhatsAppConversaStatus @default(ABERTA)
+  status            WhatsAppConversaStatus   @default(ABERTA)
   atendenteId       Int?
-  Atendente         Usuarios?              @relation("WhatsAppAtendente", fields: [atendenteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Atendente         Usuarios?                @relation("WhatsAppAtendente", fields: [atendenteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   setor             String?
   fila              String?
-  canal             String                 @default("whatsapp")
-  ultimaMensagem    String?                @db.Text
+  canal             String                   @default("whatsapp")
+  ultimaMensagem    String?                  @db.Text
   ultimaInteracaoEm DateTime?
-  naoLidas          Int                    @default(0)
+  naoLidas          Int                      @default(0)
   // Estado do ciclo de atendimento atual: quando entrou na fila e quando foi assumida. São
   // sobrescritos a cada ciclo (a thread é reaproveitada); o histórico fica em
   // WhatsAppConversaEvento. Servem para a espera da fila agora e para datar o evento seguinte.
   filaDesde         DateTime?
   atendidaEm        DateTime?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
   mensagens         WhatsAppMensagem[]
   eventos           WhatsAppConversaEvento[]
 
@@ -2489,18 +2511,18 @@ model WhatsAppConversa {
 // Log append-only das transições de atendimento. Cada linha é um fato imutável, então
 // reabrir uma conversa não apaga o ciclo anterior (ao contrário de datas na conversa).
 model WhatsAppConversaEvento {
-  id         Int                        @id @default(autoincrement())
-  contaId    Int
-  Conta      Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  conversaId Int
-  Conversa   WhatsAppConversa           @relation(fields: [conversaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  tipo       WhatsAppConversaEventoTipo
-  usuarioId  Int?
-  Usuario    Usuarios?                  @relation("WhatsAppConversaEventoAutor", fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id           Int                        @id @default(autoincrement())
+  contaId      Int
+  Conta        Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  conversaId   Int
+  Conversa     WhatsAppConversa           @relation(fields: [conversaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tipo         WhatsAppConversaEventoTipo
+  usuarioId    Int?
+  Usuario      Usuarios?                  @relation("WhatsAppConversaEventoAutor", fields: [usuarioId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   // Início do intervalo que este evento fecha: entrada na fila (ASSUMIDA) ou início do
   // atendimento (FINALIZADA). Permite medir espera e duração sem parear linhas do log.
   referenciaEm DateTime?
-  createdAt  DateTime                   @default(now())
+  createdAt    DateTime                   @default(now())
 
   @@index([contaId, tipo, createdAt])
   @@index([contaId, conversaId, createdAt])
@@ -2600,4 +2622,318 @@ model AcessoSuporteLog {
   @@index([contaId])
   @@index([superAdminId])
   @@index([iniciadoEm])
+}
+
+enum ReservaRecursoTipo {
+  PROFISSIONAL
+  SALA
+  EQUIPAMENTO
+}
+
+enum ReservaPoliticaPagamento {
+  NENHUM
+  INTEGRAL
+  SINAL_FIXO
+  SINAL_PERCENTUAL
+}
+
+enum ReservaStatus {
+  AGUARDANDO_PAGAMENTO
+  CONFIRMADA
+  CONCLUIDA
+  CANCELADA
+  EXPIRADA
+}
+
+enum ReservaPagamentoStatus {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  CANCELADO
+  ESTORNADO
+}
+
+enum ReservaPagamentoGateway {
+  MERCADOPAGO
+  MANUAL
+}
+
+enum ReservaExcecaoTipo {
+  DISPONIVEL
+  BLOQUEADO
+}
+
+enum ReservaNotificacaoEvento {
+  PENDENTE_PAGAMENTO
+  CONFIRMADA
+  HORARIO_PROXIMO
+  POS_VENDA
+}
+
+enum ReservaNotificacaoStatus {
+  AGENDADA
+  PROCESSANDO
+  ENVIADA
+  FALHOU
+  CANCELADA
+}
+
+model ReservaConfig {
+  id                            Int      @id @default(autoincrement())
+  contaId                       Int      @unique
+  Conta                         Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  slug                          String   @unique @db.VarChar(80)
+  ativo                         Boolean  @default(false)
+  timezone                      String   @default("America/Sao_Paulo")
+  antecedenciaMinimaMinutos     Int      @default(60)
+  horizonteDias                 Int      @default(90)
+  expiracaoPagamentoMinutos     Int      @default(15)
+  antecedenciaRemarcacaoHoras   Int      @default(24)
+  antecedenciaCancelamentoHoras Int      @default(24)
+  titulo                        String?
+  descricao                     String?  @db.Text
+  bannerUrl                     String?  @db.Text
+  corPrimaria                   String   @default("#0f766e")
+  corSecundaria                 String   @default("#f59e0b")
+  termos                        String?  @db.Text
+  termosVersao                  Int      @default(1)
+  themeConfig                   Json?
+  secoes                        Json?
+  lancamentoAutomatico          Boolean  @default(false)
+  categoriaFinanceiraId         Int?
+  contaFinanceiraId             Int?
+  whatsappPendenteAtivo         Boolean  @default(false)
+  whatsappPendenteTemplate      String?  @db.Text
+  whatsappConfirmadaAtivo       Boolean  @default(false)
+  whatsappConfirmadaTemplate    String?  @db.Text
+  whatsappLembreteAtivo         Boolean  @default(false)
+  whatsappLembreteHoras         Int      @default(24)
+  whatsappLembreteTemplate      String?  @db.Text
+  whatsappPosVendaAtivo         Boolean  @default(false)
+  whatsappPosVendaHoras         Int      @default(2)
+  whatsappPosVendaTemplate      String?  @db.Text
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  @@index([contaId, ativo])
+}
+
+model ReservaRecurso {
+  id               Int                      @id @default(autoincrement())
+  contaId          Int
+  Conta            Contas                   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  nome             String
+  descricao        String?                  @db.Text
+  tipo             ReservaRecursoTipo
+  ativo            Boolean                  @default(true)
+  publico          Boolean                  @default(true)
+  ordem            Int                      @default(0)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  Servicos         ReservaServicoRecurso[]
+  Disponibilidades ReservaDisponibilidade[]
+  Excecoes         ReservaExcecaoAgenda[]
+  Reservas         ReservaGeral[]
+  AgendaLocks      ReservaAgendaLock[]
+
+  @@unique([id, contaId])
+  @@index([contaId, ativo, publico])
+}
+
+model ReservaServicoConfig {
+  id                      Int                      @id @default(autoincrement())
+  contaId                 Int
+  Conta                   Contas                   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  servicoId               Int                      @unique
+  Servico                 Servicos                 @relation(fields: [servicoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ativo                   Boolean                  @default(true)
+  publico                 Boolean                  @default(true)
+  duracaoMinutos          Int                      @default(60)
+  intervaloAntesMinutos   Int                      @default(0)
+  intervaloDepoisMinutos  Int                      @default(0)
+  politicaPagamento       ReservaPoliticaPagamento @default(NENHUM)
+  valorSinal              Decimal?                 @db.Decimal(10, 2)
+  percentualSinal         Decimal?                 @db.Decimal(5, 2)
+  permitirQualquerRecurso Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  Recursos                ReservaServicoRecurso[]
+  Reservas                ReservaGeral[]
+
+  @@unique([id, contaId])
+  @@index([contaId, ativo, publico])
+}
+
+model ReservaServicoRecurso {
+  id              Int                  @id @default(autoincrement())
+  contaId         Int
+  Conta           Contas               @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  servicoConfigId Int
+  ServicoConfig   ReservaServicoConfig @relation(fields: [servicoConfigId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recursoId       Int
+  Recurso         ReservaRecurso       @relation(fields: [recursoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt       DateTime             @default(now())
+
+  @@unique([contaId, servicoConfigId, recursoId])
+  @@index([contaId, recursoId])
+}
+
+model ReservaDisponibilidade {
+  id           Int            @id @default(autoincrement())
+  contaId      Int
+  Conta        Contas         @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recursoId    Int
+  Recurso      ReservaRecurso @relation(fields: [recursoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  diaSemana    Int
+  inicioMinuto Int
+  fimMinuto    Int
+  ativo        Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([contaId, recursoId, diaSemana, ativo])
+}
+
+model ReservaExcecaoAgenda {
+  id        Int                @id @default(autoincrement())
+  contaId   Int
+  Conta     Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recursoId Int
+  Recurso   ReservaRecurso     @relation(fields: [recursoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  inicio    DateTime
+  fim       DateTime
+  tipo      ReservaExcecaoTipo
+  motivo    String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([contaId, recursoId, inicio, fim])
+}
+
+model ReservaGeral {
+  id                   Int                      @id @default(autoincrement())
+  contaId              Int
+  Conta                Contas                   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  publicId             String                   @unique @db.VarChar(36)
+  idempotencyKey       String?                  @db.VarChar(80)
+  tokenGestaoHash      String                   @db.VarChar(64)
+  servicoConfigId      Int
+  ServicoConfig        ReservaServicoConfig     @relation(fields: [servicoConfigId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  recursoId            Int
+  Recurso              ReservaRecurso           @relation(fields: [recursoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  clienteId            Int?
+  Cliente              ClientesFornecedores?    @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  nomeCliente          String
+  telefoneCliente      String
+  emailCliente         String?
+  servicoNome          String
+  recursoNome          String
+  inicio               DateTime
+  fim                  DateTime
+  valorTotal           Decimal                  @db.Decimal(10, 2)
+  valorPagamento       Decimal                  @default(0) @db.Decimal(10, 2)
+  valorPago            Decimal                  @default(0) @db.Decimal(10, 2)
+  politicaPagamento    ReservaPoliticaPagamento
+  status               ReservaStatus            @default(AGUARDANDO_PAGAMENTO)
+  expiraEm             DateTime?
+  confirmadaEm         DateTime?
+  concluidaEm          DateTime?
+  canceladaEm          DateTime?
+  motivoCancelamento   String?                  @db.Text
+  faturadaEm           DateTime?
+  termosVersao         Int
+  aceitouTermos        Boolean                  @default(false)
+  consentiuAvisos      Boolean                  @default(false)
+  consentiuPosVenda    Boolean                  @default(false)
+  observacoes          String?                  @db.Text
+  version              Int                      @default(1)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  Pagamentos           ReservaPagamento[]
+  Notificacoes         ReservaNotificacao[]
+  Historico            ReservaHistorico[]
+  Cobrancas            CobrancasFinanceiras[]
+  LancamentoFinanceiro LancamentoFinanceiro?
+
+  @@unique([contaId, idempotencyKey])
+  @@unique([id, contaId])
+  @@index([contaId, status, inicio])
+  @@index([contaId, recursoId, inicio, fim])
+  @@index([contaId, clienteId, inicio])
+}
+
+model ReservaHistorico {
+  id        Int          @id @default(autoincrement())
+  contaId   Int
+  Conta     Contas       @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reservaId Int
+  Reserva   ReservaGeral @relation(fields: [reservaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  evento    String       @db.VarChar(80)
+  usuarioId Int?
+  dados     Json?
+  createdAt DateTime     @default(now())
+
+  @@index([contaId, reservaId, createdAt])
+}
+
+model ReservaPagamento {
+  id                Int                     @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                  @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reservaId         Int
+  Reserva           ReservaGeral            @relation(fields: [reservaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  cobrancaId        Int?                    @unique
+  Cobranca          CobrancasFinanceiras?   @relation(fields: [cobrancaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  LancamentoEstorno LancamentoFinanceiro?   @relation("ReservaPagamentoEstorno")
+  gateway           ReservaPagamentoGateway
+  gatewayReferencia String?
+  idempotencyKey    String                  @db.VarChar(80)
+  valor             Decimal                 @db.Decimal(10, 2)
+  status            ReservaPagamentoStatus  @default(PENDENTE)
+  linkPagamento     String?                 @db.Text
+  pixCopiaCola      String?                 @db.Text
+  aprovadoEm        DateTime?
+  estornadoEm       DateTime?
+  erro              String?                 @db.Text
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@unique([contaId, idempotencyKey])
+  @@unique([contaId, gateway, gatewayReferencia])
+  @@index([contaId, reservaId, status])
+}
+
+model ReservaNotificacao {
+  id                Int                      @id @default(autoincrement())
+  contaId           Int
+  Conta             Contas                   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reservaId         Int
+  Reserva           ReservaGeral             @relation(fields: [reservaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  evento            ReservaNotificacaoEvento
+  status            ReservaNotificacaoStatus @default(AGENDADA)
+  agendadaPara      DateTime
+  template          String                   @db.Text
+  mensagem          String                   @db.Text
+  tentativas        Int                      @default(0)
+  ultimaTentativaEm DateTime?
+  enviadaEm         DateTime?
+  erro              String?                  @db.Text
+  versaoReserva     Int
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([reservaId, evento, agendadaPara, versaoReserva])
+  @@index([contaId, status, agendadaPara])
+}
+
+model ReservaAgendaLock {
+  id        Int            @id @default(autoincrement())
+  contaId   Int
+  Conta     Contas         @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recursoId Int
+  Recurso   ReservaRecurso @relation(fields: [recursoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  dataLocal DateTime       @db.Date
+  updatedAt DateTime       @updatedAt
+
+  @@unique([contaId, recursoId, dataLocal])
 }
