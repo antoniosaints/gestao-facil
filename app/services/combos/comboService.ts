@@ -21,7 +21,7 @@ export class ComboError extends Error {
 const comboInclude = {
   componentes: {
     include: {
-      Produto: { select: { id: true, contaId: true, nome: true, nomeVariante: true, preco: true, estoque: true, controlaEstoque: true, saidas: true, status: true } },
+      Produto: { select: { id: true, contaId: true, nome: true, nomeVariante: true, imagem: true, preco: true, estoque: true, controlaEstoque: true, saidas: true, status: true } },
       Servico: { select: { id: true, contaId: true, nome: true, preco: true, status: true } },
     },
     orderBy: { ordem: "asc" as const },
