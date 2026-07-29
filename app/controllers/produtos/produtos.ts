@@ -151,9 +151,6 @@ async function getProdutoVarianteById(
   });
 }
 
-/** Erro de regra de negócio: SKU bloqueado por possuir movimentações. */
-class SkuBloqueadoError extends Error {}
-
 /**
  * Normaliza um trecho de texto para compor o SKU:
  * remove acentos, mantém apenas letras/números e converte para maiúsculas.
@@ -199,55 +196,6 @@ async function gerarSkuUnico(
   return `${prefixo}-${Date.now().toString(36).toUpperCase()}`;
 }
 
-/**
- * Indica se a variante possui movimentações que travam a alteração do SKU
- * (itens de vendas ou de ordens de serviço).
- */
-async function produtoTemMovimentacoes(
-  client: PrismaClientLike,
-  varianteId?: number | null
-): Promise<boolean> {
-  if (!varianteId) return false;
-  const [vendas, ordens] = await Promise.all([
-    client.itensVendas.count({ where: { produtoId: varianteId } }),
-    client.itensOrdensServico.count({ where: { produtoId: varianteId } }),
-  ]);
-  return vendas > 0 || ordens > 0;
-}
-
-/**
- * Verifica se o SKU de uma variante pode ser alterado.
- * Uma vez que o item tenha movimentações (vendas ou ordens de serviço),
- * o SKU fica bloqueado até que essas conexões sejam removidas.
- * Retorna uma mensagem de bloqueio ou null quando a alteração é permitida.
- */
-async function verificarBloqueioSku(
-  client: PrismaClientLike,
-  variante: { id: number; codigo: string | null },
-  novoCodigo?: string | null
-): Promise<string | null> {
-  const atual = (variante.codigo ?? "").trim();
-  const novo = (novoCodigo ?? "").trim();
-
-  // Sem alteração ou definindo o SKU pela primeira vez: permitido.
-  if (atual === novo || !atual) return null;
-
-  const [vendas, ordens] = await Promise.all([
-    client.itensVendas.count({ where: { produtoId: variante.id } }),
-    client.itensOrdensServico.count({ where: { produtoId: variante.id } }),
-  ]);
-
-  if (vendas === 0 && ordens === 0) return null;
-
-  const partes: string[] = [];
-  if (vendas > 0) partes.push(`${vendas} venda(s)`);
-  if (ordens > 0) partes.push(`${ordens} ordem(ns) de serviço`);
-
-  return `Não é possível alterar o SKU: existem ${partes.join(
-    " e "
-  )} vinculada(s) a este item. Remova essas conexões para poder alterar o SKU.`;
-}
-
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
@@ -267,15 +215,9 @@ export const getProduto = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    const responseData = buildProdutoBaseResponse(produto);
-    const skuBloqueado = await produtoTemMovimentacoes(
-      prisma,
-      responseData.variantePadraoId
-    );
-
     return res.status(200).json({
       message: "Produto encontrado",
-      data: { ...responseData, skuBloqueado },
+      data: { ...buildProdutoBaseResponse(produto), skuBloqueado: false },
     });
   } catch (error) {
     handleError(res, error);
@@ -634,13 +576,6 @@ export const saveProduto = async (
 
         const variantePadrao = produtoBase.variantes[0];
         if (variantePadrao) {
-          const bloqueioSku = await verificarBloqueioSku(
-            tx,
-            variantePadrao,
-            data.codigo
-          );
-          if (bloqueioSku) throw new SkuBloqueadoError(bloqueioSku);
-
           await tx.produto.update({
             where: {
               id: variantePadrao.id,
@@ -804,9 +739,6 @@ export const saveProduto = async (
       201
     );
   } catch (error) {
-    if (error instanceof SkuBloqueadoError) {
-      return ResponseHandler(res, error.message, null, 409);
-    }
     handleError(res, error);
   }
 };
@@ -1226,15 +1158,13 @@ export const getProdutoVariante = async (
       return ResponseHandler(res, "Variante não encontrada", null, 404);
     }
 
-    const skuBloqueado = await produtoTemMovimentacoes(prisma, variante.id);
-
     return ResponseHandler(res, "Variante encontrada", {
       ...variante,
       categoriaId: variante.ProdutoBase?.categoriaId ?? null,
       categoria: variante.ProdutoBase?.Categoria?.nome ?? null,
       produtoBaseNome: variante.ProdutoBase?.nome ?? variante.nome,
       label: `${variante.nome}${variante.nomeVariante ? ` / ${variante.nomeVariante}` : ""}`,
-      skuBloqueado,
+      skuBloqueado: false,
     });
   } catch (error) {
     handleError(res, error);
@@ -1361,19 +1291,6 @@ export const saveProdutoVariante = async (
       const categoriaNome = base.Categoria?.nome ?? null;
 
       if (data.id) {
-        const varianteAtual = await tx.produto.findFirst({
-          where: { id: data.id, contaId: customData.contaId },
-          select: { id: true, codigo: true },
-        });
-        if (varianteAtual) {
-          const bloqueioSku = await verificarBloqueioSku(
-            tx,
-            varianteAtual,
-            data.codigo
-          );
-          if (bloqueioSku) throw new SkuBloqueadoError(bloqueioSku);
-        }
-
         return tx.produto.update({
           where: {
             id: data.id,
@@ -1445,9 +1362,6 @@ export const saveProdutoVariante = async (
 
     return ResponseHandler(res, "Variante salva com sucesso", variante, 201);
   } catch (error) {
-    if (error instanceof SkuBloqueadoError) {
-      return ResponseHandler(res, error.message, null, 409);
-    }
     handleError(res, error);
   }
 };
