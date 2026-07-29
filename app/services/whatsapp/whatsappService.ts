@@ -459,6 +459,7 @@ type VendaComItens = Prisma.VendasGetPayload<{
   include: {
     ItensVendas: { include: { produto: { select: { nome: true } }; servico: { select: { nome: true } } } };
     PagamentoVendas: true;
+    ComboSaidas: { include: { componentes: true } };
   };
 }>;
 
@@ -469,10 +470,16 @@ function buildVendaResumoMessage(venda: VendaComItens, clienteNome: string) {
   const total = Math.max(0, subtotal - desconto);
   const dataVenda = format(new Date(venda.data), "dd/MM/yyyy", { locale: ptBR });
 
-  const linhas = venda.ItensVendas.map((item) => {
+  const linhas = venda.ItensVendas.flatMap((item) => {
     const itemNome = item.itemName || item.produto?.nome || item.servico?.nome || "Item";
     const totalLinha = Number(item.valor || 0) * Number(item.quantidade || 0);
-    return `• ${item.quantidade}x ${itemNome} — ${formatCurrency(totalLinha)}`;
+    const combo = venda.ComboSaidas.find((saida) => saida.nomeSnapshot === item.itemName);
+    return [
+      `• ${item.quantidade}x ${itemNome} — ${formatCurrency(totalLinha)}`,
+      ...(combo?.componentes.map((component) =>
+        `  - ${component.quantidadePorCombo}x ${component.nomeSnapshot}`
+      ) || []),
+    ];
   });
 
   const partes = [
@@ -1741,6 +1748,7 @@ export const whatsAppService = {
           },
         },
         PagamentoVendas: true,
+        ComboSaidas: { include: { componentes: true } },
       },
     });
     if (!venda) throw new Error("Venda não encontrada para o cliente desta conversa.");

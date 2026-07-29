@@ -14,6 +14,11 @@ import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import {
+  createComboComandaSaida,
+  restoreComboComandaItemStock,
+} from "../../services/combos/comboService";
 import {
   buildComandaPosFilename,
   buildComandaPosReceipt,
@@ -41,7 +46,7 @@ import {
 
 type PrismaExecutor = Prisma.TransactionClient | typeof prisma;
 
-const origemTipoSchema = z.enum(["PRODUTO", "SERVICO", "AVULSO"]);
+const origemTipoSchema = z.enum(["PRODUTO", "SERVICO", "AVULSO", "COMBO"]);
 const pagamentoMetodoSchema = z.enum([
   "PIX",
   "DINHEIRO",
@@ -246,7 +251,7 @@ async function buildItemData(
     input.quantidade,
     "Informe uma quantidade valida."
   );
-  const valorUnitario = normalizePositiveNumber(
+  let valorUnitario = normalizePositiveNumber(
     input.valorUnitario,
     "Informe um valor unitario valido."
   );
@@ -257,6 +262,21 @@ async function buildItemData(
   let nomeSnapshot = input.nome?.trim() || "";
   let estoqueDebitado = false;
   let quantidadeDebitada = new Decimal(0);
+  let comboId: number | null = null;
+
+  if (input.origemTipo === "COMBO") {
+    if (!origemId) throw new Error("Informe o combo da comanda.");
+    if (!quantidade.isInteger()) throw new Error("Quantidade do combo deve ser inteira.");
+    if (!(await contaHasActiveModule(contaId, "combos"))) {
+      throw new Error("Modulo de combos nao esta ativo.");
+    }
+    const combo = await tx.combo.findFirstOrThrow({
+      where: { id: Number(origemId), contaId, ativo: true },
+    });
+    comboId = combo.id;
+    nomeSnapshot = combo.nome;
+    valorUnitario = new Decimal(combo.preco);
+  }
 
   if (input.origemTipo === "PRODUTO") {
     if (!origemId) throw new Error("Informe o produto da comanda.");
@@ -301,7 +321,7 @@ async function buildItemData(
   }
 
   return {
-    origemTipo: input.origemTipo,
+    origemTipo: input.origemTipo === "COMBO" ? "AVULSO" as const : input.origemTipo,
     origemId,
     nomeSnapshot,
     valorUnitarioSnapshot: valorUnitario,
@@ -309,6 +329,7 @@ async function buildItemData(
     subtotal: getItemSubtotal(valorUnitario, quantidade),
     estoqueDebitado,
     quantidadeDebitada,
+    comboId,
   };
 }
 
@@ -515,9 +536,21 @@ export async function getComanda(req: Request, res: Response): Promise<any> {
         itens: { orderBy: { id: "asc" } },
         pagamentos: true,
         historicos: { orderBy: { createdAt: "desc" } },
+        comboSaidas: { include: { componentes: true } },
       },
     });
-    return ResponseHandler(res, "Comanda encontrada.", comanda);
+    const comboItemIds = new Set(
+      comanda.comboSaidas.flatMap((saida) =>
+        saida.comandaOperacaoItemId ? [saida.comandaOperacaoItemId] : []
+      )
+    );
+    return ResponseHandler(res, "Comanda encontrada.", {
+      ...comanda,
+      itens: comanda.itens.map((item) => ({
+        ...item,
+        origemTipo: comboItemIds.has(item.id) ? "COMBO" : item.origemTipo,
+      })),
+    });
   } catch (error) {
     handleError(res, error);
   }
@@ -551,12 +584,20 @@ export async function createComanda(req: Request, res: Response): Promise<any> {
 
       const itens = [];
       for (const input of parsed.data.itens) {
-        const itemData = await buildItemData(tx, customData.contaId, input);
-        itens.push(
-          await tx.comandaOperacaoItem.create({
-            data: { comandaId: comanda.id, ...itemData },
-          })
-        );
+        const { comboId, ...itemData } = await buildItemData(tx, customData.contaId, input);
+        const item = await tx.comandaOperacaoItem.create({
+          data: { comandaId: comanda.id, ...itemData },
+        });
+        if (comboId) {
+          await createComboComandaSaida(tx, {
+            contaId: customData.contaId,
+            comboId,
+            quantidade: Number(item.quantidade),
+            comandaOperacaoId: comanda.id,
+            comandaOperacaoItemId: item.id,
+          });
+        }
+        itens.push(item);
       }
 
       const total = calculateComandaTotal(itens);
@@ -600,12 +641,20 @@ export async function addComandaItens(req: Request, res: Response): Promise<any>
       await assertComandaAberta(tx, comandaId, customData.contaId);
       const itens = [];
       for (const input of parsed.data.itens) {
-        const itemData = await buildItemData(tx, customData.contaId, input);
-        itens.push(
-          await tx.comandaOperacaoItem.create({
-            data: { comandaId, ...itemData },
-          })
-        );
+        const { comboId, ...itemData } = await buildItemData(tx, customData.contaId, input);
+        const item = await tx.comandaOperacaoItem.create({
+          data: { comandaId, ...itemData },
+        });
+        if (comboId) {
+          await createComboComandaSaida(tx, {
+            contaId: customData.contaId,
+            comboId,
+            quantidade: Number(item.quantidade),
+            comandaOperacaoId: comandaId,
+            comandaOperacaoItemId: item.id,
+          });
+        }
+        itens.push(item);
       }
       const total = await recalculateComandaTotal(tx, comandaId);
       await addHistorico(tx, {
@@ -645,12 +694,22 @@ export async function updateComandaItem(
     const itemId = Number(req.params.itemId);
     const parsed = updateItemSchema.safeParse(req.body);
     if (!parsed.success) return handleError(res, parsed.error);
+    if (parsed.data.origemTipo === "COMBO") {
+      throw new Error("Para trocar por um combo, remova o item e adicione novamente.");
+    }
 
     const response = await prisma.$transaction(async (tx) => {
       await assertComandaAberta(tx, comandaId, customData.contaId);
       const item = await tx.comandaOperacaoItem.findFirstOrThrow({
         where: { id: itemId, comandaId },
       });
+      const comboSaida = await tx.comboSaida.findUnique({
+        where: { comandaOperacaoItemId: item.id },
+        select: { id: true },
+      });
+      if (comboSaida) {
+        throw new Error("Para alterar um combo, remova o item e adicione novamente.");
+      }
 
       const origemId =
         parsed.data.origemId === null || parsed.data.origemId === undefined
@@ -718,7 +777,7 @@ export async function updateComandaItem(
         }
       }
 
-      const itemData = sameProduto
+      const builtItemData = sameProduto
         ? {
             ...(await buildItemSnapshotWithoutStock(
               tx,
@@ -729,8 +788,10 @@ export async function updateComandaItem(
             quantidadeDebitada: new Decimal(parsed.data.quantidade),
             estoqueDevolvido: false,
             quantidadeDevolvida: new Decimal(0),
+            comboId: null,
           }
         : await buildItemData(tx, customData.contaId, parsed.data);
+      const { comboId: _comboId, ...itemData } = builtItemData;
 
       const updated = await tx.comandaOperacaoItem.update({
         where: { id: item.id },
@@ -795,7 +856,7 @@ async function buildItemSnapshotWithoutStock(
   }
 
   return {
-    origemTipo: input.origemTipo,
+    origemTipo: input.origemTipo === "COMBO" ? "AVULSO" as const : input.origemTipo,
     origemId,
     nomeSnapshot,
     valorUnitarioSnapshot: valorUnitario,
@@ -855,6 +916,10 @@ export async function removeComandaItem(
         });
       }
 
+      await restoreComboComandaItemStock(tx, customData.contaId, {
+        comandaOperacaoItemId: item.id,
+      });
+
       await tx.comandaOperacaoItem.delete({ where: { id: item.id } });
       const total = await recalculateComandaTotal(tx, comandaId);
       await addHistorico(tx, {
@@ -912,6 +977,11 @@ export async function deleteComanda(req: Request, res: Response): Promise<any> {
             quantidade: restante,
           });
         }
+      }
+      for (const item of comanda.itens) {
+        await restoreComboComandaItemStock(tx, customData.contaId, {
+          comandaOperacaoItemId: item.id,
+        });
       }
 
       await tx.comandaOperacao.delete({ where: { id: comanda.id } });
@@ -1190,6 +1260,11 @@ export async function cancelarComanda(req: Request, res: Response): Promise<any>
             },
           });
         }
+      }
+      for (const item of comanda.itens) {
+        await restoreComboComandaItemStock(tx, customData.contaId, {
+          comandaOperacaoItemId: item.id,
+        });
       }
 
       const updated = await tx.comandaOperacao.update({

@@ -118,9 +118,9 @@ export const saveOrdemServicoSchema = z.object(
               message: "id inválido",
             })
             .transform((val) => Number(val)),
-          tipo: z.enum(["PRODUTO", "SERVICO"], {
+          tipo: z.enum(["PRODUTO", "SERVICO", "COMBO"], {
             required_error: "O campo tipo é obrigatório",
-            invalid_type_error: "O campo tipo deve ser (PRODUTO ou SERVICO)",
+            invalid_type_error: "O campo tipo deve ser (PRODUTO, SERVICO ou COMBO)",
           }),
           nome: z
             .string({

@@ -42,6 +42,8 @@ import { formatCurrency } from "../../utils/formatters";
 import { hasPermission } from "../../helpers/userPermission";
 import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
+import { createComboVendaSaidas } from "../../services/combos/comboService";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -1543,6 +1545,9 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
     }
 
     const data = parsed.data;
+    if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
+      return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
+    }
     const desconto = decimalFrom(data.desconto);
     const valorRecebido = decimalFrom(data.valorRecebido);
 
@@ -1568,12 +1573,19 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         quantidade: number;
         valor: Decimal;
       }> = [];
+      const comboLines: Array<{ id: number; quantidade: number }> = [];
 
       for (const item of data.itens) {
-        const valorUnitario = decimalFrom(item.preco);
+        const combo = item.tipo === "COMBO"
+          ? await tx.combo.findFirst({ where: { id: item.id, contaId: customData.contaId, ativo: true, mostrarNoPdv: true }, select: { id: true, preco: true } })
+          : null;
+        if (item.tipo === "COMBO" && !combo) throw new Error("Combo não encontrado ou indisponível no PDV.");
+        const valorUnitario = item.tipo === "COMBO" ? new Decimal(combo!.preco) : decimalFrom(item.preco);
         valorBruto = valorBruto.plus(valorUnitario.mul(item.quantidade));
 
-        if (item.tipo === "PRODUTO") {
+        if (item.tipo === "COMBO") {
+          comboLines.push({ id: item.id, quantidade: item.quantidade });
+        } else if (item.tipo === "PRODUTO") {
           const produto = await tx.produto.findUniqueOrThrow({
             where: {
               id: item.id,
@@ -1683,6 +1695,14 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
           });
         }
       }
+
+      await createComboVendaSaidas(tx, {
+        contaId: customData.contaId,
+        vendaId: venda.id,
+        canal: "PDV",
+        clienteId: data.clienteId,
+        lines: comboLines,
+      });
 
       await tx.caixaMovimento.create({
         data: {

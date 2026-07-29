@@ -23,7 +23,7 @@ const DEFAULT_MODULES = [
     codigo: "whatsapp",
     nome: "WhatsApp",
     descricao: "Integracao com WhatsApp para comunicacao e notificacoes.",
-    categoria: "Produtividade",
+    categoria: "API's e Integrações",
     preco: 19.9,
   },
   {
@@ -39,6 +39,13 @@ const DEFAULT_MODULES = [
     descricao: "Vitrine online completa e personalizavel (cores, header, banner) com login e cadastro de clientes. Substitui o catalogo gratuito por uma loja profissional.",
     categoria: "Extensões",
     preco: 39.9,
+  },
+  {
+    codigo: "combos",
+    nome: "Combos",
+    descricao: "Monte ofertas com produtos e serviços, preço próprio e baixa segura dos componentes.",
+    categoria: "Produtividade",
+    preco: 0,
   },
   {
     codigo: "assinaturas",
@@ -72,7 +79,7 @@ const DEFAULT_MODULES = [
     codigo: "mercado-pago",
     nome: "Mercado Pago",
     descricao: "Integracao gratuita para configurar as credenciais operacionais do Mercado Pago da conta.",
-    categoria: "Financeiro",
+    categoria: "API's e Integrações",
     preco: 0,
   },
   {

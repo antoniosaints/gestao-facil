@@ -48,6 +48,7 @@ export const KNOWN_SUBMENU_KEYS = [
   "financeiro:plano-de-contas",
   "produtos:painel",
   "produtos:lista",
+  "produtos:combos",
   "produtos:reposicao",
   "produtos:movimentacoes",
   "servicos:painel",

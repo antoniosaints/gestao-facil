@@ -12,6 +12,12 @@ import { Prisma, StatusComanda } from "../../../generated";
 import { formatCurrency } from "../../utils/formatters";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import {
+  attachComboComandaItemsToVenda,
+  createComboComandaSaida,
+  restoreComboComandaItemStock,
+} from "../../services/combos/comboService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -30,7 +36,7 @@ const comandaSchema = z.object({
 
 const comandaItemSchema = z
   .object({
-    tipo: z.enum(["PRODUTO", "SERVICO"]),
+    tipo: z.enum(["PRODUTO", "SERVICO", "COMBO"]),
     itemId: z.number().int(),
     quantidade: z.number().int().min(1),
     valor: z.number().positive(),
@@ -190,8 +196,10 @@ async function buildComandaResumo(comandaId: number, contaId: number) {
           },
           PagamentoVendas: true,
           CobrancasFinanceiras: true,
+          ComboSaidas: { include: { componentes: true } },
         },
       },
+      comboSaidas: { include: { componentes: true } },
     },
   });
 
@@ -235,6 +243,7 @@ async function removeComandaItemInternal(
       },
     },
   });
+  await restoreComboComandaItemStock(tx, params.contaId, { comandaItemId: item.id });
 
   if (item.vendaId) {
     const venda = await tx.vendas.findUniqueOrThrow({
@@ -688,7 +697,15 @@ export async function addItemComanda(req: Request, res: Response): Promise<any> 
       let produtoId: number | null = null;
       let servicoId: number | null = null;
 
-      if (data.tipo === "PRODUTO") {
+      if (data.tipo === "COMBO") {
+        if (!(await contaHasActiveModule(customData.contaId, "combos"))) {
+          throw new Error("Módulo de combos não está ativo.");
+        }
+        const combo = await tx.combo.findFirstOrThrow({
+          where: { id: data.itemId, contaId: customData.contaId, ativo: true },
+        });
+        itemName = combo.nome;
+      } else if (data.tipo === "PRODUTO") {
         const produto = await tx.produto.findUniqueOrThrow({
           where: {
             id: data.itemId,
@@ -724,17 +741,29 @@ export async function addItemComanda(req: Request, res: Response): Promise<any> 
         servicoId = servico.id;
       }
 
-      return tx.comandaItem.create({
+      const item = await tx.comandaItem.create({
         data: {
           comandaId: comanda.id,
           itemName,
-          tipo: data.tipo,
+          tipo: data.tipo === "PRODUTO" ? "PRODUTO" : "SERVICO",
           produtoId,
           servicoId,
           quantidade: data.quantidade,
-          valor: new Decimal(data.valor),
+          valor: data.tipo === "COMBO"
+            ? (await tx.combo.findUniqueOrThrow({ where: { id: data.itemId } })).preco
+            : new Decimal(data.valor),
         },
       });
+      if (data.tipo === "COMBO") {
+        await createComboComandaSaida(tx, {
+          contaId: customData.contaId,
+          comboId: data.itemId,
+          quantidade: data.quantidade,
+          comandaVendaId: comanda.id,
+          comandaItemId: item.id,
+        });
+      }
+      return item;
     });
 
     return ResponseHandler(res, "Item adicionado com sucesso.", response);
@@ -872,6 +901,12 @@ export async function checkoutComanda(
         data: {
           vendaId: venda.id,
         },
+      });
+      await attachComboComandaItemsToVenda(tx, {
+        contaId: customData.contaId,
+        comandaItemIds: data.itemIds,
+        vendaId: venda.id,
+        clienteId: venda.clienteId,
       });
 
       let paymentLink: string | null = null;

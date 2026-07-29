@@ -10,8 +10,15 @@ import { storeEffectivePrice } from "../../services/loja/lojaPricing";
 import { getPublicOrder, placeStoreOrder, previewStoreOrder, retryStoreCheckout } from "../../services/loja/lojaOrderService";
 import { sendCommerceError } from "../../services/loja/commerceError";
 import { ResponseHandler } from "../../utils/response";
+import { listPublicCombos } from "../../services/combos/comboService";
 
-const itemSchema = z.object({ productId: z.number().int().positive(), quantity: z.number().int().positive().max(999) });
+const itemSchema = z.object({
+  productId: z.number().int().positive().optional(),
+  comboId: z.number().int().positive().optional(),
+  quantity: z.number().int().positive().max(999),
+}).refine((item) => Boolean(item.productId) !== Boolean(item.comboId), {
+  message: "Informe exatamente um produto ou combo.",
+});
 // Campos opcionais em branco (string vazia) devem virar `undefined` — caso contrário
 // validações como e-mail e UF (length 2) reprovam o pedido inteiro.
 const blankToUndefined = (val: unknown) => {
@@ -129,7 +136,16 @@ export async function getPublicProducts(req: Request, res: Response) {
         soldCount: salesTotals.get(product.id) ?? 0,
       };
     }));
-    return ResponseHandler(res, "Produtos encontrados", { data, nextCursor: hasNext ? page.at(-1)?.id : null });
+    const combos = !cursor && (!req.query.category || String(req.query.category) === "Combos")
+      ? await listPublicCombos(config.contaId, String(req.query.search || "").trim() || undefined)
+      : [];
+    return ResponseHandler(res, "Produtos encontrados", {
+      data: [
+        ...combos.map((combo) => ({ ...combo, available: combo.quantidadeDisponivel })),
+        ...data.map((product) => ({ ...product, itemType: "PRODUTO" as const })),
+      ],
+      nextCursor: hasNext ? page.at(-1)?.id : null,
+    });
   } catch (error) {
     return sendCommerceError(res, error);
   }

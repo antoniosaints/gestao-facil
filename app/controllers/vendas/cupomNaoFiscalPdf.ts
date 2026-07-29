@@ -33,6 +33,7 @@ export const gerarCupomPdf = async (
           include: { produto: true, servico: true },
         },
         PagamentoVendas: true,
+        ComboSaidas: { include: { componentes: true } },
       },
     });
 
@@ -111,6 +112,12 @@ export const gerarCupomPdf = async (
         })
         .text(`${formatarValorMonetario(total)}`, { align: "right" });
       doc.moveDown(0.3);
+      const combo = venda.ComboSaidas.find((saida) => saida.nomeSnapshot === item.itemName);
+      combo?.componentes.forEach((component) => {
+        doc.font("Roboto").fontSize(7).text(
+          `  - ${component.quantidadePorCombo}x ${component.nomeSnapshot}`,
+        );
+      });
     });
 
     doc

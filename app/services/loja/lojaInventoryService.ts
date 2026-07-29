@@ -10,12 +10,22 @@ export function calculateAvailableStock(physical: number, reserved: number) {
   return Math.max(0, physical - reserved);
 }
 
-export async function getReservedQuantity(tx: Transaction, contaId: number, produtoId: number) {
-  const result = await tx.lojaReservaEstoque.aggregate({
-    where: { contaId, produtoId, status: { in: ["ATIVA", "CONFIRMADA"] } },
-    _sum: { quantidade: true },
-  });
-  return result._sum.quantidade ?? 0;
+export async function getReservedQuantity(
+  tx: Pick<Transaction, "lojaReservaEstoque" | "comboReservaEstoque">,
+  contaId: number,
+  produtoId: number,
+) {
+  const [products, combos] = await Promise.all([
+    tx.lojaReservaEstoque.aggregate({
+      where: { contaId, produtoId, status: { in: ["ATIVA", "CONFIRMADA"] } },
+      _sum: { quantidade: true },
+    }),
+    tx.comboReservaEstoque.aggregate({
+      where: { contaId, produtoId, status: { in: ["ATIVA", "CONFIRMADA"] } },
+      _sum: { quantidade: true },
+    }),
+  ]);
+  return (products._sum.quantidade ?? 0) + (combos._sum.quantidade ?? 0);
 }
 
 async function lockProducts(tx: Transaction, contaId: number, productIds: number[]) {

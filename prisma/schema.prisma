@@ -288,6 +288,11 @@ model Contas {
   ReservaNotificacoes             ReservaNotificacao[]
   ReservaAgendaLocks              ReservaAgendaLock[]
   ReservaHistoricos               ReservaHistorico[]
+  Combos                          Combo[]
+  ComboComponentes                ComboComponente[]
+  ComboSaidas                     ComboSaida[]
+  ComboSaidaComponentes           ComboSaidaComponente[]
+  ComboReservasLoja               ComboReservaEstoque[]
 }
 
 model ModulosAdicionais {
@@ -573,6 +578,8 @@ model LojaPedido {
   reservas            LojaReservaEstoque[]
   tentativasCheckout  LojaCheckoutTentativa[]
   cobrancas           CobrancasFinanceiras[]
+  comboSaidas         ComboSaida[]
+  comboReservas       ComboReservaEstoque[]
 
   @@unique([contaId, Uid])
   @@unique([id, contaId])
@@ -678,6 +685,158 @@ model LojaIdempotencia {
 
   @@unique([contaId, escopo, chave])
   @@index([contaId, expiresAt])
+}
+
+enum ComboComponenteTipo {
+  PRODUTO
+  SERVICO
+}
+
+enum ComboCanal {
+  PDV
+  VENDA
+  LOJA
+  OS
+  COMANDA
+}
+
+model Combo {
+  id            Int               @id @default(autoincrement())
+  contaId       Int
+  Conta         Contas            @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Uid           String
+  nome          String
+  descricao     String?           @db.Text
+  imagem        String?           @db.Text
+  preco         Decimal           @db.Decimal(10, 2)
+  ativo         Boolean           @default(true)
+  mostrarNoPdv  Boolean           @default(true)
+  mostrarOnline Boolean           @default(true)
+  componentes   ComboComponente[]
+  saidas        ComboSaida[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([contaId, Uid])
+  @@unique([id, contaId])
+  @@index([contaId, ativo])
+  @@index([contaId, mostrarOnline])
+}
+
+model ComboComponente {
+  id         Int                 @id @default(autoincrement())
+  contaId    Int
+  Conta      Contas              @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comboId    Int
+  Combo      Combo               @relation(fields: [comboId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  tipo       ComboComponenteTipo
+  produtoId  Int?
+  Produto    Produto?            @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  servicoId  Int?
+  Servico    Servicos?           @relation(fields: [servicoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  quantidade Int
+  ordem      Int                 @default(0)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@unique([comboId, tipo, produtoId, servicoId])
+  @@index([contaId, comboId])
+  @@index([produtoId])
+  @@index([servicoId])
+}
+
+model ComboSaida {
+  id                    Int                    @id @default(autoincrement())
+  contaId               Int
+  Conta                 Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  comboId               Int
+  Combo                 Combo                  @relation(fields: [comboId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vendaId               Int?
+  Venda                 Vendas?                @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ordemServicoId        Int?
+  OrdemServico          OrdensServico?         @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comandaVendaId        Int?
+  ComandaVenda          ComandaVenda?          @relation(fields: [comandaVendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comandaItemId         Int?                   @unique
+  ComandaItem           ComandaItem?           @relation(fields: [comandaItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comandaOperacaoId     Int?
+  ComandaOperacao       ComandaOperacao?       @relation(fields: [comandaOperacaoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comandaOperacaoItemId Int?                   @unique
+  ComandaOperacaoItem   ComandaOperacaoItem?   @relation(fields: [comandaOperacaoItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lojaPedidoId          Int?
+  LojaPedido            LojaPedido?            @relation(fields: [lojaPedidoId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  canal                 ComboCanal
+  nomeSnapshot          String
+  descricaoSnapshot     String?                @db.Text
+  imagemSnapshot        String?                @db.Text
+  precoUnitarioSnapshot Decimal                @db.Decimal(10, 2)
+  quantidade            Int
+  subtotal              Decimal                @db.Decimal(10, 2)
+  ordem                 Int                    @default(0)
+  componentes           ComboSaidaComponente[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([contaId, comboId])
+  @@index([vendaId])
+  @@index([ordemServicoId])
+  @@index([comandaVendaId])
+  @@index([comandaItemId])
+  @@index([comandaOperacaoId])
+  @@index([comandaOperacaoItemId])
+  @@index([lojaPedidoId])
+}
+
+model ComboSaidaComponente {
+  id                   Int                   @id @default(autoincrement())
+  contaId              Int
+  Conta                Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  comboSaidaId         Int
+  ComboSaida           ComboSaida            @relation(fields: [comboSaidaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tipo                 ComboComponenteTipo
+  produtoId            Int?
+  Produto              Produto?              @relation(fields: [produtoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  servicoId            Int?
+  Servico              Servicos?             @relation(fields: [servicoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  nomeSnapshot         String
+  quantidadePorCombo   Int
+  quantidadeTotal      Int
+  valorUnitarioRateado Decimal               @default(0) @db.Decimal(10, 2)
+  movimentacaoId       Int?                  @unique
+  Movimentacao         MovimentacoesEstoque? @relation(fields: [movimentacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  debitadoEm           DateTime?
+  devolvidoEm          DateTime?
+  ReservaLoja          ComboReservaEstoque?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([contaId, comboSaidaId])
+  @@index([produtoId])
+  @@index([servicoId])
+}
+
+model ComboReservaEstoque {
+  id                     Int                   @id @default(autoincrement())
+  contaId                Int
+  Conta                  Contas                @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pedidoId               Int
+  Pedido                 LojaPedido            @relation(fields: [pedidoId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  comboSaidaComponenteId Int                   @unique
+  ComboSaidaComponente   ComboSaidaComponente  @relation(fields: [comboSaidaComponenteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoId              Int
+  Produto                Produto               @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  quantidade             Int
+  status                 LojaReservaStatus     @default(ATIVA)
+  expiresAt              DateTime?
+  consumedAt             DateTime?
+  releasedAt             DateTime?
+  movimentacaoId         Int?                  @unique
+  Movimentacao           MovimentacoesEstoque? @relation(fields: [movimentacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([contaId, produtoId, status])
+  @@index([contaId, status, expiresAt])
 }
 
 enum StatusModuloConta {
@@ -948,85 +1107,90 @@ enum StatusMovimentacao {
 }
 
 model MovimentacoesEstoque {
-  id                Int                   @id @default(autoincrement())
-  contaId           Int
-  Contas            Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid               String                @default("MOV_000")
-  tipo              TipoMovimentacao      @default(ENTRADA)
-  vendaId           Int?
-  Vendas            Vendas?               @relation(fields: [vendaId], references: [id], onDelete: Cascade)
-  ordemId           Int?
-  OrdensServico     OrdensServico?        @relation(fields: [ordemId], references: [id], onDelete: Cascade)
-  data              DateTime              @default(now())
-  notaFiscal        String?
-  frete             Decimal?              @db.Decimal(10, 2)
-  desconto          Decimal?              @db.Decimal(10, 2)
-  status            StatusMovimentacao    @default(PENDENTE)
-  clienteFornecedor Int?
-  ClienteFornecedor ClientesFornecedores? @relation(fields: [clienteFornecedor], references: [id])
-  produtoId         Int
-  Produto           Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  quantidade        Int
-  custo             Decimal               @db.Decimal(10, 2)
-  reservaLojaId     Int?                  @unique
-  ReservaLoja       LojaReservaEstoque?   @relation(fields: [reservaLojaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id                   Int                   @id @default(autoincrement())
+  contaId              Int
+  Contas               Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                  String                @default("MOV_000")
+  tipo                 TipoMovimentacao      @default(ENTRADA)
+  vendaId              Int?
+  Vendas               Vendas?               @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  ordemId              Int?
+  OrdensServico        OrdensServico?        @relation(fields: [ordemId], references: [id], onDelete: Cascade)
+  data                 DateTime              @default(now())
+  notaFiscal           String?
+  frete                Decimal?              @db.Decimal(10, 2)
+  desconto             Decimal?              @db.Decimal(10, 2)
+  status               StatusMovimentacao    @default(PENDENTE)
+  clienteFornecedor    Int?
+  ClienteFornecedor    ClientesFornecedores? @relation(fields: [clienteFornecedor], references: [id])
+  produtoId            Int
+  Produto              Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  quantidade           Int
+  custo                Decimal               @db.Decimal(10, 2)
+  reservaLojaId        Int?                  @unique
+  ReservaLoja          LojaReservaEstoque?   @relation(fields: [reservaLojaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  ComboSaidaComponente ComboSaidaComponente?
+  ComboReservaLoja     ComboReservaEstoque?
 }
 
 model Produto {
-  id                   Int                    @id @default(autoincrement())
-  contaId              Int
-  Contas               Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  produtoBaseId        Int?
-  ProdutoBase          ProdutoBase?           @relation(fields: [produtoBaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  Uid                  String                 @default("PRO_000")
-  status               Status                 @default(ATIVO)
-  categoria            String?
-  nome                 String
-  nomeVariante         String                 @default("Padrão")
-  ehPadrao             Boolean                @default(false)
+  id                    Int                    @id @default(autoincrement())
+  contaId               Int
+  Contas                Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  produtoBaseId         Int?
+  ProdutoBase           ProdutoBase?           @relation(fields: [produtoBaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Uid                   String                 @default("PRO_000")
+  status                Status                 @default(ATIVO)
+  categoria             String?
+  nome                  String
+  nomeVariante          String                 @default("Padrão")
+  ehPadrao              Boolean                @default(false)
   // Texto livre onde o usuário descreve a variante; `@db.Text` porque o VARCHAR(191) padrão
   // do MySQL não comporta uma descrição de verdade.
-  descricao            String?                @db.Text
-  preco                Decimal                @db.Decimal(10, 2)
+  descricao             String?                @db.Text
+  preco                 Decimal                @db.Decimal(10, 2)
   // Preço promocional (opcional). Quando definido e menor que `preco`, a variante entra na
   // seção "Promoções" da loja e é vendida por este valor. `null` = sem promoção.
-  precoPromocional     Decimal?               @db.Decimal(10, 2)
-  precoCompra          Decimal?               @db.Decimal(10, 2)
-  entradas             Boolean?               @default(true)
-  saidas               Boolean?               @default(true)
-  unidade              String?
-  estoque              Int
-  minimo               Int
-  codigo               String?
-  ncm                  String?
-  cest                 String?
-  cfop                 String?
-  origem               Int?
-  aliquotaIcms         Decimal?               @db.Decimal(5, 2)
-  aliquotaIpi          Decimal?               @db.Decimal(5, 2)
-  aliquotaPis          Decimal?               @db.Decimal(5, 2)
-  aliquotaCofins       Decimal?               @db.Decimal(5, 2)
-  codigoProduto        String?
-  issAliquota          Decimal?               @db.Decimal(5, 2)
-  controlaEstoque      Boolean?               @default(false)
-  producaoLocal        Boolean?               @default(false)
-  mostrarNoPdv         Boolean?               @default(true)
-  materiaPrima         Boolean?               @default(false)
-  custoMedioProducao   Decimal?               @db.Decimal(10, 2)
+  precoPromocional      Decimal?               @db.Decimal(10, 2)
+  precoCompra           Decimal?               @db.Decimal(10, 2)
+  entradas              Boolean?               @default(true)
+  saidas                Boolean?               @default(true)
+  unidade               String?
+  estoque               Int
+  minimo                Int
+  codigo                String?
+  ncm                   String?
+  cest                  String?
+  cfop                  String?
+  origem                Int?
+  aliquotaIcms          Decimal?               @db.Decimal(5, 2)
+  aliquotaIpi           Decimal?               @db.Decimal(5, 2)
+  aliquotaPis           Decimal?               @db.Decimal(5, 2)
+  aliquotaCofins        Decimal?               @db.Decimal(5, 2)
+  codigoProduto         String?
+  issAliquota           Decimal?               @db.Decimal(5, 2)
+  controlaEstoque       Boolean?               @default(false)
+  producaoLocal         Boolean?               @default(false)
+  mostrarNoPdv          Boolean?               @default(true)
+  materiaPrima          Boolean?               @default(false)
+  custoMedioProducao    Decimal?               @db.Decimal(10, 2)
   // Imagem da variante (uma por variante). Guarda a referência do storage (URL pública no R2 ou a
   // chave local), no mesmo padrão de `Contas.profile`. Ao excluir a variante a imagem é apagada.
-  imagem               String?                @db.Text
+  imagem                String?                @db.Text
   // Controla se a variante aparece no catálogo/loja online pública. Default: aparece.
-  mostrarNoCatalogo    Boolean                @default(true)
-  ItensVendas          ItensVendas[]
-  MovimentacoesEstoque MovimentacoesEstoque[]
-  ItensOrdensServico   ItensOrdensServico[]
-  ComandaItens         ComandaItem[]
-  assinaturaItens      AssinaturaItem[]
-  planoAssinaturaItens PlanoAssinaturaItem[]
-  assinaturaComodatos  AssinaturaComodato[]
-  LojaPedidoItens      LojaPedidoItem[]
-  LojaReservas         LojaReservaEstoque[]
+  mostrarNoCatalogo     Boolean                @default(true)
+  ItensVendas           ItensVendas[]
+  MovimentacoesEstoque  MovimentacoesEstoque[]
+  ItensOrdensServico    ItensOrdensServico[]
+  ComandaItens          ComandaItem[]
+  assinaturaItens       AssinaturaItem[]
+  planoAssinaturaItens  PlanoAssinaturaItem[]
+  assinaturaComodatos   AssinaturaComodato[]
+  LojaPedidoItens       LojaPedidoItem[]
+  LojaReservas          LojaReservaEstoque[]
+  ComboComponentes      ComboComponente[]
+  ComboSaidaComponentes ComboSaidaComponente[]
+  ComboReservasLoja     ComboReservaEstoque[]
 
   @@unique([id, contaId])
   @@index([produtoBaseId])
@@ -1078,33 +1242,35 @@ model ProdutoBase {
 }
 
 model Servicos {
-  id                   Int                   @id @default(autoincrement())
-  contaId              Int
-  Contas               Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                  String                @default("SER_000")
-  nome                 String
-  preco                Decimal               @db.Decimal(10, 2)
-  status               Boolean               @default(true)
-  descricao            String?
-  ncm                  String?
-  cest                 String?
-  cfop                 String?
-  origem               Int?
-  aliquotaIcms         Decimal?              @db.Decimal(5, 2)
-  aliquotaIpi          Decimal?              @db.Decimal(5, 2)
-  aliquotaPis          Decimal?              @db.Decimal(5, 2)
-  aliquotaCofins       Decimal?              @db.Decimal(5, 2)
-  codigoProduto        String?
-  issAliquota          Decimal?              @db.Decimal(5, 2)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  Assinatura           Assinatura[]
-  assinaturaItens      AssinaturaItem[]
-  planoAssinaturaItens PlanoAssinaturaItem[]
-  ItensOrdensServico   ItensOrdensServico[]
-  itensVendas          ItensVendas[]
-  ComandaItens         ComandaItem[]
-  ReservaConfig        ReservaServicoConfig?
+  id                    Int                    @id @default(autoincrement())
+  contaId               Int
+  Contas                Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                   String                 @default("SER_000")
+  nome                  String
+  preco                 Decimal                @db.Decimal(10, 2)
+  status                Boolean                @default(true)
+  descricao             String?
+  ncm                   String?
+  cest                  String?
+  cfop                  String?
+  origem                Int?
+  aliquotaIcms          Decimal?               @db.Decimal(5, 2)
+  aliquotaIpi           Decimal?               @db.Decimal(5, 2)
+  aliquotaPis           Decimal?               @db.Decimal(5, 2)
+  aliquotaCofins        Decimal?               @db.Decimal(5, 2)
+  codigoProduto         String?
+  issAliquota           Decimal?               @db.Decimal(5, 2)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  Assinatura            Assinatura[]
+  assinaturaItens       AssinaturaItem[]
+  planoAssinaturaItens  PlanoAssinaturaItem[]
+  ItensOrdensServico    ItensOrdensServico[]
+  itensVendas           ItensVendas[]
+  ComandaItens          ComandaItem[]
+  ReservaConfig         ReservaServicoConfig?
+  ComboComponentes      ComboComponente[]
+  ComboSaidaComponentes ComboSaidaComponente[]
 
   @@index([contaId, status])
 }
@@ -1154,6 +1320,7 @@ model OrdensServico {
   CobrancasFinanceiras            CobrancasFinanceiras[]
   MensagensInteracoesOrdemServico MensagensInteracoesOrdemServico[]
   MovimentacoesEstoque            MovimentacoesEstoque[]
+  ComboSaidas                     ComboSaida[]
 }
 
 enum TipoMensagemOrdemServico {
@@ -1552,6 +1719,7 @@ model Vendas {
   ComandaItens         ComandaItem[]
   CaixaMovimento       CaixaMovimento[]
   PedidoLoja           LojaPedido?
+  ComboSaidas          ComboSaida[]
 
   @@index([caixaId])
   @@index([contaId, status])
@@ -2080,6 +2248,7 @@ model ComandaVenda {
   vendas            Vendas[]
   comandaPagamentos ComandaPagamento[]
   itens             ComandaItem[]
+  comboSaidas       ComboSaida[]
 }
 
 model ComandaItem {
@@ -2098,6 +2267,7 @@ model ComandaItem {
   venda      Vendas?         @relation(fields: [vendaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
+  comboSaida ComboSaida?
 }
 
 model ComandaPagamento {
@@ -2151,6 +2321,7 @@ model ComandaOperacao {
   itens               ComandaOperacaoItem[]
   pagamentos          ComandaOperacaoPagamento[]
   historicos          ComandaOperacaoHistorico[]
+  comboSaidas         ComboSaida[]
 
   @@unique([contaId, Uid])
   @@index([contaId, status, abertura])
@@ -2174,6 +2345,7 @@ model ComandaOperacaoItem {
   quantidadeDevolvida   Decimal                   @default(0) @db.Decimal(10, 3)
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
+  comboSaida            ComboSaida?
 
   @@index([comandaId])
   @@index([pagamentoId])

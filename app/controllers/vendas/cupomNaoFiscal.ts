@@ -58,6 +58,7 @@ export const gerarCupomNaoFiscal = async (req: Request, res: Response): Promise<
       vendedor: true,
       // servico junto: o item pode ser um serviço ou ter perdido o produto (SetNull).
       ItensVendas: { include: { produto: true, servico: true } },
+      ComboSaidas: { include: { componentes: true } },
       PagamentoVendas: true,
     },
   });
@@ -118,6 +119,10 @@ export const gerarCupomNaoFiscal = async (req: Request, res: Response): Promise<
           `${item.quantidade} x ${formatarToRealValue(item.valor)}`,
           formatarToRealValue(total),
         ) + "\n";
+      const combo = venda.ComboSaidas.find((saida) => saida.nomeSnapshot === item.itemName);
+      combo?.componentes.forEach((component) => {
+        cupom += linha(`  - ${component.quantidadePorCombo}x ${component.nomeSnapshot}`) + "\n";
+      });
     });
   } else {
     // ----- Layout 80mm: item em linha unica -----
@@ -153,6 +158,10 @@ export const gerarCupomNaoFiscal = async (req: Request, res: Response): Promise<
           num(item.valor),
           num(total),
         ) + "\n";
+      const combo = venda.ComboSaidas.find((saida) => saida.nomeSnapshot === item.itemName);
+      combo?.componentes.forEach((component) => {
+        cupom += linha(`  - ${component.quantidadePorCombo}x ${component.nomeSnapshot}`) + "\n";
+      });
     });
   }
 

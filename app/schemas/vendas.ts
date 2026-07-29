@@ -192,9 +192,9 @@ export const vendaSchema = z.object(
               message: "produtoId invalido",
             })
             .transform((val) => Number(val)),
-          tipo: z.enum(["PRODUTO", "SERVICO"], {
+          tipo: z.enum(["PRODUTO", "SERVICO", "COMBO"], {
             required_error: "O campo tipo e obrigatorio",
-            invalid_type_error: "O campo tipo deve ser (PRODUTO ou SERVICO)",
+            invalid_type_error: "O campo tipo deve ser (PRODUTO, SERVICO ou COMBO)",
           }),
           nome: z
             .string({

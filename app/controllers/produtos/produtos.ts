@@ -30,6 +30,7 @@ import {
 } from "../../services/uploads/fileStorageService";
 import { downscaleImage } from "../../services/uploads/imageProcessingService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import { listPublicCombos } from "../../services/combos/comboService";
 
 const produtoVarianteSchema = ProdutoSchema.partial({ nome: true }).extend({
   produtoBaseId: z.number({
@@ -373,7 +374,9 @@ export const getCatalogoPublico = async (
         : null,
     };
 
-    return ResponseHandler(res, "Catálogo encontrado", { conta, produtos, categorias, loja });
+    const combos = await listPublicCombos(contaId);
+    if (combos.length && !categorias.includes("Combos")) categorias.push("Combos");
+    return ResponseHandler(res, "Catálogo encontrado", { conta, produtos, combos, categorias, loja });
   } catch (error) {
     handleError(res, error);
   }

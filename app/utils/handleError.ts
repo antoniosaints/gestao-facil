@@ -11,6 +11,8 @@ export function handleError(res: Response, error: unknown): void {
   let status = 500;
   let title = "Erro interno";
   let message = GENERIC_MESSAGE;
+  let code: string | undefined;
+  let details: unknown;
 
   if (error instanceof ZodError) {
     // Mensagens de validação são voltadas ao usuário e seguras de expor.
@@ -39,6 +41,18 @@ export function handleError(res: Response, error: unknown): void {
     message = isProduction ? "Dados inválidos para a operação." : error.message;
   }
 
+  else if (
+    error instanceof Error &&
+    typeof (error as Error & { status?: unknown }).status === "number" &&
+    typeof (error as Error & { code?: unknown }).code === "string"
+  ) {
+    status = (error as Error & { status: number }).status;
+    code = (error as Error & { code: string }).code;
+    details = (error as Error & { details?: unknown }).details;
+    title = "Erro na operação";
+    message = error.message;
+  }
+
   else if (error instanceof Error) {
     message = isProduction ? GENERIC_MESSAGE : error.message;
   }
@@ -48,5 +62,11 @@ export function handleError(res: Response, error: unknown): void {
     console.error("[handleError]", error);
   }
 
-  res.status(status).json({ title, message });
+  res.status(status).json({
+    status,
+    title,
+    message,
+    data: null,
+    ...(code ? { error: { code, message, details } } : {}),
+  });
 }

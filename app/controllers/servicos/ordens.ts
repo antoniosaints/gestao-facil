@@ -16,6 +16,8 @@ import { hasPermission } from "../../helpers/userPermission";
 import { cancelarCobrancaMercadoPago } from "../financeiro/cobrancas/managerCobranca";
 import { generateCobrancaMercadoPago } from "../financeiro/mercadoPago/gerarCobranca";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
+import { createComboOrdemSaidas, restoreComboOrdemStock } from "../../services/combos/comboService";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 export const addNovaMensagemOrdem = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -85,6 +87,15 @@ export const updateVendaInternal = async (
     }
 
     const itensOSOriginal = ordemEncontrada.ItensOrdensServico || [];
+    const comboMovements = await tx.comboSaidaComponente.findMany({
+      where: { contaId: customData.contaId, ComboSaida: { ordemServicoId: ordemEncontrada.id }, movimentacaoId: { not: null } },
+      select: { movimentacaoId: true },
+    });
+    await restoreComboOrdemStock(tx, customData.contaId, ordemEncontrada.id);
+    await tx.comboSaida.deleteMany({ where: { contaId: customData.contaId, ordemServicoId: ordemEncontrada.id } });
+    await tx.movimentacoesEstoque.deleteMany({
+      where: { id: { in: comboMovements.flatMap((item) => item.movimentacaoId ? [item.movimentacaoId] : []) } },
+    });
 
     // Remove itens e movimentações antigas
     await tx.itensOrdensServico.deleteMany({
@@ -114,11 +125,11 @@ export const updateVendaInternal = async (
     );
 
     // Novo conjunto de itens
-    const itensOrdemServico = data.itens.map(
+    const itensOrdemServico = data.itens.filter((item) => item.tipo !== "COMBO").map(
       (item): Omit<ItensOrdensServico, "id" | "createdAt" | "updatedAt"> => ({
         ordemId: ordemEncontrada.id,
         itemName: item.nome,
-        tipo: item.tipo,
+        tipo: item.tipo === "PRODUTO" ? "PRODUTO" : "SERVICO",
         produtoId: item.tipo === "PRODUTO" ? item.id : null,
         servicoId: item.tipo === "SERVICO" ? item.id : null,
         quantidade: item.quantidade,
@@ -154,6 +165,12 @@ export const updateVendaInternal = async (
         }
       })
     );
+    await createComboOrdemSaidas(tx, {
+      contaId: customData.contaId,
+      ordemServicoId: ordemEncontrada.id,
+      clienteId: data.clienteId,
+      lines: data.itens.filter((item) => item.tipo === "COMBO").map((item) => ({ id: item.id, quantidade: item.quantidade })),
+    });
 
     await tx.ordensServico.update({
       where: {
@@ -176,7 +193,7 @@ export const updateVendaInternal = async (
     // Retorna venda atualizada
     return await tx.ordensServico.findUnique({
       where: { id: ordemEncontrada.id, contaId: customData.contaId },
-      include: { ItensOrdensServico: true },
+      include: { ItensOrdensServico: true, ComboSaidas: { include: { componentes: true } } },
     });
   });
 };
@@ -192,6 +209,9 @@ export const saveOrdemServico = async (
 
     if (!success) {
       return handleError(res, error);
+    }
+    if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
+      return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
     }
 
     if (query.id) {
@@ -233,6 +253,7 @@ export const saveOrdemServico = async (
         },
       });
       for (const item of data.itens) {
+        if (item.tipo === "COMBO") continue;
         if (item.tipo === "PRODUTO") {
           const produto = await tx.produto.findUniqueOrThrow({
             where: { id: item.id, contaId: customData.contaId },
@@ -288,6 +309,12 @@ export const saveOrdemServico = async (
           },
         });
       }
+      await createComboOrdemSaidas(tx, {
+        contaId: customData.contaId,
+        ordemServicoId: ordemCriada.id,
+        clienteId: data.clienteId,
+        lines: data.itens.filter((item) => item.tipo === "COMBO").map((item) => ({ id: item.id, quantidade: item.quantidade })),
+      });
 
       return {
         ordemCriada,
@@ -643,6 +670,8 @@ export const deleteOrdemServico = async (
         );
       }
 
+      await restoreComboOrdemStock(tx, customData.contaId, ordemBusca.id);
+
       for (const item of ordemBusca.ItensOrdensServico) {
         if (item.tipo === "PRODUTO" && item.produtoId) {
           await tx.produto.update({
@@ -711,7 +740,8 @@ export const buscarOrdem = async (
         id
       },
       include: {
-        ItensOrdensServico: true
+        ItensOrdensServico: true,
+        ComboSaidas: { include: { componentes: true } }
       }
     })
     return ResponseHandler(res, "Ordem encontrada", resultado);
@@ -736,6 +766,7 @@ export const buscarOrdemDetalhe = async (
       },
       include: {
         ItensOrdensServico: true,
+        ComboSaidas: { include: { componentes: true } },
         Cliente: true,
         CobrancasFinanceiras: true,
         MensagensInteracoesOrdemServico: {

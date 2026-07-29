@@ -4,15 +4,22 @@ import { prisma } from "../../utils/prisma";
 import { contaHasActiveModule } from "../contas/storeModulesService";
 import { CommerceError } from "./commerceError";
 import { ensureLojaConfig } from "./lojaConfigService";
-import { consumeOrderReservations, releaseOrderReservations, reserveOrderStock } from "./lojaInventoryService";
+import { consumeOrderReservations, getReservedQuantity, releaseOrderReservations, reserveOrderStock } from "./lojaInventoryService";
 import { assertOrderTransition, nextCancellationStatus, reservationDurationMs } from "./lojaOrderPolicy";
 import { storeEffectivePrice } from "./lojaPricing";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { generateCobrancaMercadoPago } from "../../controllers/financeiro/mercadoPago/gerarCobranca";
 import { generateCobrancaAbacatePay } from "../../controllers/financeiro/abacatePay/gerarCobranca";
+import {
+  confirmComboOrderReservations,
+  consumeComboOrderReservations,
+  listPublicCombos,
+  releaseComboOrderReservations,
+  reserveComboOrderSaidas,
+} from "../combos/comboService";
 
 export type StoreOrderInput = {
-  items: Array<{ productId: number; quantity: number }>;
+  items: Array<{ productId?: number; comboId?: number; quantity: number }>;
   channel: "WHATSAPP" | "GATEWAY";
   deliveryType: "RETIRADA" | "ENTREGA_LOCAL";
   customer: {
@@ -70,9 +77,12 @@ function validateCheckout(config: Awaited<ReturnType<typeof getStoreBySlug>>, in
 
 async function calculateOrder(contaId: number, config: Awaited<ReturnType<typeof getStoreBySlug>>, input: StoreOrderInput) {
   const quantities = new Map<number, number>();
+  const comboQuantities = new Map<number, number>();
   for (const item of input.items) {
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) throw new CommerceError("validation_failed", "Quantidade inválida");
-    quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+    if (Boolean(item.productId) === Boolean(item.comboId)) throw new CommerceError("validation_failed", "Informe exatamente um produto ou combo");
+    if (item.productId) quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+    if (item.comboId) comboQuantities.set(item.comboId, (comboQuantities.get(item.comboId) ?? 0) + item.quantity);
   }
   const productIds = [...quantities.keys()];
   const products = await prisma.produto.findMany({
@@ -94,14 +104,28 @@ async function calculateOrder(contaId: number, config: Awaited<ReturnType<typeof
   });
   for (const item of items) {
     if (!item.product.controlaEstoque) continue;
-    const reserved = await prisma.lojaReservaEstoque.aggregate({ where: { contaId, produtoId: item.product.id, status: { in: ["ATIVA", "CONFIRMADA"] } }, _sum: { quantidade: true } });
-    const available = Math.max(0, item.product.estoque - (reserved._sum.quantidade ?? 0));
+    const reserved = await getReservedQuantity(prisma, contaId, item.product.id);
+    const available = Math.max(0, item.product.estoque - reserved);
     if (available < item.quantity) throw new CommerceError("stock_unavailable", `${item.product.nome} não possui estoque suficiente`, { produtoId: item.product.id, requested: item.quantity, available });
   }
-  const subtotal = items.reduce((total, item) => total.plus(item.subtotal), new Decimal(0));
+  const publicCombos = comboQuantities.size ? await listPublicCombos(contaId) : [];
+  const comboMap = new Map(publicCombos.map((combo) => [combo.id, combo]));
+  if ([...comboQuantities.keys()].some((id) => !comboMap.has(id))) {
+    throw new CommerceError("validation_failed", "Um ou mais combos não estão disponíveis");
+  }
+  const comboItems = [...comboQuantities.entries()].map(([comboId, quantity]) => {
+    const combo = comboMap.get(comboId)!;
+    if (!combo.disponivel || (combo.quantidadeDisponivel !== null && combo.quantidadeDisponivel < quantity)) {
+      throw new CommerceError("stock_unavailable", combo.motivoIndisponivel || `${combo.nome} não possui estoque suficiente`);
+    }
+    const unitPrice = new Decimal(combo.preco);
+    return { combo, comboId, quantity, unitPrice, subtotal: unitPrice.mul(quantity) };
+  });
+  const subtotal = items.reduce((total, item) => total.plus(item.subtotal), new Decimal(0))
+    .plus(comboItems.reduce((total, item) => total.plus(item.subtotal), new Decimal(0)));
   let freight = input.deliveryType === "ENTREGA_LOCAL" ? new Decimal(config.taxaEntrega) : new Decimal(0);
   if (config.freteGratisAcima !== null && subtotal.greaterThanOrEqualTo(config.freteGratisAcima)) freight = new Decimal(0);
-  return { items, subtotal, freight, total: subtotal.plus(freight) };
+  return { items, comboItems, subtotal, freight, total: subtotal.plus(freight) };
 }
 
 export async function previewStoreOrder(slug: string, input: StoreOrderInput) {
@@ -110,14 +134,21 @@ export async function previewStoreOrder(slug: string, input: StoreOrderInput) {
   validateCheckout(config, input);
   const calculated = await calculateOrder(config.contaId, config, input);
   return {
-    items: calculated.items.map(({ product, quantity, unitPrice, subtotal }) => ({
+    items: [...calculated.items.map(({ product, quantity, unitPrice, subtotal }) => ({
       productId: product.id,
       name: product.ProdutoBase?.nome ?? product.nome,
       variant: product.nomeVariante,
       quantity,
       unitPrice: unitPrice.toNumber(),
       subtotal: subtotal.toNumber(),
-    })),
+    })), ...calculated.comboItems.map(({ combo, comboId, quantity, unitPrice, subtotal }) => ({
+      comboId,
+      name: combo.nome,
+      variant: "Combo",
+      quantity,
+      unitPrice: unitPrice.toNumber(),
+      subtotal: subtotal.toNumber(),
+    }))],
     subtotal: calculated.subtotal.toNumber(),
     freight: calculated.freight.toNumber(),
     total: calculated.total.toNumber(),
@@ -203,7 +234,7 @@ export async function placeStoreOrder(slug: string, input: StoreOrderInput, idem
   if (existing) {
     if (existing.requestHash !== requestHash) throw new CommerceError("idempotency_key_reused", "A chave já foi usada com outro conteúdo");
     if (existing.recursoId) {
-      const order = await prisma.lojaPedido.findFirstOrThrow({ where: { contaId: config.contaId, publicId: existing.recursoId }, include: { itens: true } });
+      const order = await prisma.lojaPedido.findFirstOrThrow({ where: { contaId: config.contaId, publicId: existing.recursoId }, include: { itens: true, comboSaidas: { include: { componentes: true } } } });
       const nextAction = order.canal === "WHATSAPP" ? whatsappAction(resolveStoreWhatsapp(config), order) : await createOnlineCheckout(order, `${idempotencyKey}:checkout`);
       return { order, accessToken: null, nextAction, replayed: true };
     }
@@ -267,11 +298,17 @@ export async function placeStoreOrder(slug: string, input: StoreOrderInput, idem
       reservationItems.push({ produtoId: item.product.id, pedidoItemId: createdItem.id, quantidade: item.quantity, controlaEstoque: item.product.controlaEstoque ?? false });
     }
     await reserveOrderStock(tx, config.contaId, created.id, reservationItems, expiresAt);
+    await reserveComboOrderSaidas(tx, {
+      contaId: config.contaId,
+      pedidoId: created.id,
+      expiresAt,
+      lines: calculated.comboItems.map((item) => ({ id: item.comboId, quantidade: item.quantity })),
+    });
     await tx.lojaIdempotencia.update({
       where: { contaId_escopo_chave: { contaId: config.contaId, escopo: "placeOrder", chave: idempotencyKey } },
       data: { recursoTipo: "LojaPedido", recursoId: publicId, responseCode: 201 },
     });
-    return tx.lojaPedido.findUniqueOrThrow({ where: { id: created.id }, include: { itens: true } });
+    return tx.lojaPedido.findUniqueOrThrow({ where: { id: created.id }, include: { itens: true, comboSaidas: { include: { componentes: true } } } });
   });
 
   const nextAction = input.channel === "WHATSAPP" ? whatsappAction(resolveStoreWhatsapp(config), order) : await createOnlineCheckout(order, `${idempotencyKey}:checkout`);
@@ -303,7 +340,7 @@ export async function getPublicOrder(slug: string, publicId: string, accessToken
 export async function transitionStoreOrder(contaId: number, orderId: number, action: "confirmar" | "preparar" | "despachar" | "cancelar" | "concluir", idempotencyKey: string) {
   if (!idempotencyKey?.trim()) throw new CommerceError("validation_failed", "Idempotency-Key é obrigatório");
   return prisma.$transaction(async (tx) => {
-    const order = await tx.lojaPedido.findFirst({ where: { id: orderId, contaId }, include: { itens: true } });
+    const order = await tx.lojaPedido.findFirst({ where: { id: orderId, contaId }, include: { itens: true, comboSaidas: { include: { componentes: true } } } });
     if (!order) throw new CommerceError("not_found", "Pedido não encontrado");
     const scope = `order:${orderId}:${action}`;
     const existingIdempotency = await tx.lojaIdempotencia.findUnique({ where: { contaId_escopo_chave: { contaId, escopo: scope, chave: idempotencyKey } } });
@@ -313,12 +350,16 @@ export async function transitionStoreOrder(contaId: number, orderId: number, act
     assertOrderTransition(order.status, target);
 
     if (action === "cancelar") {
-      if (target === "CANCELADO") await releaseOrderReservations(tx, contaId, order.id);
+      if (target === "CANCELADO") {
+        await releaseOrderReservations(tx, contaId, order.id);
+        await releaseComboOrderReservations(tx, contaId, order.id);
+      }
       const result = await tx.lojaPedido.update({ where: { id: order.id }, data: { status: target as any, canceladoEm: target === "CANCELADO" ? new Date() : null } });
       await tx.lojaIdempotencia.update({ where: { contaId_escopo_chave: { contaId, escopo: scope, chave: idempotencyKey } }, data: { responseCode: 200 } }); return result;
     }
     if (action === "confirmar") {
       await tx.lojaReservaEstoque.updateMany({ where: { contaId, pedidoId: order.id, status: "ATIVA" }, data: { status: "CONFIRMADA", expiresAt: null } });
+      await confirmComboOrderReservations(tx, contaId, order.id);
       const result = await tx.lojaPedido.update({ where: { id: order.id }, data: { status: "CONFIRMADO", confirmadoEm: new Date(), reservaExpiraEm: null } });
       await tx.lojaIdempotencia.update({ where: { contaId_escopo_chave: { contaId, escopo: scope, chave: idempotencyKey } }, data: { responseCode: 200 } }); return result;
     }
@@ -339,6 +380,7 @@ export async function transitionStoreOrder(contaId: number, orderId: number, act
         },
       });
       await consumeOrderReservations(tx, contaId, order.id, sale.id);
+      await consumeComboOrderReservations(tx, contaId, order.id, sale.id);
       const result = await tx.lojaPedido.update({ where: { id: order.id }, data: { status: "DESPACHADO", vendaId: sale.id, despachadoEm: new Date() } });
       await tx.lojaIdempotencia.update({ where: { contaId_escopo_chave: { contaId, escopo: scope, chave: idempotencyKey } }, data: { responseCode: 200 } }); return result;
     }
@@ -377,6 +419,7 @@ export async function expireStoreReservations(now = new Date()) {
       const updated = await tx.lojaPedido.updateMany({ where: { id: candidate.id, contaId: candidate.contaId, status: "RECEBIDO", reservaExpiraEm: { lte: now } }, data: { status: "EXPIRADO" } });
       if (updated.count === 0) return;
       await releaseOrderReservations(tx, candidate.contaId, candidate.id, "EXPIRADA");
+      await releaseComboOrderReservations(tx, candidate.contaId, candidate.id, "EXPIRADA");
       expired += 1;
     });
   }
@@ -406,12 +449,14 @@ export async function applyStorePaymentEvent(args: {
     if (args.refunded) {
       await tx.lojaPedido.update({ where: { id: order.id }, data: { pagamentoStatus: "ESTORNADO", status: order.status === "CANCELAMENTO_PENDENTE" ? "CANCELADO" : order.status, canceladoEm: order.status === "CANCELAMENTO_PENDENTE" ? new Date() : order.canceladoEm } });
       await releaseOrderReservations(tx, args.contaId, order.id);
+      await releaseComboOrderReservations(tx, args.contaId, order.id);
     } else if (args.paid) {
       const expired = order.status === "EXPIRADO" || (order.reservaExpiraEm !== null && order.reservaExpiraEm <= new Date());
       if (expired) {
         await tx.lojaPedido.update({ where: { id: order.id }, data: { status: "REVISAO", pagamentoStatus: "REVISAO", pagoEm: new Date() } });
       } else {
         await tx.lojaReservaEstoque.updateMany({ where: { contaId: args.contaId, pedidoId: order.id, status: "ATIVA" }, data: { status: "CONFIRMADA", expiresAt: null } });
+        await confirmComboOrderReservations(tx, args.contaId, order.id);
         await tx.lojaPedido.update({ where: { id: order.id }, data: { status: order.status === "RECEBIDO" ? "CONFIRMADO" : order.status, pagamentoStatus: "PAGO", pagoEm: new Date(), confirmadoEm: order.confirmadoEm ?? new Date(), reservaExpiraEm: null } });
       }
     }

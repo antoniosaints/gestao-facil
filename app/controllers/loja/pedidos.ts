@@ -18,7 +18,7 @@ export async function listStoreOrders(req: Request, res: Response) {
       ...(req.query.search ? { OR: [{ Uid: { contains: String(req.query.search) } }, { nomeSnapshot: { contains: String(req.query.search) } }, { telefoneSnapshot: { contains: String(req.query.search) } }] } : {}),
     };
     const [data, total] = await Promise.all([
-      prisma.lojaPedido.findMany({ where, include: { itens: true, cobrancas: true, Venda: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
+      prisma.lojaPedido.findMany({ where, include: { itens: true, comboSaidas: { include: { componentes: true } }, cobrancas: true, Venda: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
       prisma.lojaPedido.count({ where }),
     ]);
     return res.json({ status: 200, message: "Pedidos encontrados", data, page, totalPages: Math.max(1, Math.ceil(total / limit)), total });
@@ -28,7 +28,7 @@ export async function listStoreOrders(req: Request, res: Response) {
 export async function showStoreOrder(req: Request, res: Response) {
   try {
     const { contaId } = getCustomRequest(req).customData;
-    const order = await prisma.lojaPedido.findFirst({ where: { id: Number(req.params.id), contaId }, include: { itens: true, reservas: true, tentativasCheckout: true, cobrancas: true, Venda: { include: { PagamentoVendas: true, MovimentacoesEstoque: true } } } });
+    const order = await prisma.lojaPedido.findFirst({ where: { id: Number(req.params.id), contaId }, include: { itens: true, comboSaidas: { include: { componentes: true } }, reservas: true, tentativasCheckout: true, cobrancas: true, Venda: { include: { PagamentoVendas: true, MovimentacoesEstoque: true } } } });
     return order ? ResponseHandler(res, "Pedido encontrado", order) : ResponseHandler(res, "Pedido não encontrado", null, 404);
   } catch (error) { return sendCommerceError(res, error); }
 }

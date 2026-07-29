@@ -28,6 +28,11 @@ import {
   deveLancarFinanceiroVenda,
   getParametrosLancamentoVenda,
 } from "../../services/vendas/vendaFinanceiroAutomaticoService";
+import {
+  createComboVendaSaidas,
+  restoreComboVendaStock,
+} from "../../services/combos/comboService";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -377,6 +382,10 @@ export const getVenda = async (req: Request, res: Response) => {
             },
           },
         },
+        ComboSaidas: {
+          include: { componentes: { orderBy: { id: "asc" } } },
+          orderBy: { ordem: "asc" },
+        },
       },
     });
     ResponseHandler(res, "Venda encontrada", venda);
@@ -480,6 +489,8 @@ export const deleteVenda = async (
       if (isEfetivada.comandaId) {
         throw new Error("Vendas vinculadas a comandas não podem ser deletadas diretamente.");
       }
+
+      await restoreComboVendaStock(tx, customData.contaId, Number(req.params.id));
 
       const items = await tx.itensVendas.findMany({
         where: {
@@ -634,6 +645,15 @@ export const updateVendaInternal = async (
     }
 
     const itensVendaOriginal = venda.ItensVendas || [];
+    const comboMovements = await tx.comboSaidaComponente.findMany({
+      where: { contaId: customData.contaId, ComboSaida: { vendaId: venda.id }, movimentacaoId: { not: null } },
+      select: { movimentacaoId: true },
+    });
+    await restoreComboVendaStock(tx, customData.contaId, venda.id);
+    await tx.comboSaida.deleteMany({ where: { contaId: customData.contaId, vendaId: venda.id } });
+    await tx.movimentacoesEstoque.deleteMany({
+      where: { id: { in: comboMovements.flatMap((item) => item.movimentacaoId ? [item.movimentacaoId] : []) } },
+    });
 
     // Remove itens e movimentações antigas
     await tx.itensVendas.deleteMany({
@@ -663,7 +683,7 @@ export const updateVendaInternal = async (
     );
 
     // Novo conjunto de itens
-    const itensVenda = data.itens.map((item) => ({
+    const itensVenda = data.itens.filter((item) => item.tipo !== "COMBO").map((item) => ({
       vendaId: venda.id,
       itemName: item.nome,
       produtoId: item.tipo === "PRODUTO" ? item.id : null,
@@ -701,12 +721,27 @@ export const updateVendaInternal = async (
       })
     );
 
+    const comboLines = data.itens
+      .filter((item) => item.tipo === "COMBO")
+      .map((item) => ({ id: item.id, quantidade: item.quantidade }));
+    await createComboVendaSaidas(tx, {
+      contaId: customData.contaId,
+      vendaId: venda.id,
+      canal: "VENDA",
+      clienteId: data.clienteId,
+      lines: comboLines,
+    });
+
     // Calcula totais
-    const valorTotal = data.itens.reduce((total, item) => {
-      return total.add(
-        new Decimal(item.quantidade).mul(new Decimal(item.preco))
-      );
-    }, new Decimal(0));
+    const comboPrices = comboLines.length
+      ? new Map((await tx.combo.findMany({
+          where: { contaId: customData.contaId, id: { in: comboLines.map((item) => item.id) } },
+          select: { id: true, preco: true },
+        })).map((item) => [item.id, item.preco]))
+      : new Map<number, Decimal>();
+    const valorTotal = data.itens.reduce((total, item) => total.add(
+      new Decimal(item.quantidade).mul(item.tipo === "COMBO" ? comboPrices.get(item.id) || 0 : item.preco)
+    ), new Decimal(0));
 
     await tx.vendas.update({
       where: {
@@ -745,6 +780,10 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       return handleError(res, error);
     }
 
+    if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
+      return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
+    }
+
     if (query.id) {
       const updated = await updateVendaInternal(
         Number(query.id),
@@ -760,9 +799,19 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       return ResponseHandler(res, "Venda atualizada com sucesso", updated, 200);
     }
 
-    const valorTotal = data.itens.reduce((total, item) => {
-      return total.add(new Decimal(item.quantidade).mul(item.preco));
-    }, new Decimal(0));
+    const comboItems = data.itens.filter((item) => item.tipo === "COMBO");
+    const comboPrices = comboItems.length
+      ? new Map((await prisma.combo.findMany({
+          where: { contaId: customData.contaId, ativo: true, id: { in: comboItems.map((item) => item.id) } },
+          select: { id: true, preco: true },
+        })).map((item) => [item.id, item.preco]))
+      : new Map<number, Decimal>();
+    if (comboPrices.size !== new Set(comboItems.map((item) => item.id)).size) {
+      return ResponseHandler(res, "Um ou mais combos não estão disponíveis.", { error: { code: "combo_not_found" } }, 404);
+    }
+    const valorTotal = data.itens.reduce((total, item) => total.add(
+      new Decimal(item.quantidade).mul(item.tipo === "COMBO" ? comboPrices.get(item.id) || 0 : item.preco)
+    ), new Decimal(0));
 
     const descontoTotal = data.desconto
       ? new Decimal(data.desconto)
@@ -793,6 +842,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       });
 
       for (const item of data.itens) {
+        if (item.tipo === "COMBO") continue;
         let itemName = item.nome || "Item";
         if (item.tipo === "PRODUTO") {
           const produto = await tx.produto.findUniqueOrThrow({
@@ -850,6 +900,14 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         }
 
       }
+
+      await createComboVendaSaidas(tx, {
+        contaId: customData.contaId,
+        vendaId: venda.id,
+        canal: "VENDA",
+        clienteId: data.clienteId,
+        lines: comboItems.map((item) => ({ id: item.id, quantidade: item.quantidade })),
+      });
 
       // Crediario: gera o financeiro parcelado a receber da venda (mesma logica do PDV PRO).
       if (data.pagamento === "CREDIARIO") {

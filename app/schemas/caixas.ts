@@ -16,7 +16,7 @@ const metodoPagamentoValues = [
 
 const vendaItemSchema = z.object({
   id: z.number().int().positive(),
-  tipo: z.enum(["PRODUTO", "SERVICO"]).default("PRODUTO"),
+  tipo: z.enum(["PRODUTO", "SERVICO", "COMBO"]).default("PRODUTO"),
   nome: z.string().optional(),
   preco: z.number(),
   quantidade: z.number().positive(),

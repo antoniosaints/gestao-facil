@@ -31,6 +31,7 @@ const FRONTEND_SUBMENU_KEYS = [
   "produtos:lista",
   "produtos:reposicao",
   "produtos:movimentacoes",
+  "produtos:combos",
   "servicos:painel",
   "servicos:os",
   "servicos:lista",
