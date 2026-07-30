@@ -31,7 +31,12 @@ function jsonHandler(message: string) {
 
 // Webhooks de gateways chegam de poucos IPs em rajada; um limite por IP os
 // bloquearia. Já são autenticados por assinatura/segredo, então ficam de fora.
-const WEBHOOK_PREFIXES = ["/asaas/webhook", "/abacatepay/webhook", "/mercadopago/webhook"];
+const WEBHOOK_PREFIXES = [
+  "/asaas/webhook",
+  "/abacatepay/webhook",
+  "/mercadopago/webhook",
+  "/api/whatsapp/webhooks",
+];
 
 // Proteção anti-flood geral por IP. Teto alto para não atrapalhar uso legítimo.
 export const globalLimiter = rateLimit({
@@ -40,7 +45,8 @@ export const globalLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   store: makeStore("rl:global:"),
-  skip: (req: Request) => WEBHOOK_PREFIXES.some((prefix) => req.path.startsWith(prefix)),
+  skip: (req: Request) =>
+    WEBHOOK_PREFIXES.some((prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`)),
   handler: jsonHandler("Você fez muitas requisições em pouco tempo. Aguarde um instante."),
 });
 
