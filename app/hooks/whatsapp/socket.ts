@@ -1,10 +1,24 @@
 import { getIO } from "../../utils/socket";
+import { redisConnecion } from "../../utils/redis";
+import { WHATSAPP_REALTIME_CHANNEL } from "./realtimeChannel";
 
 function emitToConta(contaId: number, event: string, body?: any) {
   try {
     getIO().to(`conta:${contaId}`).emit(event, body);
   } catch (error) {
-    console.warn(`[whatsapp] Falha ao emitir socket ${event} para conta ${contaId}`, error);
+    // Workers nÃ£o inicializam Socket.IO. Publicam um sinal best-effort para qualquer
+    // processo HTTP emitir via Redis adapter; a tela tambÃ©m reconcilia pelo banco.
+    void redisConnecion.publish(
+      WHATSAPP_REALTIME_CHANNEL,
+      JSON.stringify({ contaId, event, body }),
+    ).catch((publishError) => {
+      console.warn(JSON.stringify({
+        event: "whatsapp-realtime-publish-failed",
+        contaId,
+        socketEvent: event,
+        message: String((publishError as any)?.message || publishError || error),
+      }));
+    });
   }
 }
 

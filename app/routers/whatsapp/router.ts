@@ -24,6 +24,7 @@ import {
   sendConversationSale,
   receivePaymentWebhook,
   receiveWebhook,
+  retryInstanceWebhookEvent,
   removeContact,
   removeConversation,
   select2Contacts,
@@ -61,6 +62,7 @@ routerWhatsapp.patch("/instances/:id/atendimento", updateInstanceAtendimento);
 routerWhatsapp.delete("/instances/:id", removeInstance);
 routerWhatsapp.get("/instances/:id/webhooks", getInstanceWebhooks);
 routerWhatsapp.get("/instances/:id/eventos", listInstanceWebhookEvents);
+routerWhatsapp.post("/instances/:id/eventos/:eventoId/retry", retryInstanceWebhookEvent);
 routerWhatsapp.post("/instances/:id/webhooks", configureInstanceWebhooks);
 routerWhatsapp.post("/instances/:id/payments/pix", createPixPayment);
 routerWhatsapp.post("/instances/:id/payments/card-subscription", createCardSubscription);

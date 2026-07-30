@@ -1,5 +1,7 @@
 import axios from "axios";
+import { enqueueResendEmail } from "../../queues/emailScheduleQueue";
 import { env } from "../../utils/dotenv";
+import { createResendEmailJob } from "./resendEmailJob";
 import { buildWelcomeEmail } from "./welcomeEmailTemplate";
 
 // Casca de envio de e-mails transacionais via Resend (HTTP API — sem SDK extra).
@@ -66,7 +68,14 @@ export async function sendPasswordResetEmail(to: string, nome: string, resetUrl:
     `Acesse o link abaixo para criar uma nova senha (válido por 30 minutos):\n\n${resetUrl}\n\n` +
     `Se você não solicitou, ignore este e-mail — sua senha continua a mesma.`;
 
-  return sendEmail({ to, subject, html: passwordResetTemplate(nome, resetUrl), text });
+  return enqueueResendEmail(
+    createResendEmailJob({
+      to,
+      subject,
+      html: passwordResetTemplate(nome, resetUrl),
+      text,
+    }),
+  );
 }
 
 /**
@@ -79,7 +88,13 @@ export async function sendWelcomeEmail(
   loginUrl: string,
 ) {
   const content = buildWelcomeEmail({ nome, conta, loginUrl });
-  return sendEmail({ from: "noreply@userp.com.br", to, ...content });
+  return enqueueResendEmail(
+    createResendEmailJob({
+      from: "noreply@userp.com.br",
+      to,
+      ...content,
+    }),
+  );
 }
 
 function passwordResetTemplate(nome: string, resetUrl: string): string {

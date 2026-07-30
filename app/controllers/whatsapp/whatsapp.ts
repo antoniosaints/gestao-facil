@@ -217,9 +217,26 @@ export const listInstanceWebhookEvents = async (req: Request, res: Response): Pr
     const events = await whatsAppService.listInstanceWebhookEvents(customData.contaId, Number(req.params.id), {
       take: req.query.take ? Number(req.query.take) : undefined,
       tipo: typeof req.query.tipo === "string" && req.query.tipo ? req.query.tipo : undefined,
+      status: typeof req.query.status === "string" && req.query.status ? req.query.status : undefined,
     });
     ResponseHandler(res, "Eventos de webhook encontrados", events);
   } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const retryInstanceWebhookEvent = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requirePermission(req, res, 5);
+    if (!customData) return;
+    const event = await whatsAppService.retryWebhookEvent(
+      customData.contaId,
+      Number(req.params.id),
+      Number(req.params.eventoId),
+    );
+    ResponseHandler(res, "Evento reenfileirado", event);
+  } catch (error: any) {
+    if (error?.statusCode) return ResponseHandler(res, error.message, null, error.statusCode);
     handleError(res, error);
   }
 };
@@ -582,8 +599,13 @@ export const markConversationAsRead = async (req: Request, res: Response): Promi
 export const receiveWebhook = async (req: Request, res: Response): Promise<any> => {
   try {
     const kind = (req.query.event || req.body?.event || req.body?.type || "generic") as WhatsAppWebhookKind;
-    const result = await whatsAppService.processWebhook(req.params.instanceId, kind, req.body);
-    ResponseHandler(res, result.duplicated ? "Webhook já processado" : "Webhook processado", { duplicated: result.duplicated });
+    const result = await whatsAppService.acceptWebhook(req.params.instanceId, kind, req.body);
+    ResponseHandler(res, result.duplicated ? "Webhook já recebido" : "Webhook recebido", {
+      accepted: true,
+      duplicate: result.duplicated,
+      eventId: result.event.eventId,
+      status: result.event.status,
+    });
   } catch (error: any) {
     const statusCode = error?.statusCode || 500;
     if (statusCode === 403 || statusCode === 404) {

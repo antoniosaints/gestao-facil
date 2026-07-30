@@ -3,6 +3,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import type { Server as HttpServer } from "http";
 import { redisConnecion } from "./redis";
 import { env } from "./dotenv";
+import { WHATSAPP_REALTIME_CHANNEL } from "../hooks/whatsapp/realtimeChannel";
 
 let io: Server;
 
@@ -23,6 +24,24 @@ export function initSocket(server: HttpServer) {
 
   subClient.on("error", (error) => {
     console.error("[socket] Falha no cliente Redis (sub) do adapter", error);
+  });
+
+  const whatsappRealtimeSubscriber = redisConnecion.duplicate();
+  void whatsappRealtimeSubscriber.subscribe(WHATSAPP_REALTIME_CHANNEL);
+  whatsappRealtimeSubscriber.on("message", (channel, raw) => {
+    if (channel !== WHATSAPP_REALTIME_CHANNEL) return;
+    try {
+      const message = JSON.parse(raw);
+      if (!message?.contaId || !message?.event) return;
+      // Cada worker HTTP recebe o pub/sub; `local` evita que o Redis adapter rebroadcast
+      // novamente para todos os workers e duplique o evento em cada cliente.
+      io.local.to(`conta:${message.contaId}`).emit(message.event, message.body);
+    } catch (error) {
+      console.warn("[socket] Evento realtime do WhatsApp inválido", error);
+    }
+  });
+  whatsappRealtimeSubscriber.on("error", (error) => {
+    console.error("[socket] Falha no subscriber realtime do WhatsApp", error);
   });
 
   io.on("connection", (socket) => {

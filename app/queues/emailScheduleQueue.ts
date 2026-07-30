@@ -1,14 +1,28 @@
 import { Queue } from "bullmq";
+import type { ResendEmailJobData } from "../services/email/resendEmailJob";
 import { redisConnecion } from "../utils/redis";
 
-const connection = redisConnecion;
+export const EMAIL_QUEUE_NAME = "email";
 
-export const emailScheduleQueue = new Queue("email", {
-  connection,
+export const emailScheduleQueue = new Queue<ResendEmailJobData>(EMAIL_QUEUE_NAME, {
+  connection: redisConnecion,
+  defaultJobOptions: {
+    attempts: 10,
+    backoff: {
+      type: "exponential",
+      delay: 5_000,
+    },
+    removeOnComplete: {
+      age: 24 * 60 * 60,
+      count: 1_000,
+    },
+    removeOnFail: {
+      age: 30 * 24 * 60 * 60,
+      count: 5_000,
+    },
+  },
 });
 
-// Função para remover todos os jobs da fila
-export async function clearQueueEmail() {
-  await emailScheduleQueue.obliterate({ force: true });
-  console.log("Todos os jobs foram removidos da fila.");
+export async function enqueueResendEmail(data: ResendEmailJobData) {
+  return emailScheduleQueue.add("resend", data);
 }

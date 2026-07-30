@@ -2453,6 +2453,14 @@ enum WhatsAppMensagemStatus {
   RECEBIDA
 }
 
+enum WhatsAppWebhookStatus {
+  PENDENTE
+  PROCESSANDO
+  PROCESSADO
+  IGNORADO
+  FALHOU
+}
+
 enum WhatsAppPagamentoMetodo {
   PIX
   CARTAO
@@ -2478,9 +2486,8 @@ model WhatsAppInstancia {
   devicePayload          String?                      @db.Text
   ultimoErro             String?                      @db.Text
   ativo                  Boolean                      @default(true)
-  // Controle de atendimento sem desconectar a API: "não perturbe" para de salvar os eventos
-  // de mensagem recebida; horaInicio/horaFim (fuso America/Sao_Paulo) definem a janela em que
-  // os eventos são salvos — fora dela também paramos de salvar. Nulo = sem restrição de horário.
+  // Controle das automações sem desconectar a API. Mensagens continuam persistidas e visíveis;
+  // "não perturbe" e a janela de horário pausam apenas respostas automáticas.
   atendimentoNaoPerturbe Boolean                      @default(false)
   atendimentoHoraInicio  String?
   atendimentoHoraFim     String?
@@ -2747,26 +2754,46 @@ model WhatsAppMensagem {
 }
 
 model WhatsAppWebhookEvento {
-  id          Int               @id @default(autoincrement())
-  contaId     Int
-  Conta       Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  instanciaId Int
-  Instancia   WhatsAppInstancia @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  eventId     String
-  tipo        String
+  id                  Int                   @id @default(autoincrement())
+  contaId             Int
+  Conta               Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId         Int
+  Instancia           WhatsAppInstancia     @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  eventId             String
+  tipo                String
+  status              WhatsAppWebhookStatus @default(PENDENTE)
+  tentativas          Int                   @default(0)
+  proximaTentativaEm  DateTime?
+  bloqueadoEm         DateTime?
+  workerId            String?
+  partitionKey        String
+  motivoIgnorado      String?               @db.Text
   // Telefone do chat a que o evento pertence (msg.phone), quando é um evento de mensagem. Usado
   // para apagar os webhooks correspondentes ao excluir a conversa/contato. Nulo p/ eventos sem
   // telefone (connected/disconnected/status/presence).
-  telefone    String?
-  payload     String            @db.LongText
-  processado  Boolean           @default(false)
-  erro        String?           @db.Text
-  createdAt   DateTime          @default(now())
-  processedAt DateTime?
+  telefone            String?
+  payload             String                @db.LongText
+  processado          Boolean               @default(false)
+  erro                String?               @db.Text
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  processedAt         DateTime?
 
-  @@unique([instanciaId, eventId])
+  @@unique([instanciaId, tipo, eventId])
   @@index([contaId, tipo, createdAt])
   @@index([instanciaId, telefone])
+  @@index([status, proximaTentativaEm, createdAt])
+  @@index([partitionKey, status, createdAt])
+}
+
+model WhatsAppWebhookWorkerEstado {
+  id                 Int      @id
+  workerId           String
+  heartbeatAt        DateTime
+  ultimoProcessadoEm DateTime?
+  ultimoErro         String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 // Trilha de auditoria dos acessos de suporte do superadmin às contas dos assinantes.

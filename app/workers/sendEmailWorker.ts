@@ -1,32 +1,58 @@
 import { Job, Worker } from "bullmq";
+import { EMAIL_QUEUE_NAME } from "../queues/emailScheduleQueue";
+import { sendEmail } from "../services/email/resendEmailService";
+import {
+  isResendEmailJobData,
+  type ResendEmailJobData,
+} from "../services/email/resendEmailJob";
 import { redisConnecion } from "../utils/redis";
-import { sendEmailQueue } from "../utils/email";
-import { clearQueueEmail } from "../queues/emailScheduleQueue";
 
 export const sendEmailWorker = () => {
-  clearQueueEmail();
   const worker = new Worker(
-    "email",
-    async (job: Job) => {
-      const { to, subject, text } = job.data;
-      await sendEmailQueue(to, subject, text);
+    EMAIL_QUEUE_NAME,
+    async (job: Job<ResendEmailJobData>) => {
+      if (!isResendEmailJobData(job.data)) {
+        throw new Error(`Job de e-mail inválido: ${job.id ?? "sem-id"}`);
+      }
+
+      const { provider: _provider, ...email } = job.data;
+      const result = await sendEmail(email);
+      if (!result.sent) {
+        throw new Error("Resend desabilitado: RESEND_API_KEY ausente");
+      }
     },
     {
       connection: redisConnecion,
       concurrency: 10,
-    }
+    },
   );
 
   worker.on("ready", () => {
-    console.log("Worker de envio de email iniciado com sucesso!");
+    console.log("[worker-email] iniciado");
+  });
+
+  worker.on("completed", (job) => {
+    console.log("[worker-email] e-mail processado", { jobId: job.id });
+  });
+
+  worker.on("failed", (job, error) => {
+    console.error("[worker-email] tentativa falhou", {
+      jobId: job?.id,
+      attemptsMade: job?.attemptsMade,
+      error: error.message,
+    });
   });
 
   return worker;
 };
 
 const worker = sendEmailWorker();
-process.on("SIGINT", async () => {
-  console.log("Encerrando o worker...");
+
+const shutdown = async () => {
+  console.log("[worker-email] encerrando");
   await worker.close();
   process.exit(0);
-});
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

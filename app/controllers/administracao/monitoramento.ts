@@ -20,13 +20,59 @@ async function measure<T>(fn: () => Promise<T>) {
   }
 }
 
-async function getQueueCounts(name: string, queue: { getJobCounts: (...args: string[]) => Promise<Record<string, number>> }) {
+async function getQueueCounts(name: string, queue: { getJobCounts: (...args: any[]) => Promise<Record<string, number>> }) {
   try {
     const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "completed");
     return { name, ok: true, ...counts };
   } catch (error: any) {
     return { name, ok: false, error: String(error?.message || error) };
   }
+}
+
+async function getWhatsAppWebhookInboxHealth() {
+  const now = Date.now();
+  const [counts, oldestPending, stuckProcessing, worker] = await Promise.all([
+    prisma.whatsAppWebhookEvento.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.whatsAppWebhookEvento.findFirst({
+      where: { status: "PENDENTE" },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    }),
+    prisma.whatsAppWebhookEvento.count({
+      where: {
+        status: "PROCESSANDO",
+        bloqueadoEm: { lt: new Date(now - 2 * 60 * 1000) },
+      },
+    }),
+    prisma.whatsAppWebhookWorkerEstado.findUnique({ where: { id: 1 } }),
+  ]);
+  const byStatus = Object.fromEntries(counts.map((item) => [item.status, item._count._all]));
+  const heartbeatAgeSeconds = worker ? Math.max(0, Math.round((now - worker.heartbeatAt.getTime()) / 1000)) : null;
+  const oldestPendingAgeSeconds = oldestPending
+    ? Math.max(0, Math.round((now - oldestPending.createdAt.getTime()) / 1000))
+    : 0;
+  const degraded =
+    heartbeatAgeSeconds === null ||
+    heartbeatAgeSeconds > 45 ||
+    stuckProcessing > 0 ||
+    Number(byStatus.FALHOU || 0) > 0 ||
+    oldestPendingAgeSeconds > 60;
+  return {
+    ok: !degraded,
+    status: degraded ? "degraded" : "healthy",
+    counts: byStatus,
+    oldestPendingAgeSeconds,
+    stuckProcessing,
+    worker: worker
+      ? {
+          workerId: worker.workerId,
+          heartbeatAt: worker.heartbeatAt,
+          heartbeatAgeSeconds,
+          ultimoProcessadoEm: worker.ultimoProcessadoEm,
+          ultimoErro: worker.ultimoErro,
+        }
+      : null,
+  };
 }
 
 export const getMonitoramentoAdmin = async (req: Request, res: Response): Promise<any> => {
@@ -39,7 +85,7 @@ export const getMonitoramentoAdmin = async (req: Request, res: Response): Promis
       });
     }
 
-    const [database, redis, queues] = await Promise.all([
+    const [database, redis, queues, whatsappWebhooks] = await Promise.all([
       measure(() => prisma.$queryRawUnsafe("SELECT 1")),
       measure(async () => {
         await redisConnecion.ping();
@@ -49,6 +95,7 @@ export const getMonitoramentoAdmin = async (req: Request, res: Response): Promis
         getQueueCounts("Notificações WhatsApp", whatsappNotificationQueue),
         getQueueCounts("E-mails", emailScheduleQueue),
       ]),
+      getWhatsAppWebhookInboxHealth(),
     ]);
 
     const totalMem = os.totalmem();
@@ -77,6 +124,7 @@ export const getMonitoramentoAdmin = async (req: Request, res: Response): Promis
         status: redisConnecion.status,
       },
       filas: queues,
+      whatsappWebhooks,
     });
   } catch (error) {
     handleError(res, error);

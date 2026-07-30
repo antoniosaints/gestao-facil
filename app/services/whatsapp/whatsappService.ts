@@ -27,6 +27,7 @@ import {
 import { buildScopedUploadKey, uploadPublicFile } from "../uploads/fileStorageService";
 import { downscaleImage } from "../uploads/imageProcessingService";
 import { transcodeAudioToOgg } from "../uploads/audioProcessingService";
+import { resolveWebhookIdentity } from "./whatsappWebhookPolicy";
 
 const DEFAULT_TAKE = 50;
 const MAX_TAKE = 100;
@@ -112,7 +113,7 @@ function buildVCard(name: string, phone: string, businessDescription?: string | 
   return lines.join("\n");
 }
 
-function safeJson(value: unknown) {
+export function safeJson(value: unknown) {
   try {
     return JSON.stringify(value ?? null);
   } catch {
@@ -120,7 +121,7 @@ function safeJson(value: unknown) {
   }
 }
 
-function hashPayload(payload: unknown) {
+export function hashPayload(payload: unknown) {
   return crypto.createHash("sha256").update(safeJson(payload)).digest("hex");
 }
 
@@ -140,10 +141,9 @@ function publicPayment(payment: any) {
   return rest;
 }
 
-// Atendimento pausado para esta instância: "não perturbe" ligado, ou fora da janela de horário
-// configurada. Enquanto pausado, a instância segue conectada na W-API mas paramos de salvar os
-// eventos de mensagem recebida.
-function instanceAtendimentoPaused(instance: {
+// Automação pausada para esta instância: mensagens continuam salvas e visíveis, mas o agente
+// automático não responde enquanto "não perturbe" estiver ligado ou fora da janela configurada.
+export function instanceAtendimentoPaused(instance: {
   atendimentoNaoPerturbe: boolean;
   atendimentoHoraInicio: string | null;
   atendimentoHoraFim: string | null;
@@ -152,7 +152,7 @@ function instanceAtendimentoPaused(instance: {
   return !withinBusinessHours(instance.atendimentoHoraInicio, instance.atendimentoHoraFim);
 }
 
-function mapMessageStatus(payload: any): WhatsAppMensagemStatus {
+export function mapMessageStatus(payload: any): WhatsAppMensagemStatus {
   const text = String(payload?.status || payload?.data?.status || payload?.ack || payload?.data?.ack || "").toLowerCase();
   if (["read", "lida", "played", "4"].includes(text) || text.includes("read")) return WhatsAppMensagemStatus.LIDA;
   if (["delivered", "entregue", "3"].includes(text) || text.includes("deliver")) return WhatsAppMensagemStatus.ENTREGUE;
@@ -208,7 +208,7 @@ function findContextInfo(content: any): any {
   return messageKey ? content[messageKey].contextInfo : null;
 }
 
-function extractMessagePayload(payload: any) {
+export function extractMessagePayload(payload: any) {
   // Formato real da W-API (event "webhookReceived"): campos no topo do payload + `msgContent`
   // com o conteúdo (conversation, extendedTextMessage, imageMessage, ...). Mantemos fallbacks
   // para o formato aninhado (data.message/message) por segurança.
@@ -677,8 +677,8 @@ export const whatsAppService = {
     return publicInstance(instance);
   },
 
-  // Atualiza o controle de atendimento da instância (não perturbe + janela de horário), sem tocar
-  // na conexão da W-API. Enquanto pausada, a instância para de salvar os eventos de mensagem.
+  // Atualiza o controle das automações sem tocar na conexão da W-API nem interromper a
+  // persistência das mensagens recebidas.
   async updateAtendimento(
     contaId: number,
     id: number,
@@ -759,7 +759,11 @@ export const whatsAppService = {
   // Útil para diagnosticar quando eventos "received" (mensagens do cliente) não chegam:
   // se não aparecem aqui, a W-API não está entregando o webhook ao backend (URL/segredo/BASE_URL);
   // se aparecem com `erro`, o problema é no processamento.
-  async listInstanceWebhookEvents(contaId: number, id: number, filters: { take?: number; tipo?: string } = {}) {
+  async listInstanceWebhookEvents(
+    contaId: number,
+    id: number,
+    filters: { take?: number; tipo?: string; status?: string } = {},
+  ) {
     await getInstanceById(contaId, id);
     const take = Math.min(Math.max(Number(filters.take || 40), 1), 100);
     const events = await prisma.whatsAppWebhookEvento.findMany({
@@ -767,6 +771,9 @@ export const whatsAppService = {
         contaId,
         instanciaId: id,
         ...(filters.tipo ? { tipo: filters.tipo } : {}),
+        ...(filters.status && ["PENDENTE", "PROCESSANDO", "PROCESSADO", "IGNORADO", "FALHOU"].includes(filters.status)
+          ? { status: filters.status as any }
+          : {}),
       },
       orderBy: { createdAt: "desc" },
       take,
@@ -777,6 +784,11 @@ export const whatsAppService = {
       tipo: event.tipo,
       eventId: event.eventId,
       processado: event.processado,
+      status: event.status,
+      tentativas: event.tentativas,
+      proximaTentativaEm: event.proximaTentativaEm,
+      bloqueadoEm: event.bloqueadoEm,
+      motivoIgnorado: event.motivoIgnorado,
       erro: event.erro,
       payload: event.payload,
       createdAt: event.createdAt,
@@ -970,9 +982,8 @@ export const whatsAppService = {
   async listConversations(contaId: number, filters: ConversationFilters) {
     const take = Math.min(Math.max(Number(filters.take || DEFAULT_TAKE), 1), MAX_TAKE);
     const search = filters.search?.trim();
-    const where: Prisma.WhatsAppConversaWhereInput = {
+    const baseWhere: Prisma.WhatsAppConversaWhereInput = {
       contaId,
-      ...(filters.status ? { status: filters.status } : {}),
       ...(filters.instanciaId ? { instanciaId: filters.instanciaId } : {}),
       ...(search
         ? {
@@ -983,6 +994,10 @@ export const whatsAppService = {
             ],
           }
         : {}),
+    };
+    const where: Prisma.WhatsAppConversaWhereInput = {
+      ...baseWhere,
+      ...(filters.status ? { status: filters.status } : {}),
     };
 
     const items = await prisma.whatsAppConversa.findMany({
@@ -1000,7 +1015,25 @@ export const whatsAppService = {
 
     const hasMore = items.length > take;
     const sliced = hasMore ? items.slice(0, take) : items;
-    return { items: sliced, nextCursor: hasMore ? sliced[sliced.length - 1]?.id : null };
+    const [byStatus, unread] = await Promise.all([
+      prisma.whatsAppConversa.groupBy({
+        by: ["status"],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
+      prisma.whatsAppConversa.aggregate({
+        where: baseWhere,
+        _sum: { naoLidas: true },
+      }),
+    ]);
+    return {
+      items: sliced,
+      nextCursor: hasMore ? sliced[sliced.length - 1]?.id : null,
+      summary: {
+        byStatus: Object.fromEntries(byStatus.map((item) => [item.status, item._count._all])),
+        unread: unread._sum.naoLidas || 0,
+      },
+    };
   },
 
   async listMessages(contaId: number, conversaId: number, take = DEFAULT_TAKE, cursor?: number) {
@@ -1868,7 +1901,79 @@ export const whatsAppService = {
     return conversa;
   },
 
-  async processWebhook(instanceId: string, explicitKind: WhatsAppWebhookKind, payload: any) {
+  async acceptWebhook(instanceId: string, explicitKind: WhatsAppWebhookKind, payload: any) {
+    const instance = await prisma.whatsAppInstancia.findUnique({ where: { instanceId } });
+    if (!instance || !instance.ativo) {
+      const error = new Error("Instância de webhook inválida ou inativa");
+      (error as any).statusCode = 404;
+      throw error;
+    }
+
+    const { eventId, tipo } = resolveWebhookIdentity(explicitKind, payload);
+    const message = extractMessagePayload(payload);
+    const telefone =
+      message.phone && !message.isGroup && !message.isStatusBroadcast && !message.isChannel
+        ? message.phone
+        : null;
+    const partitionKey = `${instance.id}:${telefone || tipo}`;
+
+    try {
+      const event = await prisma.whatsAppWebhookEvento.create({
+        data: {
+          contaId: instance.contaId,
+          instanciaId: instance.id,
+          eventId,
+          tipo,
+          telefone,
+          partitionKey,
+          payload: safeJson(payload),
+          status: "PENDENTE",
+          proximaTentativaEm: new Date(),
+        },
+      });
+      return { accepted: true, duplicated: false, event };
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+      const event = await prisma.whatsAppWebhookEvento.findUnique({
+        where: { instanciaId_tipo_eventId: { instanciaId: instance.id, tipo, eventId } },
+      });
+      if (!event) throw error;
+      return { accepted: true, duplicated: true, event };
+    }
+  },
+
+  async retryWebhookEvent(contaId: number, instanciaId: number, eventId: number) {
+    const event = await prisma.whatsAppWebhookEvento.findFirst({
+      where: { id: eventId, contaId, instanciaId },
+    });
+    if (!event) {
+      const error = new Error("Evento de webhook não encontrado");
+      (error as any).statusCode = 404;
+      throw error;
+    }
+    if (!["FALHOU", "PENDENTE"].includes(event.status)) {
+      const error = new Error("Somente eventos pendentes ou falhos podem ser reenfileirados");
+      (error as any).statusCode = 409;
+      throw error;
+    }
+    return prisma.whatsAppWebhookEvento.update({
+      where: { id: event.id },
+      data: {
+        status: "PENDENTE",
+        processado: false,
+        tentativas: 0,
+        erro: null,
+        motivoIgnorado: null,
+        proximaTentativaEm: new Date(),
+        bloqueadoEm: null,
+        workerId: null,
+      },
+    });
+  },
+
+  // Mantido temporariamente apenas para compatibilidade interna durante a transição.
+  // Novos webhooks usam acceptWebhook + whatsappWebhookWorker.
+  async processWebhookLegacy(instanceId: string, explicitKind: WhatsAppWebhookKind, payload: any) {
     const instance = await prisma.whatsAppInstancia.findUnique({ where: { instanceId } });
     if (!instance || !instance.ativo) {
       const error = new Error("Instância de webhook inválida ou inativa");
@@ -1892,7 +1997,7 @@ export const whatsAppService = {
     }
 
     let event = await prisma.whatsAppWebhookEvento.findUnique({
-      where: { instanciaId_eventId: { instanciaId: instance.id, eventId } },
+      where: { instanciaId_tipo_eventId: { instanciaId: instance.id, tipo, eventId } },
     });
 
     if (event?.processado) {
@@ -1906,6 +2011,7 @@ export const whatsAppService = {
           instanciaId: instance.id,
           eventId,
           tipo,
+          partitionKey: `${instance.id}:${tipo}`,
           payload: safeJson(payload),
         },
       });

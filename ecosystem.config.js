@@ -3,20 +3,20 @@ module.exports = {
     {
       name: "app-dev",
       script: "dist/server.js",
-      instances: "max",
+      instances: 4,
       exec_mode: "cluster",
     },
     {
       name: "worker-email",
       script: "dist/workers/sendEmailWorker.js",
-      instances: "max",
-      exec_mode: "cluster",
+      instances: 1,
+      exec_mode: "fork",
     },
     {
       name: "worker-notification",
       script: "dist/workers/pushNotificationWorker.js",
-      instances: "max",
-      exec_mode: "cluster",
+      instances: 1,
+      exec_mode: "fork",
     },
     {
       name: "worker-whatsapp-notification",
@@ -25,10 +25,16 @@ module.exports = {
       exec_mode: "fork",
     },
     {
-      name: "worker-cron",
-      script: "dist/workers/cronJobsWorker.js",
+      name: "worker-whatsapp-webhook",
+      script: "dist/workers/whatsappWebhookWorker.js",
       instances: 1,
       exec_mode: "fork",
+    },
+    {
+      name: "worker-cron",
+      script: "dist/workers/cronJobsWorker.js",
+      instances: 2,
+      exec_mode: "cluster",
     },
   ],
 };

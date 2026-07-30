@@ -4,7 +4,8 @@
 `workers` executa processos assíncronos fora do servidor HTTP principal.
 
 ## Processos atuais
-- `sendEmailWorker.ts`: consome a fila de email.
+- `whatsappWebhookWorker.ts`: processa a inbox durável `WhatsAppWebhookEvento` no MySQL com transação, retry e retenção, sem usar Redis como fila.
+- `sendEmailWorker.ts`: consome a fila BullMQ `email` e envia e-mails transacionais pelo Resend com retry.
 - `pushNotificationWorker.ts`: consome a fila de push.
 - `whatsappNotificationWorker.ts`: consome a fila `whatsapp-notifications` para notificações administrativas e cobranças manuais destinadas a clientes. Cobranças solicitadas por “enviar agora” entram sem delay e usam até três tentativas com backoff.
 - `cronJobsWorker.ts`: processo separado que inicializa os workers/schedulers recorrentes; ele não é importado por `server.ts`.
@@ -24,6 +25,11 @@
 ## Comportamento importante
 - Há limpeza de filas ao iniciar alguns workers com `obliterate`.
 - Esse detalhe afeta o comportamento operacional e deve ser levado em conta antes de alterar filas ou replay de jobs.
+
+## Garantia da fila de e-mail
+- A API apenas enfileira os e-mails de recuperação de senha e boas-vindas.
+- O `worker-email` realiza o envio pelo Resend com até 10 tentativas e backoff exponencial.
+- A fila não é apagada ao iniciar o worker; jobs pendentes permanecem no Redis.
 
 ## Regras
 - Worker não deve depender de estado em memória do servidor HTTP.
