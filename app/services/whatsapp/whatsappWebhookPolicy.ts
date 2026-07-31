@@ -39,7 +39,3 @@ export function webhookRetryDelayMs(attempt: number) {
   const index = Math.min(Math.max(Math.trunc(attempt) - 1, 0), RETRY_DELAYS_MS.length - 1);
   return RETRY_DELAYS_MS[index];
 }
-
-export function shouldIgnoreUnmatchedDelivery(attempt: number) {
-  return Math.trunc(attempt) >= 3;
-}

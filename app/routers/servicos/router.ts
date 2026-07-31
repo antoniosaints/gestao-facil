@@ -5,7 +5,7 @@ import { select2Servicos } from "../../controllers/servicos/hooks";
 import { addNovaMensagemOrdem, buscarOrdem, buscarOrdemDetalhe, buscarOrdens, deleteOrdemServico, efetivarOrdemServico, estornarOrdemServico, gerarCobrancaPixOrdem, saveOrdemServico } from "../../controllers/servicos/ordens";
 import { ListagemMobileOrdens, tableOrdensServico } from "../../controllers/servicos/table_ordens";
 import { gerarPdfOS } from "../../controllers/servicos/ordens_relatorios";
-import { getEventosCalendario, resumoOrdensServico } from "../../controllers/servicos/resumo_os";
+import { getEventosCalendario, painelOrdensServico, resumoOrdensServico } from "../../controllers/servicos/resumo_os";
 import { resumoMensalOrdensServico } from "../../controllers/servicos/graficos/ordens";
 
 const routerServicos = Router();
@@ -26,6 +26,7 @@ routerServicos.get("/ordens/:id", authenticateJWT, buscarOrdem);
 routerServicos.get("/ordem-detalhe/:id", authenticateJWT, buscarOrdemDetalhe);
 routerServicos.get("/ordens/relatorio/:id", authenticateJWT, gerarPdfOS);
 routerServicos.get("/ordens/dashboard/resumo", authenticateJWT, resumoOrdensServico);
+routerServicos.get("/ordens/dashboard/painel", authenticateJWT, painelOrdensServico);
 routerServicos.get("/ordens/dashboard/graficoMensalOs", authenticateJWT, resumoMensalOrdensServico);
 routerServicos.get("/ordens/dashboard/eventos", authenticateJWT, getEventosCalendario);
 routerServicos.post("/ordens/mensagens/:id", authenticateJWT, addNovaMensagemOrdem);

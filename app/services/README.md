@@ -14,6 +14,8 @@
 - Integrações S3/R2 e storage público com fallback local.
 - Integração W-API/WhatsApp, incluindo cliente HTTP, gestão de instâncias, prévia/sincronização de webhooks por callback, envio de mensagens e processamento idempotente de webhooks.
 - Serviços específicos de `arena`.
+- O serviço de reservas também consolida, por período e `contaId`, KPIs de volume, confirmação, receita recebida, ticket médio, pendências, distribuição por status, série diária, rankings e próximas reservas para o painel do módulo.
+- A configuração pública de reservas inclui `bookingWindow.minimumNoticeMinutes` e `bookingWindow.horizonDays`, permitindo que o frontend limite o seletor de data sem substituir as validações de antecedência, horizonte e disponibilidade executadas pelo backend.
 - Fachada da Loja Virtual em `services/loja`: política de módulo, tema público, autenticação/sessões de clientes, reserva e consumo transacional de estoque, idempotência, checkout e ciclo de pedidos.
 - Builders utilitários como `prismaDatatables.ts`.
 

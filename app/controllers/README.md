@@ -20,6 +20,7 @@
 - lê params, query, body e `customData` do request autenticado;
 - consulta Prisma direto ou usa utilitários/serviços;
 - responde com `ResponseHandler`, `res.json` ou `handleError`.
+- O controller `servicos/resumo_os.ts` também fornece o painel agregado por período. Ordens canceladas não entram em valor, quantidade, ticket ou rankings; o total líquido considera itens multiplicados pela quantidade e subtrai o desconto da OS sem permitir resultado negativo.
 
 ## Importante
 - No domínio `whatsapp`, os controllers validam permissão por nível, deixam o token bruto restrito ao backend e delegam a orquestração pesada ao service de WhatsApp para manter idempotência, isolamento por conta, prévia/sincronização de webhooks da W-API e emissão de Socket.IO.

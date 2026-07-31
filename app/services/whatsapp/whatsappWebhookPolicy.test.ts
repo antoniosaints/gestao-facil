@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   resolveWebhookIdentity,
-  shouldIgnoreUnmatchedDelivery,
   webhookRetryDelayMs,
 } from "./whatsappWebhookPolicy";
 
@@ -31,10 +30,5 @@ describe("whatsappWebhookPolicy", () => {
     assert.equal(webhookRetryDelayMs(2), 30_000);
     assert.equal(webhookRetryDelayMs(10), 12 * 60 * 60_000);
     assert.equal(webhookRetryDelayMs(99), 12 * 60 * 60_000);
-  });
-
-  it("encerra deliveries sem mensagem rastreada depois da janela de correlação", () => {
-    assert.equal(shouldIgnoreUnmatchedDelivery(2), false);
-    assert.equal(shouldIgnoreUnmatchedDelivery(3), true);
   });
 });

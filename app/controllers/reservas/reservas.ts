@@ -27,6 +27,7 @@ import {
   getPublicReservation,
   getPublicReservationStore,
   getPublicReservationTenant,
+  getReservationsDashboard,
   getReservationAvailability,
   linkReservationCustomer,
   listScheduleExceptions,
@@ -265,6 +266,27 @@ export async function adminAvailability(req: Request, res: Response) {
         dateFrom: String(req.query.dateFrom),
         dateTo: String(req.query.dateTo),
       }),
+    );
+  } catch (error) { return errorResponse(res, error); }
+}
+
+export async function adminDashboard(req: Request, res: Response) {
+  try {
+    const now = new Date();
+    const defaultStart = new Date(now);
+    defaultStart.setDate(defaultStart.getDate() - 29);
+    defaultStart.setHours(0, 0, 0, 0);
+
+    const startAt = req.query.startAt ? new Date(String(req.query.startAt)) : defaultStart;
+    const endAt = req.query.endAt ? new Date(String(req.query.endAt)) : now;
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || startAt > endAt) {
+      return res.status(400).json({ message: "Período inválido para o painel de reservas." });
+    }
+
+    return ResponseHandler(
+      res,
+      "Painel de reservas carregado.",
+      await getReservationsDashboard(getCustomRequest(req).customData.contaId, startAt, endAt),
     );
   } catch (error) { return errorResponse(res, error); }
 }

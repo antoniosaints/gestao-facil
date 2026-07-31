@@ -37,6 +37,8 @@
 - O domínio autenticado `informativos` expõe somente a consulta segmentada e as ações de leitura/dispensa do usuário. Criação, publicação, resolução e arquivamento ficam sob `/api/admin/informativos`, protegidos pelas regras do modo CEO.
 - No domínio `loja`, `/api/loja/publica/:slug/*` expõe vitrine, produtos, checkout, pedidos e autenticação do comprador; `/api/loja/config` e `/api/loja/pedidos/*` exigem JWT do ERP e obtêm o tenant do contexto autenticado.
 - No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança, importação/exportação CSV do financeiro, edição rápida de metadados do lançamento, detalhe de contas financeiras, transferência entre contas, ajuste manual de saldo da conta e o subdomínio `assinaturas-pagar` com CRUD, geração manual de lançamento recorrente e listagens desktop/mobile.
+- No domínio `reservas`, `GET /api/reservas/painel` entrega a visão agregada por período para o dashboard autenticado, enquanto `GET /api/reservas` permanece responsável pela listagem operacional. Ambas as rotas usam a permissão `reservas:visualizar` e o tenant do JWT.
+- No domínio `servicos`, `GET /api/servicos/ordens/dashboard/painel` concentra os KPIs, comparação com o período anterior, série diária, distribuição por status, rankings e fila operacional das ordens de serviço, sempre isolado pelo `contaId` autenticado.
 
 ## Regras
 - Novos endpoints devem entrar no router do domínio correspondente.

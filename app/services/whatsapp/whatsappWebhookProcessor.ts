@@ -16,7 +16,6 @@ import { resolverTransicaoAtendimento } from "./whatsappAtendimento";
 import { mapWApiInstanceStatusFromPayload } from "./whatsappPolicy";
 import { whatsAppAgentService } from "./whatsappAgentService";
 import { wApiMessageIdFromResponse } from "./wApiClient";
-import { shouldIgnoreUnmatchedDelivery } from "./whatsappWebhookPolicy";
 import {
   extractMessagePayload,
   instanceAtendimentoPaused,
@@ -206,11 +205,8 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
       }
 
       if (!existing) {
-        if (shouldIgnoreUnmatchedDelivery(event.tentativas)) {
-          await markIgnored(tx, event.id, "delivery-de-envio-nao-rastreado");
-          return { contaId: instance.contaId, instance: emittedInstance };
-        }
-        throw new DeferredWebhookError("Mensagem referenciada pelo delivery ainda não foi persistida");
+        await markIgnored(tx, event.id, "delivery-de-envio-nao-rastreado");
+        return { contaId: instance.contaId, instance: emittedInstance };
       }
       const statusEnvio = mapMessageStatus(payload);
       emittedMessage = await tx.whatsAppMensagem.update({
