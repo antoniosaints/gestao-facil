@@ -21,6 +21,7 @@ import {
 } from "../../services/contas/storeModulesService";
 import { sendWelcomeEmail } from "../../services/email/resendEmailService";
 import { env } from "../../utils/dotenv";
+import { issuePasswordResetEmail } from "../../services/auth/passwordRecoveryService";
 
 const ALLOWED_SORT_FIELDS = new Set([
   "id",
@@ -323,6 +324,65 @@ export const resetRootPasswordAdmin = async (req: Request, res: Response): Promi
         email: principal.email,
         nome: principal.nome,
         totalUsuariosRoot: rootUsers.length,
+      },
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const sendRootPasswordRecoveryAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await ensureAdminAccess(req, res);
+    if (!customData) return;
+
+    const contaId = Number(req.params.id);
+    if (!contaId) {
+      return res.status(400).json({ message: "Conta inválida." });
+    }
+
+    const conta = await prisma.contas.findUnique({
+      where: { id: contaId },
+      select: {
+        id: true,
+        nome: true,
+        Usuarios: {
+          where: { permissao: "root" },
+          orderBy: { id: "asc" },
+          take: 1,
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            tokenVersion: true,
+          },
+        },
+      },
+    });
+
+    if (!conta) {
+      return res.status(404).json({ message: "Conta não encontrada." });
+    }
+
+    const root = conta.Usuarios[0];
+    if (!root?.email) {
+      return res.status(404).json({
+        message: "Esta conta não possui um usuário root com e-mail cadastrado.",
+      });
+    }
+
+    await issuePasswordResetEmail(root);
+
+    console.warn(
+      `[admin] Recuperação de senha enviada ao root da conta ${contaId} (${conta.nome}) pelo superadmin ${customData.userId}`,
+    );
+
+    return res.status(200).json({
+      message: `E-mail de recuperação enviado para ${root.email}.`,
+      data: {
+        contaId,
+        email: root.email,
+        nome: root.nome,
       },
     });
   } catch (error) {

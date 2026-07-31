@@ -1,14 +1,13 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../../utils/prisma";
-import { env } from "../../utils/dotenv";
 import { JwtUtil } from "../../utils/jwt";
 import { handleError } from "../../utils/handleError";
 import { hashPassword } from "../../services/auth/passwordService";
-import { sendPasswordResetEmail } from "../../services/email/resendEmailService";
-
-const RESET_PURPOSE = "pwd_reset";
-const RESET_TOKEN_TTL = "30m";
+import {
+  issuePasswordResetEmail,
+  PASSWORD_RESET_PURPOSE,
+} from "../../services/auth/passwordRecoveryService";
 
 // Resposta sempre genérica: não revela se o e-mail existe (anti-enumeração).
 const GENERIC_MESSAGE = "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.";
@@ -39,14 +38,8 @@ export const recuperarSenha = async (req: Request, res: Response): Promise<any> 
     if (usuario) {
       // Token de uso único por design: inclui o tokenVersion; ao redefinir a
       // senha o tokenVersion muda e o link deixa de valer.
-      const token = JwtUtil.encode(
-        { id: usuario.id, email: usuario.email, purpose: RESET_PURPOSE, tv: usuario.tokenVersion },
-        RESET_TOKEN_TTL,
-      );
-      const resetUrl = `${env.BASE_URL_FRONTEND.replace(/\/+$/, "")}/redefinir-senha?token=${encodeURIComponent(token)}`;
-
       try {
-        await sendPasswordResetEmail(usuario.email, usuario.nome, resetUrl);
+        await issuePasswordResetEmail(usuario);
       } catch (err) {
         // Não vaza a falha para o cliente; só registra.
         console.error("[recuperarSenha] falha ao enviar e-mail:", err);
@@ -73,7 +66,7 @@ export const redefinirSenha = async (req: Request, res: Response): Promise<any> 
     }
 
     const payload = JwtUtil.verify(parsed.data.token);
-    if (!payload || payload.purpose !== RESET_PURPOSE) {
+    if (!payload || payload.purpose !== PASSWORD_RESET_PURPOSE) {
       return res.status(400).json({ status: 400, message: "Link inválido ou expirado. Solicite um novo." });
     }
 
