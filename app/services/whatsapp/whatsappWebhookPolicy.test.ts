@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveWebhookIdentity, webhookRetryDelayMs } from "./whatsappWebhookPolicy";
+import {
+  resolveWebhookIdentity,
+  webhookRetryDelayMs,
+} from "./whatsappWebhookPolicy";
 
 describe("whatsappWebhookPolicy", () => {
   it("mantém o id externo e separa eventos do mesmo id pelo tipo", () => {

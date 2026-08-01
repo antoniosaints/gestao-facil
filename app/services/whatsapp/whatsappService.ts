@@ -6,7 +6,13 @@ import { resolverTransicaoAtendimento, TransicaoAtendimento } from "./whatsappAt
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 import { formatCurrency } from "../../utils/formatters";
-import { WApiClient, WApiMessageKind, WApiWebhookUrls, WAPI_WEBHOOK_ENDPOINTS } from "./wApiClient";
+import {
+  WApiClient,
+  WApiMessageKind,
+  WApiWebhookUrls,
+  WAPI_WEBHOOK_ENDPOINTS,
+  wApiMessageIdFromResponse,
+} from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia, DecryptedWhatsAppMedia, WhatsAppMediaError } from "./whatsappMedia";
 import { whatsAppAgentService, withinBusinessHours, normalizeHora } from "./whatsappAgentService";
 import {
@@ -1155,6 +1161,7 @@ export const whatsAppService = {
       const updated = await prisma.whatsAppMensagem.update({
         where: { id: pending.id },
         data: {
+          externalMessageId: wApiMessageIdFromResponse(result) || messageId,
           rawPayload: safeJson(result),
           statusEnvio: WhatsAppMensagemStatus.ENVIADA,
           enviadoEm: new Date(),
@@ -1256,6 +1263,7 @@ export const whatsAppService = {
       const updated = await prisma.whatsAppMensagem.update({
         where: { id: pending.id },
         data: {
+          externalMessageId: wApiMessageIdFromResponse(result) || messageId,
           rawPayload: safeJson({ ...metadata, wapiResult: result }),
           statusEnvio: WhatsAppMensagemStatus.ENVIADA,
           enviadoEm: new Date(),
@@ -1347,6 +1355,7 @@ export const whatsAppService = {
       const updated = await prisma.whatsAppMensagem.update({
         where: { id: pending.id },
         data: {
+          externalMessageId: wApiMessageIdFromResponse(result) || messageId,
           rawPayload: safeJson({ ...metadata, wapiResult: result }),
           statusEnvio: WhatsAppMensagemStatus.ENVIADA,
           enviadoEm: new Date(),

@@ -5,6 +5,7 @@ import {
   adminAction,
   adminAvailability,
   adminCreateBooking,
+  adminDashboard,
   adminDeleteBooking,
   adminDeleteException,
   adminDeleteResource,
@@ -70,6 +71,7 @@ routerReservas.get("/servicos/select2", permission("reservas:visualizar"), handl
 routerReservas.put("/servicos", permission("reservas:configurar"), handler(adminSaveService));
 routerReservas.delete("/servicos/:id", permission("reservas:configurar"), handler(adminDeleteService));
 routerReservas.get("/disponibilidade", permission("reservas:visualizar"), handler(adminAvailability));
+routerReservas.get("/painel", permission("reservas:visualizar"), handler(adminDashboard));
 routerReservas.get("/", permission("reservas:visualizar"), handler(adminListBookings));
 routerReservas.post("/", permission("reservas:criar"), handler(adminCreateBooking));
 routerReservas.post("/:id/vincular-cliente", permission("reservas:editar"), handler(adminLinkCustomer));

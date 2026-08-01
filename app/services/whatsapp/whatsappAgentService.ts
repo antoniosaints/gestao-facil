@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
 import { prisma } from "../../utils/prisma";
-import { WApiClient } from "./wApiClient";
+import { WApiClient, wApiMessageIdFromResponse } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia } from "./whatsappMedia";
 import { AgentHistoryItem, generateAgentReply, geminiSupportsMime } from "./whatsappAgentAI";
 import { iaPlatformService } from "../ia/iaPlatformService";
@@ -314,6 +314,7 @@ export const whatsAppAgentService = {
       const updated = await prisma.whatsAppMensagem.update({
         where: { id: pending.id },
         data: {
+          externalMessageId: wApiMessageIdFromResponse(result) || messageId,
           statusEnvio: WhatsAppMensagemStatus.ENVIADA,
           enviadoEm: new Date(),
           rawPayload: safeJson(result),

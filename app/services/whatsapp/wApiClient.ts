@@ -19,6 +19,16 @@ export const WAPI_WEBHOOK_ENDPOINTS: Array<{ key: WApiWebhookKey; label: string;
 
 export type WApiWebhookUrls = Partial<Record<WApiWebhookKey, string>>;
 
+export function wApiMessageIdFromResponse(response: any): string {
+  return String(
+    response?.messageId ||
+    response?.data?.messageId ||
+    response?.wapiResult?.messageId ||
+    response?.wapiResult?.data?.messageId ||
+    "",
+  );
+}
+
 export interface WApiSendMessageInput {
   phone: string;
   message?: string;

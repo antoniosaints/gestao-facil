@@ -13,6 +13,7 @@ import {
   listAssinanteAppsAdmin,
   manageAssinanteAdmin,
   resetRootPasswordAdmin,
+  sendRootPasswordRecoveryAdmin,
   tableAssinantesAdmin,
   toggleAssinanteAppAdmin,
 } from "../../controllers/administracao/assinantes";
@@ -87,6 +88,7 @@ routerAdminMain.put("/bugs/:id", updateRelatoBugAdmin);
 routerAdminMain.delete("/bugs/:id", deleteRelatoBugAdmin);
 routerAdminMain.post("/assinantes/:id/controle", manageAssinanteAdmin);
 routerAdminMain.post("/assinantes/:id/reset-senha-root", resetRootPasswordAdmin);
+routerAdminMain.post("/assinantes/:id/enviar-recuperacao-senha-root", sendRootPasswordRecoveryAdmin);
 routerAdminMain.get("/assinantes/:id/apps", listAssinanteAppsAdmin);
 routerAdminMain.post("/assinantes/:id/apps/:moduleId", toggleAssinanteAppAdmin);
 

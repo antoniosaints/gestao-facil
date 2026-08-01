@@ -815,6 +815,10 @@ export async function getPublicReservationStore(slug: string) {
     terms: { text: config.termos, version: config.termosVersao },
     theme: config.themeConfig || {},
     sections: config.secoes || [],
+    bookingWindow: {
+      minimumNoticeMinutes: config.antecedenciaMinimaMinutos,
+      horizonDays: config.horizonteDias,
+    },
   };
 }
 
@@ -1407,6 +1411,149 @@ export async function retryPublicReservationPayment(
     status: payment.status,
     link: payment.linkPagamento,
     pixCopyPaste: payment.pixCopiaCola,
+  };
+}
+
+export async function getReservationsDashboard(contaId: number, startAt: Date, endAt: Date) {
+  const now = new Date();
+  const nextDay = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  const [bookings, upcoming, config, activeResources, activeServices] = await Promise.all([
+    prisma.reservaGeral.findMany({
+      where: { contaId, inicio: { gte: startAt, lte: endAt } },
+      select: {
+        id: true,
+        status: true,
+        inicio: true,
+        valorTotal: true,
+        valorPagamento: true,
+        valorPago: true,
+        servicoNome: true,
+        recursoNome: true,
+      },
+      orderBy: { inicio: "asc" },
+    }),
+    prisma.reservaGeral.findMany({
+      where: {
+        contaId,
+        inicio: { gte: now, lte: nextDay },
+        status: { in: ACTIVE_STATUSES },
+      },
+      select: {
+        id: true,
+        nomeCliente: true,
+        servicoNome: true,
+        recursoNome: true,
+        inicio: true,
+        fim: true,
+        status: true,
+        valorTotal: true,
+        valorPago: true,
+      },
+      orderBy: { inicio: "asc" },
+      take: 8,
+    }),
+    prisma.reservaConfig.findUnique({
+      where: { contaId },
+      select: { ativo: true, slug: true, timezone: true },
+    }),
+    prisma.reservaRecurso.count({ where: { contaId, ativo: true } }),
+    prisma.reservaServicoConfig.count({ where: { contaId, ativo: true } }),
+  ]);
+
+  const timezone = config?.timezone || "America/Sao_Paulo";
+  const dayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const statusOrder = [
+    ReservaStatus.AGUARDANDO_PAGAMENTO,
+    ReservaStatus.CONFIRMADA,
+    ReservaStatus.CONCLUIDA,
+    ReservaStatus.CANCELADA,
+    ReservaStatus.EXPIRADA,
+  ];
+  const statusTotals = new Map(statusOrder.map((status) => [status, 0]));
+  const daily = new Map<string, { reservas: number; receita: number }>();
+  const services = new Map<string, { reservas: number; receita: number }>();
+  const resources = new Map<string, { reservas: number; receita: number }>();
+
+  let receita = 0;
+  let valorPendente = 0;
+  let aguardandoPagamento = 0;
+  let validBookings = 0;
+
+  for (const booking of bookings) {
+    const paid = Number(booking.valorPago || 0);
+    receita += paid;
+    statusTotals.set(booking.status, (statusTotals.get(booking.status) || 0) + 1);
+
+    const key = dayKey.format(booking.inicio);
+    const day = daily.get(key) || { reservas: 0, receita: 0 };
+    day.reservas += 1;
+    day.receita += paid;
+    daily.set(key, day);
+
+    const service = services.get(booking.servicoNome) || { reservas: 0, receita: 0 };
+    service.reservas += 1;
+    service.receita += paid;
+    services.set(booking.servicoNome, service);
+
+    const resource = resources.get(booking.recursoNome) || { reservas: 0, receita: 0 };
+    resource.reservas += 1;
+    resource.receita += paid;
+    resources.set(booking.recursoNome, resource);
+
+    if (booking.status === ReservaStatus.AGUARDANDO_PAGAMENTO) {
+      aguardandoPagamento += 1;
+      valorPendente += Math.max(0, Number(booking.valorPagamento || 0) - paid);
+    }
+    if (![ReservaStatus.CANCELADA, ReservaStatus.EXPIRADA].includes(booking.status)) {
+      validBookings += 1;
+    }
+  }
+
+  const completedOrConfirmed =
+    (statusTotals.get(ReservaStatus.CONFIRMADA) || 0) +
+    (statusTotals.get(ReservaStatus.CONCLUIDA) || 0);
+  const ranking = (source: Map<string, { reservas: number; receita: number }>) =>
+    [...source.entries()]
+      .map(([nome, values]) => ({ nome, ...values }))
+      .sort((a, b) => b.reservas - a.reservas || b.receita - a.receita)
+      .slice(0, 5);
+
+  return {
+    periodo: { inicio: startAt, fim: endAt },
+    kpis: {
+      totalReservas: bookings.length,
+      reservasValidas: validBookings,
+      taxaConfirmacao: bookings.length ? (completedOrConfirmed / bookings.length) * 100 : 0,
+      receita,
+      ticketMedio: completedOrConfirmed ? receita / completedOrConfirmed : 0,
+    },
+    agora: {
+      proximas24h: upcoming.length,
+      aguardandoPagamento,
+      valorPendente,
+    },
+    serie: [...daily.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([data, values]) => ({ data, ...values })),
+    distribuicaoStatus: statusOrder.map((status) => ({
+      status,
+      total: statusTotals.get(status) || 0,
+    })),
+    topServicos: ranking(services),
+    topRecursos: ranking(resources),
+    proximas: upcoming,
+    configuracao: {
+      paginaAtiva: Boolean(config?.ativo),
+      slug: config?.slug || null,
+      recursosAtivos: activeResources,
+      servicosAtivos: activeServices,
+    },
   };
 }
 

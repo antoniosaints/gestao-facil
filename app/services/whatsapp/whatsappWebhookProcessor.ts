@@ -15,6 +15,7 @@ import {
 import { resolverTransicaoAtendimento } from "./whatsappAtendimento";
 import { mapWApiInstanceStatusFromPayload } from "./whatsappPolicy";
 import { whatsAppAgentService } from "./whatsappAgentService";
+import { wApiMessageIdFromResponse } from "./wApiClient";
 import {
   extractMessagePayload,
   instanceAtendimentoPaused,
@@ -165,7 +166,7 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
         await markIgnored(tx, event.id, "delivery-sem-message-id");
         return { contaId: instance.contaId, instance: emittedInstance };
       }
-      const existing = await tx.whatsAppMensagem.findUnique({
+      let existing = await tx.whatsAppMensagem.findUnique({
         where: {
           contaId_instanciaId_externalMessageId: {
             contaId: instance.contaId,
@@ -174,7 +175,39 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
           },
         },
       });
-      if (!existing) throw new DeferredWebhookError("Mensagem referenciada pelo delivery ainda não foi persistida");
+
+      // Mensagens enviadas antes da correção guardavam o id real da W-API apenas no
+      // rawPayload e mantinham um `erp-*` em externalMessageId. Recuperamos esses registros
+      // para que os deliveries já pendentes também possam ser processados.
+      if (!existing) {
+        const legacyCandidates = await tx.whatsAppMensagem.findMany({
+          where: {
+            contaId: instance.contaId,
+            instanciaId: instance.id,
+            rawPayload: { contains: externalMessageId },
+          },
+          orderBy: { id: "desc" },
+          take: 20,
+        });
+        const legacyMatch = legacyCandidates.find((candidate) => {
+          try {
+            return wApiMessageIdFromResponse(JSON.parse(candidate.rawPayload || "{}")) === externalMessageId;
+          } catch {
+            return false;
+          }
+        });
+        if (legacyMatch) {
+          existing = await tx.whatsAppMensagem.update({
+            where: { id: legacyMatch.id },
+            data: { externalMessageId },
+          });
+        }
+      }
+
+      if (!existing) {
+        await markIgnored(tx, event.id, "delivery-de-envio-nao-rastreado");
+        return { contaId: instance.contaId, instance: emittedInstance };
+      }
       const statusEnvio = mapMessageStatus(payload);
       emittedMessage = await tx.whatsAppMensagem.update({
         where: { id: existing.id },
