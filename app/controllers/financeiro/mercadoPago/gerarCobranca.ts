@@ -26,27 +26,31 @@ export interface GeneratedChargeResult {
 }
 
 function validarRetornoPixMercadoPago(
-  pixGenerated: Awaited<ReturnType<MercadoPagoService["payment"]["create"]>>
+  pixGenerated: Awaited<ReturnType<MercadoPagoService["payment"]["create"]>>,
 ) {
   const paymentId = pixGenerated.id?.toString();
-  const ticketUrl = pixGenerated.point_of_interaction?.transaction_data?.ticket_url;
+  const ticketUrl =
+    pixGenerated.point_of_interaction?.transaction_data?.ticket_url;
   const qrCode = pixGenerated.point_of_interaction?.transaction_data?.qr_code;
 
   if (!paymentId) {
     throw new Error(
-      "O Mercado Pago nao retornou o identificador da cobranca Pix."
+      "O Mercado Pago nao retornou o identificador da cobranca Pix.",
     );
   }
 
-  if (pixGenerated.status === "rejected" || pixGenerated.status === "cancelled") {
+  if (
+    pixGenerated.status === "rejected" ||
+    pixGenerated.status === "cancelled"
+  ) {
     throw new Error(
-      "O Mercado Pago rejeitou a cobranca Pix. Verifique as configuracoes da conta antes de tentar novamente."
+      "O Mercado Pago rejeitou a cobranca Pix. Verifique as configuracoes da conta antes de tentar novamente.",
     );
   }
 
   if (!ticketUrl && !qrCode) {
     throw new Error(
-      "O Mercado Pago nao retornou os dados do Pix. Nenhum QR Code ou link de pagamento foi gerado."
+      "O Mercado Pago nao retornou os dados do Pix. Nenhum QR Code ou link de pagamento foi gerado.",
     );
   }
 
@@ -69,7 +73,7 @@ async function criarRegistroCobranca(
     dataVencimento?: Date | null;
     observacao?: string | null;
     status?: "PENDENTE" | "EFETIVADO" | "ESTORNADO" | "CANCELADO";
-  }
+  },
 ) {
   return executor.cobrancasFinanceiras.create({
     data: {
@@ -81,9 +85,7 @@ async function criarRegistroCobranca(
       idCobranca: payload.gatewayReference,
       pixCopiaCola: payload.pixCopiaCola || null,
       vendaId:
-        body.vinculo && body.vinculo.tipo === "venda"
-          ? body.vinculo.id
-          : null,
+        body.vinculo && body.vinculo.tipo === "venda" ? body.vinculo.id : null,
       lancamentoId:
         body.vinculo && body.vinculo.tipo === "parcela"
           ? body.vinculo.id
@@ -108,11 +110,11 @@ export const gerarCobrancaMercadoPagoBoleto = async (
   mp: MercadoPagoService,
   body: BodyCobranca,
   parametros: ParametrosConta,
-  executor: PrismaExecutor = prisma
+  executor: PrismaExecutor = prisma,
 ): Promise<GeneratedChargeResult> => {
   if (body.value < 4)
     throw new Error(
-      "O valor da cobranca quando em boleto deve ser maior ou igual a R$ 4,00"
+      "O valor da cobranca quando em boleto deve ser maior ou igual a R$ 4,00",
     );
   if (!body.clienteId)
     throw new Error("O cliente deve ser informado para gerar o boleto.");
@@ -126,39 +128,39 @@ export const gerarCobrancaMercadoPagoBoleto = async (
 
   if (!cliente)
     throw new Error(
-      "O cliente não existe na base, verifique se o mesmo foi cadastrado."
+      "O cliente não existe na base, verifique se o mesmo foi cadastrado.",
     );
   if (!cliente.cidade)
     throw new Error(
-      "A cidade do cliente nao foi informada, atualize o cadastro do cliente."
+      "A cidade do cliente nao foi informada, atualize o cadastro do cliente.",
     );
   if (cliente.nome.split(" ").length < 2)
     throw new Error("O Cliente precisa ter nome e sobrenome.");
   if (!cliente.endereco)
     throw new Error(
-      "O endereço do cliente nao foi informado, atualize o cadastro do cliente."
+      "O endereço do cliente nao foi informado, atualize o cadastro do cliente.",
     );
   if (!cliente.email)
     throw new Error(
-      "O E-mail do cliente nao foi informado, atualize o cadastro do cliente."
+      "O E-mail do cliente nao foi informado, atualize o cadastro do cliente.",
     );
   if (!cliente.cep)
     throw new Error(
-      "O CEP do cliente nao foi informado, atualize o cadastro do cliente."
+      "O CEP do cliente nao foi informado, atualize o cadastro do cliente.",
     );
   if (!cliente.estado)
     throw new Error(
-      "O estado do cliente nao foi informado, atualize o cadastro do cliente."
+      "O estado do cliente nao foi informado, atualize o cadastro do cliente.",
     );
   if (!cliente.documento)
     throw new Error(
-      "O CPF/CNPJ do cliente nao foi informado, atualize o cadastro do cliente."
+      "O CPF/CNPJ do cliente nao foi informado, atualize o cadastro do cliente.",
     );
   if (!validarCpfCnpj(cliente.documento))
     throw new Error(
       `O ${
         cliente.tipo === "CLIENTE" ? "CPF" : "CNPJ"
-      } do cliente é inválido, verifique antes de continuar.`
+      } do cliente é inválido, verifique antes de continuar.`,
     );
 
   const Uid = gerarIdUnicoComMetaFinal("COB");
@@ -198,7 +200,7 @@ export const gerarCobrancaMercadoPagoBoleto = async (
 
   if (boletoGenerated.status === "rejected") {
     throw new Error(
-      "A cobrança foi rejeitada pelo banco, verifique os dados do cliente."
+      "A cobrança foi rejeitada pelo banco, verifique os dados do cliente.",
     );
   }
 
@@ -212,7 +214,8 @@ export const gerarCobrancaMercadoPagoBoleto = async (
   });
 
   return {
-    paymentLink: boletoGenerated.transaction_details?.external_resource_url || null,
+    paymentLink:
+      boletoGenerated.transaction_details?.external_resource_url || null,
     chargeId: cobranca.id,
     gatewayReference: boletoGenerated.id?.toString() || null,
   };
@@ -222,16 +225,24 @@ export const gerarCobrancaMercadoPagoPix = async (
   mp: MercadoPagoService,
   body: BodyCobranca,
   parametros: ParametrosConta,
-  executor: PrismaExecutor = prisma
+  executor: PrismaExecutor = prisma,
 ): Promise<GeneratedChargeResult> => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
+
+  const cliente = await executor.clientesFornecedores.findFirst({
+    where: {
+      id: body.clienteId,
+      contaId: parametros.contaId,
+    },
+  });
+
   const pixGenerated = await mp.payment.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
     },
     body: {
       payer: {
-        email: parametros.emailAvisos || "admin@userp.com.br",
+        email: cliente?.email || parametros.emailAvisos || "admin@userp.com.br",
         entity_type: "individual",
       },
       external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|pix`,
@@ -267,16 +278,22 @@ export const gerarCobrancaMercadoPagoPixPublico = async (
   mp: MercadoPagoService,
   body: BodyCobrancaPublico,
   parametros: ParametrosConta,
-  executor: PrismaExecutor = prisma
+  executor: PrismaExecutor = prisma,
 ) => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
+  const cliente = await executor.clientesFornecedores.findFirst({
+    where: {
+      id: body.clienteId,
+      contaId: parametros.contaId,
+    },
+  });
   const pixGenerated = await mp.payment.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
     },
     body: {
       payer: {
-        email: parametros.emailAvisos || "admin@userp.com.br",
+        email: cliente?.email || parametros.emailAvisos || "admin@userp.com.br",
         entity_type: "individual",
       },
       external_reference: `conta:${parametros.contaId}|cobranca:${Uid}|pix`,
@@ -360,9 +377,15 @@ export const gerarCobrancaMercadoPagoLink = async (
   mp: MercadoPagoService,
   body: BodyCobranca,
   parametros: ParametrosConta,
-  executor: PrismaExecutor = prisma
+  executor: PrismaExecutor = prisma,
 ): Promise<GeneratedChargeResult> => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
+   const cliente = await executor.clientesFornecedores.findFirst({
+    where: {
+      id: body.clienteId,
+      contaId: parametros.contaId,
+    },
+  });
   const origin = body.vinculo
     ? { type: body.vinculo.tipo, id: Number(body.vinculo.id) }
     : undefined;
@@ -393,14 +416,17 @@ export const gerarCobrancaMercadoPagoLink = async (
         },
       ],
       payer: {
-        email: parametros.emailAvisos || "admin@userp.com.br",
+        email: cliente?.email || parametros.emailAvisos || "admin@userp.com.br",
       },
       back_urls: {
         success: `${env.BASE_URL_FRONTEND}/success?success=true`,
         failure: `${env.BASE_URL_FRONTEND}/success?success=false`,
         pending: `${env.BASE_URL_FRONTEND}/success?success=pending`,
       },
-      notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
+      notification_url: buildMercadoPagoOperationalWebhookUrl(
+        env.BASE_URL,
+        reference,
+      ),
       external_reference: buildMercadoPagoChargeReference(reference),
       auto_return: "approved",
     },
@@ -419,7 +445,7 @@ export const gerarCobrancaMercadoPagoLink = async (
 export const generateCobrancaMercadoPago = async (
   body: BodyCobranca,
   parametros: ParametrosConta,
-  executor: PrismaExecutor = prisma
+  executor: PrismaExecutor = prisma,
 ): Promise<GeneratedChargeResult> => {
   await assertChargeCreationAllowed(parametros.contaId);
 
@@ -441,7 +467,7 @@ export const generateCobrancaMercadoPago = async (
 export const generateCobrancaMercadoPagoPublico = async (
   body: BodyCobrancaPublico,
   parametros: ParametrosConta,
-  executor: PrismaExecutor = prisma
+  executor: PrismaExecutor = prisma,
 ) => {
   await assertChargeCreationAllowed(parametros.contaId);
 
