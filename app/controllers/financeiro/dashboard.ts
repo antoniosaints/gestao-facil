@@ -18,6 +18,7 @@ type ParcelaAnalytics = {
     Uid: string;
     descricao: string;
     tipo: "RECEITA" | "DESPESA";
+    contasFinanceiroId: number | null;
     categoria: { id: number; nome: string };
     cliente: { id: number; nome: string } | null;
   };
@@ -74,6 +75,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
               Uid: true,
               descricao: true,
               tipo: true,
+              contasFinanceiroId: true,
               categoria: {
                 select: {
                   id: true,
@@ -138,6 +140,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
         Uid: parcela.lancamento.Uid,
         descricao: parcela.lancamento.descricao,
         tipo: parcela.lancamento.tipo,
+        contasFinanceiroId: parcela.lancamento.contasFinanceiroId,
         categoria: {
           id: parcela.lancamento.categoria.id,
           nome: parcela.lancamento.categoria.nome,
@@ -310,7 +313,9 @@ export const getDashboardFinanceiroVisaoGeral = async (
 
     const contasResumo = contasFinanceiras.map((conta) => {
       const saldoInicialConta = decimalToNumber(conta.saldoInicial);
-      const parcelasConta = parcelas.filter((parcela) => parcela.contaFinanceira === conta.id);
+      const parcelasConta = parcelas.filter(
+        (parcela) => (parcela.contaFinanceira ?? parcela.lancamento.contasFinanceiroId) === conta.id,
+      );
 
       const saldoAtual = saldoInicialConta + parcelasConta
         .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento <= hoje)

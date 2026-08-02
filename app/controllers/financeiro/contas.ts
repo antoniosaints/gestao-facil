@@ -13,6 +13,7 @@ import { endOfDay, startOfDay } from "date-fns";
 import { assertTransferAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { deleteStoredFile } from "../../services/uploads/fileStorageService";
+import { calcularSaldosAtuaisContas } from "../../services/financeiro/saldoContaFinanceiraService";
 
 const AJUSTE_SALDO_CATEGORIA = "Ajuste de saldo da conta";
 const TRANSFERENCIA_ENTRE_CONTAS_CATEGORIA = "Transferência entre contas";
@@ -26,51 +27,6 @@ function normalizeColor(value?: string | null) {
     }
 
     return normalized.toUpperCase();
-}
-
-async function calcularSaldosAtuaisContas(contaId: number, contaFinanceiraIds: number[]) {
-    if (!contaFinanceiraIds.length) {
-        return new Map<number, number>();
-    }
-
-    const parcelasPagas = await prisma.parcelaFinanceiro.findMany({
-        where: {
-            contaFinanceira: { in: contaFinanceiraIds },
-            pago: true,
-            OR: [
-                { dataPagamento: null },
-                { dataPagamento: { lte: endOfDay(new Date()) } },
-            ],
-            lancamento: {
-                contaId,
-            },
-        },
-        select: {
-            contaFinanceira: true,
-            valor: true,
-            valorPago: true,
-            lancamento: {
-                select: {
-                    tipo: true,
-                },
-            },
-        },
-    });
-
-    const saldoPorConta = new Map<number, Decimal>();
-
-    for (const parcela of parcelasPagas) {
-        if (!parcela.contaFinanceira) continue;
-
-        const atual = saldoPorConta.get(parcela.contaFinanceira) ?? new Decimal(0);
-        const valor = new Decimal(parcela.valorPago ?? parcela.valor ?? 0);
-        saldoPorConta.set(
-            parcela.contaFinanceira,
-            parcela.lancamento.tipo === "RECEITA" ? atual.plus(valor) : atual.minus(valor),
-        );
-    }
-
-    return new Map(Array.from(saldoPorConta.entries()).map(([key, value]) => [key, value.toNumber()]));
 }
 
 export const listContasFinanceiro = async (req: Request, res: Response): Promise<any> => {
@@ -101,7 +57,7 @@ export const listContasFinanceiro = async (req: Request, res: Response): Promise
             "Contas listadas com sucesso!",
             contas.map((conta) => {
                 const saldoInicial = decimalToNumber(conta.saldoInicial);
-                const variacao = saldoPorConta.get(conta.id) ?? 0;
+                const variacao = saldoPorConta.get(conta.id)?.variacao ?? 0;
 
                 return {
                     ...conta,
@@ -310,7 +266,8 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
         const parcelasFiltradas = parcelas.filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje));
 
         const saldoInicial = new Decimal(conta.saldoInicial || 0);
-        const toDecimal = (value: unknown) => new Decimal(value || 0);
+        const totaisSaldoAtual = (await calcularSaldosAtuaisContas(contaId, [contaFinanceiraId])).get(contaFinanceiraId);
+        const toDecimal = (value: unknown) => new Decimal(decimalToNumber(value));
         const getValorPago = (parcela: { valor: unknown; valorPago?: unknown | null }) =>
             parcela.valorPago !== null && parcela.valorPago !== undefined
                 ? toDecimal(parcela.valorPago)
@@ -348,7 +305,7 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
             .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && getParcelaStatus(parcela, hoje) === "ATRASADO")
             .reduce((acc, parcela) => acc.plus(toDecimal(parcela.valor)), new Decimal(0));
 
-        const saldoAtual = saldoInicial.plus(entradasRealizadas).minus(saidasRealizadas);
+        const saldoAtual = saldoInicial.plus(totaisSaldoAtual?.variacao ?? 0);
         const saldoPrevisto = saldoInicial.plus(entradasPrevistas).minus(saidasPrevistas);
 
         const movimentacoes = parcelasFiltradas.map((parcela) => ({
@@ -470,37 +427,11 @@ async function calcularSaldoAtualContaFinanceira(contaId: number, contaFinanceir
         throw new Error("Conta financeira não encontrada.");
     }
 
-    const parcelasPagas = await prisma.parcelaFinanceiro.findMany({
-        where: {
-            contaFinanceira: contaFinanceiraId,
-            pago: true,
-            OR: [
-                { dataPagamento: null },
-                { dataPagamento: { lte: endOfDay(new Date()) } },
-            ],
-            lancamento: {
-                contaId,
-            },
-        },
-        select: {
-            valor: true,
-            valorPago: true,
-            lancamento: {
-                select: {
-                    tipo: true,
-                },
-            },
-        },
-    });
-
     const saldoInicial = new Decimal(conta.saldoInicial || 0);
-    const entradasRealizadas = parcelasPagas
-        .filter((parcela) => parcela.lancamento.tipo === "RECEITA")
-        .reduce((acc, parcela) => acc.plus(parcela.valorPago ?? parcela.valor), new Decimal(0));
-
-    const saidasRealizadas = parcelasPagas
-        .filter((parcela) => parcela.lancamento.tipo === "DESPESA")
-        .reduce((acc, parcela) => acc.plus(parcela.valorPago ?? parcela.valor), new Decimal(0));
+    const totaisPorConta = await calcularSaldosAtuaisContas(contaId, [contaFinanceiraId]);
+    const totais = totaisPorConta.get(contaFinanceiraId);
+    const entradasRealizadas = new Decimal(totais?.entradasRealizadas ?? 0);
+    const saidasRealizadas = new Decimal(totais?.saidasRealizadas ?? 0);
 
     const saldoAtual = saldoInicial.plus(entradasRealizadas).minus(saidasRealizadas);
 
@@ -931,7 +862,7 @@ export const tableContasFinanceiro = async (req: Request, res: Response): Promis
 
         const contasComSaldo = contasBase.map((conta) => {
             const saldoInicial = decimalToNumber(conta.saldoInicial);
-            const variacao = saldoPorConta.get(conta.id) ?? 0;
+            const variacao = saldoPorConta.get(conta.id)?.variacao ?? 0;
 
             return {
                 ...conta,

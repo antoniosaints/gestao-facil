@@ -97,7 +97,15 @@ export function buildParcelaFinanceiroWhere(
   };
 
   if (filters.contaFinanceiraId) {
-    where.contaFinanceira = filters.contaFinanceiraId;
+    where.OR = [
+      { contaFinanceira: filters.contaFinanceiraId },
+      {
+        contaFinanceira: null,
+        lancamento: {
+          contasFinanceiroId: filters.contaFinanceiraId,
+        },
+      },
+    ];
   }
 
   const lancamentoWhere = where.lancamento as Prisma.LancamentoFinanceiroWhereInput;

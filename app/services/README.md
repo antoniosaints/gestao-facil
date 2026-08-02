@@ -5,7 +5,7 @@
 
 ## O que existe hoje
 - Integrações financeiras e gateways.
-- Regras reutilizáveis de lançamentos financeiros, parcelamento configurável, atualização em cascata de parcelas e suporte à geração financeira de transferências/ajustes operacionais entre contas.
+- Regras reutilizáveis de lançamentos financeiros, parcelamento configurável, atualização em cascata de parcelas, cálculo compartilhado do saldo realizado por conta e suporte à geração financeira de transferências/ajustes operacionais entre contas.
 - Push notifications e filas.
 - QR Code e barcode.
 - Importação em lote de produtos.
