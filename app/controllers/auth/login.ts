@@ -59,6 +59,10 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     }
 
     await upgradeLegacyPassword(usuario.id, usuario.senha, validated.data.senha);
+    await prisma.usuarios.update({
+      where: { id: usuario.id },
+      data: { ultimoLoginEm: new Date() },
+    });
 
     const jwtToken = JwtUtil.encode({
       id: usuario.id,

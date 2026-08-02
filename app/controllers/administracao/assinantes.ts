@@ -22,6 +22,7 @@ import {
 import { sendWelcomeEmail } from "../../services/email/resendEmailService";
 import { env } from "../../utils/dotenv";
 import { issuePasswordResetEmail } from "../../services/auth/passwordRecoveryService";
+import { getContasOnlineUserCounts } from "../../services/administracao/assinanteActivityService";
 
 const ALLOWED_SORT_FIELDS = new Set([
   "id",
@@ -458,6 +459,18 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
               Usuarios: true,
             },
           },
+          Usuarios: {
+            where: {
+              ultimoLoginEm: { not: null },
+            },
+            orderBy: {
+              ultimoLoginEm: "desc",
+            },
+            take: 1,
+            select: {
+              ultimoLoginEm: true,
+            },
+          },
           FaturasContas: {
             where: {
               status: "PENDENTE",
@@ -474,6 +487,8 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
         },
       }),
     ]);
+
+    const usuariosOnlinePorConta = await getContasOnlineUserCounts(contas.map((conta) => conta.id));
 
     const today = startOfDay(new Date());
     const data = contas.map((conta) => {
@@ -501,6 +516,9 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
         tipo: conta.tipo,
         createdAt: conta.createdAt,
         usuariosTotal: conta._count.Usuarios,
+        usuariosOnline: usuariosOnlinePorConta.get(conta.id) || 0,
+        temUsuarioOnline: (usuariosOnlinePorConta.get(conta.id) || 0) > 0,
+        ultimoLoginEm: conta.Usuarios[0]?.ultimoLoginEm || null,
         diasParaVencer,
         statusAssinatura: diasParaVencer < 0 ? "VENCIDA" : diasParaVencer === 0 ? "VENCE_HOJE" : "EM_DIA",
         linkPagamentoPendente: conta.FaturasContas[0]?.urlPagamento || null,

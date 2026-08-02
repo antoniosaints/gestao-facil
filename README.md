@@ -295,6 +295,11 @@ O app principal roda em **cluster (`instances: max`)**, então o Socket.IO preci
 - notificações;
 - IA/Gemini;
 - integrações com gateways.
+
+## Presença de assinantes no modo CEO
+
+- A migration `prisma/migrations/20260802140000_usuario_ultimo_login` adiciona `Usuarios.ultimoLoginEm`; o login por senha atualiza esse campo após autenticação bem-sucedida.
+- `GET /api/admin/assinantes` retorna `usuariosOnline`, `temUsuarioOnline` e `ultimoLoginEm`. A presença usa usuários únicos das salas Socket.IO, não duplica várias abas e ignora sessões de suporte impersonadas.
 ros opcionais de período.
 
 ## Domínios principais encontrados no código

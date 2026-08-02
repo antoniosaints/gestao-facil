@@ -4,6 +4,7 @@ import type { Server as HttpServer } from "http";
 import { redisConnecion } from "./redis";
 import { env } from "./dotenv";
 import { WHATSAPP_REALTIME_CHANNEL } from "../hooks/whatsapp/realtimeChannel";
+import { JwtUtil } from "./jwt";
 
 let io: Server;
 
@@ -21,6 +22,22 @@ export function initSocket(server: HttpServer) {
   const pubClient = redisConnecion;
   const subClient = redisConnecion.duplicate();
   io.adapter(createAdapter(pubClient, subClient));
+
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    const decoded = typeof token === "string" ? JwtUtil.verify(token) : null;
+    const userId = Number(decoded?.id);
+    const contaId = Number(decoded?.contaId);
+
+    if (!decoded || !Number.isInteger(userId) || !Number.isInteger(contaId)) {
+      return next(new Error("Não autorizado"));
+    }
+
+    socket.data.userId = userId;
+    socket.data.contaId = contaId;
+    socket.data.presenceEligible = decoded.imp !== true;
+    return next();
+  });
 
   subClient.on("error", (error) => {
     console.error("[socket] Falha no cliente Redis (sub) do adapter", error);
@@ -50,8 +67,9 @@ export function initSocket(server: HttpServer) {
     // Guarda qual conta o socket está vinculado atualmente
     let contaAtual: number | null = null;
 
-    socket.on("entrarNaConta", (contaId: number) => {
-      if (!contaId) return;
+    socket.on("entrarNaConta", (requestedContaId: number) => {
+      const contaId = Number(socket.data.contaId);
+      if (!contaId || Number(requestedContaId) !== contaId) return;
 
       const room = `conta:${contaId}`;
 
@@ -73,8 +91,9 @@ export function initSocket(server: HttpServer) {
       contaAtual = contaId;
       console.log(`Socket ${socket.id} entrou na sala ${room}, total de conexões: ${io.sockets.adapter.rooms.get(room)?.size}`);
     });
-    socket.on("sairDaConta", (contaId: number) => {
-      if (!contaId) return;
+    socket.on("sairDaConta", (requestedContaId: number) => {
+      const contaId = Number(socket.data.contaId);
+      if (!contaId || Number(requestedContaId) !== contaId) return;
 
       const room = `conta:${contaId}`;
 

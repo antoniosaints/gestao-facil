@@ -1016,6 +1016,7 @@ model Usuarios {
   biografia                       String?                           @db.Text
   endereco                        String?
   status                          Status                            @default(ATIVO)
+  ultimoLoginEm                   DateTime?
   createdAt                       DateTime                          @default(now())
   updatedAt                       DateTime                          @updatedAt
   Subscription                    Subscription[]
