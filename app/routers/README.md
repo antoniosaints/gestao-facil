@@ -23,6 +23,7 @@
 - `impressao`
 - `monitor`
 - `loja`
+- `restaurante`
 
 ## Padrão de rota
 - O router de domínio define paths e middlewares.
@@ -38,6 +39,7 @@
 - No domínio `loja`, `/api/loja/publica/:slug/*` expõe vitrine, produtos, checkout, pedidos e autenticação do comprador; `/api/loja/config` e `/api/loja/pedidos/*` exigem JWT do ERP e obtêm o tenant do contexto autenticado.
 - No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança, importação/exportação CSV do financeiro, edição rápida de metadados do lançamento, detalhe de contas financeiras, transferência entre contas, ajuste manual de saldo da conta e o subdomínio `assinaturas-pagar` com CRUD, geração manual de lançamento recorrente e listagens desktop/mobile.
 - No domínio `reservas`, `GET /api/reservas/painel` entrega a visão agregada por período para o dashboard autenticado, enquanto `GET /api/reservas` permanece responsável pela listagem operacional. Ambas as rotas usam a permissão `reservas:visualizar` e o tenant do JWT.
+- O domínio versionado `restaurante` fica em `/api/v1/restaurante`. As rotas públicas por slug expõem cardápio, prévia do checkout e criação idempotente; as rotas privadas de `/cardapio`, `/grupos-opcoes` e `/zonas-entrega` usam JWT, `requireRestauranteAccess` e exclusivamente o `contaId` autenticado.
 - No domínio `servicos`, `GET /api/servicos/ordens/dashboard/painel` concentra os KPIs, comparação com o período anterior, série diária, distribuição por status, rankings e fila operacional das ordens de serviço, sempre isolado pelo `contaId` autenticado.
 
 ## Regras

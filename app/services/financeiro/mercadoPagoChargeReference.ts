@@ -3,7 +3,8 @@ export type OperationalChargeOriginType =
   | "venda"
   | "os"
   | "reserva"
-  | "reserva-geral";
+  | "reserva-geral"
+  | "restaurante-pedido";
 export type MercadoPagoChargeKind = "pix" | "boleto" | "link";
 
 export interface MercadoPagoChargeReference {
@@ -22,6 +23,7 @@ const ORIGIN_TYPES = new Set<OperationalChargeOriginType>([
   "os",
   "reserva",
   "reserva-geral",
+  "restaurante-pedido",
 ]);
 
 export function buildMercadoPagoChargeReference(
@@ -156,5 +158,7 @@ export function buildMercadoPagoLinkChargeData(
     reservaId: reference.origin?.type === "reserva" ? reference.origin.id : null,
     reservaGeralId:
       reference.origin?.type === "reserva-geral" ? reference.origin.id : null,
+    restaurantePedidoId:
+      reference.origin?.type === "restaurante-pedido" ? reference.origin.id : null,
   };
 }

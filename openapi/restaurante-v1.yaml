@@ -1,0 +1,97 @@
+openapi: 3.1.0
+info:
+  title: GestaoFacil Restaurante API
+  version: 1.0.0
+servers:
+  - url: /api/v1/restaurante
+paths:
+  /publico/{slug}/cardapio:
+    get:
+      summary: Consulta o cardapio publico ativo
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Cardapio e produtos disponiveis }
+        '404': { description: Restaurante inativo ou inexistente }
+  /publico/{slug}/pedidos:
+    post:
+      summary: Cria um pedido publico recalculado no servidor
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 200 } }
+      responses:
+        '201': { description: Pedido criado com token de acompanhamento }
+        '409': { description: Chave idempotente reutilizada com outro payload }
+        '422': { description: Item, selecao, frete ou pedido minimo invalido }
+        '502': { description: Pedido salvo, mas gateway de pagamento indisponivel }
+  /publico/{slug}/checkout/previa:
+    post:
+      summary: Recalcula itens, pedido minimo, zona, frete e total sem criar o pedido
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Previa com subtotal, frete, total, zona e pedido minimo }
+        '422': { description: Item, selecao, endereco ou cobertura invalida }
+  /publico/pedidos/{token}:
+    get:
+      summary: Acompanha um pedido usando token opaco
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Estados atuais do pedido }
+  /configuracao:
+    get: { summary: Obtem configuracao da conta, security: [ { bearerAuth: [] } ], responses: { '200': { description: Configuracao } } }
+    put: { summary: Cria ou atualiza configuracao com versionamento otimista, security: [ { bearerAuth: [] } ], responses: { '200': { description: Atualizada }, '201': { description: Criada }, '409': { description: Conflito de versao } } }
+  /cardapio:
+    get: { summary: Lista itens administrativos por pagina, security: [ { bearerAuth: [] } ], responses: { '200': { description: Itens e metadados } } }
+    post: { summary: Adiciona produto existente ao cardapio, security: [ { bearerAuth: [] } ], responses: { '201': { description: Item criado } } }
+  /cardapio/produtos:
+    get: { summary: Lista produtos ativos disponiveis para composicao do cardapio, security: [ { bearerAuth: [] } ], responses: { '200': { description: Produtos da conta } } }
+  /cardapio/{id}:
+    patch:
+      summary: Atualiza item do cardapio e seus grupos usando versionamento otimista
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Item atualizado }
+        '409': { description: Conflito de versao }
+  /grupos-opcoes:
+    get: { summary: Lista grupos de sabores e complementos da conta, security: [ { bearerAuth: [] } ], responses: { '200': { description: Grupos e opcoes } } }
+    post: { summary: Cria grupo de sabores ou complementos, security: [ { bearerAuth: [] } ], responses: { '201': { description: Grupo criado }, '422': { description: Limites ou opcoes invalidos } } }
+  /grupos-opcoes/{id}:
+    patch:
+      summary: Atualiza grupo e substitui suas opcoes preservando snapshots de pedidos
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Grupo atualizado }
+        '422': { description: Limites ou opcoes invalidos }
+  /zonas-entrega:
+    get: { summary: Lista zonas de entrega isoladas pela conta autenticada, security: [ { bearerAuth: [] } ], responses: { '200': { description: Zonas ordenadas por prioridade } } }
+    post: { summary: Cria zona por cidade, bairros e intervalo de CEP, security: [ { bearerAuth: [] } ], responses: { '201': { description: Zona criada }, '422': { description: Regra de zona invalida } } }
+  /zonas-entrega/{id}:
+    patch:
+      summary: Atualiza zona usando versionamento otimista
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Zona atualizada }
+        '409': { description: Conflito de versao ou nome }
+  /pedidos:
+    get: { summary: Lista pedidos da conta por pagina, security: [ { bearerAuth: [] } ], responses: { '200': { description: Pedidos e metadados } } }
+  /pedidos/{id}/transicao:
+    post:
+      summary: Executa transicao valida usando version
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Pedido atualizado }
+        '409': { description: Conflito de versao }
+        '422': { description: Transicao invalida }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }

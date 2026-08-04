@@ -53,6 +53,13 @@ export async function assertOperationalChargeOriginBelongsToAccount(
         select: { id: true },
       }),
     );
+  } else if (origin.type === "restaurante-pedido") {
+    exists = Boolean(
+      await executor.restaurantePedido.findFirst({
+        where: { id: origin.id, contaId },
+        select: { id: true },
+      }),
+    );
   }
 
   if (!exists) {

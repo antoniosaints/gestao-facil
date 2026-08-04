@@ -21,6 +21,7 @@
 - arena, agendamentos, pagamentos e comandas;
 - notificações push.
 - loja virtual: configuração por slug, clientes/sessões/tokens/endereços, pedidos e itens com snapshots, reservas, tentativas de checkout, eventos de webhook e idempotência.
+- restaurante: configuração por slug, itens/grupos, zonas de entrega, pedidos com snapshots e cobrança Mercado Pago vinculada; as migrations `20260804000000_restaurante_foundation` e `20260804010000_restaurante_zones_checkout` são aditivas.
 
 ## Regras
 - Alterações de schema exigem migration consistente.

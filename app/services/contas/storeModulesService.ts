@@ -76,6 +76,13 @@ const DEFAULT_MODULES = [
     preco: 0,
   },
   {
+    codigo: "restaurante-delivery",
+    nome: "Restaurante e Delivery",
+    descricao: "Cardapio online, salao, mesas, pedidos, cozinha e delivery proprio em uma operacao integrada.",
+    categoria: "Extensões",
+    preco: 49.9,
+  },
+  {
     codigo: "mercado-pago",
     nome: "Mercado Pago",
     descricao: "Integracao gratuita para configurar as credenciais operacionais do Mercado Pago da conta.",

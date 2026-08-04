@@ -45,6 +45,9 @@ const FRONTEND_SUBMENU_KEYS = [
   "reservas:lista",
   "reservas:recursos",
   "reservas:configuracoes",
+  "restaurante:cardapio",
+  "restaurante:pedidos",
+  "restaurante:configuracoes",
   "assinaturas:painel",
   "assinaturas:lista",
   "assinaturas:planos",
@@ -76,6 +79,24 @@ describe("menuVisibilityPolicy", () => {
     assert.deepEqual(
       normalizeVisibleMenuKeys(["dashboard", "metas", "configuracoes"]),
       ["dashboard", "metas", "configuracoes"]
+    );
+  });
+
+  it("keeps the restaurant menu selected after saving settings", () => {
+    assert.deepEqual(
+      normalizeVisibleMenuKeys([
+        "restaurante",
+        "restaurante:cardapio",
+        "restaurante:pedidos",
+        "restaurante:configuracoes",
+      ]),
+      [
+        "restaurante",
+        "restaurante:cardapio",
+        "restaurante:pedidos",
+        "restaurante:configuracoes",
+        "configuracoes",
+      ]
     );
   });
 

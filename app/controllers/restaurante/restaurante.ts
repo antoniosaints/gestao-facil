@@ -1,0 +1,686 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import type { Request, Response } from "express";
+import Decimal from "decimal.js";
+import { z } from "zod";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import { calcularFrete, calcularPrecoUnitario, type SelecaoPreco } from "../../services/restaurante/pricing";
+import { buildInitialRestaurantConfig } from "../../services/restaurante/initialConfig";
+import { validateRestauranteGrupo } from "../../services/restaurante/catalogPolicy";
+import { calculateZoneDeliveryFee, normalizeCep, selectDeliveryZone } from "../../services/restaurante/deliveryZone";
+import { createRestaurantOnlinePayment } from "../../services/restaurante/payment";
+import { prisma } from "../../utils/prisma";
+
+const configuracaoSchema = z.object({
+  slug: z.string().trim().min(3).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  nomePublico: z.string().trim().min(2).max(160),
+  ativo: z.boolean().default(false),
+  pedidosQrDireto: z.boolean().default(false),
+  modoFrete: z.enum(["FIXO", "ZONAS"]).default("FIXO"),
+  taxaFixa: z.coerce.number().min(0).default(0),
+  freteGratisAcima: z.coerce.number().positive().nullable().optional(),
+  taxaContingencia: z.coerce.number().min(0).nullable().optional(),
+  pedidoMinimo: z.coerce.number().min(0).default(0),
+  retiradaAtiva: z.boolean().default(true),
+  deliveryAtivo: z.boolean().default(true),
+  pagamentoOnlineAtivo: z.boolean().default(false),
+  pagamentoNaEntregaAtivo: z.boolean().default(true),
+  horariosJson: z.unknown().nullable().optional(),
+  version: z.coerce.number().int().positive().optional(),
+});
+
+const zonaEntregaSchema = z.object({
+  nome: z.string().trim().min(2).max(120),
+  cidade: z.string().trim().min(2).max(120).nullable().optional(),
+  bairros: z.array(z.string().trim().min(2).max(120)).max(100).default([]),
+  cepInicial: z.string().trim().nullable().optional(),
+  cepFinal: z.string().trim().nullable().optional(),
+  taxa: z.coerce.number().min(0).default(0),
+  pedidoMinimo: z.coerce.number().min(0).default(0),
+  freteGratisAcima: z.coerce.number().positive().nullable().optional(),
+  prioridade: z.coerce.number().int().default(0),
+  ativa: z.boolean().default(true),
+  version: z.coerce.number().int().positive().optional(),
+}).superRefine((data, context) => {
+  const start = data.cepInicial ? normalizeCep(data.cepInicial) : "";
+  const end = data.cepFinal ? normalizeCep(data.cepFinal) : "";
+  if (Boolean(start) !== Boolean(end) || (start && (start.length !== 8 || end.length !== 8))) {
+    context.addIssue({ code: "custom", message: "Informe CEP inicial e final com 8 digitos.", path: ["cepInicial"] });
+  } else if (start && start > end) {
+    context.addIssue({ code: "custom", message: "O CEP inicial nao pode ser maior que o final.", path: ["cepInicial"] });
+  }
+});
+
+const catalogoSchema = z.object({
+  produtoId: z.coerce.number().int().positive(),
+  nomePublico: z.string().trim().max(160).nullable().optional(),
+  descricao: z.string().trim().max(4000).nullable().optional(),
+  imagem: z.string().trim().max(4000).nullable().optional(),
+  disponivel: z.boolean().default(true),
+  regraPrecoSabores: z.enum(["MAIOR_PRECO", "MEDIA_PROPORCIONAL", "SOMA"]).default("MAIOR_PRECO"),
+  disponibilidadeJson: z.unknown().nullable().optional(),
+  ordem: z.coerce.number().int().default(0),
+  grupoIds: z.array(z.coerce.number().int().positive()).default([]),
+  version: z.coerce.number().int().positive().optional(),
+});
+
+const grupoOpcaoSchema = z.object({
+  nome: z.string().trim().min(2).max(120),
+  tipo: z.enum(["COMPLEMENTO", "SABOR"]),
+  minimo: z.coerce.number().int().min(0).default(0),
+  maximo: z.coerce.number().int().min(1).max(100).default(1),
+  ativo: z.boolean().default(true),
+  opcoes: z.array(z.object({
+    produtoId: z.coerce.number().int().positive().nullable().optional(),
+    nome: z.string().trim().min(1).max(120),
+    precoAdicional: z.coerce.number().min(0).default(0),
+    ativo: z.boolean().default(true),
+    ordem: z.coerce.number().int().default(0),
+  })).min(1).max(100),
+});
+
+const enderecoSchema = z.object({
+  cep: z.string().transform(normalizeCep).pipe(z.string().length(8)),
+  cidade: z.string().trim().min(2).max(120),
+  bairro: z.string().trim().min(2).max(120),
+  logradouro: z.string().trim().min(2).max(180),
+  numero: z.string().trim().min(1).max(30),
+  complemento: z.string().trim().max(120).nullable().optional(),
+  referencia: z.string().trim().max(180).nullable().optional(),
+  latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
+  longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
+});
+
+const checkoutItensSchema = z.array(z.object({
+  catalogoItemId: z.coerce.number().int().positive(),
+  quantidade: z.coerce.number().positive().max(999),
+  selecaoIds: z.array(z.coerce.number().int().positive()).default([]),
+  tamanho: z.string().trim().max(80).optional(),
+  observacao: z.string().trim().max(1000).optional(),
+})).min(1).max(100);
+
+const checkoutPreviewSchema = z.object({
+  origem: z.enum(["RETIRADA", "DELIVERY"]),
+  endereco: enderecoSchema.optional(),
+  itens: checkoutItensSchema,
+});
+
+const pedidoSchema = checkoutPreviewSchema.extend({
+  cliente: z.object({
+    nome: z.string().trim().min(2).max(160),
+    telefone: z.string().trim().min(8).max(32),
+    email: z.string().trim().email().max(190).nullable().optional(),
+  }),
+  observacao: z.string().trim().max(2000).optional(),
+  pagamento: z.enum(["NA_ENTREGA", "PIX", "CHECKOUT_PRO"]).default("NA_ENTREGA"),
+});
+
+const transitions: Record<string, string[]> = {
+  RECEBIDO: ["CONFIRMADO", "CANCELADO"],
+  CONFIRMADO: ["EM_PREPARO", "CANCELADO"],
+  EM_PREPARO: ["PRONTO", "CANCELADO"],
+  PRONTO: ["CONCLUIDO", "CANCELADO"],
+  CONCLUIDO: [],
+  CANCELADO: [],
+};
+
+function hash(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function requestId(req: Request) {
+  return String(req.headers["x-request-id"] || randomUUID());
+}
+
+function ok(req: Request, res: Response, data: unknown, status = 200, meta?: unknown) {
+  return res.status(status).json({ data, ...(meta ? { meta } : {}), requestId: requestId(req) });
+}
+
+function fail(req: Request, res: Response, status: number, code: string, message: string, details?: unknown) {
+  return res.status(status).json({ error: { code, message, ...(details ? { details } : {}), requestId: requestId(req) } });
+}
+
+function validationFailure(req: Request, res: Response, error: z.ZodError) {
+  return fail(req, res, 422, "validation_error", "Dados invalidos.", error.flatten());
+}
+
+class CheckoutError extends Error {
+  constructor(public code: string, message: string, public status = 422) {
+    super(message);
+  }
+}
+
+async function calculatePublicCheckout(
+  config: any,
+  input: z.infer<typeof checkoutPreviewSchema>,
+  enforceMinimum = false,
+) {
+  if (input.origem === "RETIRADA" && !config.retiradaAtiva) {
+    throw new CheckoutError("pickup_unavailable", "A retirada esta indisponivel.");
+  }
+  if (input.origem === "DELIVERY" && !config.deliveryAtivo) {
+    throw new CheckoutError("delivery_unavailable", "O delivery esta indisponivel.");
+  }
+  if (input.origem === "DELIVERY" && !input.endereco) {
+    throw new CheckoutError("address_required", "Informe o endereco para calcular a entrega.");
+  }
+
+  const ids = input.itens.map((item) => item.catalogoItemId);
+  const catalog = await prisma.restauranteCatalogoItem.findMany({
+    where: { contaId: config.contaId, id: { in: ids }, disponivel: true },
+    include: {
+      Produto: true,
+      grupos: {
+        where: { Grupo: { ativo: true } },
+        include: { Grupo: { include: { opcoes: { where: { ativo: true } } } } },
+      },
+    },
+  });
+  if (catalog.length !== new Set(ids).size) {
+    throw new CheckoutError("item_unavailable", "Um ou mais itens estao indisponiveis.");
+  }
+
+  const byId = new Map(catalog.map((item) => [item.id, item]));
+  const snapshots: any[] = [];
+  let subtotal = new Decimal(0);
+  for (const requested of input.itens) {
+    const item = byId.get(requested.catalogoItemId)!;
+    const selected = item.grupos.flatMap((link) =>
+      link.Grupo.opcoes
+        .filter((option) => requested.selecaoIds.includes(option.id))
+        .map((option) => ({ option, group: link.Grupo })),
+    );
+    for (const link of item.grupos) {
+      const count = selected.filter(({ group }) => group.id === link.Grupo.id).length;
+      if (count < link.Grupo.minimo || count > link.Grupo.maximo) {
+        throw new CheckoutError(
+          "invalid_selection_count",
+          `O grupo ${link.Grupo.nome} exige entre ${link.Grupo.minimo} e ${link.Grupo.maximo} escolhas.`,
+        );
+      }
+    }
+    if (selected.length !== new Set(requested.selecaoIds).size) {
+      throw new CheckoutError("invalid_selection", "Uma selecao nao pertence ao item informado.");
+    }
+    const selections: SelecaoPreco[] = selected.map(({ option, group }) => ({
+      tipo: group.tipo,
+      nome: option.nome,
+      precoAdicional: option.precoAdicional.toString(),
+    }));
+    const unit = calcularPrecoUnitario(item.Produto.preco.toString(), selections, item.regraPrecoSabores);
+    const line = unit.mul(requested.quantidade).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    subtotal = subtotal.plus(line);
+    snapshots.push({ requested, item, selections, unit, line });
+  }
+
+  let frete = new Decimal(0);
+  let zone: any = null;
+  if (input.origem === "DELIVERY") {
+    if (config.modoFrete === "ZONAS") {
+      const zones = await prisma.restauranteZonaEntrega.findMany({
+        where: { contaId: config.contaId, ativa: true },
+        orderBy: [{ prioridade: "desc" }, { id: "asc" }],
+      });
+      const selectedZone = selectDeliveryZone(
+        zones.map((item) => ({
+          id: item.id,
+          nome: item.nome,
+          cidade: item.cidade,
+          bairros: Array.isArray(item.bairrosJson) ? item.bairrosJson.filter((value): value is string => typeof value === "string") : [],
+          cepInicial: item.cepInicial,
+          cepFinal: item.cepFinal,
+          taxa: item.taxa.toString(),
+          pedidoMinimo: item.pedidoMinimo.toString(),
+          freteGratisAcima: item.freteGratisAcima?.toString(),
+          prioridade: item.prioridade,
+        })),
+        input.endereco!,
+      );
+      if (!selectedZone) {
+        if (config.taxaContingencia == null) {
+          throw new CheckoutError("delivery_area_unavailable", "O endereco informado esta fora da area de entrega.");
+        }
+        frete = calcularFrete({ subtotal, taxaFixa: config.taxaContingencia.toString(), freteGratisAcima: null });
+        zone = { tipo: "CONTINGENCIA", nome: "Taxa de contingencia", taxa: frete.toString(), pedidoMinimo: "0" };
+      } else {
+        frete = calculateZoneDeliveryFee(selectedZone, subtotal);
+        zone = {
+          id: selectedZone.id,
+          tipo: "ZONA",
+          nome: selectedZone.nome,
+          taxa: new Decimal(selectedZone.taxa).toFixed(2),
+          pedidoMinimo: new Decimal(selectedZone.pedidoMinimo).toFixed(2),
+          freteGratisAcima: selectedZone.freteGratisAcima == null ? null : new Decimal(selectedZone.freteGratisAcima).toFixed(2),
+        };
+      }
+    } else {
+      frete = calcularFrete({
+        subtotal,
+        taxaFixa: config.taxaFixa.toString(),
+        freteGratisAcima: config.freteGratisAcima?.toString(),
+      });
+      zone = { tipo: "FIXO", nome: "Entrega", taxa: frete.toString(), pedidoMinimo: "0" };
+    }
+  }
+
+  const zoneMinimum = zone?.pedidoMinimo ? new Decimal(zone.pedidoMinimo) : new Decimal(0);
+  const minimumOrder = Decimal.max(new Decimal(config.pedidoMinimo), zoneMinimum);
+  const minimumReached = subtotal.greaterThanOrEqualTo(minimumOrder);
+  if (enforceMinimum && !minimumReached) {
+    throw new CheckoutError("minimum_order_not_reached", `Pedido minimo de R$ ${minimumOrder.toFixed(2)}.`);
+  }
+
+  return {
+    subtotal: subtotal.toFixed(2),
+    frete: frete.toFixed(2),
+    total: subtotal.plus(frete).toFixed(2),
+    minimumOrder: minimumOrder.toFixed(2),
+    minimumReached,
+    zone,
+    snapshots,
+  };
+}
+
+async function publicConfig(slug: string) {
+  const config = await prisma.restauranteConfig.findUnique({ where: { slug } });
+  if (!config || !config.ativo || !(await contaHasActiveModule(config.contaId, "restaurante-delivery"))) return null;
+  return config;
+}
+
+export async function getConfig(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const current = await prisma.restauranteConfig.findUnique({ where: { contaId } });
+  if (current) return ok(req, res, current);
+
+  const conta = await prisma.contas.findUniqueOrThrow({
+    where: { id: contaId },
+    select: { id: true, nome: true, nomeFantasia: true },
+  });
+  return ok(req, res, buildInitialRestaurantConfig(conta));
+}
+
+export async function saveConfig(req: Request, res: Response) {
+  const parsed = configuracaoSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const current = await prisma.restauranteConfig.findUnique({ where: { contaId } });
+  if (current && parsed.data.version && current.version !== parsed.data.version) {
+    return fail(req, res, 409, "version_conflict", "A configuracao foi alterada em outra sessao.");
+  }
+  const { version: _version, ...data } = parsed.data;
+  const saved = current
+    ? await prisma.restauranteConfig.update({ where: { contaId }, data: { ...data, horariosJson: data.horariosJson as any, version: { increment: 1 } } })
+    : await prisma.restauranteConfig.create({ data: { ...data, horariosJson: data.horariosJson as any, contaId } });
+  return ok(req, res, saved, current ? 200 : 201);
+}
+
+export async function listCatalog(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+  const where = { contaId };
+  const [items, total] = await Promise.all([
+    prisma.restauranteCatalogoItem.findMany({
+      where, skip: (page - 1) * limit, take: limit, orderBy: [{ ordem: "asc" }, { id: "desc" }],
+      include: { Produto: { select: { nome: true, preco: true, estoque: true, imagem: true } }, grupos: { include: { Grupo: true } } },
+    }),
+    prisma.restauranteCatalogoItem.count({ where }),
+  ]);
+  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit) });
+}
+
+export async function listCatalogProducts(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const products = await prisma.produto.findMany({
+    where: {
+      contaId,
+      status: "ATIVO",
+      ...(search ? { nome: { contains: search } } : {}),
+    },
+    take: 100,
+    orderBy: [{ nome: "asc" }, { nomeVariante: "asc" }],
+    select: { id: true, nome: true, nomeVariante: true, preco: true, estoque: true, imagem: true },
+  });
+  return ok(req, res, products);
+}
+
+export async function listOptionGroups(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const groups = await prisma.restauranteGrupoOpcao.findMany({
+    where: { contaId },
+    orderBy: [{ ativo: "desc" }, { tipo: "asc" }, { nome: "asc" }],
+    include: { opcoes: { orderBy: [{ ordem: "asc" }, { id: "asc" }] }, _count: { select: { itens: true } } },
+  });
+  return ok(req, res, groups);
+}
+
+export async function saveOptionGroup(req: Request, res: Response) {
+  const parsed = grupoOpcaoSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const policyErrors = validateRestauranteGrupo(parsed.data);
+  if (policyErrors.length) return fail(req, res, 422, "invalid_option_group", "Revise as regras do grupo.", policyErrors);
+
+  const { contaId } = getCustomRequest(req).customData;
+  const id = Number(req.params.id || 0);
+  const existing = id
+    ? await prisma.restauranteGrupoOpcao.findFirst({ where: { id, contaId }, select: { id: true } })
+    : null;
+  if (id && !existing) return fail(req, res, 404, "option_group_not_found", "Grupo nao encontrado.");
+
+  const productIds = parsed.data.opcoes.flatMap((option) => option.produtoId ? [option.produtoId] : []);
+  if (productIds.length) {
+    const products = await prisma.produto.count({
+      where: { contaId, status: "ATIVO", id: { in: [...new Set(productIds)] } },
+    });
+    if (products !== new Set(productIds).size) {
+      return fail(req, res, 422, "invalid_option_products", "Um ou mais produtos das opcoes nao pertencem a esta conta.");
+    }
+  }
+
+  const { opcoes, ...groupData } = parsed.data;
+  const saved = await prisma.$transaction(async (tx) => {
+    const group = existing
+      ? await tx.restauranteGrupoOpcao.update({ where: { id: existing.id }, data: groupData })
+      : await tx.restauranteGrupoOpcao.create({ data: { ...groupData, contaId } });
+    if (existing) await tx.restauranteOpcao.deleteMany({ where: { grupoId: group.id } });
+    await tx.restauranteOpcao.createMany({
+      data: opcoes.map((option) => ({
+        grupoId: group.id,
+        produtoId: option.produtoId,
+        nome: option.nome,
+        precoAdicional: option.precoAdicional,
+        ativo: option.ativo,
+        ordem: option.ordem,
+      })),
+    });
+    return tx.restauranteGrupoOpcao.findUniqueOrThrow({
+      where: { id: group.id },
+      include: { opcoes: { orderBy: [{ ordem: "asc" }, { id: "asc" }] }, _count: { select: { itens: true } } },
+    });
+  });
+  return ok(req, res, saved, existing ? 200 : 201);
+}
+
+export async function saveCatalogItem(req: Request, res: Response) {
+  const parsed = catalogoSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const produto = await prisma.produto.findFirst({ where: { id: parsed.data.produtoId, contaId, status: "ATIVO" } });
+  if (!produto) return fail(req, res, 404, "produto_not_found", "Produto nao encontrado nesta conta.");
+  const groups = parsed.data.grupoIds.length
+    ? await prisma.restauranteGrupoOpcao.findMany({ where: { contaId, id: { in: parsed.data.grupoIds } }, select: { id: true } })
+    : [];
+  if (groups.length !== new Set(parsed.data.grupoIds).size) return fail(req, res, 422, "invalid_groups", "Um ou mais grupos nao pertencem a esta conta.");
+  const id = Number(req.params.id || 0);
+  const existing = id ? await prisma.restauranteCatalogoItem.findFirst({ where: { id, contaId } }) : null;
+  if (id && !existing) return fail(req, res, 404, "catalog_item_not_found", "Item de cardapio nao encontrado.");
+  if (existing && parsed.data.version && existing.version !== parsed.data.version) {
+    return fail(req, res, 409, "version_conflict", "O item foi alterado em outra sessao.");
+  }
+  const { grupoIds, version: _version, ...data } = parsed.data;
+  const item = await prisma.$transaction(async (tx) => {
+    const saved = existing
+      ? await tx.restauranteCatalogoItem.update({ where: { id: existing.id }, data: { ...data, disponibilidadeJson: data.disponibilidadeJson as any, version: { increment: 1 } } })
+      : await tx.restauranteCatalogoItem.create({ data: { ...data, disponibilidadeJson: data.disponibilidadeJson as any, contaId } });
+    await tx.restauranteCatalogoItemGrupo.deleteMany({ where: { itemId: saved.id } });
+    if (grupoIds.length) await tx.restauranteCatalogoItemGrupo.createMany({ data: grupoIds.map((grupoId, ordem) => ({ itemId: saved.id, grupoId, ordem })) });
+    return saved;
+  });
+  return ok(req, res, item, existing ? 200 : 201);
+}
+
+export async function listDeliveryZones(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const zones = await prisma.restauranteZonaEntrega.findMany({
+    where: { contaId },
+    orderBy: [{ prioridade: "desc" }, { nome: "asc" }],
+  });
+  return ok(req, res, zones.map((zone) => ({
+    ...zone,
+    bairros: Array.isArray(zone.bairrosJson) ? zone.bairrosJson : [],
+  })));
+}
+
+export async function saveDeliveryZone(req: Request, res: Response) {
+  const parsed = zonaEntregaSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const id = Number(req.params.id || 0);
+  const current = id
+    ? await prisma.restauranteZonaEntrega.findFirst({ where: { id, contaId } })
+    : null;
+  if (id && !current) return fail(req, res, 404, "delivery_zone_not_found", "Zona de entrega nao encontrada.");
+  if (current && parsed.data.version && current.version !== parsed.data.version) {
+    return fail(req, res, 409, "version_conflict", "A zona foi alterada em outra sessao.");
+  }
+  const { bairros, version: _version, cepInicial, cepFinal, cidade, ...data } = parsed.data;
+  const normalized = {
+    ...data,
+    cidade: cidade?.trim() || null,
+    bairrosJson: [...new Set(bairros.map((item) => item.trim()).filter(Boolean))],
+    cepInicial: cepInicial ? normalizeCep(cepInicial) : null,
+    cepFinal: cepFinal ? normalizeCep(cepFinal) : null,
+  };
+  try {
+    const saved = current
+      ? await prisma.restauranteZonaEntrega.update({
+          where: { id: current.id },
+          data: { ...normalized, version: { increment: 1 } },
+        })
+      : await prisma.restauranteZonaEntrega.create({ data: { ...normalized, contaId } });
+    return ok(req, res, { ...saved, bairros: saved.bairrosJson }, current ? 200 : 201);
+  } catch (error: any) {
+    if (error?.code === "P2002") return fail(req, res, 409, "delivery_zone_name_conflict", "Ja existe uma zona com este nome.");
+    throw error;
+  }
+}
+
+export async function listOrders(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const where = { contaId, ...(status ? { status: status as any } : {}) };
+  const [items, total] = await Promise.all([
+    prisma.restaurantePedido.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: "desc" }, include: { itens: true, Mesa: true } }),
+    prisma.restaurantePedido.count({ where }),
+  ]);
+  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit) });
+}
+
+export async function transitionOrder(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const nextStatus = String(req.body?.status || "");
+  const version = Number(req.body?.version);
+  const order = await prisma.restaurantePedido.findFirst({ where: { id: Number(req.params.id), contaId } });
+  if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
+  if (!Number.isInteger(version) || version !== order.version) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessao.");
+  if (!(transitions[order.status] || []).includes(nextStatus)) return fail(req, res, 422, "invalid_transition", `Transicao de ${order.status} para ${nextStatus} nao permitida.`);
+  const data: any = { status: nextStatus, version: { increment: 1 } };
+  if (nextStatus === "EM_PREPARO") data.producaoStatus = "PREPARANDO";
+  if (nextStatus === "PRONTO") data.producaoStatus = "PRONTO";
+  if (nextStatus === "CONCLUIDO") data.concluidoAt = new Date();
+  if (nextStatus === "CANCELADO") data.canceladoAt = new Date();
+  const updated = await prisma.restaurantePedido.updateMany({ where: { id: order.id, contaId, version }, data });
+  if (!updated.count) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessao.");
+  return ok(req, res, await prisma.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true } }));
+}
+
+export async function publicMenu(req: Request, res: Response) {
+  const config = await publicConfig(req.params.slug);
+  if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
+  const items = await prisma.restauranteCatalogoItem.findMany({
+    where: { contaId: config.contaId, disponivel: true }, orderBy: [{ ordem: "asc" }, { id: "asc" }],
+    include: {
+      Produto: { select: { nome: true, preco: true, imagem: true, estoque: true, controlaEstoque: true } },
+      grupos: {
+        where: { Grupo: { ativo: true } },
+        orderBy: { ordem: "asc" },
+        include: { Grupo: { include: { opcoes: { where: { ativo: true }, orderBy: { ordem: "asc" } } } } },
+      },
+    },
+  });
+  return ok(req, res, {
+    restaurante: {
+      nome: config.nomePublico,
+      slug: config.slug,
+      pedidoMinimo: config.pedidoMinimo,
+      retiradaAtiva: config.retiradaAtiva,
+      deliveryAtivo: config.deliveryAtivo,
+      pagamentoOnlineAtivo: config.pagamentoOnlineAtivo,
+      pagamentoNaEntregaAtivo: config.pagamentoNaEntregaAtivo,
+      modoFrete: config.modoFrete,
+    },
+    itens: items,
+  });
+}
+
+export async function previewPublicCheckout(req: Request, res: Response) {
+  const parsed = checkoutPreviewSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const config = await publicConfig(req.params.slug);
+  if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
+  try {
+    const quote = await calculatePublicCheckout(config, parsed.data);
+    const { snapshots: _snapshots, ...data } = quote;
+    return ok(req, res, data);
+  } catch (error) {
+    if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
+    throw error;
+  }
+}
+
+export async function createPublicOrder(req: Request, res: Response) {
+  const key = req.header("Idempotency-Key")?.trim();
+  if (!key || key.length < 8 || key.length > 200) return fail(req, res, 400, "idempotency_key_required", "Envie um Idempotency-Key valido.");
+  const parsed = pedidoSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const config = await publicConfig(req.params.slug);
+  if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
+  if (parsed.data.pagamento === "NA_ENTREGA" && !config.pagamentoNaEntregaAtivo) {
+    return fail(req, res, 422, "payment_method_unavailable", "O pagamento na retirada ou entrega esta indisponivel.");
+  }
+  if (parsed.data.pagamento !== "NA_ENTREGA" && !config.pagamentoOnlineAtivo) {
+    return fail(req, res, 422, "payment_method_unavailable", "O pagamento online esta indisponivel.");
+  }
+
+  let quote: Awaited<ReturnType<typeof calculatePublicCheckout>>;
+  try {
+    quote = await calculatePublicCheckout(config, parsed.data, true);
+  } catch (error) {
+    if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
+    throw error;
+  }
+
+  const keyHash = hash(key);
+  const bodyHash = hash(JSON.stringify(parsed.data));
+  const finalizePayment = async (payload: any) => {
+    if (parsed.data.pagamento === "NA_ENTREGA" || payload.paymentAction) return payload;
+    try {
+      const paymentAction = await createRestaurantOnlinePayment({
+        order: payload.pedido,
+        method: parsed.data.pagamento,
+        slug: config.slug,
+        trackingToken: payload.trackingToken,
+        idempotencyKey: key,
+      });
+      const completed = { ...payload, paymentAction };
+      await prisma.restauranteIdempotencia.update({
+        where: { contaId_chaveHash: { contaId: config.contaId, chaveHash: keyHash } },
+        data: { respostaJson: completed as any },
+      });
+      return completed;
+    } catch (error) {
+      await prisma.restaurantePedido.updateMany({
+        where: { id: payload.pedido.id, contaId: config.contaId, pagamentoStatus: "PENDENTE" },
+        data: { pagamentoStatus: "EM_REVISAO", version: { increment: 1 } },
+      });
+      throw error;
+    }
+  };
+
+  const previous = await prisma.restauranteIdempotencia.findUnique({ where: { contaId_chaveHash: { contaId: config.contaId, chaveHash: keyHash } } });
+  if (previous) {
+    if (previous.requestHash !== bodyHash) return fail(req, res, 409, "idempotency_conflict", "Esta chave ja foi usada com outro conteudo.");
+    if (previous.respostaJson) {
+      try {
+        return ok(req, res, await finalizePayment(previous.respostaJson));
+      } catch {
+        return fail(req, res, 502, "payment_gateway_unavailable", "O pedido foi salvo, mas nao foi possivel iniciar o pagamento. Tente novamente.");
+      }
+    }
+  }
+
+  const trackingToken = randomBytes(32).toString("base64url");
+  let response: any;
+  try {
+    response = await prisma.$transaction(async (tx) => {
+      const order = await tx.restaurantePedido.create({
+        data: {
+          contaId: config.contaId,
+          codigo: `R${Date.now().toString(36).slice(-7).toUpperCase()}${randomBytes(2).toString("hex").toUpperCase()}`,
+          origem: parsed.data.origem,
+          pagamentoStatus: parsed.data.pagamento === "NA_ENTREGA" ? "NA_ENTREGA" : "PENDENTE",
+          pagamentoMetodoSnapshot: parsed.data.pagamento,
+          entregaStatus: parsed.data.origem === "DELIVERY" ? "AGUARDANDO_DESPACHO" : "NAO_APLICAVEL",
+          clienteNomeSnapshot: parsed.data.cliente.nome,
+          clienteTelefone: parsed.data.cliente.telefone,
+          clienteEmail: parsed.data.cliente.email,
+          enderecoSnapshotJson: parsed.data.endereco as any,
+          zonaEntregaSnapshotJson: quote.zone as any,
+          subtotal: quote.subtotal,
+          frete: quote.frete,
+          total: quote.total,
+          observacao: parsed.data.observacao,
+          trackingTokenHash: hash(trackingToken),
+          itens: {
+            create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({
+              catalogoItemId: item.id,
+              produtoId: item.produtoId,
+              quantidade: requested.quantidade,
+              nomeSnapshot: item.nomePublico || item.Produto.nome,
+              precoUnitarioSnapshot: unit,
+              subtotalSnapshot: line,
+              tamanhoSnapshot: requested.tamanho,
+              selecoesSnapshotJson: selections as any,
+              regraPrecoSnapshot: item.regraPrecoSabores,
+              observacao: requested.observacao,
+            })),
+          },
+        },
+        include: { itens: true },
+      });
+      const payload = { pedido: order, trackingToken, paymentAction: null };
+      await tx.restauranteIdempotencia.create({
+        data: {
+          contaId: config.contaId,
+          chaveHash: keyHash,
+          requestHash: bodyHash,
+          pedidoId: order.id,
+          respostaJson: payload as any,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+      return payload;
+    });
+  } catch (error: any) {
+    if (error?.code !== "P2002") throw error;
+    const winner = await prisma.restauranteIdempotencia.findUnique({ where: { contaId_chaveHash: { contaId: config.contaId, chaveHash: keyHash } } });
+    if (!winner || winner.requestHash !== bodyHash || !winner.respostaJson) throw error;
+    response = winner.respostaJson;
+  }
+  try {
+    response = await finalizePayment(response);
+  } catch {
+    return fail(req, res, 502, "payment_gateway_unavailable", "O pedido foi salvo, mas nao foi possivel iniciar o pagamento. Tente novamente.");
+  }
+  return ok(req, res, response, 201);
+}
+
+export async function publicTracking(req: Request, res: Response) {
+  const token = String(req.params.token || "");
+  const order = await prisma.restaurantePedido.findUnique({ where: { trackingTokenHash: hash(token) }, select: { codigo: true, status: true, producaoStatus: true, pagamentoStatus: true, entregaStatus: true, createdAt: true, updatedAt: true, concluidoAt: true, canceladoAt: true } });
+  if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
+  return ok(req, res, order);
+}

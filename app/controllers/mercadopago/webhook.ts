@@ -33,6 +33,7 @@ import {
 } from "../../services/financeiro/mercadoPagoChargeReference";
 import { assertOperationalChargeOriginBelongsToAccount } from "../../services/financeiro/operationalChargeOriginService";
 import { applyReservationPaymentEvent } from "../../services/reservas/reservaService";
+import { applyRestaurantPaymentEvent } from "../../services/restaurante/payment";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -297,6 +298,18 @@ export async function webhookMercadoPagoCobrancas(
         payload: { paymentId, status: payment.status },
       });
       sendUpdateTable(cobranca.contaId, { reason: "loja-pagamento", pedidoId: cobranca.pedidoLojaId });
+    }
+
+    if (cobranca.restaurantePedidoId) {
+      await applyRestaurantPaymentEvent({
+        contaId: cobranca.contaId,
+        orderId: cobranca.restaurantePedidoId,
+        status: statusNovo,
+      });
+      sendUpdateTable(cobranca.contaId, {
+        reason: "restaurante-pagamento",
+        pedidoId: cobranca.restaurantePedidoId,
+      });
     }
 
     if (statusNovo === "EFETIVADO") {

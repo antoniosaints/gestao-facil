@@ -293,6 +293,13 @@ model Contas {
   ComboSaidas                     ComboSaida[]
   ComboSaidaComponentes           ComboSaidaComponente[]
   ComboReservasLoja               ComboReservaEstoque[]
+  RestauranteConfig               RestauranteConfig?
+  RestauranteCatalogoItens        RestauranteCatalogoItem[]
+  RestauranteGruposOpcao          RestauranteGrupoOpcao[]
+  RestauranteMesas                RestauranteMesa[]
+  RestauranteZonasEntrega         RestauranteZonaEntrega[]
+  RestaurantePedidos              RestaurantePedido[]
+  RestauranteIdempotencias        RestauranteIdempotencia[]
 }
 
 model ModulosAdicionais {
@@ -1135,67 +1142,339 @@ model MovimentacoesEstoque {
 }
 
 model Produto {
-  id                    Int                    @id @default(autoincrement())
-  contaId               Int
-  Contas                Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  produtoBaseId         Int?
-  ProdutoBase           ProdutoBase?           @relation(fields: [produtoBaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  Uid                   String                 @default("PRO_000")
-  status                Status                 @default(ATIVO)
-  categoria             String?
-  nome                  String
-  nomeVariante          String                 @default("Padrão")
-  ehPadrao              Boolean                @default(false)
+  id                       Int                       @id @default(autoincrement())
+  contaId                  Int
+  Contas                   Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  produtoBaseId            Int?
+  ProdutoBase              ProdutoBase?              @relation(fields: [produtoBaseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Uid                      String                    @default("PRO_000")
+  status                   Status                    @default(ATIVO)
+  categoria                String?
+  nome                     String
+  nomeVariante             String                    @default("Padrão")
+  ehPadrao                 Boolean                   @default(false)
   // Texto livre onde o usuário descreve a variante; `@db.Text` porque o VARCHAR(191) padrão
   // do MySQL não comporta uma descrição de verdade.
-  descricao             String?                @db.Text
-  preco                 Decimal                @db.Decimal(10, 2)
+  descricao                String?                   @db.Text
+  preco                    Decimal                   @db.Decimal(10, 2)
   // Preço promocional (opcional). Quando definido e menor que `preco`, a variante entra na
   // seção "Promoções" da loja e é vendida por este valor. `null` = sem promoção.
-  precoPromocional      Decimal?               @db.Decimal(10, 2)
-  precoCompra           Decimal?               @db.Decimal(10, 2)
-  entradas              Boolean?               @default(true)
-  saidas                Boolean?               @default(true)
-  unidade               String?
-  estoque               Int
-  minimo                Int
-  codigo                String?
-  ncm                   String?
-  cest                  String?
-  cfop                  String?
-  origem                Int?
-  aliquotaIcms          Decimal?               @db.Decimal(5, 2)
-  aliquotaIpi           Decimal?               @db.Decimal(5, 2)
-  aliquotaPis           Decimal?               @db.Decimal(5, 2)
-  aliquotaCofins        Decimal?               @db.Decimal(5, 2)
-  codigoProduto         String?
-  issAliquota           Decimal?               @db.Decimal(5, 2)
-  controlaEstoque       Boolean?               @default(false)
-  producaoLocal         Boolean?               @default(false)
-  mostrarNoPdv          Boolean?               @default(true)
-  materiaPrima          Boolean?               @default(false)
-  custoMedioProducao    Decimal?               @db.Decimal(10, 2)
+  precoPromocional         Decimal?                  @db.Decimal(10, 2)
+  precoCompra              Decimal?                  @db.Decimal(10, 2)
+  entradas                 Boolean?                  @default(true)
+  saidas                   Boolean?                  @default(true)
+  unidade                  String?
+  estoque                  Int
+  minimo                   Int
+  codigo                   String?
+  ncm                      String?
+  cest                     String?
+  cfop                     String?
+  origem                   Int?
+  aliquotaIcms             Decimal?                  @db.Decimal(5, 2)
+  aliquotaIpi              Decimal?                  @db.Decimal(5, 2)
+  aliquotaPis              Decimal?                  @db.Decimal(5, 2)
+  aliquotaCofins           Decimal?                  @db.Decimal(5, 2)
+  codigoProduto            String?
+  issAliquota              Decimal?                  @db.Decimal(5, 2)
+  controlaEstoque          Boolean?                  @default(false)
+  producaoLocal            Boolean?                  @default(false)
+  mostrarNoPdv             Boolean?                  @default(true)
+  materiaPrima             Boolean?                  @default(false)
+  custoMedioProducao       Decimal?                  @db.Decimal(10, 2)
   // Imagem da variante (uma por variante). Guarda a referência do storage (URL pública no R2 ou a
   // chave local), no mesmo padrão de `Contas.profile`. Ao excluir a variante a imagem é apagada.
-  imagem                String?                @db.Text
+  imagem                   String?                   @db.Text
   // Controla se a variante aparece no catálogo/loja online pública. Default: aparece.
-  mostrarNoCatalogo     Boolean                @default(true)
-  ItensVendas           ItensVendas[]
-  MovimentacoesEstoque  MovimentacoesEstoque[]
-  ItensOrdensServico    ItensOrdensServico[]
-  ComandaItens          ComandaItem[]
-  assinaturaItens       AssinaturaItem[]
-  planoAssinaturaItens  PlanoAssinaturaItem[]
-  assinaturaComodatos   AssinaturaComodato[]
-  LojaPedidoItens       LojaPedidoItem[]
-  LojaReservas          LojaReservaEstoque[]
-  ComboComponentes      ComboComponente[]
-  ComboSaidaComponentes ComboSaidaComponente[]
-  ComboReservasLoja     ComboReservaEstoque[]
+  mostrarNoCatalogo        Boolean                   @default(true)
+  ItensVendas              ItensVendas[]
+  MovimentacoesEstoque     MovimentacoesEstoque[]
+  ItensOrdensServico       ItensOrdensServico[]
+  ComandaItens             ComandaItem[]
+  assinaturaItens          AssinaturaItem[]
+  planoAssinaturaItens     PlanoAssinaturaItem[]
+  assinaturaComodatos      AssinaturaComodato[]
+  LojaPedidoItens          LojaPedidoItem[]
+  LojaReservas             LojaReservaEstoque[]
+  ComboComponentes         ComboComponente[]
+  ComboSaidaComponentes    ComboSaidaComponente[]
+  ComboReservasLoja        ComboReservaEstoque[]
+  RestauranteCatalogoItens RestauranteCatalogoItem[]
 
   @@unique([id, contaId])
   @@index([produtoBaseId])
   @@index([contaId, status])
+}
+
+enum RestauranteModoFrete {
+  FIXO
+  ZONAS
+}
+
+enum RestauranteRegraPrecoSabores {
+  MAIOR_PRECO
+  MEDIA_PROPORCIONAL
+  SOMA
+}
+
+enum RestauranteMesaStatus {
+  LIVRE
+  OCUPADA
+  AGUARDANDO_CONTA
+  LIMPEZA
+}
+
+enum RestaurantePedidoOrigem {
+  BALCAO
+  MESA
+  QR_MESA
+  CARDAPIO
+  RETIRADA
+  DELIVERY
+}
+
+enum RestaurantePedidoStatus {
+  RECEBIDO
+  CONFIRMADO
+  EM_PREPARO
+  PRONTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum RestauranteProducaoStatus {
+  PENDENTE
+  PREPARANDO
+  PRONTO
+  ENTREGUE
+}
+
+enum RestaurantePagamentoStatus {
+  PENDENTE
+  PAGO
+  NA_ENTREGA
+  FALHOU
+  ESTORNADO
+  EM_REVISAO
+}
+
+enum RestauranteEntregaStatus {
+  NAO_APLICAVEL
+  AGUARDANDO_DESPACHO
+  OFERTADA
+  ATRIBUIDA
+  RETIRADA
+  EM_ROTA
+  ENTREGUE
+  FALHOU
+}
+
+enum RestauranteTipoGrupoOpcao {
+  COMPLEMENTO
+  SABOR
+}
+
+/// Configuracao independente do Restaurante. A remocao do app nunca remove esta linha.
+model RestauranteConfig {
+  id               Int                  @id @default(autoincrement())
+  contaId          Int                  @unique
+  Conta            Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  slug             String               @unique @db.VarChar(120)
+  nomePublico      String               @db.VarChar(160)
+  ativo            Boolean              @default(false)
+  pedidosQrDireto  Boolean              @default(false)
+  modoFrete        RestauranteModoFrete @default(FIXO)
+  taxaFixa         Decimal              @default(0) @db.Decimal(10, 2)
+  freteGratisAcima Decimal?             @db.Decimal(10, 2)
+  taxaContingencia Decimal?             @db.Decimal(10, 2)
+  pedidoMinimo     Decimal              @default(0) @db.Decimal(10, 2)
+  retiradaAtiva    Boolean              @default(true)
+  deliveryAtivo    Boolean              @default(true)
+  pagamentoOnlineAtivo Boolean          @default(false)
+  pagamentoNaEntregaAtivo Boolean       @default(true)
+  horariosJson     Json?
+  version          Int                  @default(1)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model RestauranteZonaEntrega {
+  id                 Int      @id @default(autoincrement())
+  contaId            Int
+  Conta              Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome               String   @db.VarChar(120)
+  cidade             String?  @db.VarChar(120)
+  bairrosJson        Json?
+  cepInicial         String?  @db.VarChar(8)
+  cepFinal           String?  @db.VarChar(8)
+  taxa               Decimal  @default(0) @db.Decimal(10, 2)
+  pedidoMinimo       Decimal  @default(0) @db.Decimal(10, 2)
+  freteGratisAcima   Decimal? @db.Decimal(10, 2)
+  prioridade         Int      @default(0)
+  ativa              Boolean  @default(true)
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([contaId, nome])
+  @@index([contaId, ativa, prioridade])
+}
+
+model RestauranteCatalogoItem {
+  id                  Int                            @id @default(autoincrement())
+  contaId             Int
+  Conta               Contas                         @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  produtoId           Int
+  Produto             Produto                        @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  nomePublico         String?                        @db.VarChar(160)
+  descricao           String?                        @db.Text
+  imagem              String?                        @db.Text
+  disponivel          Boolean                        @default(true)
+  regraPrecoSabores   RestauranteRegraPrecoSabores   @default(MAIOR_PRECO)
+  disponibilidadeJson Json?
+  ordem               Int                            @default(0)
+  version             Int                            @default(1)
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
+  grupos              RestauranteCatalogoItemGrupo[]
+
+  @@unique([contaId, produtoId])
+  @@index([contaId, disponivel, ordem])
+}
+
+model RestauranteGrupoOpcao {
+  id        Int                            @id @default(autoincrement())
+  contaId   Int
+  Conta     Contas                         @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome      String                         @db.VarChar(120)
+  tipo      RestauranteTipoGrupoOpcao
+  minimo    Int                            @default(0)
+  maximo    Int                            @default(1)
+  ativo     Boolean                        @default(true)
+  createdAt DateTime                       @default(now())
+  updatedAt DateTime                       @updatedAt
+  opcoes    RestauranteOpcao[]
+  itens     RestauranteCatalogoItemGrupo[]
+
+  @@index([contaId, tipo, ativo])
+}
+
+model RestauranteOpcao {
+  id             Int                   @id @default(autoincrement())
+  grupoId        Int
+  Grupo          RestauranteGrupoOpcao @relation(fields: [grupoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  produtoId      Int?
+  nome           String                @db.VarChar(120)
+  precoAdicional Decimal               @default(0) @db.Decimal(10, 2)
+  ativo          Boolean               @default(true)
+  ordem          Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([grupoId, ativo, ordem])
+}
+
+model RestauranteCatalogoItemGrupo {
+  itemId  Int
+  grupoId Int
+  Item    RestauranteCatalogoItem @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Grupo   RestauranteGrupoOpcao   @relation(fields: [grupoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ordem   Int                     @default(0)
+
+  @@id([itemId, grupoId])
+}
+
+model RestauranteMesa {
+  id            Int                   @id @default(autoincrement())
+  contaId       Int
+  Conta         Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome          String                @db.VarChar(80)
+  status        RestauranteMesaStatus @default(LIVRE)
+  qrTokenHash   String?               @unique @db.VarChar(64)
+  qrTokenPrefix String?               @db.VarChar(12)
+  ativa         Boolean               @default(true)
+  version       Int                   @default(1)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  pedidos       RestaurantePedido[]
+
+  @@unique([contaId, nome])
+  @@index([contaId, status])
+}
+
+model RestaurantePedido {
+  id                   Int                        @id @default(autoincrement())
+  contaId              Int
+  Conta                Contas                     @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  codigo               String                     @db.VarChar(20)
+  origem               RestaurantePedidoOrigem
+  status               RestaurantePedidoStatus    @default(RECEBIDO)
+  producaoStatus       RestauranteProducaoStatus  @default(PENDENTE)
+  pagamentoStatus      RestaurantePagamentoStatus @default(PENDENTE)
+  entregaStatus        RestauranteEntregaStatus   @default(NAO_APLICAVEL)
+  mesaId               Int?
+  Mesa                 RestauranteMesa?           @relation(fields: [mesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  comandaOperacaoId    Int?
+  clienteId            Int?
+  clienteNomeSnapshot  String?                    @db.VarChar(160)
+  clienteTelefone      String?                    @db.VarChar(32)
+  clienteEmail         String?                    @db.VarChar(190)
+  enderecoSnapshotJson Json?
+  zonaEntregaSnapshotJson Json?
+  pagamentoMetodoSnapshot String?                 @db.VarChar(30)
+  subtotal             Decimal                    @db.Decimal(10, 2)
+  frete                Decimal                    @default(0) @db.Decimal(10, 2)
+  desconto             Decimal                    @default(0) @db.Decimal(10, 2)
+  total                Decimal                    @db.Decimal(10, 2)
+  observacao           String?                    @db.Text
+  trackingTokenHash    String                     @unique @db.VarChar(64)
+  version              Int                        @default(1)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  concluidoAt          DateTime?
+  canceladoAt          DateTime?
+  itens                RestaurantePedidoItem[]
+  Cobrancas            CobrancasFinanceiras[]
+
+  @@unique([contaId, codigo])
+  @@index([contaId, status, createdAt])
+  @@index([contaId, producaoStatus, createdAt])
+}
+
+model RestaurantePedidoItem {
+  id                    Int                           @id @default(autoincrement())
+  pedidoId              Int
+  Pedido                RestaurantePedido             @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  catalogoItemId        Int?
+  produtoId             Int
+  quantidade            Decimal                       @db.Decimal(10, 3)
+  nomeSnapshot          String                        @db.VarChar(160)
+  precoUnitarioSnapshot Decimal                       @db.Decimal(10, 2)
+  subtotalSnapshot      Decimal                       @db.Decimal(10, 2)
+  tamanhoSnapshot       String?                       @db.VarChar(80)
+  selecoesSnapshotJson  Json?
+  regraPrecoSnapshot    RestauranteRegraPrecoSabores?
+  observacao            String?                       @db.Text
+  estoqueDebitado       Boolean                       @default(false)
+  quantidadeDebitada    Decimal                       @default(0) @db.Decimal(10, 3)
+  createdAt             DateTime                      @default(now())
+
+  @@index([pedidoId])
+}
+
+model RestauranteIdempotencia {
+  id           Int      @id @default(autoincrement())
+  contaId      Int
+  Conta        Contas   @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chaveHash    String   @db.VarChar(64)
+  requestHash  String   @db.VarChar(64)
+  pedidoId     Int?
+  respostaJson Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([contaId, chaveHash])
+  @@index([expiresAt])
 }
 
 model ProdutoCategoria {
@@ -1917,10 +2196,13 @@ model CobrancasFinanceiras {
   reservaGeralId          Int?
   ReservaGeral            ReservaGeral?             @relation(fields: [reservaGeralId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   ReservaPagamento        ReservaPagamento?
+  restaurantePedidoId     Int?                      @unique
+  RestaurantePedido       RestaurantePedido?        @relation(fields: [restaurantePedidoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([contaId, gateway, idCobranca])
   @@index([contaId, pedidoLojaId])
   @@index([contaId, reservaGeralId])
+  @@index([contaId, restaurantePedidoId])
 }
 
 model LancamentoFinanceiro {
@@ -2755,30 +3037,30 @@ model WhatsAppMensagem {
 }
 
 model WhatsAppWebhookEvento {
-  id                  Int                   @id @default(autoincrement())
-  contaId             Int
-  Conta               Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  instanciaId         Int
-  Instancia           WhatsAppInstancia     @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  eventId             String
-  tipo                String
-  status              WhatsAppWebhookStatus @default(PENDENTE)
-  tentativas          Int                   @default(0)
-  proximaTentativaEm  DateTime?
-  bloqueadoEm         DateTime?
-  workerId            String?
-  partitionKey        String
-  motivoIgnorado      String?               @db.Text
+  id                 Int                   @id @default(autoincrement())
+  contaId            Int
+  Conta              Contas                @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instanciaId        Int
+  Instancia          WhatsAppInstancia     @relation(fields: [instanciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  eventId            String
+  tipo               String
+  status             WhatsAppWebhookStatus @default(PENDENTE)
+  tentativas         Int                   @default(0)
+  proximaTentativaEm DateTime?
+  bloqueadoEm        DateTime?
+  workerId           String?
+  partitionKey       String
+  motivoIgnorado     String?               @db.Text
   // Telefone do chat a que o evento pertence (msg.phone), quando é um evento de mensagem. Usado
   // para apagar os webhooks correspondentes ao excluir a conversa/contato. Nulo p/ eventos sem
   // telefone (connected/disconnected/status/presence).
-  telefone            String?
-  payload             String                @db.LongText
-  processado          Boolean               @default(false)
-  erro                String?               @db.Text
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  processedAt         DateTime?
+  telefone           String?
+  payload            String                @db.LongText
+  processado         Boolean               @default(false)
+  erro               String?               @db.Text
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  processedAt        DateTime?
 
   @@unique([instanciaId, tipo, eventId])
   @@index([contaId, tipo, createdAt])
@@ -2788,13 +3070,13 @@ model WhatsAppWebhookEvento {
 }
 
 model WhatsAppWebhookWorkerEstado {
-  id                 Int      @id
+  id                 Int       @id
   workerId           String
   heartbeatAt        DateTime
   ultimoProcessadoEm DateTime?
-  ultimoErro         String?  @db.Text
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  ultimoErro         String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 // Trilha de auditoria dos acessos de suporte do superadmin às contas dos assinantes.

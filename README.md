@@ -84,6 +84,19 @@ Esse bootstrap:
 - `GET /api/loja/publica/:slug/auth/me` retorna também telefone e endereços do comprador para identificação da sessão e preenchimento do checkout no frontend.
 - O contrato HTTP está em `openapi/loja.yaml`.
 
+## Restaurante e Delivery
+
+- O app pago `restaurante-delivery` custa R$ 49,90/mês e usa o ciclo existente da App Store; o gate privado consulta o módulo ativo da conta e o cancelamento não apaga dados.
+- A fundação v1 fica em `/api/v1/restaurante`: configuração, catálogo vinculado a `Produto`, fila unificada de pedidos e transições operacionais. Todas as consultas privadas obtêm `contaId` do JWT.
+- A administração do catálogo expõe produtos ativos da conta, CRUD de itens e grupos de sabores/complementos. Cada grupo valida limites mínimo/máximo, opções ativas e vínculos opcionais com produtos antes de ser associado ao item público.
+- Quando a conta ainda não possui `RestauranteConfig`, a consulta interna devolve nome e slug iniciais derivados da conta, sem publicar automaticamente o cardápio; o primeiro salvamento persiste essa configuração.
+- O cardápio público usa `/api/v1/restaurante/publico/:slug/cardapio`. A criação exige `Idempotency-Key`, recalcula preços, adicionais, pedido mínimo e frete no servidor e devolve um token opaco de acompanhamento.
+- `POST /api/v1/restaurante/publico/:slug/checkout/previa` calcula subtotal, cobertura, pedido mínimo, zona prioritária, frete e total sem criar o pedido. Em modo `ZONAS`, a correspondência combina cidade, bairros e intervalo de CEP; sem zona, usa a taxa de contingência configurada ou recusa o endereço.
+- Pagamentos online usam as credenciais tenant do app Mercado Pago: Pix retorna código/link e Checkout Pro retorna redirecionamento. A cobrança fica vinculada ao pedido e o webhook operacional atualiza `pagamentoStatus` de forma idempotente; pagamento aprovado confirma o pedido.
+- Pedidos guardam snapshots imutáveis de nome, preço, tamanho, seleções e regra de sabores. Os estados de pedido, produção, pagamento e entrega são persistidos separadamente.
+- As migrations aditivas são `prisma/migrations/20260804000000_restaurante_foundation` e `prisma/migrations/20260804010000_restaurante_zones_checkout`; ambas devem ser aplicadas antes do código e não removem dados na desativação do app.
+- O contrato implementado nesta fundação está em `openapi/restaurante-v1.yaml`.
+
 ## Scripts disponíveis
 
 ```bash
@@ -92,6 +105,7 @@ npm run build            # build com tsup
 npm start                # roda dist/server.js
 npm run initialize       # prisma migrate dev
 npm run seed             # prisma db seed
+npm run test:restaurante # regras de catálogo, preço de sabores e frete
 
 npm run email:dev        # worker de email em watch
 npm run notification:dev # worker de notificações em watch

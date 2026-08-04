@@ -25,6 +25,7 @@
 ## Importante
 - No domínio `whatsapp`, os controllers validam permissão por nível, deixam o token bruto restrito ao backend e delegam a orquestração pesada ao service de WhatsApp para manter idempotência, isolamento por conta, prévia/sincronização de webhooks da W-API e emissão de Socket.IO.
 - No domínio `loja`, `publica.ts` nunca recebe `contaId`: resolve a conta pelo slug, aplica capacidades do módulo e delega pedido/reserva à fachada. `pedidos.ts` usa exclusivamente `customData.contaId`, e `auth.ts` mantém a credencial do comprador separada de `Usuarios`.
+- No domínio `restaurante`, respostas seguem `{ data, meta?, requestId }` e erros seguem `{ error: { code, message, details?, requestId } }`. O controller administra itens, grupos e zonas sempre pelo `contaId` autenticado; a prévia e a criação pública compartilham o recálculo de catálogo, seleções, cobertura, pedido mínimo e frete, e a criação persiste snapshots dentro da transação.
 - Nem todo controller delega para um service.
 - Em muitos fluxos, o controller é dono da orquestração e acessa Prisma diretamente.
 - Isso é parte do padrão atual e a documentação deve refletir esse comportamento real.

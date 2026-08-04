@@ -107,3 +107,23 @@ test("preserva o vínculo próprio da reserva geral sem reutilizar a reserva da 
   assert.equal(data.reservaId, null);
   assert.equal(data.contaId, 12);
 });
+
+test("preserva o vinculo do pedido de restaurante no Checkout Pro", () => {
+  const reference = {
+    contaId: 21,
+    chargeUid: "COB_RESTAURANTE",
+    kind: "link" as const,
+    origin: { type: "restaurante-pedido" as const, id: 456 },
+  };
+  assert.deepEqual(
+    parseMercadoPagoChargeReference(buildMercadoPagoChargeReference(reference)),
+    reference,
+  );
+  const data = buildMercadoPagoLinkChargeData(
+    1234,
+    { transaction_amount: 95, payment_type_id: "credit_card" },
+    reference,
+  );
+  assert.equal(data.restaurantePedidoId, 456);
+  assert.equal(data.contaId, 21);
+});
