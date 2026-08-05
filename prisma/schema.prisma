@@ -297,6 +297,12 @@ model Contas {
   RestauranteCatalogoItens        RestauranteCatalogoItem[]
   RestauranteGruposOpcao          RestauranteGrupoOpcao[]
   RestauranteMesas                RestauranteMesa[]
+  RestauranteSessoesMesa          RestauranteSessaoMesa[]
+  RestaurantePontosProducao       RestaurantePontoProducao[]
+  RestauranteTicketsProducao      RestauranteTicketProducao[]
+  RestauranteEstacoesImpressao    RestauranteEstacaoImpressao[]
+  RestauranteRegrasImpressao      RestauranteRegraImpressao[]
+  RestauranteTrabalhosImpressao   RestauranteTrabalhoImpressao[]
   RestauranteZonasEntrega         RestauranteZonaEntrega[]
   RestaurantePedidos              RestaurantePedido[]
   RestauranteIdempotencias        RestauranteIdempotencia[]
@@ -1224,6 +1230,34 @@ enum RestauranteMesaStatus {
   LIMPEZA
 }
 
+enum RestauranteSessaoMesaStatus {
+  ABERTA
+  AGUARDANDO_CONTA
+  FECHADA
+  CANCELADA
+}
+
+enum RestauranteTicketStatus {
+  PENDENTE
+  PREPARANDO
+  PRONTO
+  ENTREGUE
+}
+
+enum RestauranteTicketTipo {
+  INICIAL
+  ADICAO
+  CANCELAMENTO
+}
+
+enum RestauranteImpressaoStatus {
+  PENDENTE
+  EM_PROCESSAMENTO
+  CONCLUIDO
+  FALHOU
+  CANCELADO
+}
+
 enum RestaurantePedidoOrigem {
   BALCAO
   MESA
@@ -1397,9 +1431,191 @@ model RestauranteMesa {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   pedidos       RestaurantePedido[]
+  sessoes       RestauranteSessaoMesa[]
 
   @@unique([contaId, nome])
   @@index([contaId, status])
+}
+
+model RestauranteSessaoMesa {
+  id          Int                          @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  mesaId      Int
+  Mesa        RestauranteMesa              @relation(fields: [mesaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  status      RestauranteSessaoMesaStatus  @default(ABERTA)
+  pessoas     Int                          @default(1)
+  observacao  String?                      @db.Text
+  abertaAt    DateTime                     @default(now())
+  fechadaAt   DateTime?
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+  comandas    RestauranteSessaoMesaComanda[]
+  pedidos     RestaurantePedido[]
+
+  @@index([contaId, status, abertaAt])
+  @@index([mesaId, status])
+}
+
+model RestauranteSessaoMesaComanda {
+  sessaoId          Int
+  Sessao            RestauranteSessaoMesa @relation(fields: [sessaoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comandaOperacaoId Int                    @unique
+  ComandaOperacao   ComandaOperacao       @relation(fields: [comandaOperacaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome              String?                @db.VarChar(80)
+  createdAt         DateTime               @default(now())
+
+  @@id([sessaoId, comandaOperacaoId])
+  @@index([sessaoId])
+}
+
+model RestaurantePontoProducao {
+  id          Int                              @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas                           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome        String                           @db.VarChar(100)
+  cor         String                           @default("orange") @db.VarChar(30)
+  ativo       Boolean                          @default(true)
+  ordem       Int                              @default(0)
+  version     Int                              @default(1)
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
+  roteamentos RestauranteRoteamentoProducao[]
+  tickets     RestauranteTicketProducao[]
+  regraImpressao RestauranteRegraImpressao?
+  trabalhosImpressao RestauranteTrabalhoImpressao[]
+
+  @@unique([contaId, nome])
+  @@index([contaId, ativo, ordem])
+}
+
+model RestauranteRoteamentoProducao {
+  pontoId     Int
+  Ponto       RestaurantePontoProducao @relation(fields: [pontoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  categoriaId Int
+  Categoria   ProdutoCategoria         @relation(fields: [categoriaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  obrigatorio Boolean                  @default(true)
+  createdAt   DateTime                 @default(now())
+
+  @@id([pontoId, categoriaId])
+  @@index([categoriaId])
+}
+
+model RestauranteTicketProducao {
+  id          Int                       @id @default(autoincrement())
+  contaId     Int
+  Conta       Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pedidoId    Int
+  Pedido      RestaurantePedido         @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pontoId     Int
+  Ponto       RestaurantePontoProducao  @relation(fields: [pontoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipo        RestauranteTicketTipo     @default(INICIAL)
+  status      RestauranteTicketStatus   @default(PENDENTE)
+  sequencia   Int                       @default(1)
+  obrigatorio Boolean                   @default(true)
+  version     Int                       @default(1)
+  iniciadoAt  DateTime?
+  prontoAt    DateTime?
+  entregueAt  DateTime?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  itens       RestauranteTicketItem[]
+  trabalhosImpressao RestauranteTrabalhoImpressao[]
+
+  @@unique([pedidoId, pontoId, sequencia])
+  @@index([contaId, pontoId, status, createdAt])
+}
+
+model RestauranteEstacaoImpressao {
+  id               Int                              @id @default(autoincrement())
+  contaId          Int
+  Conta            Contas                           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  nome             String                           @db.VarChar(100)
+  tokenHash        String                           @unique @db.VarChar(64)
+  tokenPrefix      String                           @db.VarChar(12)
+  impressoraNome   String?                          @db.VarChar(255)
+  papelReportado   String?                          @db.VarChar(20)
+  ativa            Boolean                          @default(true)
+  online           Boolean                          @default(false)
+  lastSeenAt       DateTime?
+  version          Int                              @default(1)
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  regrasPrimarias  RestauranteRegraImpressao[]      @relation("RestauranteRegraEstacaoPrimaria")
+  regrasFallback   RestauranteRegraImpressao[]      @relation("RestauranteRegraEstacaoFallback")
+  trabalhos        RestauranteTrabalhoImpressao[]   @relation("RestauranteTrabalhoEstacao")
+  trabalhosFallback RestauranteTrabalhoImpressao[]  @relation("RestauranteTrabalhoFallback")
+
+  @@unique([contaId, nome])
+  @@index([contaId, ativa, lastSeenAt])
+}
+
+model RestauranteRegraImpressao {
+  id                       Int                          @id @default(autoincrement())
+  contaId                  Int
+  Conta                    Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pontoId                  Int                          @unique
+  Ponto                    RestaurantePontoProducao     @relation(fields: [pontoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  estacaoId                Int
+  Estacao                  RestauranteEstacaoImpressao  @relation("RestauranteRegraEstacaoPrimaria", fields: [estacaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fallbackEstacaoId        Int?
+  FallbackEstacao          RestauranteEstacaoImpressao? @relation("RestauranteRegraEstacaoFallback", fields: [fallbackEstacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  papel                    String                       @default("80mm") @db.VarChar(20)
+  vias                     Int                          @default(1)
+  imprimirPedidoCompleto   Boolean                      @default(false)
+  ativa                    Boolean                      @default(true)
+  version                  Int                          @default(1)
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
+
+  @@index([contaId, ativa])
+  @@index([estacaoId])
+  @@index([fallbackEstacaoId])
+}
+
+model RestauranteTrabalhoImpressao {
+  id                 Int                          @id @default(autoincrement())
+  uid                String                       @unique @db.VarChar(36)
+  contaId            Int
+  Conta              Contas                       @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pontoId            Int
+  Ponto              RestaurantePontoProducao     @relation(fields: [pontoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ticketId           Int
+  Ticket             RestauranteTicketProducao    @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  estacaoId          Int
+  Estacao            RestauranteEstacaoImpressao  @relation("RestauranteTrabalhoEstacao", fields: [estacaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fallbackEstacaoId  Int?
+  FallbackEstacao    RestauranteEstacaoImpressao? @relation("RestauranteTrabalhoFallback", fields: [fallbackEstacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  dedupeKey          String                       @unique @db.VarChar(191)
+  status             RestauranteImpressaoStatus  @default(PENDENTE)
+  conteudo           String                       @db.LongText
+  formato            String                       @default("RAW") @db.VarChar(20)
+  papel              String                       @default("80mm") @db.VarChar(20)
+  vias               Int                          @default(1)
+  tentativas         Int                          @default(0)
+  maxTentativas      Int                          @default(3)
+  leaseToken         String?                      @unique @db.VarChar(36)
+  leaseExpiresAt     DateTime?
+  proximaTentativaAt DateTime                     @default(now())
+  erro               String?                      @db.Text
+  impressoAt         DateTime?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  @@index([contaId, estacaoId, status, proximaTentativaAt], map: "rest_print_job_claim_idx")
+  @@index([ticketId, createdAt])
+}
+
+model RestauranteTicketItem {
+  ticketId     Int
+  Ticket       RestauranteTicketProducao @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pedidoItemId Int
+  PedidoItem   RestaurantePedidoItem      @relation(fields: [pedidoItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  quantidade   Decimal                    @db.Decimal(10, 3)
+  observacao   String?                    @db.Text
+
+  @@id([ticketId, pedidoItemId])
+  @@index([pedidoItemId])
 }
 
 model RestaurantePedido {
@@ -1415,6 +1631,9 @@ model RestaurantePedido {
   mesaId               Int?
   Mesa                 RestauranteMesa?           @relation(fields: [mesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   comandaOperacaoId    Int?
+  ComandaOperacao      ComandaOperacao?           @relation(fields: [comandaOperacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  sessaoMesaId         Int?
+  SessaoMesa           RestauranteSessaoMesa?     @relation(fields: [sessaoMesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   clienteId            Int?
   clienteNomeSnapshot  String?                    @db.VarChar(160)
   clienteTelefone      String?                    @db.VarChar(32)
@@ -1434,11 +1653,13 @@ model RestaurantePedido {
   concluidoAt          DateTime?
   canceladoAt          DateTime?
   itens                RestaurantePedidoItem[]
+  tickets              RestauranteTicketProducao[]
   Cobrancas            CobrancasFinanceiras[]
 
   @@unique([contaId, codigo])
   @@index([contaId, status, createdAt])
   @@index([contaId, producaoStatus, createdAt])
+  @@index([sessaoMesaId, createdAt])
 }
 
 model RestaurantePedidoItem {
@@ -1458,6 +1679,7 @@ model RestaurantePedidoItem {
   estoqueDebitado       Boolean                       @default(false)
   quantidadeDebitada    Decimal                       @default(0) @db.Decimal(10, 3)
   createdAt             DateTime                      @default(now())
+  ticketItens           RestauranteTicketItem[]
 
   @@index([pedidoId])
 }
@@ -1487,6 +1709,7 @@ model ProdutoCategoria {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   ProdutoBase ProdutoBase[]
+  RestauranteRoteamentos RestauranteRoteamentoProducao[]
 
   @@unique([contaId, nome])
 }
@@ -2605,6 +2828,8 @@ model ComandaOperacao {
   pagamentos          ComandaOperacaoPagamento[]
   historicos          ComandaOperacaoHistorico[]
   comboSaidas         ComboSaida[]
+  restauranteSessoes  RestauranteSessaoMesaComanda[]
+  restaurantePedidos  RestaurantePedido[]
 
   @@unique([contaId, Uid])
   @@index([contaId, status, abertura])

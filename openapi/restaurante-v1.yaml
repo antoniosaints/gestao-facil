@@ -80,6 +80,52 @@ paths:
       responses:
         '200': { description: Zona atualizada }
         '409': { description: Conflito de versao ou nome }
+  /mesas:
+    get: { summary: Lista o salao com sessoes, comandas e pedidos ativos, security: [ { bearerAuth: [] } ], responses: { '200': { description: Mesas da conta } } }
+    post: { summary: Cadastra uma mesa, security: [ { bearerAuth: [] } ], responses: { '201': { description: Mesa criada }, '409': { description: Nome duplicado } } }
+  /mesas/{id}:
+    patch: { summary: Atualiza uma mesa usando versionamento otimista, security: [ { bearerAuth: [] } ], responses: { '200': { description: Mesa atualizada }, '409': { description: Conflito de versao } } }
+  /mesas/{id}/abrir:
+    post: { summary: Abre uma sessao e cria a comanda principal da mesa, security: [ { bearerAuth: [] } ], responses: { '201': { description: Atendimento aberto }, '409': { description: Mesa ocupada } } }
+  /mesas/{id}/aguardar-conta:
+    post: { summary: Fecha os lancamentos e deixa as comandas pendentes de faturamento, security: [ { bearerAuth: [] } ], responses: { '200': { description: Conta solicitada } } }
+  /mesas/{id}/liberar:
+    post: { summary: Encerra a sessao depois do faturamento e envia a mesa para limpeza, security: [ { bearerAuth: [] } ], responses: { '200': { description: Mesa em limpeza }, '422': { description: Existem comandas abertas } } }
+  /mesas/{id}/finalizar-limpeza:
+    post: { summary: Marca uma mesa em limpeza como livre, security: [ { bearerAuth: [] } ], responses: { '200': { description: Mesa livre } } }
+  /sessoes-mesa/{id}/pedidos:
+    post: { summary: Lanca pedido interno na comanda e despacha tickets aos pontos KDS, security: [ { bearerAuth: [] } ], responses: { '201': { description: Pedido enviado }, '422': { description: Selecao ou sessao invalida, ou item sem categoria roteada para ponto KDS ativo } } }
+  /pontos-producao:
+    get: { summary: Lista pontos e roteamentos de producao, security: [ { bearerAuth: [] } ], responses: { '200': { description: Pontos da conta } } }
+    post: { summary: Cria ponto e associa categorias obrigatorias, security: [ { bearerAuth: [] } ], responses: { '201': { description: Ponto criado } } }
+  /pontos-producao/{id}:
+    patch: { summary: Atualiza ponto e substitui o roteamento por categoria, security: [ { bearerAuth: [] } ], responses: { '200': { description: Ponto atualizado }, '409': { description: Conflito de versao } } }
+  /pontos-producao/categorias:
+    get: { summary: Lista categorias disponiveis para roteamento, security: [ { bearerAuth: [] } ], responses: { '200': { description: Categorias ativas } } }
+  /kds:
+    get: { summary: Feed operacional de tickets por ponto e status, security: [ { bearerAuth: [] } ], responses: { '200': { description: Tickets ativos } } }
+  /kds/{id}/transicao:
+    post: { summary: Avanca um ticket e sincroniza o estado global do pedido, security: [ { bearerAuth: [] } ], responses: { '200': { description: Ticket atualizado }, '409': { description: Conflito de versao }, '422': { description: Transicao invalida } } }
+  /kds/{id}/reimprimir:
+    post: { summary: Enfileira uma nova via do ticket usando a regra ativa do ponto, security: [ { bearerAuth: [] } ], responses: { '201': { description: Trabalho criado }, '422': { description: Regra de impressao nao configurada } } }
+  /estacoes-impressao:
+    get: { summary: Lista estacoes sem expor o hash do token, security: [ { bearerAuth: [] } ], responses: { '200': { description: Estacoes e estado de presenca } } }
+    post: { summary: Cria estacao e retorna o token de pareamento uma unica vez, security: [ { bearerAuth: [] } ], responses: { '201': { description: Estacao e pairingToken } } }
+  /estacoes-impressao/{id}:
+    patch: { summary: Atualiza nome e estado da estacao, security: [ { bearerAuth: [] } ], responses: { '200': { description: Estacao atualizada }, '409': { description: Conflito de versao } } }
+  /estacoes-impressao/{id}/regenerar-token:
+    post: { summary: Invalida o token anterior e retorna um novo token uma unica vez, security: [ { bearerAuth: [] } ], responses: { '200': { description: Novo pairingToken } } }
+  /regras-impressao:
+    get: { summary: Lista regras por ponto de producao, security: [ { bearerAuth: [] } ], responses: { '200': { description: Regras } } }
+    put: { summary: Cria ou atualiza regra com estacao principal, fallback, papel e vias, security: [ { bearerAuth: [] } ], responses: { '200': { description: Regra atualizada }, '201': { description: Regra criada } } }
+  /trabalhos-impressao:
+    get: { summary: Lista os ultimos trabalhos e seus estados, security: [ { bearerAuth: [] } ], responses: { '200': { description: Trabalhos } } }
+  /estacao-impressao/heartbeat:
+    post: { summary: Atualiza presenca e impressora local da estacao, security: [ { printStationToken: [] } ], responses: { '200': { description: Presenca atualizada }, '401': { description: Token invalido } } }
+  /estacao-impressao/trabalhos:
+    get: { summary: Reserva trabalhos pendentes com lease temporario, security: [ { printStationToken: [] } ], responses: { '200': { description: Trabalhos reservados }, '401': { description: Token invalido } } }
+  /estacao-impressao/trabalhos/ack:
+    post: { summary: Confirma sucesso ou falha de um trabalho reservado, security: [ { printStationToken: [] } ], responses: { '200': { description: Estado atualizado }, '409': { description: Lease expirado } } }
   /pedidos:
     get: { summary: Lista pedidos da conta por pagina, security: [ { bearerAuth: [] } ], responses: { '200': { description: Pedidos e metadados } } }
   /pedidos/{id}/transicao:
@@ -95,3 +141,4 @@ paths:
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    printStationToken: { type: apiKey, in: header, name: X-Print-Station-Token }

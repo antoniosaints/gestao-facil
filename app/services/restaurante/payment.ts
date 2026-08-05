@@ -8,6 +8,7 @@ import {
   buildMercadoPagoChargeReference,
   buildMercadoPagoOperationalWebhookUrl,
 } from "../financeiro/mercadoPagoChargeReference";
+import { dispatchOrderToProduction } from "./production";
 
 export type RestauranteOnlinePaymentMethod = "PIX" | "CHECKOUT_PRO";
 
@@ -122,13 +123,17 @@ export async function applyRestaurantPaymentEvent(input: {
   const order = await prisma.restaurantePedido.findFirst({ where: { id: input.orderId, contaId: input.contaId } });
   if (!order) return null;
   if (input.status === "EFETIVADO") {
-    return prisma.restaurantePedido.update({
-      where: { id: order.id },
-      data: {
-        pagamentoStatus: "PAGO",
-        ...(order.status === "RECEBIDO" ? { status: "CONFIRMADO" } : {}),
-        version: { increment: 1 },
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.restaurantePedido.update({
+        where: { id: order.id },
+        data: {
+          pagamentoStatus: "PAGO",
+          ...(order.status === "RECEBIDO" ? { status: "CONFIRMADO" } : {}),
+          version: { increment: 1 },
+        },
+      });
+      if (order.status === "RECEBIDO") await dispatchOrderToProduction(tx, input.contaId, order.id);
+      return updated;
     });
   }
   if (input.status === "ESTORNADO") {

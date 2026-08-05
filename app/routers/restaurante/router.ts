@@ -1,7 +1,8 @@
 import { Router, type RequestHandler } from "express";
-import { createPublicOrder, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listOptionGroups, listOrders, previewPublicCheckout, publicMenu, publicTracking, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, transitionOrder } from "../../controllers/restaurante/restaurante";
+import { createPublicOrder, createTableOrder, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, waitTableBill } from "../../controllers/restaurante/restaurante";
 import { authenticateJWT } from "../../middlewares/auth";
 import { requireRestauranteAccess } from "../../middlewares/restauranteAccess";
+import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
 
 export const routerRestaurante = Router();
 const use = (handler: unknown) => handler as RequestHandler;
@@ -10,6 +11,9 @@ routerRestaurante.get("/publico/:slug/cardapio", use(publicMenu));
 routerRestaurante.post("/publico/:slug/checkout/previa", use(previewPublicCheckout));
 routerRestaurante.post("/publico/:slug/pedidos", use(createPublicOrder));
 routerRestaurante.get("/publico/pedidos/:token", use(publicTracking));
+routerRestaurante.post("/estacao-impressao/heartbeat", use(stationHeartbeat));
+routerRestaurante.get("/estacao-impressao/trabalhos", use(stationClaimJobs));
+routerRestaurante.post("/estacao-impressao/trabalhos/ack", use(stationAckJob));
 
 routerRestaurante.use(authenticateJWT);
 routerRestaurante.get("/configuracao", requireRestauranteAccess(4), use(getConfig));
@@ -24,5 +28,27 @@ routerRestaurante.patch("/grupos-opcoes/:id", requireRestauranteAccess(4), use(s
 routerRestaurante.get("/zonas-entrega", requireRestauranteAccess(1), use(listDeliveryZones));
 routerRestaurante.post("/zonas-entrega", requireRestauranteAccess(4), use(saveDeliveryZone));
 routerRestaurante.patch("/zonas-entrega/:id", requireRestauranteAccess(4), use(saveDeliveryZone));
+routerRestaurante.get("/mesas", requireRestauranteAccess(1), use(listTables));
+routerRestaurante.post("/mesas", requireRestauranteAccess(4), use(saveTable));
+routerRestaurante.patch("/mesas/:id", requireRestauranteAccess(4), use(saveTable));
+routerRestaurante.post("/mesas/:id/abrir", requireRestauranteAccess(2), use(openTableSession));
+routerRestaurante.post("/mesas/:id/aguardar-conta", requireRestauranteAccess(2), use(waitTableBill));
+routerRestaurante.post("/mesas/:id/liberar", requireRestauranteAccess(2), use(releaseTable));
+routerRestaurante.post("/mesas/:id/finalizar-limpeza", requireRestauranteAccess(2), use(finishTableCleaning));
+routerRestaurante.post("/sessoes-mesa/:id/pedidos", requireRestauranteAccess(2), use(createTableOrder));
+routerRestaurante.get("/pontos-producao/categorias", requireRestauranteAccess(1), use(listProductionCategories));
+routerRestaurante.get("/pontos-producao", requireRestauranteAccess(1), use(listProductionPoints));
+routerRestaurante.post("/pontos-producao", requireRestauranteAccess(4), use(saveProductionPoint));
+routerRestaurante.patch("/pontos-producao/:id", requireRestauranteAccess(4), use(saveProductionPoint));
+routerRestaurante.get("/kds", requireRestauranteAccess(1), use(listKdsTickets));
+routerRestaurante.post("/kds/:id/transicao", requireRestauranteAccess(2), use(transitionKdsTicket));
+routerRestaurante.get("/estacoes-impressao", requireRestauranteAccess(1), use(listPrintStations));
+routerRestaurante.post("/estacoes-impressao", requireRestauranteAccess(4), use(savePrintStation));
+routerRestaurante.patch("/estacoes-impressao/:id", requireRestauranteAccess(4), use(savePrintStation));
+routerRestaurante.post("/estacoes-impressao/:id/regenerar-token", requireRestauranteAccess(4), use(regeneratePrintStationToken));
+routerRestaurante.get("/regras-impressao", requireRestauranteAccess(1), use(listPrintRules));
+routerRestaurante.put("/regras-impressao", requireRestauranteAccess(4), use(savePrintRule));
+routerRestaurante.get("/trabalhos-impressao", requireRestauranteAccess(1), use(listPrintJobs));
+routerRestaurante.post("/kds/:id/reimprimir", requireRestauranteAccess(2), use(reprintProductionTicket));
 routerRestaurante.get("/pedidos", requireRestauranteAccess(1), use(listOrders));
 routerRestaurante.post("/pedidos/:id/transicao", requireRestauranteAccess(2), use(transitionOrder));

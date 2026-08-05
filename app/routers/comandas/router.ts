@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
+import { requireRestauranteAccess } from "../../middlewares/restauranteAccess";
 import {
   addComandaItens,
   cancelarComanda,
@@ -20,6 +21,7 @@ import {
 const routerComandas = Router();
 
 routerComandas.use(authenticateJWT);
+routerComandas.use(requireRestauranteAccess(1));
 
 routerComandas.get("/", listComandas);
 routerComandas.get("/configuracao", getComandaConfiguracao);

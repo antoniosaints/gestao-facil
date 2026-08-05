@@ -43,6 +43,8 @@ import {
   requiresStockReturnDecision,
   type ComandaOperacaoStatus,
 } from "../../services/comandas/comandaPolicy";
+import { detachRestaurantCommandLinks } from "../../services/comandas/restaurantCommandLinks";
+import { sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 
 type PrismaExecutor = Prisma.TransactionClient | typeof prisma;
 
@@ -984,14 +986,28 @@ export async function deleteComanda(req: Request, res: Response): Promise<any> {
         });
       }
 
+      const restaurante = await detachRestaurantCommandLinks(
+        tx,
+        customData.contaId,
+        comanda.id,
+      );
+
       await tx.comandaOperacao.delete({ where: { id: comanda.id } });
 
       return {
         id: comanda.id,
         Uid: comanda.Uid,
         devolverEstoque: parsed.data.devolverEstoque,
+        restaurante,
       };
     });
+
+    if (response.restaurante.linkedSessionIds.length) {
+      sendRestaurantUpdate(customData.contaId, "mesas", {
+        comandaOperacaoId: response.id,
+        sessoesCanceladas: response.restaurante.cancelledSessionIds,
+      });
+    }
 
     return ResponseHandler(res, "Comanda excluida com sucesso.", response);
   } catch (error) {
