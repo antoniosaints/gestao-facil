@@ -12,11 +12,12 @@ import { calculateZoneDeliveryFee, normalizeCep, selectDeliveryZone } from "../.
 import { createRestaurantOnlinePayment } from "../../services/restaurante/payment";
 import {
   dispatchOrderToProduction,
-  ProductionRoutingConflictError,
   ProductionRoutingMissingError,
   syncOrderProductionState,
 } from "../../services/restaurante/production";
 import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "../../services/restaurante/inventory";
+import { resolveRestaurantCancellation } from "../../services/restaurante/orderPolicy";
+import { claimRestaurantTable, RestaurantTableUnavailableError } from "../../services/restaurante/tableSession";
 import { CommerceError } from "../../services/loja/commerceError";
 import { sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
@@ -217,7 +218,7 @@ async function calculatePublicCheckout(
   }
 
   const ids = input.itens.map((item) => item.catalogoItemId);
-  const catalog = await prisma.restauranteCatalogoItem.findMany({
+  const catalogCandidates = await prisma.restauranteCatalogoItem.findMany({
     where: { contaId: config.contaId, id: { in: ids }, disponivel: true },
     include: {
       Produto: true,
@@ -227,6 +228,10 @@ async function calculatePublicCheckout(
       },
     },
   });
+  const catalog = catalogCandidates.filter((item) => (
+    item.Produto.status === "ATIVO"
+    && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
+  ));
   if (catalog.length !== new Set(ids).size) {
     throw new CheckoutError("item_unavailable", "Um ou mais itens estao indisponiveis.");
   }
@@ -559,11 +564,14 @@ export async function transitionOrder(req: Request, res: Response) {
     const tickets = await prisma.restauranteTicketProducao.count({ where: { contaId, pedidoId: order.id } });
     if (tickets) return fail(req, res, 422, "order_controlled_by_kds", "Atualize este pedido pelos tickets do KDS.");
   }
-  const data: any = { status: nextStatus, version: { increment: 1 } };
+  const cancellation = nextStatus === "CANCELADO" ? resolveRestaurantCancellation(order.pagamentoStatus) : null;
+  const data: any = cancellation && !cancellation.cancelOrder
+    ? { pagamentoStatus: cancellation.nextPaymentStatus, version: { increment: 1 } }
+    : { status: nextStatus, version: { increment: 1 } };
   if (nextStatus === "EM_PREPARO") data.producaoStatus = "PREPARANDO";
   if (nextStatus === "PRONTO") data.producaoStatus = "PRONTO";
   if (nextStatus === "CONCLUIDO") data.concluidoAt = new Date();
-  if (nextStatus === "CANCELADO") data.canceladoAt = new Date();
+  if (nextStatus === "CANCELADO" && cancellation?.cancelOrder) data.canceladoAt = new Date();
   let updated: any;
   try {
     updated = await prisma.$transaction(async (tx) => {
@@ -573,13 +581,10 @@ export async function transitionOrder(req: Request, res: Response) {
         await debitRestaurantOrderStock(tx, contaId, order.id);
         await dispatchOrderToProduction(tx, contaId, order.id);
       }
-      if (nextStatus === "CANCELADO") await returnRestaurantOrderStock(tx, contaId, order.id);
+      if (nextStatus === "CANCELADO" && cancellation?.returnStock) await returnRestaurantOrderStock(tx, contaId, order.id);
       return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true } });
     });
   } catch (error) {
-    if (error instanceof ProductionRoutingConflictError) {
-      return fail(req, res, 422, "production_route_conflict", error.message);
-    }
     if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
       return fail(req, res, 422, error.code, error.message);
     }
@@ -589,16 +594,26 @@ export async function transitionOrder(req: Request, res: Response) {
   notifyRestaurant(contaId, "pedido", { pedidoId: order.id });
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
-  return ok(req, res, updated);
+  return ok(req, res, updated, cancellation?.httpStatus || 200);
 }
 
 export async function publicMenu(req: Request, res: Response) {
   const config = await publicConfig(req.params.slug);
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
-  const items = await prisma.restauranteCatalogoItem.findMany({
+  const itemCandidates = await prisma.restauranteCatalogoItem.findMany({
     where: { contaId: config.contaId, disponivel: true }, orderBy: [{ ordem: "asc" }, { id: "asc" }],
     include: {
-      Produto: { select: { nome: true, preco: true, imagem: true, estoque: true, controlaEstoque: true } },
+      Produto: {
+        select: {
+          nome: true,
+          preco: true,
+          imagem: true,
+          estoque: true,
+          controlaEstoque: true,
+          status: true,
+          ProdutoBase: { select: { Categoria: { select: { id: true, nome: true } } } },
+        },
+      },
       grupos: {
         where: { Grupo: { ativo: true } },
         orderBy: { ordem: "asc" },
@@ -606,6 +621,10 @@ export async function publicMenu(req: Request, res: Response) {
       },
     },
   });
+  const items = itemCandidates.filter((item) => (
+    item.Produto.status === "ATIVO"
+    && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
+  ));
   return ok(req, res, {
     restaurante: {
       nome: config.nomePublico,
@@ -821,13 +840,11 @@ export async function openTableSession(req: Request, res: Response) {
   const mesaId = Number(req.params.id);
   const table = await prisma.restauranteMesa.findFirst({ where: { id: mesaId, contaId, ativa: true } });
   if (!table) return fail(req, res, 404, "table_not_found", "Mesa ativa nao encontrada.");
-  if (table.status !== "LIVRE") return fail(req, res, 409, "table_not_available", "A mesa nao esta livre.");
-  const active = await prisma.restauranteSessaoMesa.count({ where: { mesaId, status: { in: ["ABERTA", "AGUARDANDO_CONTA"] } } });
-  if (active) return fail(req, res, 409, "table_session_exists", "A mesa ja possui atendimento aberto.");
-
-  const session = await prisma.$transaction(async (tx) => {
-    const uid = `R${randomBytes(3).toString("hex").slice(0, 5).toUpperCase()}`;
-    const command = await tx.comandaOperacao.create({
+  try {
+    const session = await prisma.$transaction(async (tx) => {
+      await claimRestaurantTable(tx, contaId, mesaId);
+      const uid = `R${randomBytes(3).toString("hex").slice(0, 5).toUpperCase()}`;
+      const command = await tx.comandaOperacao.create({
       data: {
         Uid: uid,
         contaId,
@@ -836,7 +853,7 @@ export async function openTableSession(req: Request, res: Response) {
         historicos: { create: { evento: "CRIADA_RESTAURANTE", usuarioId: userId, payloadJson: JSON.stringify({ mesaId }) } },
       },
     });
-    const created = await tx.restauranteSessaoMesa.create({
+      return tx.restauranteSessaoMesa.create({
       data: {
         contaId,
         mesaId,
@@ -846,11 +863,15 @@ export async function openTableSession(req: Request, res: Response) {
       },
       include: { comandas: { include: { ComandaOperacao: true } } },
     });
-    await tx.restauranteMesa.update({ where: { id: mesaId }, data: { status: "OCUPADA", version: { increment: 1 } } });
-    return created;
-  });
-  notifyRestaurant(contaId, "mesas", { mesaId, sessaoId: session.id });
-  return ok(req, res, session, 201);
+    });
+    notifyRestaurant(contaId, "mesas", { mesaId, sessaoId: session.id });
+    return ok(req, res, session, 201);
+  } catch (error) {
+    if (error instanceof RestaurantTableUnavailableError) {
+      return fail(req, res, 409, "table_not_available", error.message);
+    }
+    throw error;
+  }
 }
 
 export async function waitTableBill(req: Request, res: Response) {
@@ -996,9 +1017,6 @@ export async function createTableOrder(req: Request, res: Response) {
     if (error instanceof ProductionRoutingMissingError) {
       return fail(req, res, 422, "production_route_missing", error.message);
     }
-    if (error instanceof ProductionRoutingConflictError) {
-      return fail(req, res, 422, "production_route_conflict", error.message);
-    }
     if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
       return fail(req, res, 422, error.code, error.message);
     }
@@ -1043,28 +1061,6 @@ export async function saveProductionPoint(req: Request, res: Response) {
     : [];
   if (categories.length !== new Set(parsed.data.categoriaIds).size) {
     return fail(req, res, 422, "invalid_production_categories", "Uma ou mais categorias nao pertencem a esta conta.");
-  }
-  if (parsed.data.ativo && parsed.data.categoriaIds.length) {
-    const conflict = await prisma.restauranteRoteamentoProducao.findFirst({
-      where: {
-        categoriaId: { in: parsed.data.categoriaIds },
-        ...(current ? { pontoId: { not: current.id } } : {}),
-        Ponto: { contaId, ativo: true },
-      },
-      include: {
-        Ponto: { select: { nome: true } },
-        Categoria: { select: { nome: true } },
-      },
-    });
-    if (conflict) {
-      return fail(
-        req,
-        res,
-        409,
-        "production_category_conflict",
-        `A categoria ${conflict.Categoria.nome} ja e produzida em ${conflict.Ponto.nome}. Remova-a desse ponto antes de reutilizar.`,
-      );
-    }
   }
   const { categoriaIds, version: _version, ...data } = parsed.data;
   const saved = await prisma.$transaction(async (tx) => {

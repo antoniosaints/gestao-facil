@@ -9,13 +9,6 @@ export class ProductionRoutingMissingError extends Error {
   }
 }
 
-export class ProductionRoutingConflictError extends Error {
-  constructor() {
-    super("Uma categoria esta vinculada a mais de um ponto ativo. Corrija os pontos do KDS antes de enviar o pedido.");
-    this.name = "ProductionRoutingConflictError";
-  }
-}
-
 export function deriveOrderProductionState(states: ProductionTicketState[]) {
   if (!states.length) return "PENDENTE" as const;
   if (states.every((state) => state === "ENTREGUE")) return "ENTREGUE" as const;
@@ -57,22 +50,23 @@ export async function dispatchOrderToProduction(
       })
     : [];
 
-  const routeByCategory = new Map<number, any>();
+  const routesByCategory = new Map<number, any[]>();
   for (const route of routes) {
-    const current = routeByCategory.get(route.categoriaId);
-    if (current && current.pontoId !== route.pontoId) throw new ProductionRoutingConflictError();
-    routeByCategory.set(route.categoriaId, route);
+    const current = routesByCategory.get(route.categoriaId) || [];
+    current.push(route);
+    routesByCategory.set(route.categoriaId, current);
   }
 
   const grouped = new Map<number, { obrigatorio: boolean; itemIds: number[] }>();
   for (const item of order.itens) {
     const categoryId = categoryByProduct.get(item.produtoId);
-    const route = categoryId ? routeByCategory.get(categoryId) : null;
-    if (!route) continue;
-    const current = grouped.get(route.pontoId) || { obrigatorio: false, itemIds: [] };
-    current.obrigatorio ||= route.obrigatorio;
-    current.itemIds.push(item.id);
-    grouped.set(route.pontoId, current);
+    const itemRoutes = categoryId ? routesByCategory.get(categoryId) || [] : [];
+    for (const route of itemRoutes) {
+      const current = grouped.get(route.pontoId) || { obrigatorio: false, itemIds: [] };
+      current.obrigatorio ||= route.obrigatorio;
+      current.itemIds.push(item.id);
+      grouped.set(route.pontoId, current);
+    }
   }
 
   if (options.requireDestination) {

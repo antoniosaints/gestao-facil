@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { RestaurantePapel } from "../../../generated";
@@ -9,9 +10,21 @@ const rolesSchema = z.object({
   papeis: z.array(z.nativeEnum(RestaurantePapel)).max(5),
 });
 
+function requestId(req: Request) {
+  return String(req.headers["x-request-id"] || randomUUID());
+}
+
+function ok(req: Request, res: Response, data: unknown) {
+  return res.status(200).json({ data, requestId: requestId(req) });
+}
+
+function fail(req: Request, res: Response, status: number, code: string, message: string, details?: unknown) {
+  return res.status(status).json({ error: { code, message, ...(details ? { details } : {}), requestId: requestId(req) } });
+}
+
 export async function currentRestaurantAccess(req: Request, res: Response) {
   const access = await getRestauranteAccess(getCustomRequest(req).customData);
-  return res.status(200).json({ status: 200, message: "Acesso carregado.", data: access });
+  return ok(req, res, access);
 }
 
 export async function listRestaurantUserRoles(req: Request, res: Response) {
@@ -28,22 +41,18 @@ export async function listRestaurantUserRoles(req: Request, res: Response) {
     },
     orderBy: [{ status: "asc" }, { nome: "asc" }],
   });
-  return res.status(200).json({
-    status: 200,
-    message: "Papeis carregados.",
-    data: users.map((user) => ({ ...user, papeis: user.restaurantePapeis.map((entry) => entry.papel), restaurantePapeis: undefined })),
-  });
+  return ok(req, res, users.map((user) => ({ ...user, papeis: user.restaurantePapeis.map((entry) => entry.papel), restaurantePapeis: undefined })));
 }
 
 export async function saveRestaurantUserRoles(req: Request, res: Response) {
   const parsed = rolesSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(422).json({ status: 422, message: "Papeis invalidos.", data: null, error: parsed.error.flatten() });
+    return fail(req, res, 422, "validation_error", "Papeis invalidos.", parsed.error.flatten());
   }
   const { contaId } = getCustomRequest(req).customData;
   const usuarioId = Number(req.params.usuarioId);
   const user = await prisma.usuarios.findFirst({ where: { id: usuarioId, contaId }, select: { id: true } });
-  if (!user) return res.status(404).json({ status: 404, message: "Usuario nao encontrado.", data: null });
+  if (!user) return fail(req, res, 404, "user_not_found", "Usuario nao encontrado.");
 
   const papeis = [...new Set(parsed.data.papeis)];
   await prisma.$transaction(async (tx) => {
@@ -54,5 +63,5 @@ export async function saveRestaurantUserRoles(req: Request, res: Response) {
       });
     }
   });
-  return res.status(200).json({ status: 200, message: "Papeis atualizados.", data: { usuarioId, papeis } });
+  return ok(req, res, { usuarioId, papeis });
 }

@@ -12,6 +12,7 @@ describe("detachRestaurantCommandLinks", () => {
         count: async () => 0,
       },
       restaurantePedido: {
+        findMany: async () => [],
         updateMany: async () => { calls.push("unlink-orders"); return { count: 2 }; },
       },
       restauranteSessaoMesa: {
@@ -36,7 +37,7 @@ describe("detachRestaurantCommandLinks", () => {
         deleteMany: async () => ({ count: 1 }),
         count: async () => 1,
       },
-      restaurantePedido: { updateMany: async () => ({ count: 0 }) },
+      restaurantePedido: { findMany: async () => [], updateMany: async () => ({ count: 0 }) },
       restauranteSessaoMesa: { updateMany: async () => { sessionUpdates += 1; return { count: 1 }; } },
       restauranteMesa: { updateMany: async () => ({ count: 1 }) },
     };

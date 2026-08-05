@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   deriveOrderProductionState,
   dispatchOrderToProduction,
-  ProductionRoutingConflictError,
   ProductionRoutingMissingError,
 } from "./production";
 
@@ -12,11 +11,16 @@ test("mantem pedido pendente sem tickets ou com todos pendentes", () => {
   assert.equal(deriveOrderProductionState(["PENDENTE", "PENDENTE"]), "PENDENTE");
 });
 
-test("rejeita categoria associada a dois pontos ativos para nao duplicar o KDS", async () => {
+test("cria um ticket em cada ponto ativo associado a categoria", async () => {
+  const createdPoints: number[] = [];
   const tx = {
     restauranteTicketProducao: {
       count: async () => 0,
-      create: async () => assert.fail("nao deve criar tickets com roteamento ambiguo"),
+      create: async ({ data }: any) => {
+        createdPoints.push(data.pontoId);
+        return { id: data.pontoId };
+      },
+      findFirst: async () => null,
     },
     restaurantePedido: {
       findFirst: async () => ({
@@ -35,10 +39,8 @@ test("rejeita categoria associada a dois pontos ativos para nao duplicar o KDS",
     },
   };
 
-  await assert.rejects(
-    () => dispatchOrderToProduction(tx, 1, 11),
-    ProductionRoutingConflictError,
-  );
+  assert.equal(await dispatchOrderToProduction(tx, 1, 11), true);
+  assert.deepEqual(createdPoints, [51, 52]);
 });
 
 test("considera preparo quando qualquer ponto iniciou", () => {

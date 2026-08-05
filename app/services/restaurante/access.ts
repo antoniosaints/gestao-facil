@@ -34,27 +34,27 @@ export function capabilitiesForRestaurantRoles(userRoles: RestaurantePapel[]) {
   return [...new Set(userRoles.flatMap((role) => roles[role]))];
 }
 
-const legacyMinimum: Record<RestauranteCapability, number> = {
-  SALAO_VISUALIZAR: 1,
-  SALAO_OPERAR: 2,
-  SALAO_CONFIGURAR: 4,
-  COMANDAS_OPERAR: 1,
-  KDS_VISUALIZAR: 1,
-  KDS_OPERAR: 2,
-  KDS_CONFIGURAR: 4,
-  IMPRESSAO_VISUALIZAR: 1,
-  IMPRESSAO_CONFIGURAR: 4,
-  CARDAPIO_VISUALIZAR: 1,
-  CARDAPIO_CONFIGURAR: 4,
-  PEDIDOS_VISUALIZAR: 1,
-  PEDIDOS_OPERAR: 2,
-  CONFIGURACOES_GERENCIAR: 4,
-  PAPEIS_GERENCIAR: 4,
-};
-
 function permissionLevel(permission: string, superAdmin: boolean) {
   if (superAdmin) return 100;
   return { root: 5, admin: 4, gerente: 3, vendedor: 2, tecnico: 2, usuario: 1 }[permission] || 0;
+}
+
+export function resolveRestaurantAccess(input: {
+  user: { id: number; permissao: string; superAdmin: boolean };
+  configuredRoles: Array<{ usuarioId: number; papel: RestaurantePapel }>;
+}) {
+  const level = permissionLevel(input.user.permissao, input.user.superAdmin);
+  if (level >= 4) {
+    return { papeis: ["GESTOR"] as RestaurantePapel[], capabilities: [...RESTAURANTE_CAPABILITIES], fallbackLegado: false };
+  }
+  const userRoles = input.configuredRoles
+    .filter((entry) => entry.usuarioId === input.user.id)
+    .map((entry) => entry.papel);
+  return {
+    papeis: userRoles,
+    capabilities: capabilitiesForRestaurantRoles(userRoles),
+    fallbackLegado: false,
+  };
 }
 
 export async function getRestauranteAccess(custom: CustomData) {
@@ -68,23 +68,7 @@ export async function getRestauranteAccess(custom: CustomData) {
       select: { usuarioId: true, papel: true },
     }),
   ]);
-  const level = permissionLevel(user.permissao, user.superAdmin);
-  if (level >= 4) {
-    return { papeis: ["GESTOR"] as RestaurantePapel[], capabilities: [...RESTAURANTE_CAPABILITIES], fallbackLegado: false };
-  }
-  if (!configuredRoles.length) {
-    return {
-      papeis: [] as RestaurantePapel[],
-      capabilities: RESTAURANTE_CAPABILITIES.filter((capability) => level >= legacyMinimum[capability]),
-      fallbackLegado: true,
-    };
-  }
-  const userRoles = configuredRoles.filter((entry) => entry.usuarioId === user.id).map((entry) => entry.papel);
-  return {
-    papeis: userRoles,
-    capabilities: capabilitiesForRestaurantRoles(userRoles),
-    fallbackLegado: false,
-  };
+  return resolveRestaurantAccess({ user, configuredRoles });
 }
 
 export async function hasRestauranteCapability(custom: CustomData, capability: RestauranteCapability) {

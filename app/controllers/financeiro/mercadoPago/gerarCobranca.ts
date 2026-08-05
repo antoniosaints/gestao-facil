@@ -283,7 +283,7 @@ export const gerarCobrancaMercadoPagoPixPublico = async (
   const Uid = gerarIdUnicoComMetaFinal("COB");
   const cliente = await executor.clientesFornecedores.findFirst({
     where: {
-      id: body.clienteId,
+      id: body.clienteId as number,
       contaId: parametros.contaId,
     },
   });
