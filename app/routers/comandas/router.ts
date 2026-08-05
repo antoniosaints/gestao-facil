@@ -21,7 +21,7 @@ import {
 const routerComandas = Router();
 
 routerComandas.use(authenticateJWT);
-routerComandas.use(requireRestauranteAccess(1));
+routerComandas.use(requireRestauranteAccess("COMANDAS_OPERAR"));
 
 routerComandas.get("/", listComandas);
 routerComandas.get("/configuracao", getComandaConfiguracao);

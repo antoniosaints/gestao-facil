@@ -7,7 +7,7 @@ import { contaHasActiveModule } from "../../services/contas/storeModulesService"
 import {
   acknowledgeStationPrintJob,
   claimStationPrintJobs,
-  enqueueTicketPrintJob,
+  enqueueTicketPrintJobs,
   hashPrintStationToken,
 } from "../../services/restaurante/printing";
 import { prisma } from "../../utils/prisma";
@@ -18,13 +18,17 @@ const stationSchema = z.object({
   version: z.coerce.number().int().positive().optional(),
 });
 
-const ruleSchema = z.object({
-  pontoId: z.coerce.number().int().positive(),
+const printDestinationSchema = z.object({
   estacaoId: z.coerce.number().int().positive(),
   fallbackEstacaoId: z.coerce.number().int().positive().nullable().optional(),
   papel: z.enum(["58mm", "80mm"]).default("80mm"),
   vias: z.coerce.number().int().min(1).max(5).default(1),
   imprimirPedidoCompleto: z.boolean().default(false),
+});
+
+const ruleSchema = printDestinationSchema.extend({
+  pontoId: z.coerce.number().int().positive(),
+  destinosAdicionais: z.array(printDestinationSchema).max(20).default([]),
   ativa: z.boolean().default(true),
   version: z.coerce.number().int().positive().optional(),
 });
@@ -124,7 +128,18 @@ export async function listPrintRules(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   return ok(req, res, await prisma.restauranteRegraImpressao.findMany({
     where: { contaId }, orderBy: { Ponto: { ordem: "asc" } },
-    include: { Ponto: true, Estacao: { select: { id: true, nome: true } }, FallbackEstacao: { select: { id: true, nome: true } } },
+    include: {
+      Ponto: true,
+      Estacao: { select: { id: true, nome: true } },
+      FallbackEstacao: { select: { id: true, nome: true } },
+      destinos: {
+        orderBy: { ordem: "asc" },
+        include: {
+          Estacao: { select: { id: true, nome: true } },
+          FallbackEstacao: { select: { id: true, nome: true } },
+        },
+      },
+    },
   }));
 }
 
@@ -132,26 +147,64 @@ export async function savePrintRule(req: Request, res: Response) {
   const parsed = ruleSchema.safeParse(req.body);
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Dados invalidos.", parsed.error.flatten());
   const { contaId } = getCustomRequest(req).customData;
-  if (parsed.data.fallbackEstacaoId === parsed.data.estacaoId) {
-    return fail(req, res, 422, "invalid_print_fallback", "A estacao de fallback deve ser diferente da principal.");
+  const destinations = [{
+    estacaoId: parsed.data.estacaoId,
+    fallbackEstacaoId: parsed.data.fallbackEstacaoId,
+  }, ...parsed.data.destinosAdicionais];
+  if (destinations.some((destination) => destination.fallbackEstacaoId === destination.estacaoId)) {
+    return fail(req, res, 422, "invalid_print_fallback", "A contingencia deve ser diferente da impressora de destino.");
   }
+  const primaryStationIds = destinations.map((destination) => destination.estacaoId);
+  if (new Set(primaryStationIds).size !== primaryStationIds.length) {
+    return fail(req, res, 422, "duplicate_print_destination", "Cada impressora pode aparecer somente uma vez nas saidas simultaneas.");
+  }
+  if (destinations.some((destination) => destination.fallbackEstacaoId && primaryStationIds.includes(destination.fallbackEstacaoId))) {
+    return fail(req, res, 422, "invalid_print_fallback", "Uma contingencia nao pode ser uma impressora que ja recebe a impressao simultaneamente.");
+  }
+  const stationIds = [...new Set(destinations.flatMap((destination) => [
+    destination.estacaoId,
+    ...(destination.fallbackEstacaoId ? [destination.fallbackEstacaoId] : []),
+  ]))];
   const [point, stations] = await Promise.all([
     prisma.restaurantePontoProducao.findFirst({ where: { id: parsed.data.pontoId, contaId } }),
     prisma.restauranteEstacaoImpressao.findMany({
-      where: { contaId, id: { in: [parsed.data.estacaoId, ...(parsed.data.fallbackEstacaoId ? [parsed.data.fallbackEstacaoId] : [])] } },
+      where: { contaId, id: { in: stationIds } },
       select: { id: true },
     }),
   ]);
   if (!point) return fail(req, res, 404, "production_point_not_found", "Ponto de producao nao encontrado.");
-  if (stations.length !== (parsed.data.fallbackEstacaoId ? 2 : 1)) return fail(req, res, 422, "invalid_print_stations", "Estacao principal ou fallback invalida.");
+  if (stations.length !== stationIds.length) return fail(req, res, 422, "invalid_print_stations", "Uma ou mais impressoras de destino ou contingencia sao invalidas.");
   const current = await prisma.restauranteRegraImpressao.findUnique({ where: { pontoId: point.id } });
   if (current && parsed.data.version && current.version !== parsed.data.version) {
     return fail(req, res, 409, "version_conflict", "A regra foi alterada em outra sessao.");
   }
-  const { version: _version, ...data } = parsed.data;
-  const saved = current
-    ? await prisma.restauranteRegraImpressao.update({ where: { id: current.id }, data: { ...data, version: { increment: 1 } } })
-    : await prisma.restauranteRegraImpressao.create({ data: { ...data, contaId } });
+  const { version: _version, destinosAdicionais, ...data } = parsed.data;
+  const saved = await prisma.$transaction(async (tx) => {
+    const rule = current
+      ? await tx.restauranteRegraImpressao.update({ where: { id: current.id }, data: { ...data, version: { increment: 1 } } })
+      : await tx.restauranteRegraImpressao.create({ data: { ...data, contaId } });
+    await tx.restauranteRegraImpressaoDestino.deleteMany({ where: { regraId: rule.id } });
+    if (destinosAdicionais.length) {
+      await tx.restauranteRegraImpressaoDestino.createMany({
+        data: destinosAdicionais.map((destination, ordem) => ({ ...destination, contaId, regraId: rule.id, ordem })),
+      });
+    }
+    return tx.restauranteRegraImpressao.findUniqueOrThrow({
+      where: { id: rule.id },
+      include: {
+        Ponto: true,
+        Estacao: { select: { id: true, nome: true } },
+        FallbackEstacao: { select: { id: true, nome: true } },
+        destinos: {
+          orderBy: { ordem: "asc" },
+          include: {
+            Estacao: { select: { id: true, nome: true } },
+            FallbackEstacao: { select: { id: true, nome: true } },
+          },
+        },
+      },
+    });
+  });
   sendRestaurantUpdate(contaId, "impressao", { regraId: saved.id });
   return ok(req, res, saved, current ? 200 : 201);
 }
@@ -175,10 +228,10 @@ export async function reprintProductionTicket(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const ticket = await prisma.restauranteTicketProducao.findFirst({ where: { id: Number(req.params.id), contaId } });
   if (!ticket) return fail(req, res, 404, "kds_ticket_not_found", "Ticket nao encontrado.");
-  const job = await prisma.$transaction((tx) => enqueueTicketPrintJob(tx, contaId, ticket.id, `reprint:${ticket.id}:${randomUUID()}`));
-  if (!job) return fail(req, res, 422, "print_rule_not_configured", "Configure uma regra de impressao ativa para este ponto.");
-  sendRestaurantUpdate(contaId, "impressao", { trabalhoId: job.id, estacaoId: job.estacaoId });
-  return ok(req, res, job, 201);
+  const jobs = await prisma.$transaction((tx) => enqueueTicketPrintJobs(tx, contaId, ticket.id, `reprint:${ticket.id}:${randomUUID()}`));
+  if (!jobs.length) return fail(req, res, 422, "print_rule_not_configured", "Configure ao menos uma saida de impressao ativa para este ponto.");
+  sendRestaurantUpdate(contaId, "impressao", { trabalhoIds: jobs.map((job) => job.id) });
+  return ok(req, res, jobs, 201);
 }
 
 export async function stationHeartbeat(req: Request, res: Response) {

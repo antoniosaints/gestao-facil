@@ -1,4 +1,4 @@
-import { enqueueTicketPrintJob } from "./printing";
+import { enqueueTicketPrintJobs } from "./printing";
 
 export type ProductionTicketState = "PENDENTE" | "PREPARANDO" | "PRONTO" | "ENTREGUE";
 
@@ -6,6 +6,13 @@ export class ProductionRoutingMissingError extends Error {
   constructor() {
     super("Associe a categoria de todos os itens a um ponto ativo no KDS antes de enviar o pedido.");
     this.name = "ProductionRoutingMissingError";
+  }
+}
+
+export class ProductionRoutingConflictError extends Error {
+  constructor() {
+    super("Uma categoria esta vinculada a mais de um ponto ativo. Corrija os pontos do KDS antes de enviar o pedido.");
+    this.name = "ProductionRoutingConflictError";
   }
 }
 
@@ -50,15 +57,22 @@ export async function dispatchOrderToProduction(
       })
     : [];
 
+  const routeByCategory = new Map<number, any>();
+  for (const route of routes) {
+    const current = routeByCategory.get(route.categoriaId);
+    if (current && current.pontoId !== route.pontoId) throw new ProductionRoutingConflictError();
+    routeByCategory.set(route.categoriaId, route);
+  }
+
   const grouped = new Map<number, { obrigatorio: boolean; itemIds: number[] }>();
   for (const item of order.itens) {
     const categoryId = categoryByProduct.get(item.produtoId);
-    for (const route of routes.filter((candidate: any) => candidate.categoriaId === categoryId)) {
-      const current = grouped.get(route.pontoId) || { obrigatorio: false, itemIds: [] };
-      current.obrigatorio ||= route.obrigatorio;
-      current.itemIds.push(item.id);
-      grouped.set(route.pontoId, current);
-    }
+    const route = categoryId ? routeByCategory.get(categoryId) : null;
+    if (!route) continue;
+    const current = grouped.get(route.pontoId) || { obrigatorio: false, itemIds: [] };
+    current.obrigatorio ||= route.obrigatorio;
+    current.itemIds.push(item.id);
+    grouped.set(route.pontoId, current);
   }
 
   if (options.requireDestination) {
@@ -86,7 +100,7 @@ export async function dispatchOrderToProduction(
         },
       },
     });
-    await enqueueTicketPrintJob(tx, contaId, ticket.id);
+    await enqueueTicketPrintJobs(tx, contaId, ticket.id);
   }
   return grouped.size > 0;
 }

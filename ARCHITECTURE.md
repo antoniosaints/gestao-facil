@@ -65,6 +65,8 @@ O domínio em `app/services/loja` concentra `placeOrder`, retry de checkout, tra
 
 A disponibilidade operacional é `estoque físico - reservas ATIVA/CONFIRMADA`. Vendas, caixas/PDV, comandas, ordens de serviço e descartes usam `assertAvailableAndDecrement`, que bloqueia as linhas em ordem determinística e impede consumo de unidades reservadas. O despacho da loja consome cada reserva uma única vez por meio da relação exclusiva com `MovimentacoesEstoque`.
 
+No Restaurante, `services/restaurante/inventory.ts` reutiliza esse débito protegido para o produto principal e para opções de catálogo vinculadas a produtos. `RestaurantePedidoEstoque` registra cada saída e eventual devolução, permitindo cancelamento/estorno idempotente. `services/restaurante/access.ts` resolve papéis combináveis em capacidades de tela/operação; o middleware valida módulo e capacidade em cada rota, com fallback para a permissão geral apenas enquanto a conta não configurou papéis próprios.
+
 Desativar o módulo bloqueia cadastro/login e novos pedidos no backend, sem interromper webhooks, expirações ou a gestão dos pedidos já criados. A leitura pública muda para o modo `CATALOGO`.
 
 No domínio de produtos, o backend trabalha com duas visões complementares:

@@ -5,13 +5,37 @@ info:
 servers:
   - url: /api/v1/restaurante
 paths:
+  /acesso:
+    get:
+      summary: Retorna papeis e capacidades efetivas do usuario no Restaurante
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200': { description: Papeis, capacidades e indicador de fallback legado }
+        '403': { description: App Restaurante inativo }
+  /usuarios-papeis:
+    get:
+      summary: Lista usuarios da conta e seus papeis no Restaurante
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200': { description: Usuarios e papeis }
+        '403': { description: Capacidade PAPEIS_GERENCIAR necessaria }
+  /usuarios-papeis/{usuarioId}:
+    put:
+      summary: Substitui os papeis de um usuario no Restaurante
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - { name: usuarioId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Papeis atualizados }
+        '403': { description: Capacidade PAPEIS_GERENCIAR necessaria }
+        '404': { description: Usuario fora da conta ou inexistente }
   /publico/{slug}/cardapio:
     get:
       summary: Consulta o cardapio publico ativo
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: Cardapio e produtos disponiveis }
+        '200': { description: Restaurante com nome e logo da conta, cardapio e produtos disponiveis }
         '404': { description: Restaurante inativo ou inexistente }
   /publico/{slug}/pedidos:
     post:
@@ -94,7 +118,7 @@ paths:
   /mesas/{id}/finalizar-limpeza:
     post: { summary: Marca uma mesa em limpeza como livre, security: [ { bearerAuth: [] } ], responses: { '200': { description: Mesa livre } } }
   /sessoes-mesa/{id}/pedidos:
-    post: { summary: Lanca pedido interno na comanda e despacha tickets aos pontos KDS, security: [ { bearerAuth: [] } ], responses: { '201': { description: Pedido enviado }, '422': { description: Selecao ou sessao invalida, ou item sem categoria roteada para ponto KDS ativo } } }
+    post: { summary: Lanca pedido interno, debita estoque transacional e despacha tickets ao KDS, security: [ { bearerAuth: [] } ], responses: { '201': { description: Pedido enviado e estoque auditado }, '422': { description: Selecao, estoque ou sessao invalida, ou item sem categoria roteada para ponto KDS ativo } } }
   /pontos-producao:
     get: { summary: Lista pontos e roteamentos de producao, security: [ { bearerAuth: [] } ], responses: { '200': { description: Pontos da conta } } }
     post: { summary: Cria ponto e associa categorias obrigatorias, security: [ { bearerAuth: [] } ], responses: { '201': { description: Ponto criado } } }
@@ -107,7 +131,7 @@ paths:
   /kds/{id}/transicao:
     post: { summary: Avanca um ticket e sincroniza o estado global do pedido, security: [ { bearerAuth: [] } ], responses: { '200': { description: Ticket atualizado }, '409': { description: Conflito de versao }, '422': { description: Transicao invalida } } }
   /kds/{id}/reimprimir:
-    post: { summary: Enfileira uma nova via do ticket usando a regra ativa do ponto, security: [ { bearerAuth: [] } ], responses: { '201': { description: Trabalho criado }, '422': { description: Regra de impressao nao configurada } } }
+    post: { summary: Enfileira novas vias do ticket em todas as saidas simultaneas da regra ativa, security: [ { bearerAuth: [] } ], responses: { '201': { description: Trabalhos criados por saida }, '422': { description: Regra de impressao nao configurada } } }
   /estacoes-impressao:
     get: { summary: Lista estacoes sem expor o hash do token, security: [ { bearerAuth: [] } ], responses: { '200': { description: Estacoes e estado de presenca } } }
     post: { summary: Cria estacao e retorna o token de pareamento uma unica vez, security: [ { bearerAuth: [] } ], responses: { '201': { description: Estacao e pairingToken } } }
@@ -117,7 +141,7 @@ paths:
     post: { summary: Invalida o token anterior e retorna um novo token uma unica vez, security: [ { bearerAuth: [] } ], responses: { '200': { description: Novo pairingToken } } }
   /regras-impressao:
     get: { summary: Lista regras por ponto de producao, security: [ { bearerAuth: [] } ], responses: { '200': { description: Regras } } }
-    put: { summary: Cria ou atualiza regra com estacao principal, fallback, papel e vias, security: [ { bearerAuth: [] } ], responses: { '200': { description: Regra atualizada }, '201': { description: Regra criada } } }
+    put: { summary: Cria ou atualiza regra com uma ou mais saidas simultaneas e contingencia individual, security: [ { bearerAuth: [] } ], responses: { '200': { description: Regra atualizada }, '201': { description: Regra criada } } }
   /trabalhos-impressao:
     get: { summary: Lista os ultimos trabalhos e seus estados, security: [ { bearerAuth: [] } ], responses: { '200': { description: Trabalhos } } }
   /estacao-impressao/heartbeat:
@@ -137,7 +161,7 @@ paths:
       responses:
         '200': { description: Pedido atualizado }
         '409': { description: Conflito de versao }
-        '422': { description: Transicao invalida }
+        '422': { description: Transicao ou estoque invalido; cancelamento devolve debitos ainda ativos }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }

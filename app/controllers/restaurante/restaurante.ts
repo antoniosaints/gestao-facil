@@ -10,7 +10,14 @@ import { validateRestauranteGrupo } from "../../services/restaurante/catalogPoli
 import { restaurantCatalogGroupsInclude } from "../../services/restaurante/catalogQuery";
 import { calculateZoneDeliveryFee, normalizeCep, selectDeliveryZone } from "../../services/restaurante/deliveryZone";
 import { createRestaurantOnlinePayment } from "../../services/restaurante/payment";
-import { dispatchOrderToProduction, ProductionRoutingMissingError, syncOrderProductionState } from "../../services/restaurante/production";
+import {
+  dispatchOrderToProduction,
+  ProductionRoutingConflictError,
+  ProductionRoutingMissingError,
+  syncOrderProductionState,
+} from "../../services/restaurante/production";
+import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "../../services/restaurante/inventory";
+import { CommerceError } from "../../services/loja/commerceError";
 import { sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
 
@@ -246,10 +253,11 @@ async function calculatePublicCheckout(
     if (selected.length !== new Set(requested.selecaoIds).size) {
       throw new CheckoutError("invalid_selection", "Uma selecao nao pertence ao item informado.");
     }
-    const selections: SelecaoPreco[] = selected.map(({ option, group }) => ({
+    const selections: Array<SelecaoPreco & { produtoId: number | null }> = selected.map(({ option, group }) => ({
       tipo: group.tipo,
       nome: option.nome,
       precoAdicional: option.precoAdicional.toString(),
+      produtoId: option.produtoId,
     }));
     const unit = calcularPrecoUnitario(item.Produto.preco.toString(), selections, item.regraPrecoSabores);
     const line = unit.mul(requested.quantidade).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
@@ -326,7 +334,10 @@ async function calculatePublicCheckout(
 }
 
 async function publicConfig(slug: string) {
-  const config = await prisma.restauranteConfig.findUnique({ where: { slug } });
+  const config = await prisma.restauranteConfig.findUnique({
+    where: { slug },
+    include: { Conta: { select: { profile: true } } },
+  });
   if (!config || !config.ativo || !(await contaHasActiveModule(config.contaId, "restaurante-delivery"))) return null;
   return config;
 }
@@ -553,12 +564,27 @@ export async function transitionOrder(req: Request, res: Response) {
   if (nextStatus === "PRONTO") data.producaoStatus = "PRONTO";
   if (nextStatus === "CONCLUIDO") data.concluidoAt = new Date();
   if (nextStatus === "CANCELADO") data.canceladoAt = new Date();
-  const updated = await prisma.$transaction(async (tx) => {
-    const result = await tx.restaurantePedido.updateMany({ where: { id: order.id, contaId, version }, data });
-    if (!result.count) return null;
-    if (nextStatus === "CONFIRMADO") await dispatchOrderToProduction(tx, contaId, order.id);
-    return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true } });
-  });
+  let updated: any;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.restaurantePedido.updateMany({ where: { id: order.id, contaId, version }, data });
+      if (!result.count) return null;
+      if (nextStatus === "CONFIRMADO") {
+        await debitRestaurantOrderStock(tx, contaId, order.id);
+        await dispatchOrderToProduction(tx, contaId, order.id);
+      }
+      if (nextStatus === "CANCELADO") await returnRestaurantOrderStock(tx, contaId, order.id);
+      return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true } });
+    });
+  } catch (error) {
+    if (error instanceof ProductionRoutingConflictError) {
+      return fail(req, res, 422, "production_route_conflict", error.message);
+    }
+    if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
+      return fail(req, res, 422, error.code, error.message);
+    }
+    throw error;
+  }
   if (!updated) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessao.");
   notifyRestaurant(contaId, "pedido", { pedidoId: order.id });
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
@@ -583,6 +609,7 @@ export async function publicMenu(req: Request, res: Response) {
   return ok(req, res, {
     restaurante: {
       nome: config.nomePublico,
+      logo: config.Conta.profile,
       slug: config.slug,
       pedidoMinimo: config.pedidoMinimo,
       retiradaAtiva: config.retiradaAtiva,
@@ -943,6 +970,7 @@ export async function createTableOrder(req: Request, res: Response) {
         },
         include: { itens: true, Mesa: true },
       });
+      await debitRestaurantOrderStock(tx, contaId, created.id);
       await tx.comandaOperacaoItem.createMany({
         data: quote.snapshots.map(({ requested, item, unit, line }) => ({
           comandaId: commandId,
@@ -967,6 +995,12 @@ export async function createTableOrder(req: Request, res: Response) {
   } catch (error) {
     if (error instanceof ProductionRoutingMissingError) {
       return fail(req, res, 422, "production_route_missing", error.message);
+    }
+    if (error instanceof ProductionRoutingConflictError) {
+      return fail(req, res, 422, "production_route_conflict", error.message);
+    }
+    if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
+      return fail(req, res, 422, error.code, error.message);
     }
     throw error;
   }
@@ -1009,6 +1043,28 @@ export async function saveProductionPoint(req: Request, res: Response) {
     : [];
   if (categories.length !== new Set(parsed.data.categoriaIds).size) {
     return fail(req, res, 422, "invalid_production_categories", "Uma ou mais categorias nao pertencem a esta conta.");
+  }
+  if (parsed.data.ativo && parsed.data.categoriaIds.length) {
+    const conflict = await prisma.restauranteRoteamentoProducao.findFirst({
+      where: {
+        categoriaId: { in: parsed.data.categoriaIds },
+        ...(current ? { pontoId: { not: current.id } } : {}),
+        Ponto: { contaId, ativo: true },
+      },
+      include: {
+        Ponto: { select: { nome: true } },
+        Categoria: { select: { nome: true } },
+      },
+    });
+    if (conflict) {
+      return fail(
+        req,
+        res,
+        409,
+        "production_category_conflict",
+        `A categoria ${conflict.Categoria.nome} ja e produzida em ${conflict.Ponto.nome}. Remova-a desse ponto antes de reutilizar.`,
+      );
+    }
   }
   const { categoriaIds, version: _version, ...data } = parsed.data;
   const saved = await prisma.$transaction(async (tx) => {

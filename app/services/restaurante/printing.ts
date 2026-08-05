@@ -116,32 +116,62 @@ async function buildJobContent(tx: any, ticketId: number, fullOrder: boolean, ui
   };
 }
 
-export async function enqueueTicketPrintJob(tx: any, contaId: number, ticketId: number, manualKey?: string) {
+export async function enqueueTicketPrintJobs(tx: any, contaId: number, ticketId: number, manualKey?: string) {
   const ticket = await tx.restauranteTicketProducao.findFirst({
     where: { id: ticketId, contaId },
-    include: { Ponto: { include: { regraImpressao: true } } },
-  });
-  const rule = ticket?.Ponto.regraImpressao;
-  if (!ticket || !rule?.ativa) return null;
-  const dedupeKey = manualKey || `ticket:${ticket.id}:sequencia:${ticket.sequencia}`;
-  const existing = await tx.restauranteTrabalhoImpressao.findUnique({ where: { dedupeKey } });
-  if (existing) return existing;
-  const uid = randomUUID();
-  const { content } = await buildJobContent(tx, ticket.id, rule.imprimirPedidoCompleto, uid, rule.papel);
-  return tx.restauranteTrabalhoImpressao.create({
-    data: {
-      uid,
-      contaId,
-      pontoId: ticket.pontoId,
-      ticketId: ticket.id,
-      estacaoId: rule.estacaoId,
-      fallbackEstacaoId: rule.fallbackEstacaoId,
-      dedupeKey,
-      conteudo: content,
-      papel: rule.papel,
-      vias: rule.vias,
+    include: {
+      Ponto: {
+        include: {
+          regraImpressao: { include: { destinos: { orderBy: { ordem: "asc" } } } },
+        },
+      },
     },
   });
+  const rule = ticket?.Ponto.regraImpressao;
+  if (!ticket || !rule?.ativa) return [];
+  const destinations = [
+    {
+      estacaoId: rule.estacaoId,
+      fallbackEstacaoId: rule.fallbackEstacaoId,
+      papel: rule.papel,
+      vias: rule.vias,
+      imprimirPedidoCompleto: rule.imprimirPedidoCompleto,
+    },
+    ...rule.destinos,
+  ];
+  const jobs = [];
+  const dedupeBase = manualKey || `ticket:${ticket.id}:sequencia:${ticket.sequencia}`;
+  for (const destination of destinations) {
+    const dedupeKey = `${dedupeBase}:destino:${destination.estacaoId}`;
+    const existing = await tx.restauranteTrabalhoImpressao.findUnique({ where: { dedupeKey } });
+    if (existing) {
+      jobs.push(existing);
+      continue;
+    }
+    const uid = randomUUID();
+    const { content } = await buildJobContent(
+      tx,
+      ticket.id,
+      destination.imprimirPedidoCompleto,
+      uid,
+      destination.papel,
+    );
+    jobs.push(await tx.restauranteTrabalhoImpressao.create({
+      data: {
+        uid,
+        contaId,
+        pontoId: ticket.pontoId,
+        ticketId: ticket.id,
+        estacaoId: destination.estacaoId,
+        fallbackEstacaoId: destination.fallbackEstacaoId,
+        dedupeKey,
+        conteudo: content,
+        papel: destination.papel,
+        vias: destination.vias,
+      },
+    }));
+  }
+  return jobs;
 }
 
 export async function claimStationPrintJobs(prisma: any, station: any, limit = 10) {

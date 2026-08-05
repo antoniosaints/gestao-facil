@@ -1,3 +1,5 @@
+import { returnRestaurantOrderStock } from "../restaurante/inventory";
+
 export async function detachRestaurantCommandLinks(
   tx: any,
   contaId: number,
@@ -7,6 +9,20 @@ export async function detachRestaurantCommandLinks(
     where: { comandaOperacaoId, Sessao: { contaId } },
     select: { sessaoId: true, Sessao: { select: { mesaId: true, status: true } } },
   });
+
+  const restaurantOrders = await tx.restaurantePedido.findMany({
+    where: { contaId, comandaOperacaoId },
+    select: { id: true, status: true },
+  });
+  for (const order of restaurantOrders) {
+    await returnRestaurantOrderStock(tx, contaId, order.id);
+    if (!["CONCLUIDO", "CANCELADO"].includes(order.status)) {
+      await tx.restaurantePedido.update({
+        where: { id: order.id },
+        data: { status: "CANCELADO", canceladoAt: new Date(), version: { increment: 1 } },
+      });
+    }
+  }
 
   await tx.restaurantePedido.updateMany({
     where: { contaId, comandaOperacaoId },

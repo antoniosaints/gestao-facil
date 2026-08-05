@@ -1,14 +1,32 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { getCustomRequest } from "../helpers/getCustomRequest";
-import { hasPermission } from "../helpers/userPermission";
 import { contaHasActiveModule } from "../services/contas/storeModulesService";
+import { hasRestauranteCapability, type RestauranteCapability } from "../services/restaurante/access";
 
-export function requireRestauranteAccess(level = 1): RequestHandler {
+export function requireRestauranteModule(): RequestHandler {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const custom = getCustomRequest(req).customData;
+    const active = await contaHasActiveModule(custom.contaId, "restaurante-delivery");
+    if (!active) {
+      res.status(403).json({
+        error: {
+          code: "restaurante_module_inactive",
+          message: "O app Restaurante e Delivery precisa estar ativo.",
+          requestId: req.headers["x-request-id"] || null,
+        },
+      });
+      return;
+    }
+    next();
+  };
+}
+
+export function requireRestauranteAccess(capability: RestauranteCapability): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     const custom = getCustomRequest(req).customData;
     const [active, allowed] = await Promise.all([
       contaHasActiveModule(custom.contaId, "restaurante-delivery"),
-      hasPermission(custom, level),
+      hasRestauranteCapability(custom, capability),
     ]);
     if (!active || !allowed) {
       res.status(403).json({

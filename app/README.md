@@ -13,7 +13,7 @@
 - `mappers/`: tradução de erros e formatos.
 - `middlewares/`: autenticação e filtros transversais.
 - `queues/`: definição das filas BullMQ.
-- `routers/`: roteamento da API, incluindo `/api/whatsapp` e `/api/loja`; a loja separa rotas públicas por slug das rotas operacionais protegidas pelo JWT do ERP.
+- `routers/`: roteamento da API, incluindo `/api/whatsapp`, `/api/loja` e `/api/v1/restaurante`; o Restaurante separa rotas públicas por slug das rotas privadas protegidas por JWT, módulo ativo e capacidade do papel operacional.
 - `schemas/`: schemas de validação.
 - `services/`: serviços especializados e integrações, incluindo `services/whatsapp` e `services/loja` para configuração pública, autenticação de clientes, idempotência, reservas e ciclo transacional de pedidos.
 - Uploads públicos e leitura de arquivos renderizáveis ficam centralizados em `services/uploads/fileStorageService.ts`, com fallback local e suporte a S3/R2 compatível; fotos da conta e avatar de usuário devem reutilizar esse serviço via `routers/uploads`.

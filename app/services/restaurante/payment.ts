@@ -9,6 +9,8 @@ import {
   buildMercadoPagoOperationalWebhookUrl,
 } from "../financeiro/mercadoPagoChargeReference";
 import { dispatchOrderToProduction } from "./production";
+import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "./inventory";
+import { CommerceError } from "../loja/commerceError";
 
 export type RestauranteOnlinePaymentMethod = "PIX" | "CHECKOUT_PRO";
 
@@ -123,23 +125,39 @@ export async function applyRestaurantPaymentEvent(input: {
   const order = await prisma.restaurantePedido.findFirst({ where: { id: input.orderId, contaId: input.contaId } });
   if (!order) return null;
   if (input.status === "EFETIVADO") {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        if (order.status === "RECEBIDO") await debitRestaurantOrderStock(tx, input.contaId, order.id);
+        const updated = await tx.restaurantePedido.update({
+          where: { id: order.id },
+          data: {
+            pagamentoStatus: "PAGO",
+            ...(order.status === "RECEBIDO" ? { status: "CONFIRMADO" } : {}),
+            version: { increment: 1 },
+          },
+        });
+        if (order.status === "RECEBIDO") await dispatchOrderToProduction(tx, input.contaId, order.id);
+        return updated;
+      });
+    } catch (error) {
+      if (!(error instanceof CommerceError) && !(error instanceof RestauranteEstoqueError)) throw error;
+      return prisma.restaurantePedido.update({
+        where: { id: order.id },
+        data: { pagamentoStatus: "EM_REVISAO", version: { increment: 1 } },
+      });
+    }
+  }
+  if (input.status === "ESTORNADO") {
     return prisma.$transaction(async (tx) => {
-      const updated = await tx.restaurantePedido.update({
+      await returnRestaurantOrderStock(tx, input.contaId, order.id);
+      return tx.restaurantePedido.update({
         where: { id: order.id },
         data: {
-          pagamentoStatus: "PAGO",
-          ...(order.status === "RECEBIDO" ? { status: "CONFIRMADO" } : {}),
+          pagamentoStatus: "ESTORNADO",
+          ...(order.status !== "CONCLUIDO" ? { status: "CANCELADO", canceladoAt: new Date() } : {}),
           version: { increment: 1 },
         },
       });
-      if (order.status === "RECEBIDO") await dispatchOrderToProduction(tx, input.contaId, order.id);
-      return updated;
-    });
-  }
-  if (input.status === "ESTORNADO") {
-    return prisma.restaurantePedido.update({
-      where: { id: order.id },
-      data: { pagamentoStatus: "ESTORNADO", version: { increment: 1 } },
     });
   }
   if (input.status === "CANCELADO") {
