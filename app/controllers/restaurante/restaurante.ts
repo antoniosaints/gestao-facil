@@ -341,7 +341,14 @@ async function calculatePublicCheckout(
 async function publicConfig(slug: string) {
   const config = await prisma.restauranteConfig.findUnique({
     where: { slug },
-    include: { Conta: { select: { profile: true } } },
+    include: {
+      Conta: {
+        select: {
+          profile: true,
+          ParametrosConta: { select: { temaPersonalizado: true }, take: 1 },
+        },
+      },
+    },
   });
   if (!config || !config.ativo || !(await contaHasActiveModule(config.contaId, "restaurante-delivery"))) return null;
   return config;
@@ -636,6 +643,7 @@ export async function publicMenu(req: Request, res: Response) {
       pagamentoOnlineAtivo: config.pagamentoOnlineAtivo,
       pagamentoNaEntregaAtivo: config.pagamentoNaEntregaAtivo,
       modoFrete: config.modoFrete,
+      temaPersonalizado: config.Conta.ParametrosConta[0]?.temaPersonalizado ?? null,
     },
     itens: items,
   });
@@ -785,7 +793,33 @@ export async function createPublicOrder(req: Request, res: Response) {
 
 export async function publicTracking(req: Request, res: Response) {
   const token = String(req.params.token || "");
-  const order = await prisma.restaurantePedido.findUnique({ where: { trackingTokenHash: hash(token) }, select: { codigo: true, status: true, producaoStatus: true, pagamentoStatus: true, entregaStatus: true, createdAt: true, updatedAt: true, concluidoAt: true, canceladoAt: true } });
+  const order = await prisma.restaurantePedido.findUnique({
+    where: { trackingTokenHash: hash(token) },
+    select: {
+      codigo: true,
+      origem: true,
+      status: true,
+      producaoStatus: true,
+      pagamentoStatus: true,
+      entregaStatus: true,
+      subtotal: true,
+      frete: true,
+      total: true,
+      createdAt: true,
+      updatedAt: true,
+      concluidoAt: true,
+      canceladoAt: true,
+      itens: {
+        orderBy: { id: "asc" },
+        select: {
+          nomeSnapshot: true,
+          quantidade: true,
+          subtotalSnapshot: true,
+          selecoesSnapshotJson: true,
+        },
+      },
+    },
+  });
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
   return ok(req, res, order);
 }
