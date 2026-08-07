@@ -383,6 +383,11 @@ export const getLancamentosMensal = async (
                 nome: true,
               },
             },
+            _count: {
+              select: {
+                parcelas: true,
+              },
+            }
           },
         },
       },
@@ -490,6 +495,7 @@ export const getLancamentosMensal = async (
         uid: parcela.lancamento.Uid,
         parcelaId: parcela.id,
         numero: parcela.numero,
+        totalParcelas: parcela.lancamento._count.parcelas,
         descricao: parcela.lancamento.descricao,
         categoria: parcela.lancamento.categoria.nome,
         cliente: parcela.lancamento.cliente?.nome || null,
@@ -518,6 +524,7 @@ export const getLancamentosMensal = async (
         uid: string;
         parcelaId: number;
         numero: number;
+        totalParcelas: number;
         descricao: string;
         categoria: string;
         cliente: string | null;

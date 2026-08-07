@@ -114,6 +114,7 @@ export const tableFinanceiro = async (
       where,
       include: {
         parcelas: true,
+        recorrencia: true,
         categoria: true,
         cliente: true,
         ContasFinanceiro: true,
