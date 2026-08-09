@@ -151,7 +151,18 @@ paths:
   /estacao-impressao/trabalhos/ack:
     post: { summary: Confirma sucesso ou falha de um trabalho reservado, security: [ { printStationToken: [] } ], responses: { '200': { description: Estado atualizado }, '409': { description: Lease expirado } } }
   /pedidos:
-    get: { summary: Lista pedidos da conta por pagina, security: [ { bearerAuth: [] } ], responses: { '200': { description: Pedidos e metadados } } }
+    get:
+      summary: Lista pedidos da conta por página, com status e período opcionais
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: inicio, in: query, description: Data/hora ISO 8601 inclusiva, schema: { type: string, format: date-time } }
+        - { name: fim, in: query, description: Data/hora ISO 8601 inclusiva, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: Pedidos e metadados }
+        '422': { description: Período inválido }
   /pedidos/{id}/transicao:
     post:
       summary: Executa transicao valida usando version

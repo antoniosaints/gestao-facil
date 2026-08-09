@@ -551,7 +551,21 @@ export async function listOrders(req: Request, res: Response) {
   const page = Math.max(Number(req.query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
-  const where = { contaId, ...(status ? { status: status as any } : {}) };
+  const inicioRaw = typeof req.query.inicio === "string" ? req.query.inicio : undefined;
+  const fimRaw = typeof req.query.fim === "string" ? req.query.fim : undefined;
+  const inicio = inicioRaw ? new Date(inicioRaw) : undefined;
+  const fim = fimRaw ? new Date(fimRaw) : undefined;
+  if ((inicio && Number.isNaN(inicio.getTime())) || (fim && Number.isNaN(fim.getTime()))) {
+    return fail(req, res, 422, "invalid_period", "O período informado é inválido.");
+  }
+  if (inicio && fim && inicio > fim) {
+    return fail(req, res, 422, "invalid_period", "A data inicial deve ser anterior à data final.");
+  }
+  const where: any = {
+    contaId,
+    ...(status ? { status } : {}),
+    ...(inicio || fim ? { createdAt: { ...(inicio ? { gte: inicio } : {}), ...(fim ? { lte: fim } : {}) } } : {}),
+  };
   const [items, total] = await Promise.all([
     prisma.restaurantePedido.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: "desc" }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } }),
     prisma.restaurantePedido.count({ where }),

@@ -88,7 +88,7 @@ Esse bootstrap:
 ## Restaurante e Delivery
 
 - O app pago `restaurante-delivery` custa R$ 49,90/mês e usa o ciclo existente da App Store; o gate privado consulta o módulo ativo da conta e o cancelamento não apaga dados.
-- A API v1 fica em `/api/v1/restaurante`: configuração, catálogo vinculado a `Produto`, fila unificada de pedidos, salão, sessões de mesa, comandas e KDS. Todas as consultas privadas obtêm `contaId` do JWT.
+- A API v1 fica em `/api/v1/restaurante`: configuração, catálogo vinculado a `Produto`, fila unificada de pedidos, salão, sessões de mesa, comandas e KDS. `GET /pedidos` aceita paginação, status e o intervalo ISO opcional `inicio`/`fim`, para que a operação consulte períodos controlados. Todas as consultas privadas obtêm `contaId` do JWT.
 - A administração do catálogo expõe produtos ativos da conta, CRUD de itens e grupos de sabores/complementos. Cada grupo valida limites mínimo/máximo, opções ativas e vínculos opcionais com produtos antes de ser associado ao item público.
 - Quando a conta ainda não possui `RestauranteConfig`, a consulta interna devolve nome e slug iniciais derivados da conta, sem publicar automaticamente o cardápio; o primeiro salvamento persiste essa configuração.
 - O cardápio público usa `/api/v1/restaurante/publico/:slug/cardapio` e entrega a referência da logo e o `temaPersonalizado` configurados na conta. A criação exige `Idempotency-Key`, recalcula preços, adicionais, pedido mínimo e frete no servidor e devolve um token opaco de acompanhamento. `GET /api/v1/restaurante/publico/pedidos/:token` usa esse token como capacidade e retorna status, valores e itens necessários ao acompanhamento/histórico local, sem expor busca pública por telefone ou dados pessoais do cliente.
