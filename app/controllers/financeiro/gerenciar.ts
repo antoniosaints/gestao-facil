@@ -974,6 +974,19 @@ export const pagarParcela = async (
       return res.status(400).json({ message: "Parcela já está paga." });
     }
 
+    const valorRecebido = new Decimal(req.body.valorRecebido ?? parcela.valor);
+    if (valorRecebido.lte(0)) {
+      return res.status(400).json({ message: "O valor recebido deve ser maior que zero." });
+    }
+    const criarSaldoPendente = Boolean(req.body.criarSaldoPendente) && valorRecebido.lt(parcela.valor);
+    const saldoPendente = criarSaldoPendente ? new Decimal(parcela.valor).minus(valorRecebido) : new Decimal(0);
+    const novoVencimento = criarSaldoPendente
+      ? startOfDay(new Date(req.body.novoVencimento))
+      : null;
+    if (criarSaldoPendente && (!novoVencimento || Number.isNaN(novoVencimento.getTime()))) {
+      return res.status(400).json({ message: "Informe a data da nova parcela para o valor pendente." });
+    }
+
     await assertFutureSettlementAllowed(customData.contaId, [req.body.dataPagamento]);
 
     const pagamentoResult = await prisma.$transaction(async (tx) => {
@@ -981,12 +994,35 @@ export const pagarParcela = async (
         where: { id: parcelaId },
         data: {
           pago: true,
-          valorPago: parcela.valor,
+          valorPago: valorRecebido,
+          // A parcela quitada sempre reflete o que entrou de fato. Quando há
+          // saldo pendente, ele existe somente na nova parcela criada abaixo.
+          valor: valorRecebido,
           formaPagamento: req.body.metodoPagamento,
           dataPagamento: startOfDay(new Date(req.body.dataPagamento)),
           contaFinanceira: contaPagamento,
         },
       });
+
+      if (criarSaldoPendente) {
+        const ultimaParcela = await tx.parcelaFinanceiro.findFirst({
+          where: { lancamentoId: parcela.lancamentoId },
+          orderBy: [{ numero: "desc" }, { id: "desc" }],
+          select: { numero: true },
+        });
+        await tx.parcelaFinanceiro.create({
+          data: {
+            Uid: gerarIdUnicoComMetaFinal("PAR"),
+            lancamentoId: parcela.lancamentoId,
+            numero: (ultimaParcela?.numero || 0) + 1,
+            valor: saldoPendente,
+            vencimento: novoVencimento!,
+            pago: false,
+            descricao: `Saldo parcial da parcela ${parcela.numero}`,
+            contaFinanceira: contaPagamento,
+          },
+        });
+      }
 
       const parcelaAtualizada = await tx.parcelaFinanceiro.findUnique({
         where: { id: parcelaId },
@@ -1011,7 +1047,7 @@ export const pagarParcela = async (
     if (vendasAtualizadas.length) {
       sendVendasUpdateTable(customData.contaId, { reason: "financeiro-venda-atualizado", vendaIds: vendasAtualizadas });
     }
-    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-paga", parcelaId, lancamentoId: pagamentoResult.lancamentoId });
+    sendFinanceiroUpdated(customData.contaId, { reason: criarSaldoPendente ? "parcela-paga-parcial" : "parcela-paga", parcelaId, lancamentoId: pagamentoResult.lancamentoId });
 
     if (pagamentoResult.automacao?.generated && pagamentoResult.automacao.lancamentoId) {
       sendFinanceiroUpdated(customData.contaId, {
@@ -1028,7 +1064,7 @@ export const pagarParcela = async (
       });
     }
 
-    return res.json({ message: "Parcela paga com sucesso." });
+    return res.json({ message: criarSaldoPendente ? "Pagamento parcial registrado e saldo reagendado." : "Parcela efetivada com o valor recebido." });
   } catch (error: any) {
     console.error("Erro ao pagar parcela:", error);
     return res.status(500).json({ message: "Erro ao pagar parcela." });

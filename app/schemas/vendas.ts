@@ -14,6 +14,11 @@ const metodoPagamentoVendaValues = [
   "GATEWAY",
 ] as const;
 
+const pagamentoCompostoVendaSchema = z.object({
+  metodo: z.enum(metodoPagamentoVendaValues),
+  valor: z.number().positive("Informe um valor maior que zero."),
+});
+
 export const efetivarVendaSchema = z
   .object(
     {
@@ -37,6 +42,11 @@ export const efetivarVendaSchema = z
             "O campo pagamento deve ser {PIX, DINHEIRO, CARTAO, TRANSFERENCIA, CHEQUE, CREDITO, DEBITO, BOLETO, OUTRO ou GATEWAY}",
         }
       ),
+      pagamentos: z
+        .array(pagamentoCompostoVendaSchema)
+        .min(1)
+        .max(8)
+        .optional(),
       lancamentoManual: z.boolean({
         required_error: "Informe o tipo de lancamento",
         invalid_type_error: "O lancamento manual deve ser selecionado ou nao",
@@ -161,6 +171,7 @@ export const vendaSchema = z.object(
       })
       .optional()
       .default("OUTRO"),
+    pagamentos: z.array(pagamentoCompostoVendaSchema).min(1).max(8).optional(),
     crediarioParcelas: z
       .number({
         invalid_type_error: "O campo crediarioParcelas deve ser um numero",
@@ -227,7 +238,8 @@ export const vendaSchema = z.object(
   },
   { required_error: "Informe os dados da venda" }
 ).superRefine((data, ctx) => {
-  if (data.pagamento !== "CREDIARIO") return;
+  const possuiCrediario = data.pagamento === "CREDIARIO" || data.pagamentos?.some((pagamento) => pagamento.metodo === "CREDIARIO");
+  if (!possuiCrediario) return;
 
   if (!data.clienteId) {
     ctx.addIssue({

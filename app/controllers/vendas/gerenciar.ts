@@ -125,6 +125,7 @@ export const efetivarVenda = async (
 
     const {
       pagamento,
+      pagamentos: pagamentosInformados,
       dataPagamento,
       conta: contaId,
       categoria,
@@ -145,6 +146,16 @@ export const efetivarVenda = async (
       if (venda.faturado) {
         throw Error("Venda ja efetivada");
       }
+
+      const pagamentos = (pagamentosInformados?.length
+        ? pagamentosInformados
+        : [{ metodo: pagamento, valor: Number(venda.valor) }]
+      ).map((item) => ({ metodo: item.metodo, valor: new Decimal(item.valor) }));
+      const totalPagamentos = pagamentos.reduce((total, item) => total.plus(item.valor), new Decimal(0));
+      if (!totalPagamentos.equals(new Decimal(venda.valor))) {
+        throw new Error("A soma das formas de pagamento deve ser igual ao valor da venda.");
+      }
+      const pagamentoPrincipal = pagamentos.length === 1 ? pagamentos[0].metodo : "OUTRO";
 
       const lancamentosVinculados = await tx.lancamentoFinanceiro.findMany({
         where: {
@@ -185,14 +196,16 @@ export const efetivarVenda = async (
               create: {
                 status: "EFETIVADO",
                 data: new Date(dataPagamento),
-                metodo: pagamento,
+                metodo: pagamentoPrincipal,
                 valor: venda.valor,
+                detalhes: pagamentos.map((item) => ({ metodo: item.metodo, valor: item.valor.toNumber() })),
               },
               update: {
                 status: "EFETIVADO",
                 data: new Date(dataPagamento),
-                metodo: pagamento,
+                metodo: pagamentoPrincipal,
                 valor: venda.valor,
+                detalhes: pagamentos.map((item) => ({ metodo: item.metodo, valor: item.valor.toNumber() })),
               },
             },
           },
@@ -226,7 +239,7 @@ export const efetivarVenda = async (
           valorTotal: venda.valor,
           desconto: venda.desconto,
           dataPagamento: new Date(dataPagamento),
-          formaPagamento: pagamento,
+          formaPagamento: pagamentoPrincipal,
           parametros: parametrosLancamento,
           categoriaFallback: categoria,
           contaFallback: contaId,

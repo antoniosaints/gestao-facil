@@ -22,6 +22,11 @@ const vendaItemSchema = z.object({
   quantidade: z.number().positive(),
 });
 
+const pagamentoCompostoSchema = z.object({
+  metodo: z.enum(metodoPagamentoValues),
+  valor: z.number().positive("Informe um valor maior que zero."),
+});
+
 export const abrirCaixaSchema = z.object({
   pdvId: z.number().int().positive().nullable().optional(),
   valorInicial: z.number().min(0).default(0),
@@ -88,6 +93,7 @@ export const finalizarVendaPdvSchema = z.object({
     }),
   desconto: z.number().min(0).optional().default(0),
   pagamento: z.enum(metodoPagamentoValues),
+  pagamentos: z.array(pagamentoCompostoSchema).min(1).max(8).optional(),
   valorRecebido: z.union([z.number(), z.string()]).nullable().optional(),
   crediarioParcelas: z.number().int().min(1).max(36).nullable().optional(),
   crediarioPrimeiroVencimento: z
@@ -99,7 +105,8 @@ export const finalizarVendaPdvSchema = z.object({
     }),
   itens: z.array(vendaItemSchema).min(1, "Informe ao menos um item"),
 }).superRefine((data, ctx) => {
-  if (data.pagamento !== "CREDIARIO") return;
+  const possuiCrediario = data.pagamento === "CREDIARIO" || data.pagamentos?.some((pagamento) => pagamento.metodo === "CREDIARIO");
+  if (!possuiCrediario) return;
 
   if (!data.crediarioParcelas || data.crediarioParcelas < 1) {
     ctx.addIssue({

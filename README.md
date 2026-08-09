@@ -70,6 +70,7 @@ Esse bootstrap:
 - O gateway dessa renovação vem de `Contas.gateway`, sincronizado globalmente pelo painel do superadmin em `GET/POST /api/admin/configuracoes/gateway`.
 - No fluxo AbacatePay da mensalidade SaaS, o backend usa `ABACATEPAY_API_KEY` e `ABACATEPAY_WEBHOOK_SECRET` do ambiente, cria checkout hospedado com métodos `PIX` e `CARD`, grava a fatura pendente em `FaturasContas` e espera confirmação por webhook.
 - O mesmo endpoint público `POST /abacatepay/webhook` também trata cobranças operacionais das contas, mas nesse caso valida a assinatura HMAC com o `AbacatePaySecret` salvo em `ParametrosConta` e atualiza `CobrancasFinanceiras`, vendas, parcelas e ciclos recorrentes da conta.
+- Em cobranças operacionais vinculadas a venda ou ordem de serviço, a confirmação do webhook só fatura a origem quando o valor daquela cobrança cobre seu total. Uma cobrança menor permanece como recebimento parcial efetivado, sem faturar automaticamente a venda ou a OS.
 - As credenciais da AbacatePay informadas na App Store da conta (app gratuito `AbacatePay`) pertencem ao tenant e servem apenas para cobranças internas da conta; quando `BASE_URL` é HTTPS, o backend também tenta sincronizar automaticamente a webhook dessa conta na AbacatePay.
 - O fluxo legado do Mercado Pago continua disponível no mesmo endpoint genérico como fallback.
 

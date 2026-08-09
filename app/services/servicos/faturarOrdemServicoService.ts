@@ -1,8 +1,10 @@
 import { prisma } from "../../utils/prisma";
+import Decimal from "decimal.js";
+import { cobrancaCobreValorTotal } from "../financeiro/cobrancaQuitacaoPolicy";
 
 /**
  * Faz o faturamento automático de uma Ordem de Serviço quando a cobrança
- * vinculada (ordemServicoId) é paga via gateway.
+ * vinculada (ordemServicoId) é paga via gateway e cobre o valor total da OS.
  *
  * Espelha o efeito do faturamento manual (status -> FATURADA) de forma
  * idempotente, para suportar reenvios/duplicações de webhook.
@@ -13,16 +15,22 @@ import { prisma } from "../../utils/prisma";
  * pendente e gera o lançamento no lugar; criar um lançamento aqui duplicaria o
  * valor recebido.
  *
- * Não fatura OS já faturadas (idempotência) nem canceladas (não "ressuscita"
- * uma OS cancelada por causa de um pagamento tardio).
+ * Não fatura OS já faturadas (idempotência), canceladas (não "ressuscita"
+ * uma OS cancelada por causa de um pagamento tardio) nem pagamentos parciais.
  */
 export async function faturarOrdemServicoPorPagamento(
   ordemServicoId: number,
   contaId: number,
+  valorCobranca: Decimal.Value,
 ) {
   const ordem = await prisma.ordensServico.findFirst({
     where: { id: ordemServicoId, contaId },
-    select: { id: true, status: true },
+    select: {
+      id: true,
+      status: true,
+      desconto: true,
+      ItensOrdensServico: { select: { quantidade: true, valor: true } },
+    },
   });
 
   if (!ordem) return { faturada: false, motivo: "nao-encontrada" as const };
@@ -31,6 +39,15 @@ export async function faturarOrdemServicoPorPagamento(
   }
   if (ordem.status === "CANCELADA") {
     return { faturada: false, motivo: "cancelada" as const };
+  }
+
+  const valorTotal = ordem.ItensOrdensServico.reduce(
+    (subtotal, item) => subtotal.plus(new Decimal(item.valor).times(item.quantidade)),
+    new Decimal(0),
+  ).minus(ordem.desconto);
+
+  if (!cobrancaCobreValorTotal(valorCobranca, valorTotal)) {
+    return { faturada: false, motivo: "pagamento-parcial" as const };
   }
 
   // Guarda de concorrência: só efetiva se ainda não estiver faturada/cancelada,

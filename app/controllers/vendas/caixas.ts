@@ -55,6 +55,20 @@ function decimalToNumber(value: Decimal | number | string | null | undefined) {
   return Number(value || 0);
 }
 
+function getDetalhesPagamento(pagamento: any) {
+  const detalhes = Array.isArray(pagamento?.detalhes) ? pagamento.detalhes : null;
+  if (detalhes?.length) {
+    return detalhes.map((item: any) => ({
+      metodo: String(item?.metodo || "OUTRO"),
+      valor: decimalToNumber(item?.valor),
+    }));
+  }
+  return [{
+    metodo: pagamento?.metodo || "OUTRO",
+    valor: decimalToNumber(pagamento?.valor),
+  }];
+}
+
 function formatCaixa(caixa: any) {
   if (!caixa) return null;
 
@@ -534,8 +548,9 @@ function buildCaixaFechamentoWhatsAppBody(caixa: any) {
   );
 
   const porMetodo = vendas.reduce((acc: Record<string, number>, venda: any) => {
-    const metodo = venda.PagamentoVendas?.metodo || "OUTRO";
-    acc[metodo] = (acc[metodo] || 0) + decimalToNumber(venda.valor);
+    for (const pagamento of getDetalhesPagamento(venda.PagamentoVendas)) {
+      acc[pagamento.metodo] = (acc[pagamento.metodo] || 0) + pagamento.valor;
+    }
     return acc;
   }, {});
 
@@ -994,8 +1009,9 @@ export async function resumoCaixa(req: Request, res: Response) {
 function buildCaixaResumo(caixa: any) {
   const movimentosReportaveis = caixa.movimentos.filter(shouldReportCaixaMovimento);
   const porMetodo = caixa.vendas.reduce((acc: Record<string, number>, venda: any) => {
-    const metodo = venda.PagamentoVendas?.metodo || "OUTRO";
-    acc[metodo] = (acc[metodo] || 0) + decimalToNumber(venda.valor);
+    for (const pagamento of getDetalhesPagamento(venda.PagamentoVendas)) {
+      acc[pagamento.metodo] = (acc[pagamento.metodo] || 0) + pagamento.valor;
+    }
     return acc;
   }, {});
 
@@ -1636,9 +1652,25 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
 
       const valorTotal = valorBruto.minus(desconto);
       const dataVenda = data.data ? new Date(data.data) : new Date();
-      const isCrediario = data.pagamento === "CREDIARIO";
+      const pagamentos = (data.pagamentos?.length
+        ? data.pagamentos
+        : [{ metodo: data.pagamento, valor: valorTotal.toNumber() }]
+      ).map((pagamento) => ({
+        metodo: pagamento.metodo,
+        valor: decimalFrom(pagamento.valor),
+      }));
+      const totalPagamentos = pagamentos.reduce((total, pagamento) => total.plus(pagamento.valor), new Decimal(0));
+      if (!totalPagamentos.equals(valorTotal)) {
+        throw new Error("A soma das formas de pagamento deve ser igual ao total da venda.");
+      }
 
-      if (data.pagamento === "DINHEIRO" && valorRecebido.lessThan(valorTotal)) {
+      const valorCrediario = pagamentos
+        .filter((pagamento) => pagamento.metodo === "CREDIARIO")
+        .reduce((total, pagamento) => total.plus(pagamento.valor), new Decimal(0));
+      const isCrediario = valorCrediario.greaterThan(0);
+      const pagamentoPrincipal = pagamentos.length === 1 ? pagamentos[0].metodo : "OUTRO";
+
+      if (pagamentos.length === 1 && data.pagamento === "DINHEIRO" && valorRecebido.lessThan(valorTotal)) {
         throw new Error("Valor recebido insuficiente.");
       }
 
@@ -1657,9 +1689,13 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
           PagamentoVendas: {
             create: {
               valor: valorTotal,
-              metodo: data.pagamento,
-              status: data.pagamento === "CREDIARIO" ? "PENDENTE" : "EFETIVADO",
+              metodo: pagamentoPrincipal,
+              status: isCrediario ? "PENDENTE" : "EFETIVADO",
               data: dataVenda,
+              detalhes: pagamentos.map((pagamento) => ({
+                metodo: pagamento.metodo,
+                valor: pagamento.valor.toNumber(),
+              })),
             },
           },
         },
@@ -1704,40 +1740,47 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         lines: comboLines,
       });
 
-      await tx.caixaMovimento.create({
-        data: {
-          contaId: customData.contaId,
-          caixaId: caixa.id,
-          usuarioId: customData.userId,
-          vendaId: venda.id,
-          tipo: "VENDA",
-          metodoPagamento: data.pagamento,
-          valor: valorTotal,
-          descricao: `Venda ${venda.Uid}`,
-        },
-      });
+      // Cada recebimento efetivo vira uma movimentação do caixa. A parte em
+      // crediário fica somente no financeiro, pois ainda não entrou no caixa.
+      for (const pagamento of pagamentos.filter((item) => item.metodo !== "CREDIARIO")) {
+        await tx.caixaMovimento.create({
+          data: {
+            contaId: customData.contaId,
+            caixaId: caixa.id,
+            usuarioId: customData.userId,
+            vendaId: venda.id,
+            tipo: "VENDA",
+            metodoPagamento: pagamento.metodo,
+            valor: pagamento.valor,
+            descricao: `Venda ${venda.Uid}`,
+          },
+        });
+      }
 
-      if (data.pagamento === "DINHEIRO") {
+      const dinheiroRecebido = pagamentos
+        .filter((pagamento) => pagamento.metodo === "DINHEIRO")
+        .reduce((total, pagamento) => total.plus(pagamento.valor), new Decimal(0));
+      if (dinheiroRecebido.greaterThan(0)) {
         await tx.caixaSessao.update({
           where: {
             id: caixa.id,
           },
           data: {
-            saldoEsperado: decimalFrom(caixa.saldoEsperado).plus(valorTotal),
+            saldoEsperado: decimalFrom(caixa.saldoEsperado).plus(dinheiroRecebido),
           },
         });
       }
 
-      if (data.pagamento === "CREDIARIO") {
+      if (isCrediario) {
         await criarLancamentoCrediarioVenda(tx, {
           contaId: customData.contaId,
           vendaId: venda.id,
           vendaUid: venda.Uid,
           clienteId: data.clienteId || null,
           dataVenda,
-          valorBruto,
-          valorTotal,
-          desconto,
+          valorBruto: valorCrediario,
+          valorTotal: valorCrediario,
+          desconto: new Decimal(0),
           parcelas: data.crediarioParcelas || 1,
           primeiroVencimento: new Date(data.crediarioPrimeiroVencimento as string),
         });

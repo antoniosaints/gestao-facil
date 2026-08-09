@@ -24,6 +24,7 @@ import { syncCycleStatusFromCharge } from "../../services/assinaturas/recorrenci
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { applyStorePaymentEvent } from "../../services/loja/lojaOrderService";
 import { faturarOrdemServicoPorPagamento } from "../../services/servicos/faturarOrdemServicoService";
+import { cobrancaCobreValorTotal } from "../../services/financeiro/cobrancaQuitacaoPolicy";
 
 type WebhookResource = {
   id?: string;
@@ -445,47 +446,53 @@ async function handleTenantWebhook(args: {
     const venda = await prisma.vendas.findUniqueOrThrow({
       where: { id: cobranca.vendaId, contaId: cobranca.contaId },
     });
-    await prisma.vendas.update({
-      where: { id: cobranca.vendaId },
-      data: {
-        faturado: true,
-        status: "FATURADO",
-        PagamentoVendas: {
-          upsert: {
-            where: { vendaId: cobranca.vendaId },
-            create: {
-              valor: venda.valor,
-              data: new Date(),
-              metodo: metodoPago,
-              status: "EFETIVADO",
-            },
-            update: {
-              metodo: metodoPago,
-              data: new Date(),
-              status: "EFETIVADO",
+    if (cobrancaCobreValorTotal(cobranca.valor, venda.valor)) {
+      await prisma.vendas.update({
+        where: { id: cobranca.vendaId },
+        data: {
+          faturado: true,
+          status: "FATURADO",
+          PagamentoVendas: {
+            upsert: {
+              where: { vendaId: cobranca.vendaId },
+              create: {
+                valor: venda.valor,
+                data: new Date(),
+                metodo: metodoPago,
+                status: "EFETIVADO",
+              },
+              update: {
+                metodo: metodoPago,
+                data: new Date(),
+                status: "EFETIVADO",
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    await sendUpdateTable(cobranca.contaId, {
-      message: `A venda ${venda.Uid} foi efetivada`,
-    });
+      await sendUpdateTable(cobranca.contaId, {
+        message: `A venda ${venda.Uid} foi efetivada`,
+      });
 
-    if (venda.comandaId) {
-      await recalculateComandaStatus(
-        prisma,
-        venda.comandaId,
-        cobranca.contaId,
-      );
+      if (venda.comandaId) {
+        await recalculateComandaStatus(
+          prisma,
+          venda.comandaId,
+          cobranca.contaId,
+        );
+      }
     }
   }
 
   // Ordem de serviço: pagamento da cobrança fatura a OS automaticamente.
   // Neste ponto statusNovo já é EFETIVADO (early-return acima).
   if (cobranca.ordemServicoId) {
-    await faturarOrdemServicoPorPagamento(cobranca.ordemServicoId, cobranca.contaId);
+    await faturarOrdemServicoPorPagamento(
+      cobranca.ordemServicoId,
+      cobranca.contaId,
+      cobranca.valor,
+    );
   }
 }
 

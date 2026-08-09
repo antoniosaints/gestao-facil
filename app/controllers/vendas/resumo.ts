@@ -5,6 +5,7 @@ import { prisma } from "../../utils/prisma";
 import { getThisMonth } from "../dashboard/hooks";
 import { Prisma } from "../../../generated";
 import Decimal from "decimal.js";
+import { somarPagamentosPorMetodo } from "../../services/vendas/pagamentoCompostoService";
 
 export class ResumoVendasController {
   static async getResumo(req: Request, res: Response): Promise<any> {
@@ -110,7 +111,7 @@ export class ResumoVendasController {
             vendedorId: true,
             cliente: { select: { nome: true } },
             vendedor: { select: { nome: true } },
-            PagamentoVendas: { select: { metodo: true, valor: true, status: true } },
+            PagamentoVendas: { select: { metodo: true, valor: true, status: true, detalhes: true } },
           },
         }),
         prisma.vendas.findMany({
@@ -183,16 +184,12 @@ export class ResumoVendasController {
         statusMap.set(venda.status, (statusMap.get(venda.status) || 0) + 1);
       }
 
-      const pagamentoMap = new Map<string, number>();
-      for (const venda of vendas) {
-        const pagamento = venda.PagamentoVendas;
-        if (pagamento && pagamento.status === "EFETIVADO") {
-          pagamentoMap.set(
-            pagamento.metodo,
-            (pagamentoMap.get(pagamento.metodo) || 0) + num(pagamento.valor)
-          );
-        }
-      }
+      const pagamentoMap = somarPagamentosPorMetodo(
+        vendas.flatMap((venda) => {
+          const pagamento = venda.PagamentoVendas;
+          return pagamento?.status === "EFETIVADO" ? [pagamento] : [];
+        }),
+      );
 
       const produtoMap = new Map<string, { nome: string; quantidade: number; valor: number }>();
       for (const item of itens) {
@@ -287,7 +284,10 @@ export class ResumoVendasController {
           data: [...serieBuckets.values()],
         },
         porStatus: { labels: [...statusMap.keys()], data: [...statusMap.values()] },
-        porPagamento: { labels: [...pagamentoMap.keys()], data: [...pagamentoMap.values()] },
+        porPagamento: {
+          labels: [...pagamentoMap.keys()],
+          data: [...pagamentoMap.values()].map((valor) => valor.toNumber()),
+        },
         porDiaSemana: { labels: diasSemana, data: semanaData },
         porHora: {
           labels: Array.from({ length: 24 }, (_, i) => `${pad(i)}h`),

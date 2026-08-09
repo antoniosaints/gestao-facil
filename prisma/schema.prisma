@@ -2357,6 +2357,9 @@ model PagamentoVendas {
   valor   Decimal         @db.Decimal(10, 2)
   data    DateTime?
   status  StatusPagamento @default(PENDENTE)
+  // Mantém o resumo legado acima e detalha pagamentos compostos sem quebrar
+  // integrações que ainda esperam um único PagamentoVendas por venda.
+  detalhes Json?
 }
 
 model PdvPonto {

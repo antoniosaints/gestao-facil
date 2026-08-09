@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { somarPagamentosPorMetodo } from "../../services/vendas/pagamentoCompostoService";
 
 dayjs.locale("pt-br");
 
@@ -119,6 +120,7 @@ export async function getPorMetodoPagamento(req: Request, res: Response): Promis
     select: {
       metodo: true,
       valor: true,
+      detalhes: true,
     },
   });
 
@@ -127,15 +129,9 @@ export async function getPorMetodoPagamento(req: Request, res: Response): Promis
   }
 
   // Agrupamento manual por método de pagamento
-  const agrupado = pagamentos.reduce<Record<string, number>>((acc, p) => {
-    const metodo = p.metodo;
-    const valor = Number(p.valor);
-    acc[metodo] = (acc[metodo] || 0) + valor;
-    return acc;
-  }, {});
-
-  const labels = Object.keys(agrupado);
-  const data = Object.values(agrupado);
+  const agrupado = somarPagamentosPorMetodo(pagamentos);
+  const labels = [...agrupado.keys()];
+  const data = [...agrupado.values()].map((valor) => valor.toNumber());
 
   return res.json({
     labels,
