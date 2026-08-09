@@ -24,6 +24,10 @@ export type MetaLike = {
   dataInicio: Date;
   dataFim?: Date | null;
   financeiroTipo?: "RECEITA" | "DESPESA" | null;
+  categoriasFinanceiras?: Array<{
+    categoriaId: number;
+    Categoria?: { id: number; nome: string } | null;
+  }>;
   ativo: boolean;
 };
 
@@ -55,6 +59,9 @@ export async function buildMetaResumo(db: DbClient, meta: MetaLike, referenceDat
     metrica: meta.metrica,
     periodicidade: meta.periodicidade,
     financeiroTipo: meta.financeiroTipo,
+    categoriasFinanceiras: (meta.categoriasFinanceiras || [])
+      .map((item) => item.Categoria && ({ id: item.Categoria.id, nome: item.Categoria.nome }))
+      .filter((item): item is { id: number; nome: string } => Boolean(item)),
     ativo: meta.ativo,
     valorAlvo: new Decimal(meta.valorAlvo || 0).toNumber(),
     periodoAtual: {
@@ -136,16 +143,27 @@ async function calcularMetaServicos(db: DbClient, meta: MetaLike, inicio: Date, 
 
 async function calcularMetaFinanceiro(db: DbClient, meta: MetaLike, inicio: Date, fim: Date) {
   const tipo = meta.financeiroTipo || "RECEITA";
+  const categoriaIds = [...new Set((meta.categoriasFinanceiras || []).map((item) => item.categoriaId))];
+  const lancamento = {
+    contaId: meta.contaId,
+    tipo,
+    ...(categoriaIds.length ? { categoriaId: { in: categoriaIds } } : {}),
+  };
   const where = {
     pago: true,
     dataPagamento: { gte: inicio, lte: fim },
-    lancamento: {
-      contaId: meta.contaId,
-      tipo,
-    },
+    lancamento,
   };
 
   if (meta.metrica === "QUANTIDADE") {
+    if (categoriaIds.length) {
+      return new Decimal(await db.lancamentoFinanceiro.count({
+        where: {
+          ...lancamento,
+          parcelas: { some: { pago: true, dataPagamento: { gte: inicio, lte: fim } } },
+        },
+      }));
+    }
     return new Decimal(await db.parcelaFinanceiro.count({ where }));
   }
 

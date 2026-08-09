@@ -305,6 +305,8 @@ model Contas {
   RestauranteDestinosImpressao    RestauranteRegraImpressaoDestino[]
   RestauranteTrabalhosImpressao   RestauranteTrabalhoImpressao[]
   RestauranteZonasEntrega         RestauranteZonaEntrega[]
+  RestauranteClientes             RestauranteCliente[]
+  RestauranteClientesEnderecos    RestauranteClienteEndereco[]
   RestaurantePedidos              RestaurantePedido[]
   RestauranteIdempotencias        RestauranteIdempotencia[]
   RestauranteEstoques             RestaurantePedidoEstoque[]
@@ -868,24 +870,35 @@ enum TipoCobrancaModuloConta {
 }
 
 model Meta {
-  id             Int                       @id @default(autoincrement())
-  contaId        Int
-  Contas         Contas                    @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  nome           String
-  descricao      String?
-  tipo           TipoMeta
-  metrica        MetricaMeta               @default(VALOR)
-  periodicidade  PeriodicidadeMeta         @default(MENSAL)
-  valorAlvo      Decimal                   @db.Decimal(12, 2)
-  dataInicio     DateTime
-  dataFim        DateTime?
-  financeiroTipo TipoLancamentoFinanceiro?
-  ativo          Boolean                   @default(true)
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+  id                    Int                       @id @default(autoincrement())
+  contaId               Int
+  Contas                Contas                    @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  nome                  String
+  descricao             String?
+  tipo                  TipoMeta
+  metrica               MetricaMeta               @default(VALOR)
+  periodicidade         PeriodicidadeMeta         @default(MENSAL)
+  valorAlvo             Decimal                   @db.Decimal(12, 2)
+  dataInicio            DateTime
+  dataFim               DateTime?
+  financeiroTipo        TipoLancamentoFinanceiro?
+  ativo                 Boolean                   @default(true)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  categoriasFinanceiras MetaCategoriaFinanceiro[]
 
   @@index([contaId, tipo, ativo])
   @@index([contaId, periodicidade, dataInicio])
+}
+
+model MetaCategoriaFinanceiro {
+  metaId      Int
+  categoriaId Int
+  Meta        Meta                @relation(fields: [metaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Categoria   CategoriaFinanceiro @relation(fields: [categoriaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([metaId, categoriaId])
+  @@index([categoriaId])
 }
 
 enum TipoMeta {
@@ -1332,28 +1345,28 @@ enum RestauranteEstoqueStatus {
 
 /// Configuracao independente do Restaurante. A remocao do app nunca remove esta linha.
 model RestauranteConfig {
-  id                      Int                  @id @default(autoincrement())
-  contaId                 Int                  @unique
-  Conta                   Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  slug                    String               @unique @db.VarChar(120)
-  nomePublico             String               @db.VarChar(160)
-  ativo                   Boolean              @default(false)
-  pedidosQrDireto         Boolean              @default(false)
-  modoFrete               RestauranteModoFrete @default(FIXO)
-  taxaFixa                Decimal              @default(0) @db.Decimal(10, 2)
-  freteGratisAcima        Decimal?             @db.Decimal(10, 2)
-  taxaContingencia        Decimal?             @db.Decimal(10, 2)
-  pedidoMinimo            Decimal              @default(0) @db.Decimal(10, 2)
-  retiradaAtiva           Boolean              @default(true)
-  deliveryAtivo           Boolean              @default(true)
-  pagamentoOnlineAtivo    Boolean              @default(false)
-  pagamentoNaEntregaAtivo Boolean              @default(true)
-  localizacaoJson         Json?
-  horariosJson            Json?
+  id                       Int                  @id @default(autoincrement())
+  contaId                  Int                  @unique
+  Conta                    Contas               @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  slug                     String               @unique @db.VarChar(120)
+  nomePublico              String               @db.VarChar(160)
+  ativo                    Boolean              @default(false)
+  pedidosQrDireto          Boolean              @default(false)
+  modoFrete                RestauranteModoFrete @default(FIXO)
+  taxaFixa                 Decimal              @default(0) @db.Decimal(10, 2)
+  freteGratisAcima         Decimal?             @db.Decimal(10, 2)
+  taxaContingencia         Decimal?             @db.Decimal(10, 2)
+  pedidoMinimo             Decimal              @default(0) @db.Decimal(10, 2)
+  retiradaAtiva            Boolean              @default(true)
+  deliveryAtivo            Boolean              @default(true)
+  pagamentoOnlineAtivo     Boolean              @default(false)
+  pagamentoNaEntregaAtivo  Boolean              @default(true)
+  localizacaoJson          Json?
+  horariosJson             Json?
   whatsappNotificacoesJson Json?
-  version                 Int                  @default(1)
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
+  version                  Int                  @default(1)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
 }
 
 model RestauranteZonaEntrega {
@@ -1376,6 +1389,50 @@ model RestauranteZonaEntrega {
 
   @@unique([contaId, nome])
   @@index([contaId, ativa, prioridade])
+}
+
+/// Identidade do consumidor do cardápio. O telefone só é único dentro da conta
+/// do restaurante, impedindo que uma sessão acesse dados de outro tenant.
+model RestauranteCliente {
+  id                  Int                          @id @default(autoincrement())
+  contaId             Int
+  Conta               Contas                       @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  nome                String                       @db.VarChar(160)
+  telefone            String                       @db.VarChar(32)
+  telefoneNormalizado String                       @db.VarChar(32)
+  email               String?                      @db.VarChar(190)
+  senhaHash           String                       @db.VarChar(255)
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+  enderecos           RestauranteClienteEndereco[]
+  pedidos             RestaurantePedido[]
+
+  @@unique([contaId, telefoneNormalizado])
+  @@unique([id, contaId])
+  @@index([contaId, telefone])
+  @@map("RestauranteClientes")
+}
+
+model RestauranteClienteEndereco {
+  id                   Int                @id @default(autoincrement())
+  contaId              Int
+  Conta                Contas             @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  restauranteClienteId Int
+  Cliente              RestauranteCliente @relation(fields: [restauranteClienteId, contaId], references: [id, contaId], onDelete: Cascade, onUpdate: Cascade)
+  rotulo               String?            @db.VarChar(60)
+  cep                  String             @db.VarChar(8)
+  cidade               String             @db.VarChar(120)
+  bairro               String             @db.VarChar(120)
+  logradouro           String             @db.VarChar(180)
+  numero               String             @db.VarChar(30)
+  complemento          String?            @db.VarChar(120)
+  referencia           String?            @db.VarChar(180)
+  principal            Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([contaId, restauranteClienteId, principal], map: "rest_cliente_end_principal_idx")
+  @@map("RestauranteClientesEnderecos")
 }
 
 model RestauranteCatalogoItem {
@@ -1669,48 +1726,51 @@ model RestauranteTicketItem {
 }
 
 model RestaurantePedido {
-  id                      Int                         @id @default(autoincrement())
-  contaId                 Int
-  Conta                   Contas                      @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  codigo                  String                      @db.VarChar(20)
-  origem                  RestaurantePedidoOrigem
-  status                  RestaurantePedidoStatus     @default(RECEBIDO)
-  producaoStatus          RestauranteProducaoStatus   @default(PENDENTE)
-  pagamentoStatus         RestaurantePagamentoStatus  @default(PENDENTE)
-  entregaStatus           RestauranteEntregaStatus    @default(NAO_APLICAVEL)
-  mesaId                  Int?
-  Mesa                    RestauranteMesa?            @relation(fields: [mesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  comandaOperacaoId       Int?
-  ComandaOperacao         ComandaOperacao?            @relation(fields: [comandaOperacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  sessaoMesaId            Int?
-  SessaoMesa              RestauranteSessaoMesa?      @relation(fields: [sessaoMesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  clienteId               Int?
-  clienteNomeSnapshot     String?                     @db.VarChar(160)
-  clienteTelefone         String?                     @db.VarChar(32)
-  clienteEmail            String?                     @db.VarChar(190)
-  enderecoSnapshotJson    Json?
-  zonaEntregaSnapshotJson Json?
-  pagamentoMetodoSnapshot String?                     @db.VarChar(30)
-  subtotal                Decimal                     @db.Decimal(10, 2)
-  frete                   Decimal                     @default(0) @db.Decimal(10, 2)
-  desconto                Decimal                     @default(0) @db.Decimal(10, 2)
-  total                   Decimal                     @db.Decimal(10, 2)
-  observacao              String?                     @db.Text
-  trackingTokenHash       String                      @unique @db.VarChar(64)
+  id                       Int                         @id @default(autoincrement())
+  contaId                  Int
+  Conta                    Contas                      @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  codigo                   String                      @db.VarChar(20)
+  origem                   RestaurantePedidoOrigem
+  status                   RestaurantePedidoStatus     @default(RECEBIDO)
+  producaoStatus           RestauranteProducaoStatus   @default(PENDENTE)
+  pagamentoStatus          RestaurantePagamentoStatus  @default(PENDENTE)
+  entregaStatus            RestauranteEntregaStatus    @default(NAO_APLICAVEL)
+  mesaId                   Int?
+  Mesa                     RestauranteMesa?            @relation(fields: [mesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  comandaOperacaoId        Int?
+  ComandaOperacao          ComandaOperacao?            @relation(fields: [comandaOperacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  sessaoMesaId             Int?
+  SessaoMesa               RestauranteSessaoMesa?      @relation(fields: [sessaoMesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  restauranteClienteId     Int?
+  RestauranteCliente       RestauranteCliente?         @relation(fields: [restauranteClienteId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade, map: "RestaurantePedido_cliente_conta_fkey")
+  clienteId                Int?
+  clienteNomeSnapshot      String?                     @db.VarChar(160)
+  clienteTelefone          String?                     @db.VarChar(32)
+  clienteEmail             String?                     @db.VarChar(190)
+  enderecoSnapshotJson     Json?
+  zonaEntregaSnapshotJson  Json?
+  pagamentoMetodoSnapshot  String?                     @db.VarChar(30)
+  subtotal                 Decimal                     @db.Decimal(10, 2)
+  frete                    Decimal                     @default(0) @db.Decimal(10, 2)
+  desconto                 Decimal                     @default(0) @db.Decimal(10, 2)
+  total                    Decimal                     @db.Decimal(10, 2)
+  observacao               String?                     @db.Text
+  trackingTokenHash        String                      @unique @db.VarChar(64)
   whatsappNotificacoesJson Json?
-  version                 Int                         @default(1)
-  createdAt               DateTime                    @default(now())
-  updatedAt               DateTime                    @updatedAt
-  concluidoAt             DateTime?
-  canceladoAt             DateTime?
-  itens                   RestaurantePedidoItem[]
-  tickets                 RestauranteTicketProducao[]
-  Cobrancas               CobrancasFinanceiras[]
-  estoques                RestaurantePedidoEstoque[]
+  version                  Int                         @default(1)
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  concluidoAt              DateTime?
+  canceladoAt              DateTime?
+  itens                    RestaurantePedidoItem[]
+  tickets                  RestauranteTicketProducao[]
+  Cobrancas                CobrancasFinanceiras[]
+  estoques                 RestaurantePedidoEstoque[]
 
   @@unique([contaId, codigo])
   @@index([contaId, status, createdAt])
   @@index([contaId, producaoStatus, createdAt])
+  @@index([contaId, restauranteClienteId, createdAt], map: "RestaurantePedido_contaId_restauranteClienteId_createdAt_idx")
   @@index([sessaoMesaId, createdAt])
 }
 
@@ -2355,13 +2415,13 @@ enum MetodoPagamento {
 }
 
 model PagamentoVendas {
-  id      Int             @id @default(autoincrement())
-  venda   Vendas          @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  vendaId Int             @unique
-  metodo  MetodoPagamento @default(PIX)
-  valor   Decimal         @db.Decimal(10, 2)
-  data    DateTime?
-  status  StatusPagamento @default(PENDENTE)
+  id       Int             @id @default(autoincrement())
+  venda    Vendas          @relation(fields: [vendaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  vendaId  Int             @unique
+  metodo   MetodoPagamento @default(PIX)
+  valor    Decimal         @db.Decimal(10, 2)
+  data     DateTime?
+  status   StatusPagamento @default(PENDENTE)
   // Mantém o resumo legado acima e detalha pagamentos compostos sem quebrar
   // integrações que ainda esperam um único PagamentoVendas por venda.
   detalhes Json?
@@ -2467,18 +2527,19 @@ model ContasFinanceiro {
 }
 
 model CategoriaFinanceiro {
-  id                  Int                    @id @default(autoincrement())
+  id                  Int                       @id @default(autoincrement())
   contaId             Int
-  Contas              Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  Uid                 String                 @default("CAT_000")
+  Contas              Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  Uid                 String                    @default("CAT_000")
   nome                String
   parentId            Int?
-  Parent              CategoriaFinanceiro?   @relation("Subcategorias", fields: [parentId], references: [id])
+  Parent              CategoriaFinanceiro?      @relation("Subcategorias", fields: [parentId], references: [id])
   lancamentos         LancamentoFinanceiro[]
+  metas               MetaCategoriaFinanceiro[]
   assinaturasPagar    AssinaturaPagar[]
   assinaturasCliente  AssinaturaCliente[]
-  createdAt           DateTime               @default(now())
-  CategoriaFinanceiro CategoriaFinanceiro[]  @relation("Subcategorias")
+  createdAt           DateTime                  @default(now())
+  CategoriaFinanceiro CategoriaFinanceiro[]     @relation("Subcategorias")
 }
 
 model CobrancasFinanceiras {

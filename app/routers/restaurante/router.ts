@@ -1,6 +1,8 @@
 import { Router, type RequestHandler } from "express";
 import { createPublicOrder, createTableOrder, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, waitTableBill } from "../../controllers/restaurante/restaurante";
+import { deleteRestaurantAccountAddress, getRestaurantAccount, loginRestaurantAccount, registerRestaurantAccount, saveRestaurantAccountAddress, updateRestaurantAccount } from "../../controllers/restaurante/customer";
 import { authenticateJWT } from "../../middlewares/auth";
+import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../middlewares/restaurantCustomerAuth";
 import { requireRestauranteAccess, requireRestauranteModule } from "../../middlewares/restauranteAccess";
 import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
 import { currentRestaurantAccess, listRestaurantUserRoles, saveRestaurantUserRoles } from "../../controllers/restaurante/access";
@@ -10,8 +12,15 @@ const use = (handler: unknown) => handler as RequestHandler;
 
 routerRestaurante.get("/publico/:slug/cardapio", use(publicMenu));
 routerRestaurante.post("/publico/:slug/checkout/previa", use(previewPublicCheckout));
-routerRestaurante.post("/publico/:slug/pedidos", use(createPublicOrder));
+routerRestaurante.post("/publico/:slug/pedidos", optionalRestaurantCustomer, use(createPublicOrder));
 routerRestaurante.get("/publico/pedidos/:token", use(publicTracking));
+routerRestaurante.post("/publico/:slug/conta/cadastro", use(registerRestaurantAccount));
+routerRestaurante.post("/publico/:slug/conta/login", use(loginRestaurantAccount));
+routerRestaurante.get("/publico/:slug/conta", requireRestaurantCustomer, use(getRestaurantAccount));
+routerRestaurante.patch("/publico/:slug/conta", requireRestaurantCustomer, use(updateRestaurantAccount));
+routerRestaurante.post("/publico/:slug/conta/enderecos", requireRestaurantCustomer, use(saveRestaurantAccountAddress));
+routerRestaurante.put("/publico/:slug/conta/enderecos/:id", requireRestaurantCustomer, use(saveRestaurantAccountAddress));
+routerRestaurante.delete("/publico/:slug/conta/enderecos/:id", requireRestaurantCustomer, use(deleteRestaurantAccountAddress));
 routerRestaurante.post("/estacao-impressao/heartbeat", use(stationHeartbeat));
 routerRestaurante.get("/estacao-impressao/trabalhos", use(stationClaimJobs));
 routerRestaurante.post("/estacao-impressao/trabalhos/ack", use(stationAckJob));

@@ -741,6 +741,9 @@ export async function createPublicOrder(req: Request, res: Response) {
   if (!parsed.success) return validationFailure(req, res, parsed.error);
   const config = await publicConfig(req.params.slug);
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
+  const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
+  // Um token de outro restaurante nunca é associado ao pedido deste tenant.
+  const restauranteClienteId = restaurantCustomer?.contaId === config.contaId ? restaurantCustomer.id : null;
   if (parsed.data.pagamento === "NA_ENTREGA" && !config.pagamentoNaEntregaAtivo) {
     return fail(req, res, 422, "payment_method_unavailable", "O pagamento na retirada ou entrega esta indisponivel.");
   }
@@ -808,6 +811,7 @@ export async function createPublicOrder(req: Request, res: Response) {
           pagamentoStatus: parsed.data.pagamento === "NA_ENTREGA" ? "NA_ENTREGA" : "PENDENTE",
           pagamentoMetodoSnapshot: parsed.data.pagamento,
           entregaStatus: parsed.data.origem === "DELIVERY" ? "AGUARDANDO_DESPACHO" : "NAO_APLICAVEL",
+          restauranteClienteId,
           clienteNomeSnapshot: parsed.data.cliente.nome,
           clienteTelefone: parsed.data.cliente.telefone,
           clienteEmail: parsed.data.cliente.email,

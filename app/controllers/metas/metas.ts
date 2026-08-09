@@ -16,6 +16,11 @@ const tiposMeta: TipoMeta[] = ["VENDAS", "SERVICOS", "FINANCEIRO"];
 const metricasMeta: MetricaMeta[] = ["VALOR", "QUANTIDADE"];
 const periodicidadesMeta: PeriodicidadeMeta[] = ["MENSAL", "TRIMESTRAL", "ANUAL", "PERSONALIZADO"];
 const financeiroTipos = ["RECEITA", "DESPESA"] as const;
+const metaSummaryInclude = {
+  categoriasFinanceiras: {
+    include: { Categoria: { select: { id: true, nome: true } } },
+  },
+} as const;
 
 export async function listarMetas(req: Request, res: Response): Promise<any> {
   try {
@@ -23,6 +28,7 @@ export async function listarMetas(req: Request, res: Response): Promise<any> {
     const metas = await prisma.meta.findMany({
       where: { contaId },
       orderBy: [{ ativo: "desc" }, { createdAt: "desc" }],
+      include: metaSummaryInclude,
     });
 
     const data = await Promise.all(metas.map((meta) => buildMetaResumo(prisma, meta as any)));
@@ -39,6 +45,7 @@ export async function resumoMetas(req: Request, res: Response): Promise<any> {
       where: { contaId, ativo: true },
       orderBy: [{ updatedAt: "desc" }],
       take: 8,
+      include: metaSummaryInclude,
     });
 
     const data = await Promise.all(metas.map((meta) => buildMetaResumo(prisma, meta as any)));
@@ -57,7 +64,7 @@ export async function getMeta(req: Request, res: Response): Promise<any> {
       return res.status(400).json({ message: "Informe uma meta válida." });
     }
 
-    const meta = await prisma.meta.findFirst({ where: { id, contaId } });
+    const meta = await prisma.meta.findFirst({ where: { id, contaId }, include: metaSummaryInclude });
     if (!meta) {
       return res.status(404).json({ message: "Meta não encontrada." });
     }
@@ -77,6 +84,8 @@ export async function salvarMeta(req: Request, res: Response): Promise<any> {
     }
 
     const payload = parseMetaPayload(req.body);
+    await validarCategoriasFinanceiras(customData.contaId, payload.categoriaIds);
+    const { categoriaIds, ...dadosMeta } = payload;
     const id = req.body?.id ? Number(req.body.id) : null;
 
     if (id && (!Number.isInteger(id) || id <= 0)) {
@@ -95,7 +104,14 @@ export async function salvarMeta(req: Request, res: Response): Promise<any> {
 
       const updated = await prisma.meta.update({
         where: { id },
-        data: payload,
+        data: {
+          ...dadosMeta,
+          categoriasFinanceiras: {
+            deleteMany: {},
+            create: categoriaIds.map((categoriaId) => ({ categoriaId })),
+          },
+        },
+        include: metaSummaryInclude,
       });
 
       return ResponseHandler(res, "Meta atualizada com sucesso.", await buildMetaResumo(prisma, updated as any));
@@ -103,9 +119,13 @@ export async function salvarMeta(req: Request, res: Response): Promise<any> {
 
     const created = await prisma.meta.create({
       data: {
-        ...payload,
+        ...dadosMeta,
         contaId: customData.contaId,
+        categoriasFinanceiras: {
+          create: categoriaIds.map((categoriaId) => ({ categoriaId })),
+        },
       },
+      include: metaSummaryInclude,
     });
 
     return ResponseHandler(res, "Meta criada com sucesso.", await buildMetaResumo(prisma, created as any), 201);
@@ -160,6 +180,7 @@ function parseMetaPayload(body: any) {
       ? "RECEITA"
       : null;
   const ativo = body?.ativo === undefined ? true : Boolean(body.ativo);
+  const categoriaIds = parseCategoriaIds(body?.categoriaIds);
 
   if (!nome) {
     throw new Error("Informe o nome da meta.");
@@ -211,6 +232,31 @@ function parseMetaPayload(body: any) {
     dataInicio,
     dataFim,
     financeiroTipo: tipo === "FINANCEIRO" ? financeiroTipo as any : null,
+    categoriaIds: tipo === "FINANCEIRO" ? categoriaIds : [],
     ativo,
   };
+}
+
+function parseCategoriaIds(value: unknown) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error("Informe as categorias financeiras em uma lista.");
+
+  const categoriaIds = value.map((item) => Number(item));
+  if (categoriaIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+    throw new Error("Informe categorias financeiras válidas.");
+  }
+
+  return [...new Set(categoriaIds)];
+}
+
+async function validarCategoriasFinanceiras(contaId: number, categoriaIds: number[]) {
+  if (!categoriaIds.length) return;
+
+  const total = await prisma.categoriaFinanceiro.count({
+    where: { contaId, id: { in: categoriaIds } },
+  });
+
+  if (total !== categoriaIds.length) {
+    throw new Error("Uma ou mais categorias financeiras não pertencem à sua conta.");
+  }
 }
