@@ -46,10 +46,20 @@ export interface WhatsAppReservationMessageJobData {
   message: string;
 }
 
+export interface WhatsAppRestaurantMessageJobData {
+  kind: "RESTAURANT_MESSAGE";
+  contaId: number;
+  instanceId: number;
+  pedidoId: number;
+  phone: string;
+  message: string;
+}
+
 export type WhatsAppQueueJobData =
   | WhatsAppNotificationJobData
   | WhatsAppClientMessageJobData
-  | WhatsAppReservationMessageJobData;
+  | WhatsAppReservationMessageJobData
+  | WhatsAppRestaurantMessageJobData;
 
 const PARAMETER_SELECT = {
   whatsappNotificacoesAtivo: true,

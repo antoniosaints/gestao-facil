@@ -945,6 +945,8 @@ model ParametrosConta {
   osCategoriaFinanceiraId                Int?
   osContaFinanceiraId                    Int?
   temaPersonalizado                      Json?
+  // Navegação compartilhada pela conta: sidebar tradicional ou hub de cards.
+  estiloUi                               String?  @default("PADRAO")
   linkPublicoAtivo                       Boolean? @default(false)
   cadastrosPermitidosLinkPublico         Int?     @default(1)
   chavePix                               String?
@@ -1346,7 +1348,9 @@ model RestauranteConfig {
   deliveryAtivo           Boolean              @default(true)
   pagamentoOnlineAtivo    Boolean              @default(false)
   pagamentoNaEntregaAtivo Boolean              @default(true)
+  localizacaoJson         Json?
   horariosJson            Json?
+  whatsappNotificacoesJson Json?
   version                 Int                  @default(1)
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
@@ -1693,6 +1697,7 @@ model RestaurantePedido {
   total                   Decimal                     @db.Decimal(10, 2)
   observacao              String?                     @db.Text
   trackingTokenHash       String                      @unique @db.VarChar(64)
+  whatsappNotificacoesJson Json?
   version                 Int                         @default(1)
   createdAt               DateTime                    @default(now())
   updatedAt               DateTime                    @updatedAt

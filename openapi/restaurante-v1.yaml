@@ -31,26 +31,26 @@ paths:
         '404': { description: Usuario fora da conta ou inexistente }
   /publico/{slug}/cardapio:
     get:
-      summary: Consulta o cardapio publico ativo
+      summary: Consulta o cardapio publico ativo e seu estado de atendimento atual
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: Restaurante com nome e logo da conta, cardapio e produtos disponiveis }
+        '200': { description: Restaurante com nome, logo, estado aberto/fechado, cardapio e produtos disponiveis }
         '404': { description: Restaurante inativo ou inexistente }
   /publico/{slug}/pedidos:
     post:
-      summary: Cria um pedido publico recalculado no servidor
+      summary: Cria um pedido público recalculado no servidor; no delivery, endereço é obrigatório e pode incluir latitude/longitude opcionais para a rota privada da equipe
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 200 } }
       responses:
         '201': { description: Pedido criado com token de acompanhamento }
         '409': { description: Chave idempotente reutilizada com outro payload }
-        '422': { description: Item, selecao, frete ou pedido minimo invalido }
+        '422': { description: Item, selecao, frete, pedido minimo invalido ou restaurante fechado }
         '502': { description: Pedido salvo, mas gateway de pagamento indisponivel }
   /publico/{slug}/checkout/previa:
     post:
-      summary: Recalcula itens, pedido minimo, zona, frete e total sem criar o pedido
+      summary: Recalcula itens, pedido minimo, zona, frete e total sem criar o pedido; recusa fora do horario de atendimento
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string } }
       responses:
@@ -64,8 +64,8 @@ paths:
       responses:
         '200': { description: Estados atuais do pedido }
   /configuracao:
-    get: { summary: Obtem configuracao da conta, security: [ { bearerAuth: [] } ], responses: { '200': { description: Configuracao } } }
-    put: { summary: Cria ou atualiza configuracao com versionamento otimista, security: [ { bearerAuth: [] } ], responses: { '200': { description: Atualizada }, '201': { description: Criada }, '409': { description: Conflito de versao } } }
+    get: { summary: Obtém configuração da conta, incluindo localização, horários e mensagens de WhatsApp por etapa, security: [ { bearerAuth: [] } ], responses: { '200': { description: Configuração } } }
+    put: { summary: Cria ou atualiza configuração, localização, horários e mensagens de WhatsApp com versionamento otimista, security: [ { bearerAuth: [] } ], responses: { '200': { description: Atualizada }, '201': { description: Criada }, '409': { description: Conflito de versao } } }
   /cardapio:
     get: { summary: Lista itens administrativos por pagina, security: [ { bearerAuth: [] } ], responses: { '200': { description: Itens e metadados } } }
     post: { summary: Adiciona produto existente ao cardapio, security: [ { bearerAuth: [] } ], responses: { '201': { description: Item criado } } }
@@ -157,7 +157,7 @@ paths:
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
-        - { name: status, in: query, schema: { type: string } }
+        - { name: status, in: query, description: Um ou mais status separados por vírgula, schema: { type: string } }
         - { name: inicio, in: query, description: Data/hora ISO 8601 inclusiva, schema: { type: string, format: date-time } }
         - { name: fim, in: query, description: Data/hora ISO 8601 inclusiva, schema: { type: string, format: date-time } }
       responses:

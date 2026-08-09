@@ -35,7 +35,7 @@ import {
 import { assertOperationalChargeOriginBelongsToAccount } from "../../services/financeiro/operationalChargeOriginService";
 import { applyReservationPaymentEvent } from "../../services/reservas/reservaService";
 import { applyRestaurantPaymentEvent } from "../../services/restaurante/payment";
-import { sendRestaurantUpdate } from "../../hooks/restaurante/socket";
+import { sendRestaurantPublicOrderUpdate, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 
 export async function getPaymentMercadoPago(req: Request, res: Response) {
   try {
@@ -313,6 +313,7 @@ export async function webhookMercadoPagoCobrancas(
         pedidoId: cobranca.restaurantePedidoId,
       });
       sendRestaurantUpdate(cobranca.contaId, "pedido", { pedidoId: cobranca.restaurantePedidoId });
+      sendRestaurantPublicOrderUpdate(cobranca.restaurantePedidoId, { pedidoId: cobranca.restaurantePedidoId });
       sendRestaurantUpdate(cobranca.contaId, "kds", { pedidoId: cobranca.restaurantePedidoId });
       sendRestaurantUpdate(cobranca.contaId, "impressao", { pedidoId: cobranca.restaurantePedidoId });
     }

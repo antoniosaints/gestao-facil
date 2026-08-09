@@ -5,6 +5,8 @@ import { redisConnecion } from "./redis";
 import { env } from "./dotenv";
 import { WHATSAPP_REALTIME_CHANNEL } from "../hooks/whatsapp/realtimeChannel";
 import { JwtUtil } from "./jwt";
+import { createHash } from "node:crypto";
+import { prisma } from "./prisma";
 
 let io: Server;
 
@@ -23,20 +25,37 @@ export function initSocket(server: HttpServer) {
   const subClient = redisConnecion.duplicate();
   io.adapter(createAdapter(pubClient, subClient));
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     const decoded = typeof token === "string" ? JwtUtil.verify(token) : null;
     const userId = Number(decoded?.id);
     const contaId = Number(decoded?.contaId);
 
-    if (!decoded || !Number.isInteger(userId) || !Number.isInteger(contaId)) {
-      return next(new Error("Não autorizado"));
+    if (decoded && Number.isInteger(userId) && Number.isInteger(contaId)) {
+      socket.data.userId = userId;
+      socket.data.contaId = contaId;
+      socket.data.presenceEligible = decoded.imp !== true;
+      return next();
     }
 
-    socket.data.userId = userId;
-    socket.data.contaId = contaId;
-    socket.data.presenceEligible = decoded.imp !== true;
-    return next();
+    const rawTokens = Array.isArray(socket.handshake.auth?.restaurantTrackingTokens)
+      ? socket.handshake.auth.restaurantTrackingTokens
+        .filter((value: unknown): value is string => typeof value === "string" && value.length >= 32)
+        .slice(0, 10)
+      : [];
+    if (!rawTokens.length) return next(new Error("Não autorizado"));
+    const hashes = rawTokens.map((trackingToken) => createHash("sha256").update(trackingToken).digest("hex"));
+    try {
+      const orders = await prisma.restaurantePedido.findMany({
+        where: { trackingTokenHash: { in: hashes } },
+        select: { id: true },
+      });
+      if (!orders.length) return next(new Error("Não autorizado"));
+      socket.data.restaurantPublicOrderIds = orders.map((order) => order.id);
+      return next();
+    } catch (error) {
+      return next(error as Error);
+    }
   });
 
   subClient.on("error", (error) => {
@@ -66,6 +85,9 @@ export function initSocket(server: HttpServer) {
 
     // Guarda qual conta o socket está vinculado atualmente
     let contaAtual: number | null = null;
+    for (const orderId of socket.data.restaurantPublicOrderIds || []) {
+      socket.join(`restaurante:pedido-publico:${orderId}`);
+    }
 
     socket.on("entrarNaConta", (requestedContaId: number) => {
       const contaId = Number(socket.data.contaId);

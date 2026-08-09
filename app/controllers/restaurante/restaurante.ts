@@ -6,6 +6,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { calcularFrete, calcularPrecoUnitario, type SelecaoPreco } from "../../services/restaurante/pricing";
 import { buildInitialRestaurantConfig } from "../../services/restaurante/initialConfig";
+import { defaultRestaurantWhatsAppSettings, enqueueRestaurantOrderWhatsApp, normalizeRestaurantWhatsAppSettings, type RestaurantWhatsAppEvent } from "../../services/restaurante/whatsappNotifications";
 import { validateRestauranteGrupo } from "../../services/restaurante/catalogPolicy";
 import { restaurantCatalogGroupsInclude } from "../../services/restaurante/catalogQuery";
 import { calculateZoneDeliveryFee, normalizeCep, selectDeliveryZone } from "../../services/restaurante/deliveryZone";
@@ -18,9 +19,28 @@ import {
 import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "../../services/restaurante/inventory";
 import { resolveRestaurantCancellation } from "../../services/restaurante/orderPolicy";
 import { claimRestaurantTable, RestaurantTableUnavailableError } from "../../services/restaurante/tableSession";
+import { restaurantOpenNow } from "../../services/restaurante/openingHours";
 import { CommerceError } from "../../services/loja/commerceError";
-import { sendRestaurantUpdate } from "../../hooks/restaurante/socket";
+import { sendRestaurantPublicOrderUpdate, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
+
+const localizacaoSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+});
+
+const horarioFuncionamentoSchema = z.object({
+  dia: z.enum(["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO", "DOMINGO"]),
+  ativo: z.boolean().default(false),
+  abertura: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Informe a abertura no formato HH:mm"),
+  fechamento: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Informe o fechamento no formato HH:mm"),
+});
+
+const horariosFuncionamentoSchema = z.array(horarioFuncionamentoSchema).length(7).superRefine((horarios, context) => {
+  if (new Set(horarios.map((horario) => horario.dia)).size !== horarios.length) {
+    context.addIssue({ code: "custom", message: "Informe cada dia da semana apenas uma vez." });
+  }
+});
 
 const configuracaoSchema = z.object({
   slug: z.string().trim().min(3).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -36,9 +56,27 @@ const configuracaoSchema = z.object({
   deliveryAtivo: z.boolean().default(true),
   pagamentoOnlineAtivo: z.boolean().default(false),
   pagamentoNaEntregaAtivo: z.boolean().default(true),
-  horariosJson: z.unknown().nullable().optional(),
+  localizacaoJson: localizacaoSchema.nullable().optional(),
+  horariosJson: horariosFuncionamentoSchema.nullable().optional(),
+  whatsappNotificacoesJson: z.record(z.object({
+    ativo: z.boolean().default(false),
+    mensagem: z.string().trim().min(1).max(2000),
+  })).nullable().optional(),
   version: z.coerce.number().int().positive().optional(),
 });
+
+function notifyRestaurantOrderWhatsApp(orderId: number, events: RestaurantWhatsAppEvent[]) {
+  for (const event of events) void enqueueRestaurantOrderWhatsApp(orderId, event);
+}
+
+function restaurantWhatsAppEventsForOrder(order: { status: string; entregaStatus: string }) {
+  const events: RestaurantWhatsAppEvent[] = [];
+  if (order.status === "EM_PREPARO") events.push("EM_PREPARO");
+  if (order.status === "PRONTO") events.push("PRONTO");
+  if (order.entregaStatus === "EM_ROTA") events.push("SAIU_ENTREGA");
+  if (order.entregaStatus === "ENTREGUE" || order.status === "CONCLUIDO") events.push("ENTREGUE", "POS_PEDIDO");
+  return events;
+}
 
 const zonaEntregaSchema = z.object({
   nome: z.string().trim().min(2).max(120),
@@ -191,6 +229,9 @@ function validationFailure(req: Request, res: Response, error: z.ZodError) {
 function notifyRestaurant(contaId: number, event: "pedido" | "mesas" | "kds" | "impressao", body?: unknown) {
   try {
     sendRestaurantUpdate(contaId, event, body);
+    if (event === "pedido" && Number.isInteger(Number((body as any)?.pedidoId))) {
+      sendRestaurantPublicOrderUpdate(Number((body as any).pedidoId), body);
+    }
   } catch {
     // O banco permanece como fonte de verdade quando o Socket.IO ainda nao foi inicializado.
   }
@@ -206,7 +247,12 @@ async function calculatePublicCheckout(
   config: any,
   input: z.infer<typeof checkoutPreviewSchema>,
   enforceMinimum = false,
+  enforceBusinessHours = true,
 ) {
+  if (enforceBusinessHours) {
+    const operation = restaurantOpenNow(config.horariosJson);
+    if (!operation.aberto) throw new CheckoutError("restaurant_closed", operation.mensagem);
+  }
   if (input.origem === "RETIRADA" && !config.retiradaAtiva) {
     throw new CheckoutError("pickup_unavailable", "A retirada esta indisponivel.");
   }
@@ -375,9 +421,10 @@ export async function saveConfig(req: Request, res: Response) {
     return fail(req, res, 409, "version_conflict", "A configuracao foi alterada em outra sessao.");
   }
   const { version: _version, ...data } = parsed.data;
+  const whatsappNotificacoesJson = normalizeRestaurantWhatsAppSettings(data.whatsappNotificacoesJson || defaultRestaurantWhatsAppSettings());
   const saved = current
-    ? await prisma.restauranteConfig.update({ where: { contaId }, data: { ...data, horariosJson: data.horariosJson as any, version: { increment: 1 } } })
-    : await prisma.restauranteConfig.create({ data: { ...data, horariosJson: data.horariosJson as any, contaId } });
+    ? await prisma.restauranteConfig.update({ where: { contaId }, data: { ...data, localizacaoJson: data.localizacaoJson as any, horariosJson: data.horariosJson as any, whatsappNotificacoesJson: whatsappNotificacoesJson as any, version: { increment: 1 } } })
+    : await prisma.restauranteConfig.create({ data: { ...data, localizacaoJson: data.localizacaoJson as any, horariosJson: data.horariosJson as any, whatsappNotificacoesJson: whatsappNotificacoesJson as any, contaId } });
   return ok(req, res, saved, current ? 200 : 201);
 }
 
@@ -550,7 +597,12 @@ export async function listOrders(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const page = Math.max(Number(req.query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
-  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  const statusRaw = typeof req.query.status === "string" ? req.query.status : "";
+  const allowedStatuses = ["RECEBIDO", "CONFIRMADO", "EM_PREPARO", "PRONTO", "CONCLUIDO", "CANCELADO"];
+  const statuses = [...new Set(statusRaw.split(",").map((item) => item.trim()).filter(Boolean))];
+  if (statuses.some((status) => !allowedStatuses.includes(status))) {
+    return fail(req, res, 422, "invalid_status", "Um ou mais status informados são inválidos.");
+  }
   const inicioRaw = typeof req.query.inicio === "string" ? req.query.inicio : undefined;
   const fimRaw = typeof req.query.fim === "string" ? req.query.fim : undefined;
   const inicio = inicioRaw ? new Date(inicioRaw) : undefined;
@@ -563,14 +615,15 @@ export async function listOrders(req: Request, res: Response) {
   }
   const where: any = {
     contaId,
-    ...(status ? { status } : {}),
+    ...(statuses.length ? { status: { in: statuses } } : {}),
     ...(inicio || fim ? { createdAt: { ...(inicio ? { gte: inicio } : {}), ...(fim ? { lte: fim } : {}) } } : {}),
   };
-  const [items, total] = await Promise.all([
+  const [items, total, config] = await Promise.all([
     prisma.restaurantePedido.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: "desc" }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } }),
     prisma.restaurantePedido.count({ where }),
+    prisma.restauranteConfig.findUnique({ where: { contaId }, select: { localizacaoJson: true } }),
   ]);
-  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit) });
+  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit), localizacaoEmpresa: config?.localizacaoJson || null });
 }
 
 export async function transitionOrder(req: Request, res: Response) {
@@ -603,7 +656,7 @@ export async function transitionOrder(req: Request, res: Response) {
         await dispatchOrderToProduction(tx, contaId, order.id);
       }
       if (nextStatus === "CANCELADO" && cancellation?.returnStock) await returnRestaurantOrderStock(tx, contaId, order.id);
-      return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true } });
+      return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } });
     });
   } catch (error) {
     if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
@@ -615,6 +668,7 @@ export async function transitionOrder(req: Request, res: Response) {
   notifyRestaurant(contaId, "pedido", { pedidoId: order.id });
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
+  notifyRestaurantOrderWhatsApp(order.id, restaurantWhatsAppEventsForOrder(updated));
   return ok(req, res, updated, cancellation?.httpStatus || 200);
 }
 
@@ -646,6 +700,7 @@ export async function publicMenu(req: Request, res: Response) {
     item.Produto.status === "ATIVO"
     && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
   ));
+  const atendimento = restaurantOpenNow(config.horariosJson);
   return ok(req, res, {
     restaurante: {
       nome: config.nomePublico,
@@ -656,6 +711,7 @@ export async function publicMenu(req: Request, res: Response) {
       deliveryAtivo: config.deliveryAtivo,
       pagamentoOnlineAtivo: config.pagamentoOnlineAtivo,
       pagamentoNaEntregaAtivo: config.pagamentoNaEntregaAtivo,
+      atendimento,
       modoFrete: config.modoFrete,
       temaPersonalizado: config.Conta.ParametrosConta[0]?.temaPersonalizado ?? null,
     },
@@ -741,6 +797,7 @@ export async function createPublicOrder(req: Request, res: Response) {
 
   const trackingToken = randomBytes(32).toString("base64url");
   let response: any;
+  let createdOrder = false;
   try {
     response = await prisma.$transaction(async (tx) => {
       const order = await tx.restaurantePedido.create({
@@ -791,11 +848,16 @@ export async function createPublicOrder(req: Request, res: Response) {
       });
       return payload;
     });
+    createdOrder = true;
   } catch (error: any) {
     if (error?.code !== "P2002") throw error;
     const winner = await prisma.restauranteIdempotencia.findUnique({ where: { contaId_chaveHash: { contaId: config.contaId, chaveHash: keyHash } } });
     if (!winner || winner.requestHash !== bodyHash || !winner.respostaJson) throw error;
     response = winner.respostaJson;
+  }
+  if (createdOrder) {
+    notifyRestaurant(config.contaId, "pedido", { pedidoId: response.pedido.id, reason: "created" });
+    notifyRestaurantOrderWhatsApp(response.pedido.id, ["PEDIDO_FEITO"]);
   }
   try {
     response = await finalizePayment(response);
@@ -994,6 +1056,8 @@ export async function createTableOrder(req: Request, res: Response) {
     quote = await calculatePublicCheckout(
       { ...config, retiradaAtiva: true, pedidoMinimo: new Decimal(0) },
       { origem: "RETIRADA", itens: parsed.data.itens },
+      false,
+      false,
     );
   } catch (error) {
     if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
@@ -1174,5 +1238,6 @@ export async function transitionKdsTicket(req: Request, res: Response) {
   if (!updated) return fail(req, res, 409, "version_conflict", "O ticket foi alterado em outra sessao.");
   notifyRestaurant(contaId, "kds", { ticketId: ticket.id, pedidoId: ticket.pedidoId });
   notifyRestaurant(contaId, "pedido", { pedidoId: ticket.pedidoId });
+  notifyRestaurantOrderWhatsApp(ticket.pedidoId, restaurantWhatsAppEventsForOrder(updated.Pedido));
   return ok(req, res, updated);
 }

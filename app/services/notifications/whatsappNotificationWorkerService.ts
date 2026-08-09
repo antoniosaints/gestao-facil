@@ -9,11 +9,14 @@ import type { WhatsAppQueueJobData } from "./whatsappNotificationQueueService";
 export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) {
   const isClientMessage = data.kind === "CLIENT_MESSAGE";
   const isReservationMessage = data.kind === "RESERVATION_MESSAGE";
+  const isRestaurantMessage = data.kind === "RESTAURANT_MESSAGE";
   const eventLabel = isClientMessage
     ? "CLIENT_MESSAGE"
     : isReservationMessage
       ? "RESERVATION_MESSAGE"
-      : data.event;
+      : isRestaurantMessage
+        ? "RESTAURANT_MESSAGE"
+        : data.event;
   const phone = normalizeWhatsAppNotificationPhone(data.phone);
   if (!phone) {
     if (isReservationMessage && data.notificationId) {
@@ -59,7 +62,9 @@ export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) 
     ? `cliente-${data.clienteId}`
     : isReservationMessage
       ? `reserva-${data.reservaId}`
-      : `usuario-${data.userId}`;
+      : isRestaurantMessage
+        ? `pedido-${data.pedidoId}`
+        : `usuario-${data.userId}`;
   const messageId = `erp-wa-notif-${data.contaId}-${recipientId}-${Date.now()}-${crypto
     .randomBytes(4)
     .toString("hex")}`;

@@ -1,0 +1,2 @@
+ALTER TABLE `ParametrosConta`
+  ADD COLUMN `estiloUi` VARCHAR(16) NULL DEFAULT 'PADRAO';
