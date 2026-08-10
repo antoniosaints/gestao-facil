@@ -13,6 +13,7 @@ export const RESTAURANT_WHATSAPP_EVENTS = [
   "SAIU_ENTREGA",
   "PRONTO",
   "ENTREGUE",
+  "FIDELIDADE",
   "POS_PEDIDO",
 ] as const;
 
@@ -25,6 +26,7 @@ const DEFAULT_MESSAGES: Record<RestaurantWhatsAppEvent, string> = {
   SAIU_ENTREGA: "Olá, {cliente}! Seu pedido {pedido} saiu para entrega.",
   PRONTO: "Olá, {cliente}! Seu pedido {pedido} está pronto.",
   ENTREGUE: "Olá, {cliente}! Seu pedido {pedido} foi entregue. Bom apetite!",
+  FIDELIDADE: "Olá, {cliente}! Sua fidelidade foi atualizada: {fidelidade}",
   POS_PEDIDO: "Olá, {cliente}! Obrigado por pedir na {empresa}. Esperamos que tenha gostado!",
 };
 
@@ -92,9 +94,20 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
     });
     if (!instance) return false;
 
+    let fidelityMessage = "";
+    if (event === "FIDELIDADE") {
+      const program = await prisma.restauranteFidelidadePrograma.findUnique({ where: { contaId: order.contaId } });
+      const progress = program ? await prisma.restauranteFidelidadeProgresso.findUnique({
+        where: { contaId_telefoneNormalizado: { contaId: order.contaId, telefoneNormalizado: phone } },
+      }) : null;
+      if (program && progress) fidelityMessage = progress.recompensasDisponiveis > 0
+        ? `você tem ${progress.recompensasDisponiveis} recompensa(s) disponível(is)!`
+        : `${progress.pedidosElegiveis % program.pedidosMeta}/${program.pedidosMeta} pedidos para a próxima recompensa.`;
+    }
     const message = renderRestaurantWhatsAppTemplate(definition.mensagem, buildRestaurantWhatsAppTemplateValues({
       ...order,
       empresa: order.Conta.nomeFantasia || order.Conta.nome,
+      fidelidade: fidelityMessage,
     }));
     if (!message.trim()) return false;
 

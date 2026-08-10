@@ -1,0 +1,2 @@
+ALTER TABLE `RestauranteUsuarioPapel`
+  MODIFY `papel` ENUM('GESTOR', 'CAIXA', 'GARCOM', 'COZINHA', 'EXPEDICAO', 'ENTREGADOR') NOT NULL;

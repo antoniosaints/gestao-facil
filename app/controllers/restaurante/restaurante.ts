@@ -20,8 +20,9 @@ import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrd
 import { resolveRestaurantCancellation } from "../../services/restaurante/orderPolicy";
 import { claimRestaurantTable, RestaurantTableUnavailableError } from "../../services/restaurante/tableSession";
 import { restaurantOpenNow } from "../../services/restaurante/openingHours";
+import { applyCompletedOrderFidelity, currentFidelityForPhone, publicFidelity } from "../../services/restaurante/loyalty";
 import { CommerceError } from "../../services/loja/commerceError";
-import { sendRestaurantPublicOrderUpdate, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
+import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
 
 const localizacaoSchema = z.object({
@@ -619,7 +620,18 @@ export async function listOrders(req: Request, res: Response) {
     ...(inicio || fim ? { createdAt: { ...(inicio ? { gte: inicio } : {}), ...(fim ? { lte: fim } : {}) } } : {}),
   };
   const [items, total, config] = await Promise.all([
-    prisma.restaurantePedido.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: "desc" }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } }),
+    prisma.restaurantePedido.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        itens: true,
+        Mesa: true,
+        tickets: { select: { id: true } },
+        Entrega: { include: { Entregador: { include: { Usuario: { select: { nome: true } } } } } },
+      },
+    }),
     prisma.restaurantePedido.count({ where }),
     prisma.restauranteConfig.findUnique({ where: { contaId }, select: { localizacaoJson: true } }),
   ]);
@@ -642,11 +654,13 @@ export async function transitionOrder(req: Request, res: Response) {
   const data: any = cancellation && !cancellation.cancelOrder
     ? { pagamentoStatus: cancellation.nextPaymentStatus, version: { increment: 1 } }
     : { status: nextStatus, version: { increment: 1 } };
-  if (nextStatus === "EM_PREPARO") data.producaoStatus = "PREPARANDO";
-  if (nextStatus === "PRONTO") data.producaoStatus = "PRONTO";
+  if (nextStatus === "CONFIRMADO") data.confirmadoAt = new Date();
+  if (nextStatus === "EM_PREPARO") { data.producaoStatus = "PREPARANDO"; data.emPreparoAt = new Date(); }
+  if (nextStatus === "PRONTO") { data.producaoStatus = "PRONTO"; data.prontoAt = new Date(); }
   if (nextStatus === "CONCLUIDO") data.concluidoAt = new Date();
   if (nextStatus === "CANCELADO" && cancellation?.cancelOrder) data.canceladoAt = new Date();
   let updated: any;
+  let fidelityProgress: any = null;
   try {
     updated = await prisma.$transaction(async (tx) => {
       const result = await tx.restaurantePedido.updateMany({ where: { id: order.id, contaId, version }, data });
@@ -656,6 +670,7 @@ export async function transitionOrder(req: Request, res: Response) {
         await dispatchOrderToProduction(tx, contaId, order.id);
       }
       if (nextStatus === "CANCELADO" && cancellation?.returnStock) await returnRestaurantOrderStock(tx, contaId, order.id);
+      if (nextStatus === "CONCLUIDO") fidelityProgress = await applyCompletedOrderFidelity(tx, contaId, order.id);
       return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } });
     });
   } catch (error) {
@@ -669,6 +684,7 @@ export async function transitionOrder(req: Request, res: Response) {
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
   notifyRestaurantOrderWhatsApp(order.id, restaurantWhatsAppEventsForOrder(updated));
+  if (fidelityProgress) notifyRestaurantOrderWhatsApp(order.id, ["FIDELIDADE"]);
   return ok(req, res, updated, cancellation?.httpStatus || 200);
 }
 
@@ -701,6 +717,11 @@ export async function publicMenu(req: Request, res: Response) {
     && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
   ));
   const atendimento = restaurantOpenNow(config.horariosJson);
+  const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
+  const customer = restaurantCustomer?.contaId === config.contaId
+    ? await prisma.restauranteCliente.findFirst({ where: { id: restaurantCustomer.id, contaId: config.contaId }, select: { telefone: true } })
+    : null;
+  const fidelity = await currentFidelityForPhone(prisma, config.contaId, customer?.telefone);
   return ok(req, res, {
     restaurante: {
       nome: config.nomePublico,
@@ -714,6 +735,7 @@ export async function publicMenu(req: Request, res: Response) {
       atendimento,
       modoFrete: config.modoFrete,
       temaPersonalizado: config.Conta.ParametrosConta[0]?.temaPersonalizado ?? null,
+      fidelidade: publicFidelity(fidelity.program, fidelity.progress),
     },
     itens: items,
   });
@@ -757,6 +779,19 @@ export async function createPublicOrder(req: Request, res: Response) {
   } catch (error) {
     if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
     throw error;
+  }
+  // A recompensa e aplicada automaticamente na primeira unidade do produto-premio
+  // presente no carrinho. O decremento abaixo acontece na mesma transacao do pedido.
+  const fidelity = await currentFidelityForPhone(prisma, config.contaId, parsed.data.cliente.telefone);
+  const rewardSnapshot = fidelity.program?.ativo && fidelity.progress?.recompensasDisponiveis > 0
+    ? quote.snapshots.find((snapshot: any) => snapshot.item.id === fidelity.program.premioCatalogoItemId)
+    : null;
+  const fidelityDiscount = rewardSnapshot
+    ? new Decimal(rewardSnapshot.unit).mul(Number(fidelity.program.descontoPercentual)).div(100).toDecimalPlaces(2)
+    : new Decimal(0);
+  if (fidelityDiscount.greaterThan(0)) {
+    quote.total = new Decimal(quote.total).minus(fidelityDiscount).toFixed(2);
+    (quote as any).desconto = fidelityDiscount.toFixed(2);
   }
 
   const keyHash = hash(key);
@@ -819,6 +854,7 @@ export async function createPublicOrder(req: Request, res: Response) {
           zonaEntregaSnapshotJson: quote.zone as any,
           subtotal: quote.subtotal,
           frete: quote.frete,
+          desconto: (quote as any).desconto || 0,
           total: quote.total,
           observacao: parsed.data.observacao,
           trackingTokenHash: hash(trackingToken),
@@ -839,6 +875,13 @@ export async function createPublicOrder(req: Request, res: Response) {
         },
         include: { itens: true },
       });
+      if (rewardSnapshot && fidelity.normalizedPhone) {
+        const claimed = await tx.restauranteFidelidadeProgresso.updateMany({
+          where: { contaId: config.contaId, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } },
+          data: { recompensasDisponiveis: { decrement: 1 } },
+        });
+        if (!claimed.count) throw new CheckoutError("fidelity_reward_unavailable", "A recompensa foi usada em outro pedido. Atualize o carrinho.", 409);
+      }
       const payload = { pedido: order, trackingToken, paymentAction: null };
       await tx.restauranteIdempotencia.create({
         data: {
@@ -861,6 +904,11 @@ export async function createPublicOrder(req: Request, res: Response) {
   }
   if (createdOrder) {
     notifyRestaurant(config.contaId, "pedido", { pedidoId: response.pedido.id, reason: "created" });
+    try {
+      const firstItem = response.pedido.itens[0];
+      const firstName = parsed.data.cliente.nome.trim().split(/\s+/)[0] || "Alguém";
+      if (firstItem?.nomeSnapshot) sendRestaurantPublicSale(config.slug, { cliente: firstName, produto: firstItem.nomeSnapshot });
+    } catch { /* O pedido não depende de Socket.IO. */ }
     notifyRestaurantOrderWhatsApp(response.pedido.id, ["PEDIDO_FEITO"]);
   }
   try {
@@ -876,6 +924,7 @@ export async function publicTracking(req: Request, res: Response) {
   const order = await prisma.restaurantePedido.findUnique({
     where: { trackingTokenHash: hash(token) },
     select: {
+      contaId: true,
       codigo: true,
       origem: true,
       status: true,
@@ -887,8 +936,22 @@ export async function publicTracking(req: Request, res: Response) {
       total: true,
       createdAt: true,
       updatedAt: true,
+      confirmadoAt: true,
+      emPreparoAt: true,
+      prontoAt: true,
       concluidoAt: true,
       canceladoAt: true,
+      tickets: { select: { createdAt: true, iniciadoAt: true, prontoAt: true, entregueAt: true } },
+      Entrega: {
+        select: {
+          ofertadaAt: true,
+          atribuidaAt: true,
+          retiradaAt: true,
+          emRotaAt: true,
+          entregueAt: true,
+          Entregador: { select: { ultimaLatitude: true, ultimaLongitude: true, ultimaLocalizacaoAt: true } },
+        },
+      },
       itens: {
         orderBy: { id: "asc" },
         select: {
@@ -901,7 +964,44 @@ export async function publicTracking(req: Request, res: Response) {
     },
   });
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
-  return ok(req, res, order);
+  const first = (values: Array<Date | null | undefined>) => values.filter(Boolean).sort((a, b) => Number(a) - Number(b))[0] || null;
+  const last = (values: Array<Date | null | undefined>) => values.filter(Boolean).sort((a, b) => Number(b) - Number(a))[0] || null;
+  const timeline: Array<{ key: string; titulo: string; descricao: string; ocorreuEm: Date }> = [];
+  const add = (key: string, titulo: string, descricao: string, ocorreuEm: Date | null) => { if (ocorreuEm) timeline.push({ key, titulo, descricao, ocorreuEm }); };
+  add("recebido", "Pedido recebido", "Seu pedido entrou na fila do restaurante.", order.createdAt);
+  add("confirmado", "Pedido confirmado", "O restaurante confirmou e enviou o pedido para produção.", order.confirmadoAt || first(order.tickets.map((ticket) => ticket.createdAt)));
+  add("preparo", "Em preparo", "A equipe começou a preparar seu pedido.", order.emPreparoAt || first(order.tickets.map((ticket) => ticket.iniciadoAt)));
+  add("pronto", "Pedido pronto", "Seu pedido está pronto para retirada ou despacho.", order.prontoAt || last(order.tickets.map((ticket) => ticket.prontoAt)));
+  if (order.origem === "DELIVERY") {
+    add("ofertada", "Buscando entregador", "A entrega foi disponibilizada para a equipe.", order.Entrega?.ofertadaAt || null);
+    add("atribuida", "Entregador atribuído", "Um entregador assumiu seu pedido.", order.Entrega?.atribuidaAt || null);
+    add("retirada", "Pedido retirado", "O entregador retirou o pedido no restaurante.", order.Entrega?.retiradaAt || null);
+    add("rota", "Saiu para entrega", "O entregador está a caminho do seu endereço.", order.Entrega?.emRotaAt || null);
+    add("entregue", "Entrega concluída", "Seu pedido foi entregue.", order.Entrega?.entregueAt || null);
+  }
+  add("concluido", "Pedido concluído", "Obrigado por pedir com a gente.", order.concluidoAt);
+  add("cancelado", "Pedido cancelado", "Este pedido foi cancelado.", order.canceladoAt);
+  timeline.sort((a, b) => a.ocorreuEm.getTime() - b.ocorreuEm.getTime());
+
+  const completed = await prisma.restaurantePedido.findMany({
+    where: { contaId: order.contaId, origem: order.origem, status: "CONCLUIDO", concluidoAt: { not: null } },
+    select: { createdAt: true, concluidoAt: true },
+    orderBy: { concluidoAt: "desc" },
+    take: 30,
+  });
+  const durations = completed
+    .filter((item) => item.concluidoAt)
+    .map((item) => Math.max(1, Math.round((item.concluidoAt!.getTime() - item.createdAt.getTime()) / 60_000)));
+  const tempoMedioEsperaMinutos = durations.length
+    ? Math.round(durations.reduce((sum, minutes) => sum + minutes, 0) / durations.length)
+    : order.origem === "DELIVERY" ? 45 : 25;
+  const location = await prisma.restauranteConfig.findUnique({ where: { contaId: order.contaId }, select: { localizacaoJson: true } });
+  const driver = order.entregaStatus === "EM_ROTA" ? order.Entrega?.Entregador : null;
+  const acompanhamentoEntrega = driver?.ultimaLatitude != null && driver?.ultimaLongitude != null
+    ? { origem: location?.localizacaoJson || null, entregador: { latitude: driver.ultimaLatitude, longitude: driver.ultimaLongitude, updatedAt: driver.ultimaLocalizacaoAt } }
+    : null;
+  const { contaId: _contaId, tickets: _tickets, Entrega: _entrega, ...publicOrder } = order;
+  return ok(req, res, { ...publicOrder, timeline, tempoMedioEsperaMinutos, tempoMedioBase: durations.length ? "historico" : "estimativa", acompanhamentoEntrega });
 }
 
 export async function listTables(req: Request, res: Response) {

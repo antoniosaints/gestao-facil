@@ -6,11 +6,14 @@ import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../mid
 import { requireRestauranteAccess, requireRestauranteModule } from "../../middlewares/restauranteAccess";
 import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
 import { currentRestaurantAccess, listRestaurantUserRoles, saveRestaurantUserRoles } from "../../controllers/restaurante/access";
+import { fidelityOptions, getFidelityProgram, saveFidelityProgram } from "../../controllers/restaurante/loyalty";
+import { acceptDelivery, directDelivery, driverContext, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
+import { requireRestauranteEntregador } from "../../middlewares/restauranteEntregador";
 
 export const routerRestaurante = Router();
 const use = (handler: unknown) => handler as RequestHandler;
 
-routerRestaurante.get("/publico/:slug/cardapio", use(publicMenu));
+routerRestaurante.get("/publico/:slug/cardapio", optionalRestaurantCustomer, use(publicMenu));
 routerRestaurante.post("/publico/:slug/checkout/previa", use(previewPublicCheckout));
 routerRestaurante.post("/publico/:slug/pedidos", optionalRestaurantCustomer, use(createPublicOrder));
 routerRestaurante.get("/publico/pedidos/:token", use(publicTracking));
@@ -26,11 +29,20 @@ routerRestaurante.get("/estacao-impressao/trabalhos", use(stationClaimJobs));
 routerRestaurante.post("/estacao-impressao/trabalhos/ack", use(stationAckJob));
 
 routerRestaurante.use(authenticateJWT);
+// PWA dedicada: apenas usuarios explicitamente vinculados ao papel ENTREGADOR.
+routerRestaurante.get("/entregador/contexto", requireRestauranteEntregador(), use(driverContext));
+routerRestaurante.put("/entregador/disponibilidade", requireRestauranteEntregador(), use(updateDriverAvailability));
+routerRestaurante.post("/entregador/entregas/:pedidoId/aceitar", requireRestauranteEntregador(), use(acceptDelivery));
+routerRestaurante.post("/entregador/entregas/:pedidoId/status", requireRestauranteEntregador(), use(updateDeliveryStatus));
+routerRestaurante.post("/entregador/entregas/:pedidoId/localizacao", requireRestauranteEntregador(), use(publishDriverLocation));
 routerRestaurante.get("/acesso", requireRestauranteModule(), use(currentRestaurantAccess));
 routerRestaurante.get("/usuarios-papeis", requireRestauranteAccess("PAPEIS_GERENCIAR"), use(listRestaurantUserRoles));
 routerRestaurante.put("/usuarios-papeis/:usuarioId", requireRestauranteAccess("PAPEIS_GERENCIAR"), use(saveRestaurantUserRoles));
 routerRestaurante.get("/configuracao", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(getConfig));
 routerRestaurante.put("/configuracao", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(saveConfig));
+routerRestaurante.get("/fidelidade", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(getFidelityProgram));
+routerRestaurante.put("/fidelidade", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(saveFidelityProgram));
+routerRestaurante.get("/fidelidade/opcoes", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(fidelityOptions));
 routerRestaurante.get("/cardapio", requireRestauranteAccess("CARDAPIO_VISUALIZAR"), use(listCatalog));
 routerRestaurante.get("/cardapio/produtos", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(listCatalogProducts));
 routerRestaurante.post("/cardapio", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(saveCatalogItem));
@@ -65,3 +77,6 @@ routerRestaurante.get("/trabalhos-impressao", requireRestauranteAccess("IMPRESSA
 routerRestaurante.post("/kds/:id/reimprimir", requireRestauranteAccess("KDS_OPERAR"), use(reprintProductionTicket));
 routerRestaurante.get("/pedidos", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listOrders));
 routerRestaurante.post("/pedidos/:id/transicao", requireRestauranteAccess("PEDIDOS_OPERAR"), use(transitionOrder));
+routerRestaurante.get("/entregas/despacho", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listDeliveryDispatch));
+routerRestaurante.post("/entregas/:pedidoId/ofertar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(offerDelivery));
+routerRestaurante.post("/entregas/:pedidoId/direcionar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(directDelivery));

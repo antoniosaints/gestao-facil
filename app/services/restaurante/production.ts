@@ -105,9 +105,19 @@ export async function syncOrderProductionState(tx: any, contaId: number, pedidoI
     select: { status: true },
   });
   const production = deriveOrderProductionState(tickets.map((ticket: any) => ticket.status));
+  const order = await tx.restaurantePedido.findFirst({
+    where: { id: pedidoId, contaId },
+    select: { emPreparoAt: true, prontoAt: true },
+  });
   const data: any = { producaoStatus: production, version: { increment: 1 } };
-  if (production === "PREPARANDO") data.status = "EM_PREPARO";
-  if (production === "PRONTO" || production === "ENTREGUE") data.status = "PRONTO";
+  if (production === "PREPARANDO") {
+    data.status = "EM_PREPARO";
+    if (!order?.emPreparoAt) data.emPreparoAt = new Date();
+  }
+  if (production === "PRONTO" || production === "ENTREGUE") {
+    data.status = "PRONTO";
+    if (!order?.prontoAt) data.prontoAt = new Date();
+  }
   await tx.restaurantePedido.updateMany({
     where: { id: pedidoId, contaId, status: { notIn: ["CONCLUIDO", "CANCELADO"] } },
     data,

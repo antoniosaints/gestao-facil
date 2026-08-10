@@ -69,6 +69,7 @@ export function buildRestaurantWhatsAppTemplateValues(input: {
   enderecoSnapshotJson?: unknown;
   pagamentoMetodoSnapshot?: string | null;
   itens: RestaurantMessageItem[];
+  fidelidade?: string;
 }) {
   const delivery = input.origem === "DELIVERY";
   return {
@@ -85,9 +86,10 @@ export function buildRestaurantWhatsAppTemplateValues(input: {
     entrega: delivery ? `🛵 Delivery (taxa de: ${currencyFormatter.format(Number(input.frete))})` : "🛍️ Retirada no local",
     frete: currencyFormatter.format(Number(input.frete)),
     total: currencyFormatter.format(Number(input.total)),
+    fidelidade: input.fidelidade || "",
   };
 }
 
 export function renderRestaurantWhatsAppTemplate(template: string, values: Record<string, string>) {
-  return template.replace(/\{(cliente|primeiroNome|nomeAbreviado|empresa|pedido|idPedido|numeroPedido|itens|endereco|pagamento|entrega|frete|total)\}/g, (_match, key: string) => values[key] || "");
+  return template.replace(/\{(cliente|primeiroNome|nomeAbreviado|empresa|pedido|idPedido|numeroPedido|itens|endereco|pagamento|entrega|frete|total|fidelidade)\}/g, (_match, key: string) => values[key] || "");
 }

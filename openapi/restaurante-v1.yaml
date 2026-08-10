@@ -58,7 +58,7 @@ paths:
         '422': { description: Item, selecao, endereco ou cobertura invalida }
   /publico/pedidos/{token}:
     get:
-      summary: Acompanha um pedido usando token opaco
+      summary: Acompanha um pedido usando token opaco, com linha do tempo, media de espera e posicao do entregador durante a rota
       parameters:
         - { name: token, in: path, required: true, schema: { type: string } }
       responses:

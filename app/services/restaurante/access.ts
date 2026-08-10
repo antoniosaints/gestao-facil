@@ -28,6 +28,8 @@ const roles: Record<RestaurantePapel, RestauranteCapability[]> = {
   GARCOM: ["SALAO_VISUALIZAR", "SALAO_OPERAR", "COMANDAS_OPERAR", "CARDAPIO_VISUALIZAR", "PEDIDOS_VISUALIZAR"],
   COZINHA: ["KDS_VISUALIZAR", "KDS_OPERAR", "IMPRESSAO_VISUALIZAR", "CARDAPIO_VISUALIZAR"],
   EXPEDICAO: ["IMPRESSAO_VISUALIZAR", "CARDAPIO_VISUALIZAR", "PEDIDOS_VISUALIZAR", "PEDIDOS_OPERAR"],
+  // Entregador usa a PWA dedicada; nao recebe capacidades do backoffice.
+  ENTREGADOR: [],
 };
 
 export function capabilitiesForRestaurantRoles(userRoles: RestaurantePapel[]) {

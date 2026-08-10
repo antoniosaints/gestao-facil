@@ -62,6 +62,16 @@ export async function saveRestaurantUserRoles(req: Request, res: Response) {
         data: papeis.map((papel) => ({ contaId, usuarioId, papel })),
       });
     }
+    // Preserva o perfil/historico, mas a PWA ainda exige o papel a cada request.
+    if (papeis.includes(RestaurantePapel.ENTREGADOR)) {
+      await tx.restauranteEntregador.upsert({
+        where: { contaId_usuarioId: { contaId, usuarioId } },
+        create: { contaId, usuarioId },
+        update: { ativo: true },
+      });
+    } else {
+      await tx.restauranteEntregador.updateMany({ where: { contaId, usuarioId }, data: { ativo: false, disponivel: false } });
+    }
   });
   return ok(req, res, { usuarioId, papeis });
 }

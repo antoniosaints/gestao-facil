@@ -43,6 +43,16 @@ export function initSocket(server: HttpServer) {
         .filter((value: unknown): value is string => typeof value === "string" && value.length >= 32)
         .slice(0, 10)
       : [];
+    const publicSlug = typeof socket.handshake.auth?.restaurantPublicSlug === "string"
+      ? socket.handshake.auth.restaurantPublicSlug.trim().toLowerCase()
+      : "";
+    if (publicSlug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(publicSlug)) {
+      const config = await prisma.restauranteConfig.findUnique({ where: { slug: publicSlug }, select: { ativo: true } });
+      if (config?.ativo) {
+        socket.data.restaurantPublicSlug = publicSlug;
+        return next();
+      }
+    }
     if (!rawTokens.length) return next(new Error("Não autorizado"));
     const hashes = rawTokens.map((trackingToken) => createHash("sha256").update(trackingToken).digest("hex"));
     try {
@@ -88,6 +98,7 @@ export function initSocket(server: HttpServer) {
     for (const orderId of socket.data.restaurantPublicOrderIds || []) {
       socket.join(`restaurante:pedido-publico:${orderId}`);
     }
+    if (socket.data.restaurantPublicSlug) socket.join(`restaurante:cardapio-publico:${socket.data.restaurantPublicSlug}`);
 
     socket.on("entrarNaConta", (requestedContaId: number) => {
       const contaId = Number(socket.data.contaId);

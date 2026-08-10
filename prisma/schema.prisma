@@ -308,9 +308,15 @@ model Contas {
   RestauranteClientes             RestauranteCliente[]
   RestauranteClientesEnderecos    RestauranteClienteEndereco[]
   RestaurantePedidos              RestaurantePedido[]
+  RestauranteEntregadores         RestauranteEntregador[]
+  RestauranteEntregas             RestauranteEntrega[]
+  RestauranteEntregasLocalizacao  RestauranteEntregaLocalizacao[]
   RestauranteIdempotencias        RestauranteIdempotencia[]
   RestauranteEstoques             RestaurantePedidoEstoque[]
   RestauranteUsuariosPapeis       RestauranteUsuarioPapel[]
+  RestauranteFidelidadePrograma   RestauranteFidelidadePrograma?
+  RestauranteFidelidadeProgressos RestauranteFidelidadeProgresso[]
+  RestauranteFidelidadeLancamentos RestauranteFidelidadeLancamento[]
 }
 
 model ModulosAdicionais {
@@ -1067,6 +1073,7 @@ model Usuarios {
   RelatosBugCriados               RelatoBug[]                       @relation("RelatoBugAutor")
   RelatosBugResolvidos            RelatoBug[]                       @relation("RelatoBugResolvedor")
   restaurantePapeis               RestauranteUsuarioPapel[]
+  restauranteEntregador           RestauranteEntregador?
 }
 
 enum PermissaoUsuario {
@@ -1336,6 +1343,7 @@ enum RestaurantePapel {
   GARCOM
   COZINHA
   EXPEDICAO
+  ENTREGADOR
 }
 
 enum RestauranteEstoqueStatus {
@@ -1452,9 +1460,63 @@ model RestauranteCatalogoItem {
   createdAt           DateTime                       @default(now())
   updatedAt           DateTime                       @updatedAt
   grupos              RestauranteCatalogoItemGrupo[]
+  premiosFidelidade   RestauranteFidelidadePrograma[] @relation("RestauranteFidelidadePremio")
 
   @@unique([contaId, produtoId])
   @@index([contaId, disponivel, ordem])
+}
+
+/// Regra de fidelidade isolada por conta. A regra avalia ao menos um item
+/// elegivel do pedido concluido e libera uma recompensa para uso posterior.
+model RestauranteFidelidadePrograma {
+  id                    Int                     @id @default(autoincrement())
+  contaId               Int                     @unique
+  Conta                 Contas                  @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ativo                 Boolean                 @default(false)
+  pedidosMeta           Int                     @default(6)
+  categoriaIdsJson      Json?
+  catalogoItemIdsJson   Json?
+  premioCatalogoItemId  Int?
+  PremioCatalogoItem    RestauranteCatalogoItem? @relation("RestauranteFidelidadePremio", fields: [premioCatalogoItemId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  descontoPercentual    Decimal                 @default(100) @db.Decimal(5, 2)
+  version               Int                     @default(1)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([contaId, ativo])
+}
+
+/// O telefone normalizado permite fidelidade tambem para quem compra sem
+/// criar senha no cardapio. Nao ha compartilhamento entre contas.
+model RestauranteFidelidadeProgresso {
+  id                       Int      @id @default(autoincrement())
+  contaId                  Int
+  Conta                    Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  telefoneNormalizado      String   @db.VarChar(32)
+  clienteNome              String?  @db.VarChar(160)
+  pedidosElegiveis         Int      @default(0)
+  recompensasDisponiveis   Int      @default(0)
+  recompensasEmitidas      Int      @default(0)
+  updatedAt                DateTime @updatedAt
+  createdAt                DateTime @default(now())
+
+  @@unique([contaId, telefoneNormalizado])
+  @@index([contaId, recompensasDisponiveis])
+}
+
+/// Auditoria idempotente: um pedido concluido so pode pontuar uma vez.
+model RestauranteFidelidadeLancamento {
+  id             Int      @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pedidoId       Int      @unique
+  Pedido         RestaurantePedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  progressoId    Int
+  deltaPedidos   Int      @default(1)
+  recompensaNova Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([contaId, progressoId])
 }
 
 model RestauranteGrupoOpcao {
@@ -1760,18 +1822,83 @@ model RestaurantePedido {
   version                  Int                         @default(1)
   createdAt                DateTime                    @default(now())
   updatedAt                DateTime                    @updatedAt
+  confirmadoAt             DateTime?
+  emPreparoAt              DateTime?
+  prontoAt                 DateTime?
   concluidoAt              DateTime?
   canceladoAt              DateTime?
   itens                    RestaurantePedidoItem[]
   tickets                  RestauranteTicketProducao[]
   Cobrancas                CobrancasFinanceiras[]
   estoques                 RestaurantePedidoEstoque[]
+  fidelidadeLancamento     RestauranteFidelidadeLancamento?
+  Entrega                  RestauranteEntrega?
 
   @@unique([contaId, codigo])
   @@index([contaId, status, createdAt])
   @@index([contaId, producaoStatus, createdAt])
   @@index([contaId, restauranteClienteId, createdAt], map: "RestaurantePedido_contaId_restauranteClienteId_createdAt_idx")
   @@index([sessaoMesaId, createdAt])
+}
+
+/// Perfil operacional do entregador. A existencia deste registro nunca concede
+/// acesso ao backoffice: a PWA confere tambem o papel ENTREGADOR a cada request.
+model RestauranteEntregador {
+  id                     Int                           @id @default(autoincrement())
+  contaId                Int
+  Conta                  Contas                        @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  usuarioId              Int                           @unique
+  Usuario                Usuarios                      @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ativo                  Boolean                       @default(true)
+  disponivel             Boolean                       @default(false)
+  ultimaLatitude         Float?
+  ultimaLongitude        Float?
+  ultimaLocalizacaoAt    DateTime?
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+  entregas               RestauranteEntrega[]
+
+  @@unique([contaId, usuarioId])
+  @@index([contaId, ativo, disponivel])
+}
+
+/// Uma entrega e criada quando a expedicao oferta ou direciona um pedido.
+/// O estado publico da entrega continua em RestaurantePedido.entregaStatus.
+model RestauranteEntrega {
+  id             Int                              @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas                           @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pedidoId       Int                              @unique
+  Pedido         RestaurantePedido                @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  entregadorId   Int?
+  Entregador     RestauranteEntregador?           @relation(fields: [entregadorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  ofertadaAt     DateTime?
+  atribuidaAt    DateTime?
+  retiradaAt     DateTime?
+  emRotaAt       DateTime?
+  entregueAt     DateTime?
+  falhouAt       DateTime?
+  observacao     String?                          @db.Text
+  createdAt      DateTime                         @default(now())
+  updatedAt      DateTime                         @updatedAt
+  localizacoes   RestauranteEntregaLocalizacao[]
+
+  @@index([contaId, entregadorId, updatedAt])
+}
+
+/// Amostras persistidas para auditoria e reconciliacao do acompanhamento.
+model RestauranteEntregaLocalizacao {
+  id             Int                 @id @default(autoincrement())
+  contaId        Int
+  Conta          Contas              @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  entregaId      Int
+  Entrega        RestauranteEntrega  @relation(fields: [entregaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  latitude       Float
+  longitude      Float
+  precisaoMetros Float?
+  createdAt      DateTime            @default(now())
+
+  @@index([contaId, entregaId, createdAt])
 }
 
 model RestaurantePedidoItem {
