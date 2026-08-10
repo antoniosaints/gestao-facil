@@ -83,6 +83,13 @@ const DEFAULT_MODULES = [
     preco: 49.9,
   },
   {
+    codigo: "notas-fiscais",
+    nome: "Notas Fiscais",
+    descricao: "Emissão de NFS-e, configuração fiscal por empresa e certificado digital protegido.",
+    categoria: "Extensões",
+    preco: 19.9,
+  },
+  {
     codigo: "mercado-pago",
     nome: "Mercado Pago",
     descricao: "Integracao gratuita para configurar as credenciais operacionais do Mercado Pago da conta.",

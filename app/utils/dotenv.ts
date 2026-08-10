@@ -65,6 +65,12 @@ const envSchema = z
     MP_OAUTH_REDIRECT_URI: optionalEnvUrl,
     // Chave de 32 bytes em hex (64 caracteres) usada para cifrar os tokens OAuth em repouso.
     MP_OAUTH_ENC_KEY: optionalEnvString,
+    // Chave exclusiva de 32 bytes em hex (64 caracteres) para cifrar certificados A1 e
+    // suas senhas antes de persistir no R2/banco. Nunca usar JWT_SECRET para este fim.
+    FISCAL_CERTIFICATE_ENC_KEY: optionalEnvString,
+    // O webservice legado D2TI de São Mateus do Maranhão publica somente HTTP.
+    // Produção fica bloqueada por padrão para não enviar o token municipal em texto claro.
+    FISCAL_ALLOW_INSECURE_D2TI_HTTP: z.enum(["true", "false"]).default("false"),
     ABACATEPAY_API_KEY: z.string().optional(),
     ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
     WHATSAPP_WAPI_BASE_URL: optionalEnvUrl.default("https://api.w-api.app"),
@@ -136,6 +142,13 @@ const envSchema = z
         path: ["MP_OAUTH_ENC_KEY"],
         message:
           "MP_OAUTH_ENC_KEY deve ter 64 caracteres hexadecimais (32 bytes) quando o OAuth do Mercado Pago está habilitado",
+      });
+    }
+    if (data.FISCAL_CERTIFICATE_ENC_KEY && !/^[0-9a-fA-F]{64}$/.test(data.FISCAL_CERTIFICATE_ENC_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["FISCAL_CERTIFICATE_ENC_KEY"],
+        message: "FISCAL_CERTIFICATE_ENC_KEY deve ter 64 caracteres hexadecimais (32 bytes)",
       });
     }
     if (data.LOJA_CUSTOMER_JWT_SECRET && data.LOJA_CUSTOMER_JWT_SECRET === data.JWT_SECRET) {

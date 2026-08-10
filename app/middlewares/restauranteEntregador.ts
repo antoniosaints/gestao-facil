@@ -6,7 +6,7 @@ import { prisma } from "../utils/prisma";
 declare global {
   namespace Express {
     interface Request {
-      restauranteEntregador?: { id: number; contaId: number; usuarioId: number; ativo: boolean };
+      restauranteEntregador?: { id: number; contaId: number; usuarioId: number; ativo: boolean; disponivel: boolean };
     }
   }
 }
@@ -18,7 +18,10 @@ export function requireRestauranteEntregador(): RequestHandler {
     const [moduleActive, role, driver] = await Promise.all([
       contaHasActiveModule(contaId, "restaurante-delivery"),
       prisma.restauranteUsuarioPapel.findFirst({ where: { contaId, usuarioId: userId, papel: "ENTREGADOR" }, select: { usuarioId: true } }),
-      prisma.restauranteEntregador.findFirst({ where: { contaId, usuarioId: userId, ativo: true }, select: { id: true, contaId: true, usuarioId: true, ativo: true } }),
+      prisma.restauranteEntregador.findFirst({
+        where: { contaId, usuarioId: userId, ativo: true },
+        select: { id: true, contaId: true, usuarioId: true, ativo: true, disponivel: true },
+      }),
     ]);
 
     if (!moduleActive || !role || !driver) {

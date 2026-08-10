@@ -245,6 +245,7 @@ model Contas {
   assinaturasClientes             AssinaturaCliente[]
   assinaturasPagar                AssinaturaPagar[]
   notaFiscals                     NotaFiscal[]
+  NotaFiscalConfiguracao           NotaFiscalConfiguracao?
   arenaQuadras                    ArenaQuadras[]
   comandaVendas                   ComandaVenda[]
   comandasOperacao                ComandaOperacao[]
@@ -2066,7 +2067,69 @@ model NotaFiscal {
   protocolo   String? // retornado pela TecnoSpeed
   status      String // "PENDENTE", "AUTORIZADA", "REJEITADA"
   xmlPath     String?
+  pdfPath     String?
+  numero      String?
+  codigoVerificacao String?
+  rpsNumero   String?
+  codigoServico String?
+  discriminacao String? @db.Text
+  idempotencyKey String? @db.VarChar(191)
+  ambiente    String? @default("HOMOLOGACAO")
+  provedor    String? @default("NACIONAL")
+  erroMensagem String? @db.Text
+  requisicaoJson Json?
+  respostaJson Json?
+  emitidaEm   DateTime?
+  atualizadaEm DateTime @updatedAt
   criadoEm    DateTime             @default(now())
+
+  @@index([contaId, tipo, status, criadoEm])
+  @@unique([contaId, idempotencyKey])
+}
+
+/// Configuração fiscal isolada por assinante. Dados fiscais não são compartilhados
+/// com os campos gerais da conta porque cada emissor pode precisar de dados próprios.
+model NotaFiscalConfiguracao {
+  id                         Int      @id @default(autoincrement())
+  contaId                    Int      @unique
+  Conta                      Contas   @relation(fields: [contaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  razaoSocial                String?  @db.VarChar(191)
+  nomeFantasia               String?  @db.VarChar(191)
+  documento                  String?  @db.VarChar(32)
+  inscricaoEstadual          String?  @db.VarChar(64)
+  inscricaoMunicipal         String?  @db.VarChar(64)
+  regimeTributario           Int      @default(0)
+  codigoMunicipioIbge        String?  @db.VarChar(10)
+  codigoMunicipioPrestador   String?  @db.VarChar(32)
+  municipioNome              String?  @db.VarChar(120)
+  uf                         String?  @db.VarChar(2)
+  cep                        String?  @db.VarChar(16)
+  logradouro                 String?  @db.VarChar(191)
+  numero                     String?  @db.VarChar(32)
+  bairro                     String?  @db.VarChar(120)
+  complemento                String?  @db.VarChar(120)
+  email                      String?  @db.VarChar(191)
+  telefone                   String?  @db.VarChar(32)
+  ambiente                   String   @default("HOMOLOGACAO") @db.VarChar(20)
+  provedorNfse               String   @default("NACIONAL") @db.VarChar(40)
+  serieRps                   Int      @default(1)
+  proximoNumeroRps           Int      @default(1)
+  codigoServicoPadrao        String?  @db.VarChar(32)
+  descricaoServicoPadrao     String?  @db.VarChar(250)
+  codigoAtividadePadrao      String?  @db.VarChar(10)
+  descricaoAtividadePadrao   String?  @db.VarChar(250)
+  tipoTributacaoPadrao       Int?
+  tipoRecolhimentoPadrao     Int?
+  notaIntermediadaPadrao     Int      @default(2)
+  aliquotaIssPadrao          Decimal? @db.Decimal(5, 2)
+  tokenIntegracaoCifrado     String?  @db.Text
+  tokenIntegracaoAtualizadoEm DateTime?
+  certificadoReferencia      String?  @db.Text
+  certificadoNome            String?  @db.VarChar(191)
+  certificadoSenhaCifrada    String?  @db.Text
+  certificadoAtualizadoEm    DateTime?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
 
 enum StatusOrdemServico {

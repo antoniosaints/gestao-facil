@@ -52,6 +52,10 @@ const FRONTEND_SUBMENU_KEYS = [
   "restaurante:impressao",
   "restaurante:pedidos",
   "restaurante:configuracoes",
+  "notas-fiscais:nfse",
+  "notas-fiscais:nfe",
+  "notas-fiscais:nfce",
+  "notas-fiscais:configuracoes",
   "assinaturas:painel",
   "assinaturas:lista",
   "assinaturas:planos",
@@ -107,6 +111,26 @@ describe("menuVisibilityPolicy", () => {
         "restaurante:impressao",
         "restaurante:pedidos",
         "restaurante:configuracoes",
+        "configuracoes",
+      ]
+    );
+  });
+
+  it("keeps the fiscal menu and its submenus selected after saving settings", () => {
+    assert.deepEqual(
+      normalizeVisibleMenuKeys([
+        "notas-fiscais",
+        "notas-fiscais:nfse",
+        "notas-fiscais:nfe",
+        "notas-fiscais:nfce",
+        "notas-fiscais:configuracoes",
+      ]),
+      [
+        "notas-fiscais",
+        "notas-fiscais:nfse",
+        "notas-fiscais:nfe",
+        "notas-fiscais:nfce",
+        "notas-fiscais:configuracoes",
         "configuracoes",
       ]
     );

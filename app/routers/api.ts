@@ -25,6 +25,7 @@ import { authenticateJWT } from "../middlewares/auth";
 import { routerReservas } from "./reservas/router";
 import { routerCombos } from "./combos/router";
 import { routerRestaurante } from "./restaurante/router";
+import { routerNotasFiscais } from "./notasFiscais/router";
 
 const RouterMain = Router();
 
@@ -53,5 +54,6 @@ RouterMain.use("/api/bugs", routerBugs);
 RouterMain.use("/api/reservas", routerReservas);
 RouterMain.use("/api/combos", routerCombos);
 RouterMain.use("/api/v1/restaurante", routerRestaurante);
+RouterMain.use("/api/v1/notas-fiscais", routerNotasFiscais);
 
 export { RouterMain };
