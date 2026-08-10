@@ -15,7 +15,9 @@ const statusSchema = z.object({ status: z.enum(["RETIRADA", "EM_ROTA", "ENTREGUE
 const directSchema = z.object({ entregadorId: z.coerce.number().int().positive() });
 
 function requestId(req: Request) { return String(req.headers["x-request-id"] || randomUUID()); }
-function ok(req: Request, res: Response, data: unknown, status = 200) { return res.status(status).json({ data, requestId: requestId(req) }); }
+function ok(req: Request, res: Response, data: unknown, status = 200, meta?: unknown) {
+  return res.status(status).json({ data, ...(meta ? { meta } : {}), requestId: requestId(req) });
+}
 function fail(req: Request, res: Response, status: number, code: string, message: string, details?: unknown) {
   return res.status(status).json({ error: { code, message, ...(details ? { details } : {}), requestId: requestId(req) } });
 }
@@ -42,6 +44,31 @@ export async function driverContext(req: Request, res: Response) {
     }),
   ]);
   return ok(req, res, { driver, empresa: company, ofertas: offers, entregaAtiva: active });
+}
+
+/** Histórico pessoal do entregador autenticado. Nunca aceita ID de entregador pelo cliente. */
+export async function driverDeliveryHistory(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const driver = req.restauranteEntregador!;
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+  const where = {
+    contaId,
+    origem: "DELIVERY" as const,
+    entregaStatus: { in: ["ENTREGUE", "FALHOU"] },
+    Entrega: { is: { entregadorId: driver.id } },
+  };
+  const [items, total] = await Promise.all([
+    prisma.restaurantePedido.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      include: deliveryOrderInclude,
+    }),
+    prisma.restaurantePedido.count({ where }),
+  ]);
+  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit) });
 }
 
 export async function updateDriverAvailability(req: Request, res: Response) {

@@ -33,7 +33,7 @@ export async function fidelityOptions(req: Request, res: Response) {
     prisma.produtoCategoria.findMany({ where: { contaId, status: "ATIVO" }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
   return ok(req, res, {
-    itens: items.map((item) => ({ id: item.id, nome: item.nomePublico || item.Produto.nome, imagem: item.imagem || item.Produto.imagem || null })),
+    itens: items.map((item) => ({ id: item.id, nome: item.nomePublico || item.Produto?.nome || "Item do cardapio", imagem: item.imagem || item.Produto?.imagem || null })),
     categorias: categories,
   });
 }

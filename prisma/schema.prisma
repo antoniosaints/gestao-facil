@@ -1448,8 +1448,9 @@ model RestauranteCatalogoItem {
   id                  Int                            @id @default(autoincrement())
   contaId             Int
   Conta               Contas                         @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  produtoId           Int
-  Produto             Produto                        @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  produtoId           Int?
+  Produto             Produto?                       @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
+  preco               Decimal                        @db.Decimal(10, 2)
   nomePublico         String?                        @db.VarChar(160)
   descricao           String?                        @db.Text
   imagem              String?                        @db.Text
@@ -1907,7 +1908,7 @@ model RestaurantePedidoItem {
   pedidoId              Int
   Pedido                RestaurantePedido             @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   catalogoItemId        Int?
-  produtoId             Int
+  produtoId             Int?
   quantidade            Decimal                       @db.Decimal(10, 3)
   nomeSnapshot          String                        @db.VarChar(160)
   precoUnitarioSnapshot Decimal                       @db.Decimal(10, 2)

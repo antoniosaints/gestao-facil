@@ -15,7 +15,7 @@ export class RestauranteEstoqueError extends Error {
   }
 }
 
-type StockItem = { id: number; produtoId: number; quantidade: Decimal | number | string; selecoesSnapshotJson: Prisma.JsonValue | null };
+type StockItem = { id: number; produtoId: number | null; quantidade: Decimal | number | string; selecoesSnapshotJson: Prisma.JsonValue | null };
 type StockProduct = { id: number; nome: string; controlaEstoque: boolean | null; saidas: boolean | null };
 export type RestaurantStockRequirement = { pedidoItemId: number; produtoId: number; quantidade: number; main: boolean };
 
@@ -33,7 +33,7 @@ export function buildRestaurantStockRequirements(items: StockItem[], products: S
   const requirements = new Map<string, RestaurantStockRequirement>();
   for (const item of items) {
     const quantity = Number(item.quantidade);
-    const linkedProducts = [item.produtoId, ...selectionProductIds(item.selecoesSnapshotJson)];
+    const linkedProducts = [item.produtoId, ...selectionProductIds(item.selecoesSnapshotJson)].filter((id): id is number => id !== null && Number.isInteger(id) && id > 0);
     for (const produtoId of linkedProducts) {
       const product = byId.get(produtoId);
       if (!product?.controlaEstoque) continue;
@@ -63,7 +63,7 @@ export async function debitRestaurantOrderStock(tx: Transaction, contaId: number
     select: { id: true, produtoId: true, quantidade: true, selecoesSnapshotJson: true },
     orderBy: { id: "asc" },
   });
-  const productIds = [...new Set(items.flatMap((item) => [item.produtoId, ...selectionProductIds(item.selecoesSnapshotJson)]))];
+  const productIds = [...new Set(items.flatMap((item) => [item.produtoId, ...selectionProductIds(item.selecoesSnapshotJson)]).filter((id): id is number => id !== null && Number.isInteger(id) && id > 0))];
   const products = await tx.produto.findMany({
     where: { contaId, id: { in: productIds } },
     select: { id: true, nome: true, controlaEstoque: true, saidas: true, precoCompra: true },

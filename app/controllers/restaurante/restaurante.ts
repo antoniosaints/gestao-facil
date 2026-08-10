@@ -24,6 +24,8 @@ import { applyCompletedOrderFidelity, currentFidelityForPhone, publicFidelity } 
 import { CommerceError } from "../../services/loja/commerceError";
 import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
+import { buildScopedUploadKey, deleteStoredFile, uploadPublicFile } from "../../services/uploads/fileStorageService";
+import { downscaleImage } from "../../services/uploads/imageProcessingService";
 
 const localizacaoSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
@@ -102,7 +104,9 @@ const zonaEntregaSchema = z.object({
 });
 
 const catalogoSchema = z.object({
-  produtoId: z.coerce.number().int().positive(),
+  modoCadastro: z.enum(["VINCULAR", "AVULSO", "CRIAR_PRODUTO"]).default("VINCULAR"),
+  produtoId: z.coerce.number().int().positive().nullable().optional(),
+  preco: z.coerce.number().min(0).max(999999.99).default(0),
   nomePublico: z.string().trim().max(160).nullable().optional(),
   descricao: z.string().trim().max(4000).nullable().optional(),
   imagem: z.string().trim().max(4000).nullable().optional(),
@@ -275,7 +279,7 @@ async function calculatePublicCheckout(
       },
     },
   });
-  const catalog = catalogCandidates.filter((item) => (
+  const catalog = catalogCandidates.filter((item) => !item.Produto || (
     item.Produto.status === "ATIVO"
     && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
   ));
@@ -311,7 +315,7 @@ async function calculatePublicCheckout(
       precoAdicional: option.precoAdicional.toString(),
       produtoId: option.produtoId,
     }));
-    const unit = calcularPrecoUnitario(item.Produto.preco.toString(), selections, item.regraPrecoSabores);
+    const unit = calcularPrecoUnitario((item.Produto?.preco || item.preco).toString(), selections, item.regraPrecoSabores);
     const line = unit.mul(requested.quantidade).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     subtotal = subtotal.plus(line);
     snapshots.push({ requested, item, selections, unit, line });
@@ -524,8 +528,13 @@ export async function saveCatalogItem(req: Request, res: Response) {
   const parsed = catalogoSchema.safeParse(req.body);
   if (!parsed.success) return validationFailure(req, res, parsed.error);
   const { contaId } = getCustomRequest(req).customData;
-  const produto = await prisma.produto.findFirst({ where: { id: parsed.data.produtoId, contaId, status: "ATIVO" } });
-  if (!produto) return fail(req, res, 404, "produto_not_found", "Produto nao encontrado nesta conta.");
+  let produto = parsed.data.produtoId
+    ? await prisma.produto.findFirst({ where: { id: parsed.data.produtoId, contaId, status: "ATIVO" } })
+    : null;
+  if (parsed.data.modoCadastro === "VINCULAR" && !produto) return fail(req, res, 404, "produto_not_found", "Selecione um produto ativo desta conta.");
+  if (["AVULSO", "CRIAR_PRODUTO"].includes(parsed.data.modoCadastro) && !parsed.data.nomePublico?.trim()) {
+    return fail(req, res, 422, "catalog_name_required", "Informe o nome do item do cardapio.");
+  }
   const groups = parsed.data.grupoIds.length
     ? await prisma.restauranteGrupoOpcao.findMany({ where: { contaId, id: { in: parsed.data.grupoIds } }, select: { id: true } })
     : [];
@@ -536,11 +545,31 @@ export async function saveCatalogItem(req: Request, res: Response) {
   if (existing && parsed.data.version && existing.version !== parsed.data.version) {
     return fail(req, res, 409, "version_conflict", "O item foi alterado em outra sessao.");
   }
-  const { grupoIds, version: _version, ...data } = parsed.data;
+  const { grupoIds, version: _version, modoCadastro, produtoId: _produtoId, ...data } = parsed.data;
   const item = await prisma.$transaction(async (tx) => {
+    if (modoCadastro === "CRIAR_PRODUTO" && !produto) {
+      produto = await tx.produto.create({
+        data: {
+          contaId,
+          nome: data.nomePublico!.trim(),
+          nomeVariante: "Padrao",
+          ehPadrao: true,
+          descricao: data.descricao || null,
+          imagem: data.imagem || null,
+          preco: data.preco,
+          estoque: 0,
+          minimo: 0,
+          controlaEstoque: false,
+          mostrarNoCatalogo: true,
+        },
+      });
+    }
+    const resolvedProdutoId = modoCadastro === "AVULSO" ? null : produto?.id || null;
+    const resolvedPrice = produto ? produto.preco : data.preco;
+    const persisted = { ...data, produtoId: resolvedProdutoId, preco: resolvedPrice, disponibilidadeJson: data.disponibilidadeJson as any };
     const saved = existing
-      ? await tx.restauranteCatalogoItem.update({ where: { id: existing.id }, data: { ...data, disponibilidadeJson: data.disponibilidadeJson as any, version: { increment: 1 } } })
-      : await tx.restauranteCatalogoItem.create({ data: { ...data, disponibilidadeJson: data.disponibilidadeJson as any, contaId } });
+      ? await tx.restauranteCatalogoItem.update({ where: { id: existing.id }, data: { ...persisted, version: { increment: 1 } } })
+      : await tx.restauranteCatalogoItem.create({ data: { ...persisted, contaId } });
     await tx.restauranteCatalogoItemGrupo.deleteMany({ where: { itemId: saved.id } });
     if (grupoIds.length) await tx.restauranteCatalogoItemGrupo.createMany({ data: grupoIds.map((grupoId, ordem) => ({ itemId: saved.id, grupoId, ordem })) });
     return saved;
@@ -688,6 +717,31 @@ export async function transitionOrder(req: Request, res: Response) {
   return ok(req, res, updated, cancellation?.httpStatus || 200);
 }
 
+export async function uploadCatalogItemImage(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return fail(req, res, 422, "catalog_item_not_found", "Item de cardapio invalido.");
+  if (!req.file?.mimetype?.startsWith("image/")) return fail(req, res, 422, "invalid_image", "Envie um arquivo de imagem valido.");
+  const item = await prisma.restauranteCatalogoItem.findFirst({ where: { id, contaId }, select: { id: true, imagem: true } });
+  if (!item) return fail(req, res, 404, "catalog_item_not_found", "Item de cardapio nao encontrado.");
+  const processed = await downscaleImage(req.file.buffer, req.file.mimetype, { maxDimension: 1280, quality: 72 });
+  if (item.imagem) await deleteStoredFile(item.imagem).catch(() => undefined);
+  const key = buildScopedUploadKey(contaId, `restaurante/cardapio/item_${item.id}`, `item-${item.id}-${randomUUID()}.${processed.extension}`);
+  const file = await uploadPublicFile({ key, body: processed.buffer, contentType: processed.contentType, cacheControl: "public, max-age=31536000, immutable" });
+  const saved = await prisma.restauranteCatalogoItem.update({ where: { id: item.id }, data: { imagem: file.reference, version: { increment: 1 } } });
+  return ok(req, res, saved);
+}
+
+export async function deleteCatalogItemImage(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const id = Number(req.params.id);
+  const item = await prisma.restauranteCatalogoItem.findFirst({ where: { id, contaId }, select: { id: true, imagem: true } });
+  if (!item) return fail(req, res, 404, "catalog_item_not_found", "Item de cardapio nao encontrado.");
+  if (item.imagem) await deleteStoredFile(item.imagem).catch(() => undefined);
+  const saved = await prisma.restauranteCatalogoItem.update({ where: { id: item.id }, data: { imagem: null, version: { increment: 1 } } });
+  return ok(req, res, saved);
+}
+
 export async function publicMenu(req: Request, res: Response) {
   const config = await publicConfig(req.params.slug);
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
@@ -712,7 +766,7 @@ export async function publicMenu(req: Request, res: Response) {
       },
     },
   });
-  const items = itemCandidates.filter((item) => (
+  const items = itemCandidates.filter((item) => !item.Produto || (
     item.Produto.status === "ATIVO"
     && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
   ));
@@ -863,7 +917,7 @@ export async function createPublicOrder(req: Request, res: Response) {
               catalogoItemId: item.id,
               produtoId: item.produtoId,
               quantidade: requested.quantidade,
-              nomeSnapshot: item.nomePublico || item.Produto.nome,
+              nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardapio",
               precoUnitarioSnapshot: unit,
               subtotalSnapshot: line,
               tamanhoSnapshot: requested.tamanho,
@@ -1195,7 +1249,7 @@ export async function createTableOrder(req: Request, res: Response) {
               catalogoItemId: item.id,
               produtoId: item.produtoId,
               quantidade: requested.quantidade,
-              nomeSnapshot: item.nomePublico || item.Produto.nome,
+              nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardapio",
               precoUnitarioSnapshot: unit,
               subtotalSnapshot: line,
               tamanhoSnapshot: requested.tamanho,
@@ -1212,8 +1266,8 @@ export async function createTableOrder(req: Request, res: Response) {
         data: quote.snapshots.map(({ requested, item, unit, line }) => ({
           comandaId: commandId,
           origemTipo: "PRODUTO",
-          origemId: String(item.produtoId),
-          nomeSnapshot: item.nomePublico || item.Produto.nome,
+          origemId: String(item.produtoId || item.id),
+          nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardapio",
           valorUnitarioSnapshot: unit,
           quantidade: requested.quantidade,
           subtotal: line,

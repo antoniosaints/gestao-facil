@@ -1,5 +1,6 @@
 import { Router, type RequestHandler } from "express";
-import { createPublicOrder, createTableOrder, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, waitTableBill } from "../../controllers/restaurante/restaurante";
+import multer from "multer";
+import { createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
 import { deleteRestaurantAccountAddress, getRestaurantAccount, loginRestaurantAccount, registerRestaurantAccount, saveRestaurantAccountAddress, updateRestaurantAccount } from "../../controllers/restaurante/customer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../middlewares/restaurantCustomerAuth";
@@ -7,11 +8,13 @@ import { requireRestauranteAccess, requireRestauranteModule } from "../../middle
 import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
 import { currentRestaurantAccess, listRestaurantUserRoles, saveRestaurantUserRoles } from "../../controllers/restaurante/access";
 import { fidelityOptions, getFidelityProgram, saveFidelityProgram } from "../../controllers/restaurante/loyalty";
-import { acceptDelivery, directDelivery, driverContext, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
+import { acceptDelivery, directDelivery, driverContext, driverDeliveryHistory, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
+import { restaurantDashboard } from "../../controllers/restaurante/dashboard";
 import { requireRestauranteEntregador } from "../../middlewares/restauranteEntregador";
 
 export const routerRestaurante = Router();
 const use = (handler: unknown) => handler as RequestHandler;
+const uploadCatalogImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 routerRestaurante.get("/publico/:slug/cardapio", optionalRestaurantCustomer, use(publicMenu));
 routerRestaurante.post("/publico/:slug/checkout/previa", use(previewPublicCheckout));
@@ -31,6 +34,7 @@ routerRestaurante.post("/estacao-impressao/trabalhos/ack", use(stationAckJob));
 routerRestaurante.use(authenticateJWT);
 // PWA dedicada: apenas usuarios explicitamente vinculados ao papel ENTREGADOR.
 routerRestaurante.get("/entregador/contexto", requireRestauranteEntregador(), use(driverContext));
+routerRestaurante.get("/entregador/historico", requireRestauranteEntregador(), use(driverDeliveryHistory));
 routerRestaurante.put("/entregador/disponibilidade", requireRestauranteEntregador(), use(updateDriverAvailability));
 routerRestaurante.post("/entregador/entregas/:pedidoId/aceitar", requireRestauranteEntregador(), use(acceptDelivery));
 routerRestaurante.post("/entregador/entregas/:pedidoId/status", requireRestauranteEntregador(), use(updateDeliveryStatus));
@@ -47,6 +51,8 @@ routerRestaurante.get("/cardapio", requireRestauranteAccess("CARDAPIO_VISUALIZAR
 routerRestaurante.get("/cardapio/produtos", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(listCatalogProducts));
 routerRestaurante.post("/cardapio", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(saveCatalogItem));
 routerRestaurante.patch("/cardapio/:id", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(saveCatalogItem));
+routerRestaurante.post("/cardapio/:id/imagem", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), uploadCatalogImage.single("file"), use(uploadCatalogItemImage));
+routerRestaurante.delete("/cardapio/:id/imagem", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(deleteCatalogItemImage));
 routerRestaurante.get("/grupos-opcoes", requireRestauranteAccess("CARDAPIO_VISUALIZAR"), use(listOptionGroups));
 routerRestaurante.post("/grupos-opcoes", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(saveOptionGroup));
 routerRestaurante.patch("/grupos-opcoes/:id", requireRestauranteAccess("CARDAPIO_CONFIGURAR"), use(saveOptionGroup));
@@ -76,6 +82,7 @@ routerRestaurante.put("/regras-impressao", requireRestauranteAccess("IMPRESSAO_C
 routerRestaurante.get("/trabalhos-impressao", requireRestauranteAccess("IMPRESSAO_VISUALIZAR"), use(listPrintJobs));
 routerRestaurante.post("/kds/:id/reimprimir", requireRestauranteAccess("KDS_OPERAR"), use(reprintProductionTicket));
 routerRestaurante.get("/pedidos", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listOrders));
+routerRestaurante.get("/painel", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(restaurantDashboard));
 routerRestaurante.post("/pedidos/:id/transicao", requireRestauranteAccess("PEDIDOS_OPERAR"), use(transitionOrder));
 routerRestaurante.get("/entregas/despacho", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listDeliveryDispatch));
 routerRestaurante.post("/entregas/:pedidoId/ofertar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(offerDelivery));

@@ -31,8 +31,8 @@ export function publicFidelity(program: any, progress?: any | null) {
     descontoPercentual: Number(program.descontoPercentual),
     premio: program.PremioCatalogoItem ? {
       catalogoItemId: program.PremioCatalogoItem.id,
-      nome: program.PremioCatalogoItem.nomePublico || program.PremioCatalogoItem.Produto.nome,
-      imagem: program.PremioCatalogoItem.imagem || program.PremioCatalogoItem.Produto.imagem || null,
+      nome: program.PremioCatalogoItem.nomePublico || program.PremioCatalogoItem.Produto?.nome || "Item do cardapio",
+      imagem: program.PremioCatalogoItem.imagem || program.PremioCatalogoItem.Produto?.imagem || null,
     } : null,
     progresso: progress ? {
       pedidosElegiveis: progress.pedidosElegiveis,

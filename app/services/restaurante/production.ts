@@ -34,7 +34,7 @@ export async function dispatchOrderToProduction(
   });
   if (!order) throw new Error("Pedido de restaurante nao encontrado.");
 
-  const productIds = [...new Set(order.itens.map((item: any) => item.produtoId))] as number[];
+  const productIds = [...new Set(order.itens.map((item: any) => item.produtoId).filter((id: unknown): id is number => Number.isInteger(id) && Number(id) > 0))];
   const products = await tx.produto.findMany({
     where: { contaId, id: { in: productIds } },
     select: { id: true, ProdutoBase: { select: { categoriaId: true } } },
@@ -59,6 +59,7 @@ export async function dispatchOrderToProduction(
 
   const grouped = new Map<number, { obrigatorio: boolean; itemIds: number[] }>();
   for (const item of order.itens) {
+    if (!item.produtoId) continue;
     const categoryId = categoryByProduct.get(item.produtoId);
     const itemRoutes = categoryId ? routesByCategory.get(categoryId) || [] : [];
     for (const route of itemRoutes) {
