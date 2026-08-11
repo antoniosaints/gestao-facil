@@ -42,7 +42,16 @@ export async function dispatchOrderToProduction(
   const categoryByProduct = new Map<number, number | null>(
     products.map((product: any) => [product.id, product.ProdutoBase?.categoriaId ?? null]),
   );
-  const categoryIds = [...new Set([...categoryByProduct.values()].filter(Boolean))] as number[];
+  const catalogItemIds = [...new Set(order.itens.map((item: any) => item.catalogoItemId).filter((id: unknown): id is number => Number.isInteger(id) && Number(id) > 0))];
+  const catalogItems = await tx.restauranteCatalogoItem.findMany({
+    where: { contaId, id: { in: catalogItemIds } },
+    select: { id: true, categoriaId: true },
+  });
+  const categoryByCatalogItem = new Map<number, number | null>(
+    catalogItems.map((item: any) => [item.id, item.categoriaId ?? null]),
+  );
+  const categoryForItem = (item: any) => categoryByCatalogItem.get(item.catalogoItemId) ?? categoryByProduct.get(item.produtoId) ?? null;
+  const categoryIds = [...new Set(order.itens.map(categoryForItem).filter(Boolean))] as number[];
   const routes = categoryIds.length
     ? await tx.restauranteRoteamentoProducao.findMany({
         where: { categoriaId: { in: categoryIds }, Ponto: { contaId, ativo: true } },
@@ -59,8 +68,7 @@ export async function dispatchOrderToProduction(
 
   const grouped = new Map<number, { obrigatorio: boolean; itemIds: number[] }>();
   for (const item of order.itens) {
-    if (!item.produtoId) continue;
-    const categoryId = categoryByProduct.get(item.produtoId);
+    const categoryId = categoryForItem(item);
     const itemRoutes = categoryId ? routesByCategory.get(categoryId) || [] : [];
     for (const route of itemRoutes) {
       const current = grouped.get(route.pontoId) || { obrigatorio: false, itemIds: [] };

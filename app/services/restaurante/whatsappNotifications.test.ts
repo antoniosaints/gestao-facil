@@ -41,7 +41,7 @@ test("monta as variáveis comerciais do pedido sem expor dados além do endereç
   assert.equal(values.primeiroNome, "Antonio");
   assert.equal(values.nomeAbreviado, "Antonio");
   assert.equal(values.idPedido, "RSL4Q8N43531");
-  assert.equal(values.numeroPedido, "61");
+  assert.equal(values.numeroPedido, "RSL4Q8N43531");
   assert.equal(values.endereco, "Rua do sol, Nº 283 - Casa, Centro, São Mateus do Maranhão");
   assert.equal(values.pagamento, "📱 Pix");
   assert.equal(values.entrega, "🛵 Delivery (taxa de: R$ 7,00)");

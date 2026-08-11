@@ -54,15 +54,19 @@ export async function currentFidelityForPhone(db: Db, contaId: number, phone?: s
   return { program, progress, normalizedPhone };
 }
 
-function orderMatchesProgram(order: any, program: any) {
+async function orderMatchesProgram(tx: Db, contaId: number, order: any, program: any) {
   const catalogItemIds = normalizeFidelityIds(program.catalogoItemIdsJson);
   const categoryIds = normalizeFidelityIds(program.categoriaIdsJson);
   // Sem filtro, qualquer pedido concluido participa. Com filtros, basta um item corresponder.
   if (!catalogItemIds.length && !categoryIds.length) return true;
-  return order.itens.some((item: any) =>
-    (item.catalogoItemId && catalogItemIds.includes(item.catalogoItemId))
-    || (item.Produto?.ProdutoBase?.categoriaId && categoryIds.includes(item.Produto.ProdutoBase.categoriaId)),
-  );
+  if (order.itens.some((item: any) => item.catalogoItemId && catalogItemIds.includes(item.catalogoItemId))) return true;
+  if (!categoryIds.length) return false;
+
+  const orderedCatalogItemIds = normalizeFidelityIds(order.itens.map((item: any) => item.catalogoItemId));
+  if (!orderedCatalogItemIds.length) return false;
+  return (await tx.restauranteCatalogoItem.count({
+    where: { contaId, id: { in: orderedCatalogItemIds }, categoriaId: { in: categoryIds } },
+  })) > 0;
 }
 
 /** Aplica uma vez o progresso quando um pedido chega a CONCLUIDO. */
@@ -71,9 +75,9 @@ export async function applyCompletedOrderFidelity(tx: Db, contaId: number, order
   if (!program?.ativo || !program.premioCatalogoItemId) return null;
   const order = await tx.restaurantePedido.findFirst({
     where: { id: orderId, contaId, status: "CONCLUIDO" },
-    include: { itens: { include: { Produto: { select: { ProdutoBase: { select: { categoriaId: true } } } } } } },
+    include: { itens: true },
   });
-  if (!order || !orderMatchesProgram(order, program)) return null;
+  if (!order || !(await orderMatchesProgram(tx, contaId, order, program))) return null;
   const phone = normalizeFidelityPhone(order.clienteTelefone);
   if (!phone) return null;
 

@@ -369,6 +369,7 @@ export const getLancamentosMensal = async (
           select: {
             id: true,
             Uid: true,
+            contasFinanceiroId: true,
             descricao: true,
             tipo: true,
             categoria: {
@@ -500,6 +501,7 @@ export const getLancamentosMensal = async (
         categoria: parcela.lancamento.categoria.nome,
         cliente: parcela.lancamento.cliente?.nome || null,
         conta: parcela.ContaFinanceira?.nome || null,
+        contaFinanceiraId: parcela.contaFinanceira ?? parcela.lancamento.contasFinanceiroId,
         valor,
         tipo: parcela.lancamento.tipo,
         status,
@@ -529,6 +531,7 @@ export const getLancamentosMensal = async (
         categoria: string;
         cliente: string | null;
         conta: string | null;
+        contaFinanceiraId: number | null;
         valor: number;
         tipo: "RECEITA" | "DESPESA";
         status: "PAGO" | "PENDENTE" | "ATRASADO";
@@ -823,6 +826,72 @@ export const updateLancamentoBasico = async (
     handleError(res, error);
   }
 };
+
+export const atualizarLancamentosEmMassa = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const ids = Array.isArray(req.body?.lancamentoIds)
+      ? [...new Set(req.body.lancamentoIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0))]
+      : [];
+    const temCategoria = Object.prototype.hasOwnProperty.call(req.body || {}, "categoriaId");
+    const temCliente = Object.prototype.hasOwnProperty.call(req.body || {}, "clienteId");
+
+    if (!ids.length || ids.length > 500) {
+      return res.status(400).json({ message: "Selecione entre 1 e 500 lançamentos válidos." });
+    }
+    if (!temCategoria && !temCliente) {
+      return res.status(400).json({ message: "Informe a categoria ou o cliente para alterar." });
+    }
+
+    const categoriaId = temCategoria ? Number(req.body.categoriaId) : undefined;
+    const clienteId = !temCliente || req.body.clienteId === null || req.body.clienteId === ""
+      ? null
+      : Number(req.body.clienteId);
+
+    if (temCategoria && (!categoriaId || Number.isNaN(categoriaId))) {
+      return res.status(400).json({ message: "Informe uma categoria válida." });
+    }
+    if (temCliente && clienteId !== null && Number.isNaN(clienteId)) {
+      return res.status(400).json({ message: "Informe um cliente válido." });
+    }
+
+    const [categoria, cliente] = await Promise.all([
+      !temCategoria
+        ? Promise.resolve(null)
+        : prisma.categoriaFinanceiro.findFirst({ where: { id: categoriaId!, contaId: customData.contaId }, select: { id: true } }),
+      !temCliente || clienteId === null
+        ? Promise.resolve(null)
+        : prisma.clientesFornecedores.findFirst({ where: { id: clienteId, contaId: customData.contaId }, select: { id: true } }),
+    ]);
+
+    if (temCategoria && !categoria) {
+      return res.status(400).json({ message: "Categoria inválida para esta conta." });
+    }
+    if (temCliente && clienteId !== null && !cliente) {
+      return res.status(400).json({ message: "Cliente/fornecedor inválido para esta conta." });
+    }
+
+    const atualizados = await prisma.lancamentoFinanceiro.updateMany({
+      where: { contaId: customData.contaId, id: { in: ids } },
+      data: {
+        ...(temCategoria ? { categoriaId: categoriaId! } : {}),
+        ...(temCliente ? { clienteId } : {}),
+      },
+    });
+
+    if (!atualizados.count) {
+      return res.status(404).json({ message: "Nenhum lançamento selecionado foi encontrado." });
+    }
+
+    sendFinanceiroUpdated(customData.contaId, { reason: "lancamentos-atualizados-em-massa", lancamentoIds: ids });
+    return ResponseHandler(res, "Lançamentos atualizados com sucesso.", { atualizados: atualizados.count });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 export const criarLancamento = async (
   req: Request,
   res: Response
@@ -951,12 +1020,6 @@ export const pagarParcela = async (
   if (!req.body) return res.status(400).json({ message: "Dados obrigatorio!" });
   if (!req.body.metodoPagamento || !req.body.dataPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento)!" });
   try {
-    const contaPagamento = await requireContaFinanceiraPadrao(
-      prisma,
-      customData.contaId,
-      req.body.contaPagamento,
-    );
-
     const parcela = await prisma.parcelaFinanceiro.findFirst({
       where: {
         id: parcelaId,
@@ -964,11 +1027,22 @@ export const pagarParcela = async (
           contaId: customData.contaId,
         },
       },
+      include: {
+        lancamento: {
+          select: { contasFinanceiroId: true },
+        },
+      },
     });
 
     if (!parcela) {
       return res.status(404).json({ message: "Parcela não encontrada." });
     }
+
+    const contaPagamento = await requireContaFinanceiraPadrao(
+      prisma,
+      customData.contaId,
+      req.body.contaPagamento ?? parcela.contaFinanceira ?? parcela.lancamento.contasFinanceiroId,
+    );
 
     if (parcela.pago) {
       return res.status(400).json({ message: "Parcela já está paga." });
@@ -1071,7 +1145,11 @@ export const pagarParcela = async (
   }
 };
 
-type ParcelaLoteSelecionada = ParcelaLoteInput & { valor: Decimal };
+type ParcelaLoteSelecionada = ParcelaLoteInput & {
+  valor: Decimal;
+  contaFinanceira: number | null;
+  contaFinanceiraLancamento: number | null;
+};
 
 /**
  * Carrega as parcelas informadas garantindo o escopo da conta e já no formato
@@ -1090,7 +1168,11 @@ async function carregarParcelasDoLote(ids: number[], contaId: number): Promise<P
       numero: true,
       pago: true,
       valor: true,
+      contaFinanceira: true,
       lancamentoId: true,
+      lancamento: {
+        select: { contasFinanceiroId: true },
+      },
       CobrancasFinanceiras: {
         select: { id: true },
         take: 1,
@@ -1103,6 +1185,8 @@ async function carregarParcelasDoLote(ids: number[], contaId: number): Promise<P
     numero: parcela.numero,
     pago: parcela.pago,
     valor: parcela.valor,
+    contaFinanceira: parcela.contaFinanceira,
+    contaFinanceiraLancamento: parcela.lancamento.contasFinanceiroId,
     lancamentoId: parcela.lancamentoId,
     temCobranca: parcela.CobrancasFinanceiras.length > 0,
   }));
@@ -1147,15 +1231,26 @@ export const pagarMultiplasParcelas = async (
 
     // Erros de política (conta padrão ausente, efetivação futura bloqueada) são
     // acionáveis pelo usuário, então voltam como 400 e não como erro genérico.
+    const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
+    const contasVinculadas = [...new Set(
+      parcelas
+        .map((parcela) => parcela.contaFinanceira ?? parcela.contaFinanceiraLancamento)
+        .filter((conta): conta is number => conta !== null),
+    )];
+    const contaVinculadaPadrao = contasVinculadas.length === 1 ? contasVinculadas[0] : undefined;
+
     let contaPagamento: number;
     try {
-      contaPagamento = await requireContaFinanceiraPadrao(prisma, customData.contaId, req.body?.contaPagamento);
+      contaPagamento = await requireContaFinanceiraPadrao(
+        prisma,
+        customData.contaId,
+        req.body?.contaPagamento ?? contaVinculadaPadrao,
+      );
       await assertFutureSettlementAllowed(customData.contaId, [dataPagamento]);
     } catch (error: any) {
       return res.status(400).json({ message: error?.message || "Não foi possível efetivar as parcelas." });
     }
 
-    const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
     const { aplicar, ignoradas } = separarParcelasParaEfetivar(parcelas);
 
     if (!aplicar.length) {

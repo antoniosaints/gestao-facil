@@ -59,6 +59,7 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
       include: {
         Conta: { select: { nome: true, nomeFantasia: true } },
         itens: { orderBy: { id: "asc" } },
+        Cobrancas: { orderBy: { dataCadastro: "desc" }, take: 1, select: { externalLink: true } },
         // A configuração é isolada por conta e nunca é exposta ao cardápio público.
       },
     });
@@ -104,11 +105,16 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
         ? `você tem ${progress.recompensasDisponiveis} recompensa(s) disponível(is)!`
         : `${progress.pedidosElegiveis % program.pedidosMeta}/${program.pedidosMeta} pedidos para a próxima recompensa.`;
     }
-    const message = renderRestaurantWhatsAppTemplate(definition.mensagem, buildRestaurantWhatsAppTemplateValues({
+    const paymentUrl = order.Cobrancas[0]?.externalLink || null;
+    let message = renderRestaurantWhatsAppTemplate(definition.mensagem, buildRestaurantWhatsAppTemplateValues({
       ...order,
       empresa: order.Conta.nomeFantasia || order.Conta.nome,
       fidelidade: fidelityMessage,
+      urlPagamento: paymentUrl,
     }));
+    if (event === "PEDIDO_FEITO" && paymentUrl && order.pagamentoMetodoSnapshot !== "NA_ENTREGA" && !message.includes(paymentUrl)) {
+      message = `${message.trim()}\n\nPague seu pedido aqui: ${paymentUrl}`;
+    }
     if (!message.trim()) return false;
 
     await whatsappNotificationQueue.add(

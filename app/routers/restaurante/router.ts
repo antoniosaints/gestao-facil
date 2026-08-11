@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
 import multer from "multer";
-import { createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
+import { cancelPublicOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
 import { deleteRestaurantAccountAddress, getRestaurantAccount, loginRestaurantAccount, registerRestaurantAccount, saveRestaurantAccountAddress, updateRestaurantAccount } from "../../controllers/restaurante/customer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../middlewares/restaurantCustomerAuth";
@@ -20,6 +20,7 @@ routerRestaurante.get("/publico/:slug/cardapio", optionalRestaurantCustomer, use
 routerRestaurante.post("/publico/:slug/checkout/previa", use(previewPublicCheckout));
 routerRestaurante.post("/publico/:slug/pedidos", optionalRestaurantCustomer, use(createPublicOrder));
 routerRestaurante.get("/publico/pedidos/:token", use(publicTracking));
+routerRestaurante.post("/publico/pedidos/:token/cancelamento", use(cancelPublicOrder));
 routerRestaurante.post("/publico/:slug/conta/cadastro", use(registerRestaurantAccount));
 routerRestaurante.post("/publico/:slug/conta/login", use(loginRestaurantAccount));
 routerRestaurante.get("/publico/:slug/conta", requireRestaurantCustomer, use(getRestaurantAccount));

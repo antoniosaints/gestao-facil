@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { adicionarParcela, criarLancamento, deletarLancamento, deletarMultiplasParcelas, deletarParcela, estornarMultiplasParcelas, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
+import { adicionarParcela, atualizarLancamentosEmMassa, criarLancamento, deletarLancamento, deletarMultiplasParcelas, deletarParcela, estornarMultiplasParcelas, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
@@ -57,6 +57,7 @@ routerLancamentos.post("/importar/csv", authenticateJWT, upload.single("arquivo"
 routerLancamentos.get("/getDataTable", authenticateJWT, tableFinanceiro);
 routerLancamentos.get("/lancamentosMes", authenticateJWT, getLancamentosMensal);
 routerLancamentos.get("/mobile/data", authenticateJWT, ListagemMobileLancamentos);
+routerLancamentos.post("/alterar-em-massa", authenticateJWT, atualizarLancamentosEmMassa);
 routerLancamentos.post("/parcelas/:id/pagar", authenticateJWT, pagarParcela);
 routerLancamentos.post("/parcelas/pagar-multiplas", authenticateJWT, pagarMultiplasParcelas);
 routerLancamentos.post("/parcelas/estornar-multiplas", authenticateJWT, estornarMultiplasParcelas);

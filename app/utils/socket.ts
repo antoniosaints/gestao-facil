@@ -46,21 +46,25 @@ export function initSocket(server: HttpServer) {
     const publicSlug = typeof socket.handshake.auth?.restaurantPublicSlug === "string"
       ? socket.handshake.auth.restaurantPublicSlug.trim().toLowerCase()
       : "";
+    let publicRestaurantContaId: number | null = null;
     if (publicSlug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(publicSlug)) {
-      const config = await prisma.restauranteConfig.findUnique({ where: { slug: publicSlug }, select: { ativo: true } });
+      const config = await prisma.restauranteConfig.findUnique({ where: { slug: publicSlug }, select: { ativo: true, contaId: true } });
       if (config?.ativo) {
         socket.data.restaurantPublicSlug = publicSlug;
-        return next();
+        publicRestaurantContaId = config.contaId;
       }
     }
-    if (!rawTokens.length) return next(new Error("Não autorizado"));
+    if (!rawTokens.length) {
+      if (socket.data.restaurantPublicSlug) return next();
+      return next(new Error("Não autorizado"));
+    }
     const hashes = rawTokens.map((trackingToken) => createHash("sha256").update(trackingToken).digest("hex"));
     try {
       const orders = await prisma.restaurantePedido.findMany({
-        where: { trackingTokenHash: { in: hashes } },
+        where: { trackingTokenHash: { in: hashes }, ...(publicRestaurantContaId ? { contaId: publicRestaurantContaId } : {}) },
         select: { id: true },
       });
-      if (!orders.length) return next(new Error("Não autorizado"));
+      if (!orders.length && !socket.data.restaurantPublicSlug) return next(new Error("Não autorizado"));
       socket.data.restaurantPublicOrderIds = orders.map((order) => order.id);
       return next();
     } catch (error) {

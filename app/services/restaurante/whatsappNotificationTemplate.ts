@@ -70,6 +70,7 @@ export function buildRestaurantWhatsAppTemplateValues(input: {
   pagamentoMetodoSnapshot?: string | null;
   itens: RestaurantMessageItem[];
   fidelidade?: string;
+  urlPagamento?: string | null;
 }) {
   const delivery = input.origem === "DELIVERY";
   return {
@@ -79,7 +80,7 @@ export function buildRestaurantWhatsAppTemplateValues(input: {
     empresa: input.empresa,
     pedido: input.codigo,
     idPedido: input.codigo,
-    numeroPedido: String(input.id),
+    numeroPedido: input.codigo,
     itens: formatRestaurantOrderItems(input.itens),
     endereco: formatAddress(input.enderecoSnapshotJson),
     pagamento: restaurantPaymentMethodLabel(input.pagamentoMetodoSnapshot),
@@ -87,9 +88,10 @@ export function buildRestaurantWhatsAppTemplateValues(input: {
     frete: currencyFormatter.format(Number(input.frete)),
     total: currencyFormatter.format(Number(input.total)),
     fidelidade: input.fidelidade || "",
+    urlPagamento: input.urlPagamento || "",
   };
 }
 
 export function renderRestaurantWhatsAppTemplate(template: string, values: Record<string, string>) {
-  return template.replace(/\{(cliente|primeiroNome|nomeAbreviado|empresa|pedido|idPedido|numeroPedido|itens|endereco|pagamento|entrega|frete|total|fidelidade)\}/g, (_match, key: string) => values[key] || "");
+  return template.replace(/\{(cliente|primeiroNome|nomeAbreviado|empresa|pedido|idPedido|numeroPedido|itens|endereco|pagamento|entrega|frete|total|fidelidade|urlPagamento)\}/g, (_match, key: string) => values[key] || "");
 }

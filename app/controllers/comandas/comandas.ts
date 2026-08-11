@@ -1095,7 +1095,10 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
     const response = await prisma.$transaction(async (tx) => {
       const comanda = await tx.comandaOperacao.findFirstOrThrow({
         where: { id: comandaId, contaId: customData.contaId },
-        include: { itens: true },
+        include: {
+          itens: true,
+          restaurantePedidos: { select: { id: true } },
+        },
       });
       if (comanda.status !== "PENDENTE") {
         throw new Error("So e possivel faturar comandas pendentes.");
@@ -1153,30 +1156,34 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
         );
       }
 
-      // Registra as saidas de estoque dos produtos faturados para que a
-      // comanda apareca nas movimentacoes de produto (auditoria de estoque).
-      for (const item of comanda.itens) {
-        if (
-          !itemIds.includes(item.id) ||
-          item.origemTipo !== "PRODUTO" ||
-          !item.origemId
-        ) {
-          continue;
-        }
+      // Pedidos de mesa já registram a saída de estoque no momento em que são
+      // lançados no restaurante. Não repetir a movimentação ao faturar a conta.
+      if (!comanda.restaurantePedidos.length) {
+        // Registra as saídas de estoque dos produtos faturados para que a
+        // comanda apareca nas movimentacoes de produto (auditoria de estoque).
+        for (const item of comanda.itens) {
+          if (
+            !itemIds.includes(item.id) ||
+            item.origemTipo !== "PRODUTO" ||
+            !item.origemId
+          ) {
+            continue;
+          }
 
-        await tx.movimentacoesEstoque.create({
-          data: {
-            Uid: gerarIdUnicoComMetaFinal("MOV"),
-            produtoId: Number(item.origemId),
-            tipo: "SAIDA",
-            status: "CONCLUIDO",
-            quantidade: new Decimal(item.quantidade).toNumber(),
-            custo: item.valorUnitarioSnapshot,
-            contaId: customData.contaId,
-            clienteFornecedor: comanda.clienteId ?? null,
-            data: dataPagamento,
-          },
-        });
+          await tx.movimentacoesEstoque.create({
+            data: {
+              Uid: gerarIdUnicoComMetaFinal("MOV"),
+              produtoId: Number(item.origemId),
+              tipo: "SAIDA",
+              status: "CONCLUIDO",
+              quantidade: new Decimal(item.quantidade).toNumber(),
+              custo: item.valorUnitarioSnapshot,
+              contaId: customData.contaId,
+              clienteFornecedor: comanda.clienteId ?? null,
+              data: dataPagamento,
+            },
+          });
+        }
       }
 
       const itensAtualizados = comanda.itens.map((item) =>
@@ -1194,6 +1201,41 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
         },
         include: { itens: true, pagamentos: true, historicos: true },
       });
+      const pedidosMesaConcluidos = nextStatus === "FATURADA"
+        ? comanda.restaurantePedidos.map((pedido) => pedido.id)
+        : [];
+
+      if (pedidosMesaConcluidos.length) {
+        await tx.restaurantePedido.updateMany({
+          where: {
+            contaId: customData.contaId,
+            id: { in: pedidosMesaConcluidos },
+            status: { notIn: ["CONCLUIDO", "CANCELADO"] },
+          },
+          data: {
+            status: "CONCLUIDO",
+            producaoStatus: "ENTREGUE",
+            concluidoAt: dataPagamento,
+            version: { increment: 1 },
+          },
+        });
+        await tx.restauranteTicketProducao.updateMany({
+          where: {
+            contaId: customData.contaId,
+            pedidoId: { in: pedidosMesaConcluidos },
+            status: { not: "ENTREGUE" },
+          },
+          data: { status: "ENTREGUE", entregueAt: dataPagamento, version: { increment: 1 } },
+        });
+        await tx.restauranteTrabalhoImpressao.updateMany({
+          where: {
+            contaId: customData.contaId,
+            status: "PENDENTE",
+            Ticket: { pedidoId: { in: pedidosMesaConcluidos } },
+          },
+          data: { status: "CANCELADO" },
+        });
+      }
       await addHistorico(tx, {
         comandaId,
         evento: nextStatus === "FATURADA" ? "FATURADA" : "PAGAMENTO_PARCIAL",
@@ -1204,9 +1246,10 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
           total: total.toNumber(),
           lancarFinanceiro: parsed.data.lancarFinanceiro,
           financeiroLancamentoIdSnapshot,
+          pedidosMesaConcluidos,
         },
       });
-      return updated;
+      return { updated, pedidosMesaConcluidos };
     });
 
     if (parsed.data.lancarFinanceiro) {
@@ -1216,7 +1259,13 @@ export async function faturarComanda(req: Request, res: Response): Promise<any> 
       });
     }
 
-    return ResponseHandler(res, "Comanda faturada com sucesso.", response);
+    for (const pedidoId of response.pedidosMesaConcluidos) {
+      sendRestaurantUpdate(customData.contaId, "pedido", { pedidoId });
+      sendRestaurantUpdate(customData.contaId, "kds", { pedidoId });
+      sendRestaurantUpdate(customData.contaId, "impressao", { pedidoId });
+    }
+
+    return ResponseHandler(res, "Comanda faturada com sucesso.", response.updated);
   } catch (error) {
     handleError(res, error);
   }

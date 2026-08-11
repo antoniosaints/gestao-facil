@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { sendRestaurantDeliveryUpdate, sendRestaurantPublicOrderUpdate, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
+import { enqueueRestaurantOrderWhatsApp } from "../../services/restaurante/whatsappNotifications";
 import { prisma } from "../../utils/prisma";
 
 const availabilitySchema = z.object({ disponivel: z.boolean() });
@@ -109,14 +110,30 @@ export async function updateDeliveryStatus(req: Request, res: Response) {
   if (!order || !isDeliveryOrder(order) || order.Entrega?.entregadorId !== driver.id) return fail(req, res, 404, "delivery_not_found", "Entrega nao encontrada para este entregador.");
   const allowed: Record<string, string[]> = { ATRIBUIDA: ["RETIRADA", "FALHOU"], RETIRADA: ["EM_ROTA", "FALHOU"], EM_ROTA: ["ENTREGUE", "FALHOU"] };
   if (!allowed[order.entregaStatus]?.includes(parsed.data.status)) return fail(req, res, 422, "invalid_delivery_transition", "Esta transicao de entrega nao e permitida.");
+  if (parsed.data.status === "RETIRADA" && order.status !== "PRONTO") {
+    return fail(req, res, 422, "delivery_order_not_ready", "A retirada só pode ser confirmada quando o pedido estiver pronto.");
+  }
   const now = new Date();
   const timeField = { RETIRADA: "retiradaAt", EM_ROTA: "emRotaAt", ENTREGUE: "entregueAt", FALHOU: "falhouAt" }[parsed.data.status]!;
   const updated = await prisma.$transaction(async (tx) => {
+    const changed = await tx.restaurantePedido.updateMany({
+      where: {
+        id: order.id,
+        contaId,
+        entregaStatus: order.entregaStatus,
+        ...(parsed.data.status === "RETIRADA" ? { status: "PRONTO" } : {}),
+      },
+      data: { entregaStatus: parsed.data.status, version: { increment: 1 } },
+    });
+    if (!changed.count) return null;
     await tx.restauranteEntrega.update({ where: { id: order.Entrega!.id }, data: { [timeField]: now } });
-    return tx.restaurantePedido.update({ where: { id: order.id }, data: { entregaStatus: parsed.data.status, version: { increment: 1 } }, include: deliveryOrderInclude });
+    return tx.restaurantePedido.findFirst({ where: { id: order.id, contaId }, include: deliveryOrderInclude });
   });
+  if (!updated) return fail(req, res, 409, "delivery_transition_conflict", "O pedido foi atualizado. Atualize a tela antes de confirmar a retirada.");
   sendRestaurantUpdate(contaId, "pedido", { pedidoId });
   sendRestaurantPublicOrderUpdate(pedidoId, { pedidoId });
+  if (parsed.data.status === "EM_ROTA") void enqueueRestaurantOrderWhatsApp(pedidoId, "SAIU_ENTREGA");
+  if (parsed.data.status === "ENTREGUE") void enqueueRestaurantOrderWhatsApp(pedidoId, "ENTREGUE");
   return ok(req, res, updated);
 }
 
