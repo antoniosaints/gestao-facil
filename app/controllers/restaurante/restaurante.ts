@@ -10,7 +10,7 @@ import { defaultRestaurantWhatsAppSettings, enqueueRestaurantOrderWhatsApp, norm
 import { validateRestauranteGrupo } from "../../services/restaurante/catalogPolicy";
 import { restaurantCatalogGroupsInclude } from "../../services/restaurante/catalogQuery";
 import { calculateZoneDeliveryFee, normalizeCep, selectDeliveryZone } from "../../services/restaurante/deliveryZone";
-import { createRestaurantOnlinePayment } from "../../services/restaurante/payment";
+import { cancelRestaurantPendingPixPayment, createRestaurantOnlinePayment, RestaurantPaymentCancellationError, restaurantPaymentAction } from "../../services/restaurante/payment";
 import {
   dispatchOrderToProduction,
   ProductionRoutingMissingError,
@@ -169,7 +169,7 @@ const pedidoSchema = checkoutPreviewSchema.extend({
     email: z.string().trim().email().max(190).nullable().optional(),
   }),
   observacao: z.string().trim().max(2000).optional(),
-  pagamento: z.enum(["NA_ENTREGA", "PIX", "CHECKOUT_PRO"]).default("NA_ENTREGA"),
+  pagamento: z.enum(["NA_ENTREGA", "PIX"]).default("NA_ENTREGA"),
 });
 
 const mesaSchema = z.object({
@@ -786,9 +786,21 @@ export async function transitionOrder(req: Request, res: Response) {
     if (tickets) return fail(req, res, 422, "order_controlled_by_kds", "Atualize este pedido pelos tickets do KDS.");
   }
   const cancellation = nextStatus === "CANCELADO" ? resolveRestaurantCancellation(order.pagamentoStatus) : null;
+  let cancelledChargeId: number | null = null;
+  if (nextStatus === "CANCELADO" && order.pagamentoStatus === "PENDENTE") {
+    try {
+      cancelledChargeId = await cancelRestaurantPendingPixPayment({ contaId, orderId: order.id });
+    } catch (error) {
+      if (error instanceof RestaurantPaymentCancellationError) {
+        return fail(req, res, error.code === "payment_already_paid" ? 409 : 502, error.code, error.message);
+      }
+      throw error;
+    }
+  }
   const data: any = cancellation && !cancellation.cancelOrder
     ? { pagamentoStatus: cancellation.nextPaymentStatus, version: { increment: 1 } }
     : { status: nextStatus, version: { increment: 1 } };
+  if (cancelledChargeId) data.pagamentoStatus = "FALHOU";
   if (nextStatus === "CONFIRMADO") data.confirmadoAt = new Date();
   if (nextStatus === "EM_PREPARO") { data.producaoStatus = "PREPARANDO"; data.emPreparoAt = new Date(); }
   if (nextStatus === "PRONTO") { data.producaoStatus = "PRONTO"; data.prontoAt = new Date(); }
@@ -815,6 +827,12 @@ export async function transitionOrder(req: Request, res: Response) {
         });
       }
       if (nextStatus === "CANCELADO" && cancellation?.returnStock) await returnRestaurantOrderStock(tx, contaId, order.id);
+      if (cancelledChargeId) {
+        await tx.cobrancasFinanceiras.updateMany({
+          where: { id: cancelledChargeId, contaId, restaurantePedidoId: order.id, status: "PENDENTE" },
+          data: { status: "CANCELADO" },
+        });
+      }
       if (nextStatus === "CONCLUIDO") fidelityProgress = await applyCompletedOrderFidelity(tx, contaId, order.id);
       return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } });
     });
@@ -1131,7 +1149,7 @@ export async function publicTracking(req: Request, res: Response) {
           Entregador: { select: { ultimaLatitude: true, ultimaLongitude: true, ultimaLocalizacaoAt: true } },
         },
       },
-      Cobrancas: { orderBy: { dataCadastro: "desc" }, take: 1, select: { status: true, externalLink: true, pixCopiaCola: true } },
+      Cobrancas: { orderBy: { dataCadastro: "desc" }, take: 1, select: { status: true, externalLink: true, pixCopiaCola: true, dataVencimento: true } },
       itens: {
         orderBy: { id: "asc" },
         select: {
@@ -1182,9 +1200,7 @@ export async function publicTracking(req: Request, res: Response) {
     : null;
   const charge = order.Cobrancas[0];
   const paymentAction = charge && order.pagamentoStatus === "PENDENTE" && (charge.externalLink || charge.pixCopiaCola)
-    ? (charge.pixCopiaCola
-      ? { type: "PIX", url: charge.externalLink, pixCopiaCola: charge.pixCopiaCola }
-      : { type: "REDIRECT", url: charge.externalLink })
+    ? await restaurantPaymentAction(charge)
     : null;
   const podeCancelar = canCustomerCancelRestaurantOrder(order);
   const { contaId: _contaId, tickets: _tickets, Entrega: _entrega, Cobrancas: _charges, ...publicOrder } = order;
@@ -1207,6 +1223,17 @@ export async function cancelPublicOrder(req: Request, res: Response) {
   }
 
   const cancellation = resolveRestaurantCancellation(order.pagamentoStatus);
+  let cancelledChargeId: number | null = null;
+  if (order.pagamentoStatus === "PENDENTE") {
+    try {
+      cancelledChargeId = await cancelRestaurantPendingPixPayment({ contaId: order.contaId, orderId: order.id });
+    } catch (error) {
+      if (error instanceof RestaurantPaymentCancellationError) {
+        return fail(req, res, error.code === "payment_already_paid" ? 409 : 502, error.code, error.message);
+      }
+      throw error;
+    }
+  }
   const now = new Date();
   const updated = await prisma.$transaction(async (tx) => {
     // Invalida leituras pendentes do KDS antes de cancelar: se alguém iniciar o ticket,
@@ -1222,7 +1249,7 @@ export async function cancelPublicOrder(req: Request, res: Response) {
 
     const result = await tx.restaurantePedido.updateMany({
       where: { id: order.id, contaId: order.contaId, version: order.version, status: { in: ["RECEBIDO", "CONFIRMADO"] }, emPreparoAt: null },
-      data: { status: "CANCELADO", pagamentoStatus: cancellation.nextPaymentStatus, canceladoAt: now, version: { increment: 1 } },
+      data: { status: "CANCELADO", pagamentoStatus: cancelledChargeId ? "FALHOU" : cancellation.nextPaymentStatus, canceladoAt: now, version: { increment: 1 } },
     });
     if (!result.count) return null;
     await tx.restauranteTrabalhoImpressao.updateMany({
@@ -1230,6 +1257,12 @@ export async function cancelPublicOrder(req: Request, res: Response) {
       data: { status: "CANCELADO" },
     });
     if (cancellation.returnStock) await returnRestaurantOrderStock(tx, order.contaId, order.id);
+    if (cancelledChargeId) {
+      await tx.cobrancasFinanceiras.updateMany({
+        where: { id: cancelledChargeId, contaId: order.contaId, restaurantePedidoId: order.id, status: "PENDENTE" },
+        data: { status: "CANCELADO" },
+      });
+    }
     return true;
   });
   if (!updated) return fail(req, res, 409, "customer_cancellation_conflict", "O pedido avançou para preparo. Atualize o acompanhamento.");

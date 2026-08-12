@@ -13,9 +13,9 @@ import {
   MercadoPagoOAuthError,
 } from "../../services/financeiro/mercadoPagoOAuthService";
 
-function redirectToFrontend(res: Response, params: Record<string, string>) {
+function redirectToFrontend(res: Response, params: Record<string, string>, path = "/loja") {
   const query = new URLSearchParams(params).toString();
-  return res.redirect(`${env.BASE_URL_FRONTEND}/loja?${query}`);
+  return res.redirect(`${env.BASE_URL_FRONTEND}${path}?${query}`);
 }
 
 export const iniciarConexaoMercadoPago = async (
@@ -43,7 +43,10 @@ export const iniciarConexaoMercadoPago = async (
       );
     }
 
-    const url = await createAuthorizationUrl(customData.contaId, customData.userId);
+    const returnPath = req.query.retorno === "/restaurante/configuracoes"
+      ? "/restaurante/configuracoes"
+      : undefined;
+    const url = await createAuthorizationUrl(customData.contaId, customData.userId, returnPath);
 
     return ResponseHandler(res, "Link de autorização gerado.", { url });
   } catch (err: any) {
@@ -117,8 +120,8 @@ export const callbackOAuthMercadoPago = async (
   }
 
   try {
-    await handleOAuthCallback(code, state);
-    return redirectToFrontend(res, { mercadopago: "conectado" });
+    const result = await handleOAuthCallback(code, state);
+    return redirectToFrontend(res, { mercadopago: "conectado" }, result.returnPath);
   } catch (err: any) {
     console.error("Erro no callback OAuth do Mercado Pago:", err);
     const motivo = err instanceof MercadoPagoOAuthError ? err.code : "falha-inesperada";

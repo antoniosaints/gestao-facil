@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import type { RestaurantePedido } from "../../../generated";
+import qrcode from "qrcode";
 import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
@@ -12,7 +12,13 @@ import { dispatchOrderToProduction } from "./production";
 import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "./inventory";
 import { CommerceError } from "../loja/commerceError";
 
-export type RestauranteOnlinePaymentMethod = "PIX" | "CHECKOUT_PRO";
+export type RestauranteOnlinePaymentMethod = "PIX";
+
+export class RestaurantPaymentCancellationError extends Error {
+  constructor(public code: "payment_already_paid" | "payment_cancellation_failed", message: string) {
+    super(message);
+  }
+}
 
 function trackingUrl(slug: string, trackingToken: string) {
   const url = new URL(`/restaurante/${slug}`, env.BASE_URL_FRONTEND);
@@ -20,9 +26,19 @@ function trackingUrl(slug: string, trackingToken: string) {
   return url.toString();
 }
 
-function existingPaymentAction(charge: { externalLink: string | null; pixCopiaCola: string | null }) {
+export async function restaurantPaymentAction(charge: {
+  externalLink: string | null;
+  pixCopiaCola: string | null;
+  dataVencimento?: Date | null;
+}) {
   if (charge.pixCopiaCola) {
-    return { type: "PIX" as const, url: charge.externalLink, pixCopiaCola: charge.pixCopiaCola };
+    return {
+      type: "PIX" as const,
+      url: charge.externalLink,
+      pixCopiaCola: charge.pixCopiaCola,
+      qrCodeDataUrl: await qrcode.toDataURL(charge.pixCopiaCola, { errorCorrectionLevel: "M", margin: 1, width: 280 }),
+      expiresAt: charge.dataVencimento?.toISOString() || null,
+    };
   }
   return { type: "REDIRECT" as const, url: charge.externalLink };
 }
@@ -37,11 +53,11 @@ export async function createRestaurantOnlinePayment(args: {
   const existing = await prisma.cobrancasFinanceiras.findUnique({
     where: { restaurantePedidoId: args.order.id },
   });
-  if (existing) return existingPaymentAction(existing);
+  if (existing) return restaurantPaymentAction(existing);
 
   const mp = await getTenantMercadoPagoService(args.order.contaId);
   const uid = gerarIdUnicoComMetaFinal("COB");
-  const kind = args.method === "PIX" ? "pix" as const : "link" as const;
+  const kind = "pix" as const;
   const reference = {
     contaId: args.order.contaId,
     chargeUid: uid,
@@ -53,43 +69,26 @@ export async function createRestaurantOnlinePayment(args: {
   let externalLink: string | null;
   let pixCopiaCola: string | null = null;
 
-  if (args.method === "PIX") {
-    const payment = await mp.payment.create({
-      requestOptions: { idempotencyKey: `restaurante:${args.order.contaId}:${args.idempotencyKey}` },
-      body: {
-        payer: {
-          email: args.order.clienteEmail || "cliente@restaurante.gestaofacil.app",
-          entity_type: "individual",
-        },
-        external_reference: buildMercadoPagoChargeReference(reference),
-        transaction_amount: Number(args.order.total),
-        description: `Pedido ${args.order.codigo}`.slice(0, 120),
-        payment_method_id: "pix",
-        installments: 1,
-        callback_url: returnUrl,
-        notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
+  const payment = await mp.payment.create({
+    requestOptions: { idempotencyKey: `restaurante:${args.order.contaId}:${args.idempotencyKey}` },
+    body: {
+      payer: {
+        email: args.order.clienteEmail || "cliente@restaurante.gestaofacil.app",
+        entity_type: "individual",
       },
-    });
-    gatewayReference = String(payment.id || uid);
-    externalLink = payment.point_of_interaction?.transaction_data?.ticket_url || null;
-    pixCopiaCola = payment.point_of_interaction?.transaction_data?.qr_code || null;
-    if (!pixCopiaCola && !externalLink) throw new Error("O Mercado Pago nao retornou os dados do Pix.");
-  } else {
-    const preference = await mp.preference.create({
-      requestOptions: { idempotencyKey: `restaurante:${args.order.contaId}:${args.idempotencyKey}` },
-      body: {
-        items: [{ id: randomUUID(), title: `Pedido ${args.order.codigo}`, quantity: 1, unit_price: Number(args.order.total) }],
-        payer: { email: args.order.clienteEmail || "cliente@restaurante.gestaofacil.app" },
-        back_urls: { success: returnUrl, failure: returnUrl, pending: returnUrl },
-        notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
-        external_reference: buildMercadoPagoChargeReference(reference),
-        auto_return: "approved",
-      },
-    });
-    gatewayReference = String(preference.id || uid);
-    externalLink = preference.init_point || null;
-    if (!externalLink) throw new Error("O Mercado Pago nao retornou o link do Checkout Pro.");
-  }
+      external_reference: buildMercadoPagoChargeReference(reference),
+      transaction_amount: Number(args.order.total),
+      description: `Pedido ${args.order.codigo}`.slice(0, 120),
+      payment_method_id: "pix",
+      installments: 1,
+      callback_url: returnUrl,
+      notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
+    },
+  });
+  gatewayReference = String(payment.id || uid);
+  externalLink = payment.point_of_interaction?.transaction_data?.ticket_url || null;
+  pixCopiaCola = payment.point_of_interaction?.transaction_data?.qr_code || null;
+  if (!pixCopiaCola && !externalLink) throw new Error("O Mercado Pago nao retornou os dados do Pix.");
 
   try {
     const charge = await prisma.cobrancasFinanceiras.create({
@@ -102,19 +101,49 @@ export async function createRestaurantOnlinePayment(args: {
         pixCopiaCola,
         valor: args.order.total,
         gateway: "mercadopago",
-        dataVencimento: new Date(Date.now() + 30 * 60 * 1000),
+        dataVencimento: payment.date_of_expiration
+          ? new Date(payment.date_of_expiration)
+          : new Date(Date.now() + 30 * 60 * 1000),
         status: "PENDENTE",
         observacao: `Pedido restaurante ${args.order.codigo}`,
       },
     });
-    return existingPaymentAction(charge);
+    return restaurantPaymentAction(charge);
   } catch (error: any) {
     if (error?.code !== "P2002") throw error;
     const winner = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
       where: { restaurantePedidoId: args.order.id },
     });
-    return existingPaymentAction(winner);
+    return restaurantPaymentAction(winner);
   }
+}
+
+/** Cancela no gateway antes de permitir que o pedido PIX pendente seja cancelado localmente. */
+export async function cancelRestaurantPendingPixPayment(args: { contaId: number; orderId: number }) {
+  const charge = await prisma.cobrancasFinanceiras.findFirst({
+    where: {
+      contaId: args.contaId,
+      restaurantePedidoId: args.orderId,
+      gateway: "mercadopago",
+      status: "PENDENTE",
+      pixCopiaCola: { not: null },
+    },
+    select: { id: true, idCobranca: true },
+  });
+  if (!charge) return null;
+
+  const mp = await getTenantMercadoPagoService(args.contaId);
+  const payment = await mp.payment.get({ id: charge.idCobranca });
+  if (["approved", "authorized"].includes(String(payment.status))) {
+    throw new RestaurantPaymentCancellationError("payment_already_paid", "O Pix deste pedido ja foi aprovado. Atualize o pedido antes de cancelar.");
+  }
+  if (!["cancelled", "refunded"].includes(String(payment.status))) {
+    const cancelled = await mp.payment.cancel({ id: charge.idCobranca });
+    if (cancelled.status !== "cancelled") {
+      throw new RestaurantPaymentCancellationError("payment_cancellation_failed", "O Mercado Pago nao confirmou o cancelamento do Pix.");
+    }
+  }
+  return charge.id;
 }
 
 export async function applyRestaurantPaymentEvent(input: {
@@ -124,6 +153,7 @@ export async function applyRestaurantPaymentEvent(input: {
 }) {
   const order = await prisma.restaurantePedido.findFirst({ where: { id: input.orderId, contaId: input.contaId } });
   if (!order) return null;
+  if (input.status === "CANCELADO" && order.status === "CANCELADO") return order;
   if (input.status === "EFETIVADO") {
     try {
       return await prisma.$transaction(async (tx) => {

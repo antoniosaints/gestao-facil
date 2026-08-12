@@ -1010,7 +1010,7 @@ model MercadoPagoOAuthConta {
   accessTokenEnc    String    @db.Text
   refreshTokenEnc   String    @db.Text
   publicKey         String?
-  scope             String?
+  scope             String?   @db.Text
   liveMode          Boolean   @default(true)
   expiresAt         DateTime
   ultimaRenovacaoEm DateTime?

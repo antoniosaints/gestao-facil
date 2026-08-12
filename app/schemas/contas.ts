@@ -217,7 +217,7 @@ export const updateParametrosContaSchema = z.object(
       })
       .optional()
       .nullable(),
-    estiloUi: z.enum(["PADRAO", "CARDS"]).optional().nullable(),
+    estiloUi: z.enum(["PADRAO", "CARDS", "SITE", "SIDEV2"]).optional().nullable(),
     etiquetaModelos: z
       .array(
         z.object({

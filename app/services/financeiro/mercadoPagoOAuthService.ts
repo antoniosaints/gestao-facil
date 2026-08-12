@@ -38,7 +38,14 @@ type OAuthStatePayload = {
   contaId: number;
   userId: number;
   codeVerifier: string;
+  returnPath?: string;
 };
+
+const OAUTH_RETURN_PATHS = new Set(["/restaurante/configuracoes"]);
+
+function normalizeReturnPath(value?: string) {
+  return value && OAUTH_RETURN_PATHS.has(value) ? value : undefined;
+}
 
 export type MercadoPagoIntegrationStatus = {
   oauthDisponivel: boolean;
@@ -78,14 +85,14 @@ function base64Url(buffer: Buffer) {
  * Monta a URL de autorização do Mercado Pago e guarda o state + code_verifier (PKCE)
  * no Redis. O state é de uso único e expira em 10 minutos.
  */
-export async function createAuthorizationUrl(contaId: number, userId: number): Promise<string> {
+export async function createAuthorizationUrl(contaId: number, userId: number, returnPath?: string): Promise<string> {
   assertEnabled();
 
   const state = randomUUID();
   const codeVerifier = base64Url(randomBytes(48));
   const codeChallenge = base64Url(createHash("sha256").update(codeVerifier).digest());
 
-  const payload: OAuthStatePayload = { contaId, userId, codeVerifier };
+  const payload: OAuthStatePayload = { contaId, userId, codeVerifier, returnPath: normalizeReturnPath(returnPath) };
   await redisConnecion.set(stateKey(state), JSON.stringify(payload), "EX", STATE_TTL_SECONDS);
 
   const params = new URLSearchParams({
@@ -168,10 +175,10 @@ async function persistTokens(contaId: number, token: MercadoPagoTokenResponse) {
  * Troca o authorization_code pelo par de tokens e vincula à conta guardada no state.
  * Retorna o contaId para que o callback possa redirecionar/logar corretamente.
  */
-export async function handleOAuthCallback(code: string, state: string): Promise<{ contaId: number }> {
+export async function handleOAuthCallback(code: string, state: string): Promise<{ contaId: number; returnPath?: string }> {
   assertEnabled();
 
-  const { contaId, codeVerifier } = await consumeState(state);
+  const { contaId, codeVerifier, returnPath } = await consumeState(state);
 
   const token = await requestToken({
     grant_type: "authorization_code",
@@ -190,7 +197,7 @@ export async function handleOAuthCallback(code: string, state: string): Promise<
     update: {},
   });
 
-  return { contaId };
+  return { contaId, returnPath };
 }
 
 /**

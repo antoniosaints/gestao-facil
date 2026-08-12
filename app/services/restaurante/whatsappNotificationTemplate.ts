@@ -51,7 +51,6 @@ export function formatRestaurantOrderItems(items: RestaurantMessageItem[]) {
 export function restaurantPaymentMethodLabel(method?: string | null) {
   const labels: Record<string, string> = {
     PIX: "📱 Pix",
-    CHECKOUT_PRO: "💳 Pagamento online",
     NA_ENTREGA: "💵 Pagamento na entrega",
     MESA: "🍽️ Pagamento na mesa",
   };
