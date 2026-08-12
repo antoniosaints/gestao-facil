@@ -193,14 +193,23 @@ async function createOnlineCheckout(order: any, idempotencyKey: string) {
           return generateCobrancaMercadoPago(body, parameters);
         })()
       : await generateCobrancaAbacatePay(body, order.contaId);
-    if (!generated.chargeId) throw new Error("O gateway não retornou a cobrança persistida");
-    await prisma.$transaction([
-      prisma.cobrancasFinanceiras.update({ where: { id: generated.chargeId }, data: { pedidoLojaId: order.id } }),
-      prisma.lojaCheckoutTentativa.update({
+    if (generated.chargeId) {
+      await prisma.$transaction([
+        prisma.cobrancasFinanceiras.update({
+          where: { id: generated.chargeId },
+          data: { pedidoLojaId: order.id },
+        }),
+        prisma.lojaCheckoutTentativa.update({
+          where: { id: attempt.id },
+          data: { status: "PRONTO", checkoutUrl: generated.paymentLink, referenciaExterna: generated.gatewayReference },
+        }),
+      ]);
+    } else {
+      await prisma.lojaCheckoutTentativa.update({
         where: { id: attempt.id },
         data: { status: "PRONTO", checkoutUrl: generated.paymentLink, referenciaExterna: generated.gatewayReference },
-      }),
-    ]);
+      });
+    }
     return { type: "REDIRECT", url: generated.paymentLink };
   } catch (error) {
     await prisma.lojaCheckoutTentativa.update({

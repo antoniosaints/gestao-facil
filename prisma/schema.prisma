@@ -2449,6 +2449,8 @@ model AssinaturaCiclo {
   status                 StatusCicloAssinatura @default(PENDENTE)
   cobrancaFinanceiraId   Int?
   cobrancaFinanceira     CobrancasFinanceiras? @relation(fields: [cobrancaFinanceiraId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  gatewayReference       String?
+  paymentLink            String?               @db.Text
   lancamentoFinanceiroId Int?
   lancamentoFinanceiro   LancamentoFinanceiro? @relation(fields: [lancamentoFinanceiroId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   gatewayUsado           String?
@@ -2457,6 +2459,7 @@ model AssinaturaCiclo {
   updatedAt              DateTime              @updatedAt
 
   @@unique([assinaturaId, referencia])
+  @@index([gatewayReference])
 }
 
 model AssinaturaHistorico {

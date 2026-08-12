@@ -1838,13 +1838,13 @@ export async function gerarCobrancaCicloAssinatura(req: Request, res: Response):
 
   const resultado = await gerarCobrancaAutomatica(ciclo.id, userId, parcelaId)
 
-  if (!resultado.cobrancaId) {
+  if (!resultado.cobrancaId && !resultado.pendingCheckout) {
     return res.status(400).json({ message: 'Não foi possível gerar a cobrança no gateway para este ciclo.' })
   }
 
   return res.json({
-    message: 'Cobrança gerada com sucesso no gateway.',
-    data: { cicloId: ciclo.id, cobrancaId: resultado.cobrancaId },
+    message: resultado.pendingCheckout ? 'Checkout gerado. A cobrança será registrada após a confirmação do pagamento.' : 'Cobrança gerada com sucesso no gateway.',
+    data: { cicloId: ciclo.id, cobrancaId: resultado.cobrancaId, paymentLink: resultado.paymentLink || null },
   })
 }
 
@@ -2083,7 +2083,7 @@ export async function reajustarCobrancaCicloAssinatura(req: Request, res: Respon
   try {
     const resultado = await gerarCobrancaAutomatica(ciclo.id, userId, parcelaId)
 
-    if (!resultado.cobrancaId) {
+    if (!resultado.cobrancaId && !resultado.pendingCheckout) {
       throw new Error('Não foi possível criar a nova cobrança no gateway.')
     }
 
@@ -2092,7 +2092,7 @@ export async function reajustarCobrancaCicloAssinatura(req: Request, res: Respon
       valorAnterior: toNumber(ciclo.valorCobrado),
       valorNovo: novoValor,
       cobrancaAnteriorId: ciclo.cobrancaFinanceira?.id || null,
-      novaCobrancaId: resultado.cobrancaId,
+      novaCobrancaId: resultado.cobrancaId || null,
     })
 
     return res.json({
@@ -2101,7 +2101,8 @@ export async function reajustarCobrancaCicloAssinatura(req: Request, res: Respon
         cicloId: ciclo.id,
         valorCobrado: novoValor,
         cobrancaAnteriorId: ciclo.cobrancaFinanceira?.id || null,
-        novaCobrancaId: resultado.cobrancaId,
+        novaCobrancaId: resultado.cobrancaId || null,
+        paymentLink: resultado.paymentLink || null,
       },
     })
   } catch (error: any) {

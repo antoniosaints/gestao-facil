@@ -42,9 +42,14 @@ type WebhookResource = {
 type CheckoutWebhookData = {
   checkout?: WebhookResource;
   transparent?: WebhookResource;
+  payerInformation?: {
+    method?: string | null;
+  } | null;
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
 };
+
+type ChargeOrigin = "parcela" | "venda" | "os" | "reserva";
 
 function isRecord(value: unknown): value is Record<string, any> {
   return typeof value === "object" && value !== null;
@@ -126,11 +131,20 @@ function extractWebhookContext(args: {
           ? "gestaofacil-financeiro"
           : null;
 
+  const originType = typeof metadata.vinculoTipo === "string"
+    ? metadata.vinculoTipo as ChargeOrigin
+    : null;
+  const originId = parseNumericId(metadata.vinculoId);
+  const chargeOrigin = originType && originId && ["parcela", "venda", "os", "reserva"].includes(originType)
+    ? { type: originType, id: originId }
+    : null;
+
   return {
     contaId,
     invoiceUid,
     chargeUid,
     origem,
+    chargeOrigin,
     scope: origem === "gestaofacil-saas" ? "saas" : "tenant",
   } as const;
 }
@@ -194,6 +208,13 @@ function mapWebhookEventToChargeStatus(event: string, resourceStatus?: string | 
 
 function centsToReais(value?: number | null) {
   return new Decimal(value || 0).div(100).toNumber();
+}
+
+function paymentMethodFromCheckout(method?: string | null): MetodoPagamento {
+  if (method === "PIX") return "PIX";
+  if (method === "BOLETO") return "BOLETO";
+  if (method === "CARD") return "CARTAO";
+  return "GATEWAY";
 }
 
 async function resolveWebhookSecret(scope: "saas" | "tenant", contaId: number) {
@@ -306,6 +327,8 @@ async function handleTenantWebhook(args: {
   resourceKind: "checkout" | "transparent";
   contaId: number;
   chargeUid?: string | null;
+  chargeOrigin?: { type: ChargeOrigin; id: number } | null;
+  paymentMethod: MetodoPagamento;
 }) {
   const whereClauses: Array<Record<string, unknown>> = [{
     idCobranca: args.resource.id,
@@ -324,18 +347,47 @@ async function handleTenantWebhook(args: {
     },
   });
 
-  if (!cobranca) {
-    return;
-  }
-
   const statusNovo = mapWebhookEventToChargeStatus(args.event, args.resource.status);
   const paymentLink =
     args.resource.receiptUrl ||
     args.resource.url ||
     args.resource.brCode ||
     args.resource.barCode ||
-    cobranca.externalLink ||
+    cobranca?.externalLink ||
     null;
+
+  if (!cobranca) {
+    // Um checkout é somente um link até o cliente pagar. Só registramos a
+    // cobrança quando a AbacatePay confirmar checkout.completed.
+    if (args.resourceKind !== "checkout" || args.event !== "checkout.completed" || !args.chargeUid) {
+      return;
+    }
+
+    const checkoutAttempt = await prisma.lojaCheckoutTentativa.findFirst({
+      where: { contaId: args.contaId, referenciaExterna: args.resource.id },
+      select: { pedidoId: true },
+    });
+
+    cobranca = await prisma.cobrancasFinanceiras.create({
+      data: {
+        contaId: args.contaId,
+        gateway: "abacatepay",
+        Uid: args.chargeUid,
+        idCobranca: args.resource.id!,
+        valor: centsToReais(args.resource.paidAmount ?? args.resource.amount),
+        dataVencimento: new Date(),
+        status: statusNovo,
+        externalLink: paymentLink,
+        observacao: "Cobrança por checkout confirmada via AbacatePay - Gestão Fácil - ERP",
+        pedidoLojaId: checkoutAttempt?.pedidoId || null,
+        vendaId: args.chargeOrigin?.type === "venda" ? args.chargeOrigin.id : null,
+        lancamentoId: args.chargeOrigin?.type === "parcela" ? args.chargeOrigin.id : null,
+        ordemServicoId: args.chargeOrigin?.type === "os" ? args.chargeOrigin.id : null,
+        reservaId: args.chargeOrigin?.type === "reserva" ? args.chargeOrigin.id : null,
+      },
+      include: { cobrancasOnAgendamentos: true },
+    });
+  }
 
   if (cobranca.idCobranca !== args.resource.id || cobranca.externalLink !== paymentLink || cobranca.status !== statusNovo) {
     cobranca = await prisma.cobrancasFinanceiras.update({
@@ -348,6 +400,17 @@ async function handleTenantWebhook(args: {
       include: { cobrancasOnAgendamentos: true },
     });
   }
+
+  // Links de assinatura aguardam somente o checkout no ciclo. Ao chegar a
+  // confirmação, conectamos a cobrança real antes de sincronizar o status.
+  await prisma.assinaturaCiclo.updateMany({
+    where: {
+      cobrancaFinanceiraId: null,
+      gatewayReference: args.resource.id,
+      assinatura: { contaId: args.contaId },
+    },
+    data: { cobrancaFinanceiraId: cobranca.id, status: "COBRADO" },
+  });
 
   if (cobranca.pedidoLojaId) {
     await applyStorePaymentEvent({
@@ -372,8 +435,7 @@ async function handleTenantWebhook(args: {
     return;
   }
 
-  const metodoPago: MetodoPagamento =
-    args.resourceKind === "transparent" ? "PIX" : "GATEWAY";
+  const metodoPago = args.paymentMethod;
 
   if (
     cobranca.cobrancasOnAgendamentos &&
@@ -557,6 +619,10 @@ export async function webhookAbacatePay(
       resourceKind: resolvedResource.kind,
       contaId: context.contaId,
       chargeUid: context.chargeUid,
+      chargeOrigin: context.chargeOrigin,
+      paymentMethod: resolvedResource.kind === "transparent"
+        ? "PIX"
+        : paymentMethodFromCheckout(data.payerInformation?.method),
     });
 
     return res.sendStatus(200);

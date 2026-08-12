@@ -154,6 +154,17 @@ export async function generateCobrancaAbacatePay(
   }
 
   if (body.type === "LINK") {
+    const checkoutMetadata = {
+      contaId,
+      cobrancaUid: Uid,
+      origem: "gestaofacil-financeiro",
+      ...(body.vinculo
+        ? {
+            vinculoTipo: body.vinculo.tipo,
+            vinculoId: body.vinculo.id,
+          }
+        : {}),
+    };
     const product = await abacate.createProduct({
       externalId: `${externalIdBase}|produto`,
       name: `Cobrança Gestão Fácil ${Uid}`,
@@ -183,23 +194,14 @@ export async function generateCobrancaAbacatePay(
             ).id
           : undefined,
       externalId: `${externalIdBase}|link`,
-      metadata: {
-        contaId,
-        cobrancaUid: Uid,
-        origem: "gestaofacil-financeiro",
-      },
-    });
-
-    const cobranca = await createChargeRecord(executor, body, contaId, {
-      Uid,
-      gatewayReference: checkout.id,
-      paymentLink: checkout.url,
-      observacao: "Cobrança por link gerada via AbacatePay - Gestão Fácil - ERP",
+      metadata: checkoutMetadata,
     });
 
     return {
       paymentLink: checkout.url || null,
-      chargeId: cobranca.id,
+      // O checkout é apenas uma intenção de pagamento. A cobrança financeira
+      // nasce no webhook checkout.completed, após o cliente escolher e pagar.
+      chargeId: null,
       gatewayReference: checkout.id,
     };
   }

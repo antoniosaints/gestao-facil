@@ -247,6 +247,14 @@ export async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number
     return { cobrancaId: ciclo.cobrancaFinanceiraId }
   }
 
+  if (ciclo.gatewayReference && ciclo.paymentLink) {
+    return {
+      cobrancaId: null,
+      pendingCheckout: true,
+      paymentLink: ciclo.paymentLink,
+    }
+  }
+
   const gateway = ciclo.assinatura.gateway as AutomaticGateway | null
   const tipoCobranca = ciclo.assinatura.tipoCobranca as AutomaticBillingType | null
 
@@ -317,6 +325,25 @@ export async function gerarCobrancaAutomatica(cicloId: number, usuarioId: number
       motivo: 'Gateway ainda não suportado na automação recorrente.',
     })
     return { cobrancaId: null }
+  }
+
+  if (!generated.chargeId && tipoCobranca === 'LINK') {
+    await prisma.assinaturaCiclo.update({
+      where: { id: ciclo.id },
+      data: {
+        gatewayReference: generated.gatewayReference,
+        paymentLink: generated.paymentLink,
+        status: 'PENDENTE',
+      },
+    })
+    await registerHistory(ciclo.assinaturaId, usuarioId, 'CICLO_CHECKOUT_GERADO_AGUARDANDO_PAGAMENTO', {
+      cicloId,
+      gateway,
+      tipoCobranca,
+      gatewayReference: generated.gatewayReference,
+      paymentLink: generated.paymentLink,
+    })
+    return { cobrancaId: null, pendingCheckout: true, paymentLink: generated.paymentLink }
   }
 
   if (!generated.chargeId) {
