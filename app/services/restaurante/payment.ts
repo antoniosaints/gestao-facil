@@ -13,7 +13,7 @@ import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrd
 import { CommerceError } from "../loja/commerceError";
 
 export type RestauranteOnlinePaymentMethod = "PIX";
-const RESTAURANT_PIX_EXPIRATION_MS = 5 * 60 * 1000;
+const RESTAURANT_PIX_EXPIRATION_MS = 30 * 60 * 1000;
 
 export class RestaurantPaymentCancellationError extends Error {
   constructor(public code: "payment_already_paid" | "payment_cancellation_failed", message: string) {
@@ -66,8 +66,8 @@ export async function createRestaurantOnlinePayment(args: {
     origin: { type: "restaurante-pedido" as const, id: args.order.id },
   };
   const returnUrl = trackingUrl(args.slug, args.trackingToken);
-  // O pedido público não deve manter Pix pendente por horas: após cinco minutos o
-  // cliente precisa gerar um novo pedido e o restaurante não recebe pagamento atrasado.
+  // O QR Code do cardápio permanece válido por tempo suficiente para o cliente
+  // concluir a transferência, sem deixar uma cobrança pendente por horas.
   const pixExpiresAt = new Date(Date.now() + RESTAURANT_PIX_EXPIRATION_MS);
   let gatewayReference: string;
   let externalLink: string | null;
