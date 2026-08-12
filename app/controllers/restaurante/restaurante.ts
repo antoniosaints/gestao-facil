@@ -991,6 +991,39 @@ export async function createPublicOrder(req: Request, res: Response) {
 
   const keyHash = hash(key);
   const bodyHash = hash(JSON.stringify(parsed.data));
+  const discardFailedPixCheckout = async (payload: any) => {
+    if (parsed.data.pagamento !== "PIX" || !payload?.pedido?.id) return;
+
+    // Se houve persistência parcial da cobrança, o gateway precisa confirmar o
+    // cancelamento antes de apagarmos o pedido local.
+    await cancelRestaurantPendingPixPayment({
+      contaId: config.contaId,
+      orderId: payload.pedido.id,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.cobrancasFinanceiras.deleteMany({
+        where: { contaId: config.contaId, restaurantePedidoId: payload.pedido.id },
+      });
+      const removed = await tx.restaurantePedido.deleteMany({
+        where: {
+          id: payload.pedido.id,
+          contaId: config.contaId,
+          status: "RECEBIDO",
+          pagamentoStatus: "PENDENTE",
+        },
+      });
+      await tx.restauranteIdempotencia.deleteMany({
+        where: { contaId: config.contaId, chaveHash: keyHash, pedidoId: payload.pedido.id },
+      });
+      if (removed.count && rewardSnapshot && fidelity.normalizedPhone) {
+        await tx.restauranteFidelidadeProgresso.updateMany({
+          where: { contaId: config.contaId, telefoneNormalizado: fidelity.normalizedPhone },
+          data: { recompensasDisponiveis: { increment: 1 } },
+        });
+      }
+    });
+  };
   const finalizePayment = async (payload: any) => {
     if (parsed.data.pagamento === "NA_ENTREGA" || payload.paymentAction) return payload;
     try {
@@ -1008,10 +1041,7 @@ export async function createPublicOrder(req: Request, res: Response) {
       });
       return completed;
     } catch (error) {
-      await prisma.restaurantePedido.updateMany({
-        where: { id: payload.pedido.id, contaId: config.contaId, pagamentoStatus: "PENDENTE" },
-        data: { pagamentoStatus: "EM_REVISAO", version: { increment: 1 } },
-      });
+      await discardFailedPixCheckout(payload);
       throw error;
     }
   };
@@ -1023,7 +1053,7 @@ export async function createPublicOrder(req: Request, res: Response) {
       try {
         return ok(req, res, await finalizePayment(previous.respostaJson));
       } catch {
-        return fail(req, res, 502, "payment_gateway_unavailable", "O pedido foi salvo, mas nao foi possivel iniciar o pagamento. Tente novamente.");
+        return fail(req, res, 502, "payment_gateway_unavailable", "Não foi possível gerar o Pix. Nenhum pedido foi criado.");
       }
     }
   }
@@ -1098,6 +1128,11 @@ export async function createPublicOrder(req: Request, res: Response) {
     if (!winner || winner.requestHash !== bodyHash || !winner.respostaJson) throw error;
     response = winner.respostaJson;
   }
+  try {
+    response = await finalizePayment(response);
+  } catch {
+    return fail(req, res, 502, "payment_gateway_unavailable", "Não foi possível gerar o Pix. Nenhum pedido foi criado.");
+  }
   if (createdOrder) {
     notifyRestaurant(config.contaId, "pedido", { pedidoId: response.pedido.id, reason: "created" });
     try {
@@ -1105,11 +1140,6 @@ export async function createPublicOrder(req: Request, res: Response) {
       const firstName = parsed.data.cliente.nome.trim().split(/\s+/)[0] || "Alguém";
       if (firstItem?.nomeSnapshot) sendRestaurantPublicSale(config.slug, { cliente: firstName, produto: firstItem.nomeSnapshot });
     } catch { /* O pedido não depende de Socket.IO. */ }
-  }
-  try {
-    response = await finalizePayment(response);
-  } catch {
-    return fail(req, res, 502, "payment_gateway_unavailable", "O pedido foi salvo, mas nao foi possivel iniciar o pagamento. Tente novamente.");
   }
   notifyRestaurantOrderWhatsApp(response.pedido.id, ["PEDIDO_FEITO"]);
   return ok(req, res, response, 201);

@@ -115,7 +115,12 @@ export async function createRestaurantOnlinePayment(args: {
     });
     return restaurantPaymentAction(charge);
   } catch (error: any) {
-    if (error?.code !== "P2002") throw error;
+    if (error?.code !== "P2002") {
+      // A cobrança foi aceita pelo gateway, mas não pôde ser persistida localmente.
+      // Compensamos antes de propagar o erro para que não reste Pix sem pedido.
+      await mp.payment.cancel({ id: gatewayReference }).catch(() => undefined);
+      throw error;
+    }
     const winner = await prisma.cobrancasFinanceiras.findUniqueOrThrow({
       where: { restaurantePedidoId: args.order.id },
     });
