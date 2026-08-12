@@ -13,6 +13,7 @@ import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrd
 import { CommerceError } from "../loja/commerceError";
 
 export type RestauranteOnlinePaymentMethod = "PIX";
+const RESTAURANT_PIX_EXPIRATION_MS = 5 * 60 * 1000;
 
 export class RestaurantPaymentCancellationError extends Error {
   constructor(public code: "payment_already_paid" | "payment_cancellation_failed", message: string) {
@@ -65,6 +66,9 @@ export async function createRestaurantOnlinePayment(args: {
     origin: { type: "restaurante-pedido" as const, id: args.order.id },
   };
   const returnUrl = trackingUrl(args.slug, args.trackingToken);
+  // O pedido público não deve manter Pix pendente por horas: após cinco minutos o
+  // cliente precisa gerar um novo pedido e o restaurante não recebe pagamento atrasado.
+  const pixExpiresAt = new Date(Date.now() + RESTAURANT_PIX_EXPIRATION_MS);
   let gatewayReference: string;
   let externalLink: string | null;
   let pixCopiaCola: string | null = null;
@@ -81,6 +85,7 @@ export async function createRestaurantOnlinePayment(args: {
       description: `Pedido ${args.order.codigo}`.slice(0, 120),
       payment_method_id: "pix",
       installments: 1,
+      date_of_expiration: pixExpiresAt.toISOString(),
       callback_url: returnUrl,
       notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
     },
@@ -103,7 +108,7 @@ export async function createRestaurantOnlinePayment(args: {
         gateway: "mercadopago",
         dataVencimento: payment.date_of_expiration
           ? new Date(payment.date_of_expiration)
-          : new Date(Date.now() + 30 * 60 * 1000),
+          : pixExpiresAt,
         status: "PENDENTE",
         observacao: `Pedido restaurante ${args.order.codigo}`,
       },
