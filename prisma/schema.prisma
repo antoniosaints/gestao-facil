@@ -2861,6 +2861,216 @@ enum OrigemLancamentoFinanceiro {
   RESERVA
 }
 
+// O modulo Ourive referencia as entidades operacionais existentes por ID. Isso
+// preserva as OS, estoque e financeiro genericos sem alterar seus fluxos.
+enum OurivePapel {
+  GESTOR
+  ATENDIMENTO
+  OURIVE
+  REVISAO
+}
+enum OuriveStatus {
+  RECEBIDA
+  ORCAMENTO
+  PRODUCAO
+  REVISAO
+  ENTREGUE
+  RECUSADA
+  CANCELADA
+}
+enum OuriveTipoEvento {
+  RECEBIMENTO
+  FOTO
+  ORCAMENTO
+  APROVACAO
+  RECUSA
+  RESPONSAVEL
+  MATERIAL
+  ETAPA
+  REVISAO
+  ENTREGA
+  CANCELAMENTO
+  FINANCEIRO
+  CUSTO_EXTRA
+}
+enum OuriveStatusEtapa {
+  PENDENTE
+  EM_EXECUCAO
+  AGUARDANDO_REVISAO
+  APROVADA
+  REPROVADA
+}
+enum OuriveTipoComissao {
+  PERCENTUAL
+  VALOR_FIXO
+}
+
+model OuriveUsuarioPapel {
+  contaId   Int
+  usuarioId Int
+  papel     OurivePapel
+  createdAt DateTime @default(now())
+  @@id([usuarioId, papel])
+  @@index([contaId, papel])
+}
+
+model OuriveEspecialidade {
+  id        Int @id @default(autoincrement())
+  contaId   Int
+  nome      String
+  descricao String? @db.Text
+  ativo     Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([contaId, nome])
+}
+
+model OuriveUsuarioEspecialidade {
+  contaId         Int
+  usuarioId       Int
+  especialidadeId Int
+  createdAt       DateTime @default(now())
+  @@id([usuarioId, especialidadeId])
+  @@index([contaId, especialidadeId])
+}
+
+model OuriveConfiguracao {
+  contaId                   Int @id
+  receitaCategoriaId        Int?
+  receitaContaFinanceiraId  Int?
+  comissaoCategoriaId       Int?
+  comissaoContaFinanceiraId Int?
+  prazoAprovacaoDias        Int @default(7)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model OuriveOrdem {
+  id             Int @id @default(autoincrement())
+  contaId        Int
+  ordemServicoId Int @unique
+  status         OuriveStatus @default(RECEBIDA)
+  codigoRastreio String @unique
+  custoExtra     Decimal @default(0) @db.Decimal(10, 2)
+  receitaLancamentoId Int? @unique
+  faturadaEm     DateTime?
+  entregueEm     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([contaId, status])
+}
+
+model OurivePeca {
+  id                   Int @id @default(autoincrement())
+  ordemOuriveId        Int
+  descricao            String @db.Text
+  metal                String?
+  pedras               String? @db.Text
+  pesoInformado        Decimal? @db.Decimal(10, 3)
+  estadoConservacao    String? @db.Text
+  checklistRecebimento Json?
+  codigoRastreio       String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  @@unique([ordemOuriveId, codigoRastreio])
+}
+
+model OurivePecaFoto {
+  id        Int @id @default(autoincrement())
+  pecaId    Int
+  url       String @db.Text
+  descricao String? @db.Text
+  createdAt DateTime @default(now())
+  @@index([pecaId])
+}
+
+model OuriveOrcamento {
+  id                   Int @id @default(autoincrement())
+  ordemOuriveId        Int
+  versao               Int
+  servicos             Json
+  desconto             Decimal @default(0) @db.Decimal(10, 2)
+  prazoPrevisto        DateTime?
+  custoEstimado        Decimal @default(0) @db.Decimal(10, 2)
+  valorFinal           Decimal @db.Decimal(10, 2)
+  enviadoEm            DateTime?
+  aprovadoEm           DateTime?
+  recusadoEm           DateTime?
+  aprovacaoOrigem      String?
+  aprovacaoObservacao  String? @db.Text
+  tokenHash            String? @unique
+  tokenExpiraEm        DateTime?
+  invalidoEm           DateTime?
+  createdAt            DateTime @default(now())
+  @@unique([ordemOuriveId, versao])
+  @@index([ordemOuriveId, enviadoEm])
+}
+
+model OuriveEtapa {
+  id               Int @id @default(autoincrement())
+  ordemOuriveId    Int
+  nome             String
+  especialidadeId  Int?
+  prazoPrevisto    DateTime?
+  observacao       String? @db.Text
+  status           OuriveStatusEtapa @default(PENDENTE)
+  iniciadaEm       DateTime?
+  finalizadaEm     DateTime?
+  revisadaEm       DateTime?
+  revisadaPorId    Int?
+  motivoReprovacao String? @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([ordemOuriveId, status])
+}
+
+model OuriveEtapaResponsavel {
+  etapaId   Int
+  usuarioId Int
+  createdAt DateTime @default(now())
+  @@id([etapaId, usuarioId])
+}
+
+model OuriveMaterial {
+  id                  Int @id @default(autoincrement())
+  ordemOuriveId       Int
+  pecaId              Int?
+  produtoId           Int
+  quantidadePlanejada Int
+  quantidadeConsumida Int @default(0)
+  quantidadeDevolvida Int @default(0)
+  custoSnapshot       Decimal? @db.Decimal(10, 2)
+  consumidoEm         DateTime?
+  createdAt           DateTime @default(now())
+  @@index([ordemOuriveId, produtoId])
+}
+
+model OuriveComissao {
+  id                     Int @id @default(autoincrement())
+  ordemOuriveId          Int
+  etapaId                Int
+  usuarioId              Int
+  tipo                   OuriveTipoComissao
+  referencia             Decimal @db.Decimal(10, 2)
+  valorConsolidado       Decimal? @db.Decimal(10, 2)
+  consolidadaEm          DateTime?
+  lancamentoFinanceiroId Int? @unique
+  quitadaEm              DateTime?
+  createdAt              DateTime @default(now())
+  @@index([ordemOuriveId, usuarioId])
+}
+
+model OuriveEvento {
+  id            Int @id @default(autoincrement())
+  ordemOuriveId Int
+  tipo          OuriveTipoEvento
+  descricao     String @db.Text
+  dados         Json?
+  autorId       Int?
+  createdAt     DateTime @default(now())
+  @@index([ordemOuriveId, createdAt])
+}
+
 enum FrequenciaRecorrenciaFinanceira {
   DIARIO
   SEMANAL

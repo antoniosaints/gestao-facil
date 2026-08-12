@@ -62,6 +62,13 @@ const DEFAULT_MODULES = [
     preco: 0,
   },
   {
+    codigo: "ourives",
+    nome: "Ourive",
+    descricao: "Gestao de ordens de joalheria, pecas sob custodia, producao, comissoes e rastreabilidade.",
+    categoria: "Extensões",
+    preco: 0,
+  },
+  {
     codigo: "arena",
     nome: "Arena",
     descricao: "Controle de arena: quadras, reservas, calendario, comandas e painel detalhado de reservas.",
@@ -106,6 +113,34 @@ const DEFAULT_MODULES = [
 ] as const;
 
 const MODULE_CYCLE_DAYS = 30;
+
+// A preferencia de menus e uma whitelist por conta. Sem este ajuste, um app
+// instalado depois de a conta ja ter salvo essa whitelist fica invisivel mesmo
+// estando ativo. Somente o menu do app que acabou de ser ativado e incluido;
+// menus ocultados manualmente continuam respeitados.
+const MODULE_MENU_KEYS: Record<string, string | undefined> = {
+  atendimento: "atendimento",
+  assinaturas: "assinaturas",
+  "loja-virtual": "loja-virtual",
+  arena: "arena",
+  reservas: "reservas",
+  "restaurante-delivery": "restaurante",
+  ourives: "ourive",
+  "notas-fiscais": "notas-fiscais",
+  "core-ia": "core-ia",
+  whatsapp: "whatsapp",
+};
+
+export async function ensureActivatedModuleMenuVisible(contaId: number, moduleCode: string) {
+  const menuKey = MODULE_MENU_KEYS[moduleCode];
+  if (!menuKey) return;
+  const parametros = await prisma.parametrosConta.findUnique({ where: { contaId }, select: { menusVisiveis: true } });
+  // null preserva o comportamento padrao: todos os menus disponiveis aparecem.
+  if (!parametros || !Array.isArray(parametros.menusVisiveis)) return;
+  const keys = parametros.menusVisiveis.filter((key): key is string => typeof key === "string");
+  if (keys.includes(menuKey)) return;
+  await prisma.parametrosConta.update({ where: { contaId }, data: { menusVisiveis: [...keys, menuKey] } });
+}
 
 export type ModuleStatus =
   | "PENDENTE_ATIVACAO"
@@ -747,6 +782,11 @@ export async function activateStoreModuleFromCharge(chargeRecordId: number) {
           vencimento: true,
         },
       },
+      Modulos: {
+        select: {
+          codigo: true,
+        },
+      },
     },
   });
 
@@ -769,6 +809,8 @@ export async function activateStoreModuleFromCharge(chargeRecordId: number) {
       valorCobrancaAtual: null,
     },
   });
+
+  await ensureActivatedModuleMenuVisible(module.contaId, module.Modulos.codigo);
 
   return true;
 }
@@ -859,6 +901,11 @@ export async function reconcileStoreModulesAfterPayment(
         vencimento: nextDueDate,
       },
     });
+    const activatedModules = await prisma.moduloOnConta.findMany({
+      where: { id: { in: idsToActivate } },
+      select: { Modulos: { select: { codigo: true } } },
+    });
+    await Promise.all(activatedModules.map((module) => ensureActivatedModuleMenuVisible(contaId, module.Modulos.codigo)));
   }
 
   if (idsToExtend.length) {

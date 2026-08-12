@@ -8,6 +8,7 @@ import {
   cancelModuleCurrentCharge,
   createImmediateModuleCharge,
   ensureDefaultStoreModules,
+  ensureActivatedModuleMenuVisible,
   isContaSubscriptionActive,
   syncContaRecurringBilling,
   type ModuleBillingMode,
@@ -260,6 +261,10 @@ export async function activateStoreModule(req: Request, res: Response): Promise<
             vencimento: conta.vencimento,
           },
         });
+
+    if (nextStatus === "ATIVO") {
+      await ensureActivatedModuleMenuVisible(customData.contaId, modulo.codigo);
+    }
 
     const recurringValue = await syncContaRecurringBilling(customData.contaId);
 

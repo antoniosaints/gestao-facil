@@ -52,6 +52,14 @@ const FRONTEND_SUBMENU_KEYS = [
   "restaurante:impressao",
   "restaurante:pedidos",
   "restaurante:configuracoes",
+  "ourive:painel",
+  "ourive:ordens",
+  "ourive:producao",
+  "ourive:pecas",
+  "ourive:equipe",
+  "ourive:comissoes",
+  "ourive:relatorios",
+  "ourive:configuracoes",
   "notas-fiscais:nfse",
   "notas-fiscais:nfe",
   "notas-fiscais:nfce",
@@ -131,6 +139,34 @@ describe("menuVisibilityPolicy", () => {
         "notas-fiscais:nfe",
         "notas-fiscais:nfce",
         "notas-fiscais:configuracoes",
+        "configuracoes",
+      ]
+    );
+  });
+
+  it("keeps the ourive menu and its submenus selected after saving settings", () => {
+    assert.deepEqual(
+      normalizeVisibleMenuKeys([
+        "ourive",
+        "ourive:painel",
+        "ourive:ordens",
+        "ourive:producao",
+        "ourive:pecas",
+        "ourive:equipe",
+        "ourive:comissoes",
+        "ourive:relatorios",
+        "ourive:configuracoes",
+      ]),
+      [
+        "ourive",
+        "ourive:painel",
+        "ourive:ordens",
+        "ourive:producao",
+        "ourive:pecas",
+        "ourive:equipe",
+        "ourive:comissoes",
+        "ourive:relatorios",
+        "ourive:configuracoes",
         "configuracoes",
       ]
     );
