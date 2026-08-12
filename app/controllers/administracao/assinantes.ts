@@ -173,6 +173,9 @@ export const createAssinanteAdmin = async (req: Request, res: Response): Promise
           telefone: data.telefone,
         },
       });
+      await tx.parametrosConta.create({
+        data: { contaId: conta.id, estiloUi: "SIDEV2" },
+      });
 
       return { conta, usuario };
     });

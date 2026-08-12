@@ -965,8 +965,8 @@ model ParametrosConta {
   osCategoriaFinanceiraId                Int?
   osContaFinanceiraId                    Int?
   temaPersonalizado                      Json?
-  // Navegação compartilhada pela conta: sidebar tradicional ou hub de cards.
-  estiloUi                               String?  @default("PADRAO")
+  // Navegação compartilhada pela conta. Novas contas iniciam no SideV2.
+  estiloUi                               String?  @default("SIDEV2")
   linkPublicoAtivo                       Boolean? @default(false)
   cadastrosPermitidosLinkPublico         Int?     @default(1)
   chavePix                               String?

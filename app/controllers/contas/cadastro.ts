@@ -88,6 +88,9 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
           telefone,
         },
       });
+      await tx.parametrosConta.create({
+        data: { contaId: created.id, estiloUi: "SIDEV2" },
+      });
 
       return {
         created,
