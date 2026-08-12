@@ -2116,6 +2116,7 @@ model NotaFiscalConfiguracao {
   email                      String?  @db.VarChar(191)
   telefone                   String?  @db.VarChar(32)
   ambiente                   String   @default("HOMOLOGACAO") @db.VarChar(20)
+  modoEmissaoNfse            String   @default("NACIONAL") @db.VarChar(24)
   provedorNfse               String   @default("NACIONAL") @db.VarChar(40)
   serieRps                   Int      @default(1)
   proximoNumeroRps           Int      @default(1)

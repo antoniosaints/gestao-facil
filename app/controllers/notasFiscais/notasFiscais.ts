@@ -11,6 +11,8 @@ import {
   hasFiscalCertificateEncryptionKey,
 } from "../../services/notasFiscais/certificateCrypto";
 import { D2TI_SAO_MATEUS, emitirD2ti, isD2tiSaoMateus } from "../../services/notasFiscais/d2tiSaoMateus";
+import { resolveNfseProvider, selectedNfseMode } from "../../services/notasFiscais/providerResolver";
+import { buildDpsDraft, consultarParametrosMunicipaisNacional, nationalEndpoints } from "../../services/notasFiscais/nacionalProvider";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 
@@ -27,6 +29,7 @@ const configSchema = z.object({
   cep: text(16), logradouro: text(), numero: text(32), bairro: text(120), complemento: text(120),
   email: z.preprocess((value) => String(value ?? "").trim() || undefined, z.string().email().optional()),
   telefone: text(32), ambiente: z.enum(["HOMOLOGACAO", "PRODUCAO"]).default("HOMOLOGACAO"),
+  modoEmissaoNfse: z.enum(["NACIONAL", "LEGADO_D2TI"]).default("NACIONAL"),
   provedorNfse: text(40).default("NACIONAL"), serieRps: z.coerce.number().int().min(1).max(999).default(1),
   codigoServicoPadrao: text(32), descricaoServicoPadrao: text(250), codigoAtividadePadrao: text(10), descricaoAtividadePadrao: text(250),
   tipoTributacaoPadrao: z.coerce.number().int().min(1).max(9).nullable().optional(), tipoRecolhimentoPadrao: z.coerce.number().int().min(1).max(9).nullable().optional(),
@@ -58,7 +61,7 @@ function fail(req: Request, res: Response, status: number, code: string, message
 
 function mapConfig(config: any, conta: any) {
   const value = config || {};
-  const d2ti = isD2tiSaoMateus(value);
+  const d2ti = selectedNfseMode(value) === "LEGADO_D2TI" && value.codigoMunicipioIbge === D2TI_SAO_MATEUS.codigoIbge;
   return {
     razaoSocial: value.razaoSocial ?? conta.nome ?? "",
     nomeFantasia: value.nomeFantasia ?? conta.nomeFantasia ?? "",
@@ -78,6 +81,7 @@ function mapConfig(config: any, conta: any) {
     email: value.email ?? conta.email ?? "",
     telefone: value.telefone ?? conta.telefone ?? "",
     ambiente: value.ambiente ?? "HOMOLOGACAO",
+    modoEmissaoNfse: d2ti ? "LEGADO_D2TI" : "NACIONAL",
     provedorNfse: d2ti ? D2TI_SAO_MATEUS.provedor : (value.provedorNfse ?? "NACIONAL"),
     serieRps: value.serieRps ?? 1,
     proximoNumeroRps: value.proximoNumeroRps ?? 1,
@@ -122,12 +126,15 @@ export async function saveFiscalConfig(req: Request, res: Response) {
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Revise os dados fiscais informados.", parsed.error.flatten());
   const { contaId } = getCustomRequest(req).customData;
   const data = parsed.data;
-  if (data.codigoMunicipioIbge === D2TI_SAO_MATEUS.codigoIbge) {
+  if (data.modoEmissaoNfse === "LEGADO_D2TI" && data.codigoMunicipioIbge !== D2TI_SAO_MATEUS.codigoIbge) {
+    return fail(req, res, 422, "legacy_provider_unavailable", "O emissor legado D2TI está disponível somente para São Mateus do Maranhão - MA.");
+  }
+  if (data.modoEmissaoNfse === "LEGADO_D2TI") {
     data.provedorNfse = D2TI_SAO_MATEUS.provedor;
     data.codigoMunicipioPrestador = D2TI_SAO_MATEUS.codigoTom;
     data.municipioNome = "São Mateus do Maranhão";
     data.uf = "MA";
-  } else if (data.provedorNfse === D2TI_SAO_MATEUS.provedor) {
+  } else {
     data.provedorNfse = "NACIONAL";
     data.codigoMunicipioPrestador = "";
   }
@@ -201,7 +208,7 @@ export async function saveD2tiToken(req: Request, res: Response) {
     return fail(req, res, 503, "credential_encryption_unavailable", "A criptografia fiscal ainda não está configurada neste ambiente.");
   }
   const { contaId } = getCustomRequest(req).customData;
-  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true } });
+  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, modoEmissaoNfse: true, provedorNfse: true } });
   if (!isD2tiSaoMateus(config || {})) {
     return fail(req, res, 422, "provider_mismatch", "O token D2TI só pode ser configurado para São Mateus do Maranhão - MA.");
   }
@@ -218,6 +225,21 @@ export async function listMunicipios(req: Request, res: Response) {
     return res.json({ data, fonte: "IBGE", requestId: requestId(req) });
   } catch (error: any) {
     return fail(req, res, 422, "municipio_lookup_error", error.message || "Não foi possível consultar municípios.");
+  }
+}
+
+export async function getNationalMunicipalParameters(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, ambiente: true, modoEmissaoNfse: true, provedorNfse: true } });
+  if (!config || selectedNfseMode(config) !== "NACIONAL") {
+    return fail(req, res, 422, "provider_mismatch", "Selecione o Emissor Nacional para consultar os parâmetros municipais.");
+  }
+  try {
+    const data = await consultarParametrosMunicipaisNacional(config.codigoMunicipioIbge || "", config.ambiente as "HOMOLOGACAO" | "PRODUCAO");
+    return res.json({ data, fonte: nationalEndpoints(config.ambiente as "HOMOLOGACAO" | "PRODUCAO").parametros, requestId: requestId(req) });
+  } catch (error: any) {
+    const status = error?.response?.status === 404 ? 422 : 503;
+    return fail(req, res, status, "national_municipal_parameters_unavailable", "Não foi possível obter os parâmetros municipais do Emissor Nacional agora.", { codigoMunicipioIbge: config.codigoMunicipioIbge });
   }
 }
 
@@ -261,6 +283,7 @@ export async function createNfseRps(req: Request, res: Response) {
       tx.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId }, select: { id: true } }),
     ]);
     if (!cliente) throw new Error("Cliente não encontrado nesta conta.");
+    if (selectedNfseMode(config || {}) !== "NACIONAL") throw new Error("Selecione o Emissor Público Nacional para gerar uma DPS.");
     if (!config?.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.certificadoReferencia || !config.certificadoSenhaCifrada) {
       throw new Error("Conclua a configuração fiscal, incluindo inscrição municipal, município e certificado A1, antes de gerar a NFS-e.");
     }
@@ -279,8 +302,8 @@ export async function createNfseRps(req: Request, res: Response) {
         codigoServico: input.codigoServico || config.codigoServicoPadrao || null,
         discriminacao: input.discriminacao,
         requisicaoJson: {
-          emissor: { documento: config.documento, codigoMunicipioIbge: config.codigoMunicipioIbge },
-          rps: { numero: rpsNumero, serie: config.serieRps },
+          provider: "NACIONAL",
+          dps: buildDpsDraft({ codigoMunicipioIbge: config.codigoMunicipioIbge, documentoPrestador: config.documento, inscricaoMunicipal: config.inscricaoMunicipal, serie: config.serieRps, numero: rpsNumero, codigoServico: input.codigoServico || config.codigoServicoPadrao, discriminacao: input.discriminacao, valorTotal: input.valorTotal }),
         },
       },
     });
@@ -289,6 +312,21 @@ export async function createNfseRps(req: Request, res: Response) {
   } catch (error: any) {
     return fail(req, res, 422, "nfse_rps_invalid", error?.message || "Não foi possível gerar a RPS.");
   }
+}
+
+// Mantém a rota estável e resolve o provider pela configuração salva da conta.
+// A D2TI continua sendo emitida de forma síncrona; no Nacional é criada a DPS
+// rastreável, que segue a numeração e o layout do Emissor Público Nacional.
+export async function emitNfse(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, modoEmissaoNfse: true, provedorNfse: true } });
+  if (!config) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua a configuração fiscal antes de emitir a NFS-e.");
+  try {
+    if (resolveNfseProvider(config).mode === "LEGADO_D2TI") return emitNfseD2ti(req, res);
+  } catch (error: any) {
+    return fail(req, res, 422, "provider_not_supported", error.message || "O provider selecionado não está disponível para este município.");
+  }
+  return createNfseRps(req, res);
 }
 
 function onlyDigits(value: string | null | undefined) {

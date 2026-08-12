@@ -166,6 +166,10 @@ export async function emitirD2ti(input: D2tiEmission) {
   return { envelope, result: parseD2tiResponse(response.data) };
 }
 
-export function isD2tiSaoMateus(config: { codigoMunicipioIbge?: string | null; provedorNfse?: string | null }) {
-  return config.codigoMunicipioIbge === D2TI_SAO_MATEUS.codigoIbge || config.provedorNfse === D2TI_SAO_MATEUS.provedor;
+export function isD2tiSaoMateus(config: { codigoMunicipioIbge?: string | null; provedorNfse?: string | null; modoEmissaoNfse?: string | null }) {
+  // O município não define mais o emissor sozinho. A compatibilidade por
+  // provedor atende os registros anteriores à escolha explícita do modo.
+  const legacySelected = config.modoEmissaoNfse === "LEGADO_D2TI"
+    || (!config.modoEmissaoNfse && config.provedorNfse === D2TI_SAO_MATEUS.provedor);
+  return legacySelected && config.codigoMunicipioIbge === D2TI_SAO_MATEUS.codigoIbge;
 }
