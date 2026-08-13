@@ -13,6 +13,12 @@ module.exports = {
       exec_mode: "fork",
     },
     {
+      name: "worker-fiscal",
+      script: "dist/workers/fiscalEmissionWorker.js",
+      instances: 1,
+      exec_mode: "fork",
+    },
+    {
       name: "worker-notification",
       script: "dist/workers/pushNotificationWorker.js",
       instances: 1,

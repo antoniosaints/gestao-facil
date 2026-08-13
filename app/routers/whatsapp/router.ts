@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
+import { coreIaGate } from "../../middlewares/coreIaGate";
 import { createAgent, listAgents, removeAgent, updateAgent } from "../../controllers/whatsapp/agentes";
 import { getPainelAtendimento } from "../../controllers/whatsapp/painel";
 import { getRelatorioAtendimentos, getRelatorioAtendimentosResumo } from "../../controllers/whatsapp/relatorios";
@@ -52,6 +53,7 @@ routerWhatsapp.post("/webhooks/:instanceId", receiveWebhook);
 routerWhatsapp.post("/payments/webhooks/:instanceId", receivePaymentWebhook);
 
 routerWhatsapp.use(authenticateJWT);
+routerWhatsapp.use("/agentes", coreIaGate);
 routerWhatsapp.get("/instances", listInstances);
 routerWhatsapp.post("/instances", createInstance);
 // Registrada antes da catch-all `/instances/:id/:action` para não ser capturada por ela.

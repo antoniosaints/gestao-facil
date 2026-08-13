@@ -29,8 +29,11 @@ const configSchema = z.object({
   cep: text(16), logradouro: text(), numero: text(32), bairro: text(120), complemento: text(120),
   email: z.preprocess((value) => String(value ?? "").trim() || undefined, z.string().email().optional()),
   telefone: text(32), ambiente: z.enum(["HOMOLOGACAO", "PRODUCAO"]).default("HOMOLOGACAO"),
+  nfseHabilitado: z.boolean().default(false), nfeHabilitado: z.boolean().default(false), nfceHabilitado: z.boolean().default(false),
   modoEmissaoNfse: z.enum(["NACIONAL", "LEGADO_D2TI"]).default("NACIONAL"),
   provedorNfse: text(40).default("NACIONAL"), serieRps: z.coerce.number().int().min(1).max(999).default(1),
+  serieNfe: z.coerce.number().int().min(1).max(999).default(1), serieNfce: z.coerce.number().int().min(1).max(999).default(1),
+  nfceCscId: text(32), nfceCscToken: text(512),
   codigoServicoPadrao: text(32), descricaoServicoPadrao: text(250), codigoAtividadePadrao: text(10), descricaoAtividadePadrao: text(250),
   tipoTributacaoPadrao: z.coerce.number().int().min(1).max(9).nullable().optional(), tipoRecolhimentoPadrao: z.coerce.number().int().min(1).max(9).nullable().optional(),
   notaIntermediadaPadrao: z.coerce.number().int().min(1).max(2).default(2), aliquotaIssPadrao: z.coerce.number().min(0).max(100).nullable().optional(),
@@ -81,10 +84,18 @@ function mapConfig(config: any, conta: any) {
     email: value.email ?? conta.email ?? "",
     telefone: value.telefone ?? conta.telefone ?? "",
     ambiente: value.ambiente ?? "HOMOLOGACAO",
+    nfseHabilitado: Boolean(value.nfseHabilitado),
+    nfeHabilitado: Boolean(value.nfeHabilitado),
+    nfceHabilitado: Boolean(value.nfceHabilitado),
     modoEmissaoNfse: d2ti ? "LEGADO_D2TI" : "NACIONAL",
     provedorNfse: d2ti ? D2TI_SAO_MATEUS.provedor : (value.provedorNfse ?? "NACIONAL"),
     serieRps: value.serieRps ?? 1,
     proximoNumeroRps: value.proximoNumeroRps ?? 1,
+    serieNfe: value.serieNfe ?? 1,
+    proximoNumeroNfe: value.proximoNumeroNfe ?? 1,
+    serieNfce: value.serieNfce ?? 1,
+    proximoNumeroNfce: value.proximoNumeroNfce ?? 1,
+    nfce: { cscId: value.nfceCscId ?? "", cscConfigurado: Boolean(value.nfceCscTokenCifrado) },
     codigoServicoPadrao: value.codigoServicoPadrao ?? "",
     descricaoServicoPadrao: value.descricaoServicoPadrao ?? "",
     codigoAtividadePadrao: value.codigoAtividadePadrao ?? "",
@@ -104,8 +115,10 @@ function mapConfig(config: any, conta: any) {
       atualizadoEm: d2ti ? (value.tokenIntegracaoAtualizadoEm ?? null) : (value.certificadoAtualizadoEm ?? null),
     },
     emissaoNfsePronta: d2ti
-      ? Boolean(value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.tokenIntegracaoCifrado && value.codigoServicoPadrao && value.descricaoServicoPadrao && value.codigoAtividadePadrao && value.descricaoAtividadePadrao && value.tipoTributacaoPadrao && value.tipoRecolhimentoPadrao && value.aliquotaIssPadrao != null && hasFiscalCertificateEncryptionKey())
-      : Boolean(value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
+      ? Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.tokenIntegracaoCifrado && value.codigoServicoPadrao && value.descricaoServicoPadrao && value.codigoAtividadePadrao && value.descricaoAtividadePadrao && value.tipoTributacaoPadrao && value.tipoRecolhimentoPadrao && value.aliquotaIssPadrao != null && hasFiscalCertificateEncryptionKey())
+      : Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
+    emissaoNfePronta: Boolean(value.nfeHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
+    emissaoNfcePronta: Boolean(value.nfceHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.certificadoReferencia && value.certificadoSenhaCifrada && value.nfceCscId && value.nfceCscTokenCifrado && hasFiscalCertificateEncryptionKey()),
   };
 }
 
@@ -126,6 +139,8 @@ export async function saveFiscalConfig(req: Request, res: Response) {
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Revise os dados fiscais informados.", parsed.error.flatten());
   const { contaId } = getCustomRequest(req).customData;
   const data = parsed.data;
+  const nfceCscToken = data.nfceCscToken;
+  delete (data as any).nfceCscToken;
   if (data.modoEmissaoNfse === "LEGADO_D2TI" && data.codigoMunicipioIbge !== D2TI_SAO_MATEUS.codigoIbge) {
     return fail(req, res, 422, "legacy_provider_unavailable", "O emissor legado D2TI está disponível somente para São Mateus do Maranhão - MA.");
   }
@@ -140,8 +155,8 @@ export async function saveFiscalConfig(req: Request, res: Response) {
   }
   const config = await prisma.notaFiscalConfiguracao.upsert({
     where: { contaId },
-    create: { contaId, ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null },
-    update: { ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null },
+    create: { contaId, ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null, ...(nfceCscToken ? { nfceCscTokenCifrado: encryptFiscalSecret(nfceCscToken) } : {}) },
+    update: { ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null, ...(nfceCscToken ? { nfceCscTokenCifrado: encryptFiscalSecret(nfceCscToken) } : {}) },
   });
   const conta = await prisma.contas.findUniqueOrThrow({
     where: { id: contaId },
@@ -287,6 +302,7 @@ export async function createNfseRps(req: Request, res: Response) {
     if (!config?.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.certificadoReferencia || !config.certificadoSenhaCifrada) {
       throw new Error("Conclua a configuração fiscal, incluindo inscrição municipal, município e certificado A1, antes de gerar a NFS-e.");
     }
+    if (!config?.nfseHabilitado) throw new Error("Ative a NFS-e nas configurações fiscais antes de emitir.");
     const rpsNumero = config.proximoNumeroRps;
     await tx.notaFiscalConfiguracao.update({ where: { contaId }, data: { proximoNumeroRps: { increment: 1 } } });
     return tx.notaFiscal.create({
@@ -319,8 +335,9 @@ export async function createNfseRps(req: Request, res: Response) {
 // rastreável, que segue a numeração e o layout do Emissor Público Nacional.
 export async function emitNfse(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
-  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, modoEmissaoNfse: true, provedorNfse: true } });
+  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, modoEmissaoNfse: true, provedorNfse: true, nfseHabilitado: true } });
   if (!config) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua a configuração fiscal antes de emitir a NFS-e.");
+  if (!config.nfseHabilitado) return fail(req, res, 422, "fiscal_document_disabled", "Ative a NFS-e nas configurações fiscais antes de emitir.");
   try {
     if (resolveNfseProvider(config).mode === "LEGADO_D2TI") return emitNfseD2ti(req, res);
   } catch (error: any) {

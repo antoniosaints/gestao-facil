@@ -33,6 +33,8 @@ import {
   restoreComboVendaStock,
 } from "../../services/combos/comboService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import { createFiscalIntentForSale } from "../../services/notasFiscais/fiscalSaleService";
+import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -398,6 +400,19 @@ export const getVenda = async (req: Request, res: Response) => {
         ComboSaidas: {
           include: { componentes: { orderBy: { id: "asc" } } },
           orderBy: { ordem: "asc" },
+        },
+        NotaFiscals: {
+          select: {
+            id: true,
+            tipo: true,
+            numero: true,
+            chaveAcesso: true,
+            status: true,
+            xmlPath: true,
+            pdfPath: true,
+            erroMensagem: true,
+          },
+          orderBy: { criadoEm: "desc" },
         },
       },
     });
@@ -796,6 +811,9 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
     if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
       return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
     }
+    if (data.tipoDocumentoFiscal !== "NENHUM" && !(await contaHasActiveModule(customData.contaId, "notas-fiscais"))) {
+      return ResponseHandler(res, "O app Notas Fiscais precisa estar ativo para emitir pela venda.", { error: { code: "notas_fiscais_module_inactive" } }, 403);
+    }
 
     if (query.id) {
       const updated = await updateVendaInternal(
@@ -830,6 +848,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       ? new Decimal(data.desconto)
       : new Decimal(0);
 
+    let notaFiscalId: number | null = null;
     const resultado = await prisma.$transaction(async (tx) => {
       const venda = await tx.vendas.create({
         data: {
@@ -922,6 +941,11 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
         lines: comboItems.map((item) => ({ id: item.id, quantidade: item.quantidade })),
       });
 
+      if (data.tipoDocumentoFiscal !== "NENHUM") {
+        const nota = await createFiscalIntentForSale(tx, { contaId: customData.contaId, vendaId: venda.id, tipo: data.tipoDocumentoFiscal });
+        notaFiscalId = nota.id;
+      }
+
       // Crediario: gera o financeiro parcelado a receber da venda (mesma logica do PDV PRO).
       if (data.pagamento === "CREDIARIO") {
         await criarLancamentoCrediarioVenda(tx, {
@@ -940,6 +964,8 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
 
       return venda;
     });
+
+    if (notaFiscalId) await enqueueFiscalEmission(notaFiscalId);
 
     await enqueuePushNotificationByPreference(
       "VENDA_CONCLUIDA",

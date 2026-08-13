@@ -2,12 +2,14 @@ import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { prisma } from "../../utils/prisma";
 import { Prisma, StatusVenda } from "../../../generated";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 export const ListagemMobileVendas = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   const customData = getCustomRequest(req).customData;
+  const fiscalModuleActive = await contaHasActiveModule(customData.contaId, "notas-fiscais");
   const {
     status = null,
     search = undefined,
@@ -109,7 +111,17 @@ export const ListagemMobileVendas = async (
 
     const [data, total] = await Promise.all([
       model.findMany({
-        include: { cliente: true, vendedor: true },
+        include: {
+          cliente: true,
+          vendedor: true,
+          ...(fiscalModuleActive ? {
+            NotaFiscals: {
+              select: { id: true, tipo: true, numero: true, status: true },
+              orderBy: { criadoEm: "desc" },
+              take: 1,
+            },
+          } : {}),
+        },
         where,
         skip,
         take,

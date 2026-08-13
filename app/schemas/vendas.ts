@@ -171,6 +171,7 @@ export const vendaSchema = z.object(
       })
       .optional()
       .default("OUTRO"),
+    tipoDocumentoFiscal: z.enum(["NENHUM", "NFE", "NFCE"]).default("NENHUM"),
     pagamentos: z.array(pagamentoCompostoVendaSchema).min(1).max(8).optional(),
     crediarioParcelas: z
       .number({

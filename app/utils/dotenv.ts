@@ -68,6 +68,9 @@ const envSchema = z
     // Chave exclusiva de 32 bytes em hex (64 caracteres) para cifrar certificados A1 e
     // suas senhas antes de persistir no R2/banco. Nunca usar JWT_SECRET para este fim.
     FISCAL_CERTIFICATE_ENC_KEY: optionalEnvString,
+    // Credencial da conta integradora TecnoSpeed PlugNotas. Nunca chega ao navegador.
+    PLUGNOTAS_API_KEY: optionalEnvString,
+    PLUGNOTAS_WEBHOOK_SECRET: optionalEnvString,
     // O webservice legado D2TI de São Mateus do Maranhão publica somente HTTP.
     // Produção fica bloqueada por padrão para não enviar o token municipal em texto claro.
     FISCAL_ALLOW_INSECURE_D2TI_HTTP: z.enum(["true", "false"]).default("false"),

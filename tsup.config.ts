@@ -8,6 +8,7 @@ export default defineConfig({
     'app/workers/whatsappNotificationWorker.ts',
     'app/workers/whatsappWebhookWorker.ts',
     'app/workers/cronJobsWorker.ts',
+    'app/workers/fiscalEmissionWorker.ts',
   ],
   format: ['cjs'],
   clean: true,

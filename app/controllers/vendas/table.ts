@@ -11,9 +11,11 @@ import { ptBR } from "date-fns/locale";
 import { isAccountOverdue } from "../../routers/web";
 import { formatLabel } from "../../helpers/formatters";
 import { hasPermission } from "../../helpers/userPermission";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 
 export const tableVendas = async (req: Request, res: Response) => {
   const customData = getCustomRequest(req).customData;
+  const fiscalModuleActive = await contaHasActiveModule(customData.contaId, "notas-fiscais");
   const page = parseInt(req.query.page as string) || 1;
   const pageSize = clampPageSize(req.query.pageSize);
   const search = (req.query.search as string) || "";
@@ -129,6 +131,22 @@ export const tableVendas = async (req: Request, res: Response) => {
     include: {
       cliente: true,
       vendedor: true,
+      ...(fiscalModuleActive ? {
+        NotaFiscals: {
+          select: {
+            id: true,
+            tipo: true,
+            numero: true,
+            chaveAcesso: true,
+            status: true,
+            xmlPath: true,
+            pdfPath: true,
+            erroMensagem: true,
+          },
+          orderBy: { criadoEm: "desc" },
+          take: 1,
+        },
+      } : {}),
     },
   });
 

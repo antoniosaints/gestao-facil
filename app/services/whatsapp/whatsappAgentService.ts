@@ -7,6 +7,7 @@ import { AgentHistoryItem, generateAgentReply, geminiSupportsMime } from "./what
 import { iaPlatformService } from "../ia/iaPlatformService";
 import { iaUsageService } from "../ia/iaUsageService";
 import { sendWhatsAppConversationUpdated, sendWhatsAppMessageCreated } from "../../hooks/whatsapp/socket";
+import { contaHasActiveModule } from "../contas/storeModulesService";
 
 export interface AgentInput {
   nome: string;
@@ -220,6 +221,7 @@ export const whatsAppAgentService = {
   }) {
     const { contaId, instance, conversa, incoming } = params;
     try {
+      if (!(await contaHasActiveModule(contaId, "core-ia"))) return;
       if (conversa.status !== "PENDENTE" || conversa.atendenteId) return;
 
       const link = await prisma.whatsAppAgenteInstancia.findUnique({

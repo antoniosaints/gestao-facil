@@ -44,6 +44,8 @@ import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import { createComboVendaSaidas } from "../../services/combos/comboService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
+import { createFiscalIntentForSale } from "../../services/notasFiscais/fiscalSaleService";
+import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
 
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -1561,12 +1563,16 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
     }
 
     const data = parsed.data;
+    if (data.tipoDocumentoFiscal !== "NENHUM" && !(await contaHasActiveModule(customData.contaId, "notas-fiscais"))) {
+      return ResponseHandler(res, "O app Notas Fiscais precisa estar ativo para emitir pela venda.", { error: { code: "notas_fiscais_module_inactive" } }, 403);
+    }
     if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
       return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
     }
     const desconto = decimalFrom(data.desconto);
     const valorRecebido = decimalFrom(data.valorRecebido);
 
+    let notaFiscalId: number | null = null;
     const resultado = await prisma.$transaction(async (tx) => {
       const caixa = await getCaixaAbertoOrThrow(
         tx,
@@ -1740,6 +1746,11 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         lines: comboLines,
       });
 
+      if (data.tipoDocumentoFiscal !== "NENHUM") {
+        const nota = await createFiscalIntentForSale(tx, { contaId: customData.contaId, vendaId: venda.id, tipo: data.tipoDocumentoFiscal });
+        notaFiscalId = nota.id;
+      }
+
       // Cada recebimento efetivo vira uma movimentação do caixa. A parte em
       // crediário fica somente no financeiro, pois ainda não entrou no caixa.
       for (const pagamento of pagamentos.filter((item) => item.metodo !== "CREDIARIO")) {
@@ -1831,6 +1842,8 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
         },
       });
     });
+
+    if (notaFiscalId) await enqueueFiscalEmission(notaFiscalId);
 
     await enqueuePushNotificationByPreference(
       "VENDA_CONCLUIDA",

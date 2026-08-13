@@ -93,6 +93,7 @@ export const finalizarVendaPdvSchema = z.object({
     }),
   desconto: z.number().min(0).optional().default(0),
   pagamento: z.enum(metodoPagamentoValues),
+  tipoDocumentoFiscal: z.enum(["NENHUM", "NFE", "NFCE"]).default("NENHUM"),
   pagamentos: z.array(pagamentoCompostoSchema).min(1).max(8).optional(),
   valorRecebido: z.union([z.number(), z.string()]).nullable().optional(),
   crediarioParcelas: z.number().int().min(1).max(36).nullable().optional(),

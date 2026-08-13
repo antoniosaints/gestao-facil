@@ -6,6 +6,7 @@
 ## Processos atuais
 - `whatsappWebhookWorker.ts`: processa a inbox durável `WhatsAppWebhookEvento` no MySQL com transação, retry e retenção, sem usar Redis como fila.
 - `sendEmailWorker.ts`: consome a fila BullMQ `email` e envia e-mails transacionais pelo Resend com retry.
+- `fiscalEmissionWorker.ts`: consome a fila `fiscal-emission`, envia NF-e/NFC-e ao PlugNotas com retry e reconcilia documentos pendentes a cada minuto. O banco mantém a intenção e os snapshots; o webhook apenas acelera a atualização.
 - `pushNotificationWorker.ts`: consome a fila de push.
 - `whatsappNotificationWorker.ts`: consome a fila `whatsapp-notifications` para notificações administrativas e cobranças manuais destinadas a clientes. Cobranças solicitadas por “enviar agora” entram sem delay e usam até três tentativas com backoff.
 - `cronJobsWorker.ts`: processo separado que inicializa os workers/schedulers recorrentes; ele não é importado por `server.ts`.
