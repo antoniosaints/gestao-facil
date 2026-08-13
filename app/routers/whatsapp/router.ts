@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { coreIaGate } from "../../middlewares/coreIaGate";
-import { createAgent, listAgents, removeAgent, updateAgent } from "../../controllers/whatsapp/agentes";
+import { createAgent, listAgents, removeAgent, testAgent, updateAgent } from "../../controllers/whatsapp/agentes";
 import { getPainelAtendimento } from "../../controllers/whatsapp/painel";
 import { getRelatorioAtendimentos, getRelatorioAtendimentosResumo } from "../../controllers/whatsapp/relatorios";
 import {
@@ -79,6 +79,7 @@ routerWhatsapp.delete("/contatos/:id", removeContact);
 routerWhatsapp.get("/agentes", listAgents);
 routerWhatsapp.post("/agentes", createAgent);
 routerWhatsapp.put("/agentes/:id", updateAgent);
+routerWhatsapp.post("/agentes/:id/teste", testAgent);
 routerWhatsapp.delete("/agentes/:id", removeAgent);
 
 routerWhatsapp.get("/graficos/painel", getPainelAtendimento);

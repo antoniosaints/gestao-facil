@@ -704,16 +704,21 @@ export const whatsAppService = {
   async removeInstance(contaId: number, id: number) {
     const instance = await getInstanceById(contaId, id);
 
-    const updated = await prisma.whatsAppInstancia.update({
-      where: { id },
-      data: {
-        ativo: false,
-        status: WhatsAppInstanciaStatus.DESCONECTADA,
-        instanceId: buildDeletedWhatsAppInstanceId(instance.instanceId, id),
-        token: "",
-        ultimoErro: null,
-        lastSyncAt: new Date(),
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      // A instância é desativada para preservar histórico, mas não pode permanecer como
+      // agente padrão em uma triagem futura.
+      await tx.whatsAppAgenteInstancia.deleteMany({ where: { contaId, instanciaId: id } });
+      return tx.whatsAppInstancia.update({
+        where: { id },
+        data: {
+          ativo: false,
+          status: WhatsAppInstanciaStatus.DESCONECTADA,
+          instanceId: buildDeletedWhatsAppInstanceId(instance.instanceId, id),
+          token: "",
+          ultimoErro: null,
+          lastSyncAt: new Date(),
+        },
+      });
     });
 
     sendWhatsAppInstanceUpdated(contaId, publicInstance(updated));

@@ -1,0 +1,2 @@
+ALTER TABLE `WhatsAppAgente`
+  ADD COLUMN `delaySegundos` INTEGER NOT NULL DEFAULT 0;

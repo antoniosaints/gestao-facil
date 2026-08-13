@@ -8,12 +8,14 @@ import { iaPlatformService } from "../ia/iaPlatformService";
 import { iaUsageService } from "../ia/iaUsageService";
 import { sendWhatsAppConversationUpdated, sendWhatsAppMessageCreated } from "../../hooks/whatsapp/socket";
 import { contaHasActiveModule } from "../contas/storeModulesService";
+import { createRestaurantOrderFromAssistant, restaurantAssistantContext } from "./restaurantAgentTools";
 
 export interface AgentInput {
   nome: string;
   prompt: string;
   modelo?: string;
   ativo?: boolean;
+  delaySegundos?: number;
   horaInicio?: string | null;
   horaFim?: string | null;
   diasSemana?: string | null;
@@ -25,7 +27,64 @@ const CONVERSATION_INCLUDE = {
   Cliente: { select: { id: true, nome: true, telefone: true, whastapp: true } },
   Atendente: { select: { id: true, nome: true } },
   Instancia: { select: { id: true, nome: true, status: true, numeroConectado: true } },
+  AgenteAtual: { select: { id: true, nome: true } },
 } satisfies Prisma.WhatsAppConversaInclude;
+
+const RESTAURANT_INTENT = /\b(card[aá]pio|restaurante|pedido|pedir|lanche|pizza|hamb[uú]rguer|hamburger|complemento|adicional|entrega|retirada|pix)\b/i;
+
+function wantsRestaurantTools(text: string, history: AgentHistoryItem[]) {
+  return RESTAURANT_INTENT.test(`${history.map((item) => item.text).join(" ")} ${text}`);
+}
+
+function stripInternalDirectives(text: string) {
+  const start = text.search(/\[\[CRIAR_PEDIDO:/i);
+  const end = start >= 0 ? endOfOrderDirective(text, start) : -1;
+  return (end >= 0 ? `${text.slice(0, start)}${text.slice(end)}` : text)
+    .replace(/^\s*(?:\[\[)?\/?transferir\s*[: ]\s*\d+\s*(?:\]\])?\s*$/gim, "")
+    .trim();
+}
+
+function transferDirective(text: string) {
+  // Aceita a diretiva em uma linha isolada mesmo quando o modelo acrescenta uma frase antes
+  // ou depois. O comando ainda precisa apontar para um agente elegível do tenant.
+  const match = text.match(/^\s*(?:\[\[)?\/?transferir\s*[: ]\s*(\d+)\s*(?:\]\])?\s*$/im);
+  return match ? Number(match[1]) : null;
+}
+
+function orderDirective(text: string): unknown | null {
+  const start = text.search(/\[\[CRIAR_PEDIDO:/i);
+  if (start < 0) return null;
+  const prefixEnd = text.indexOf(":", start) + 1;
+  const jsonStart = text.indexOf("{", prefixEnd);
+  const end = endOfOrderDirective(text, start);
+  if (jsonStart < 0 || end < 0) return null;
+  try { return JSON.parse(text.slice(jsonStart, end - 2).trim()); } catch { return null; }
+}
+
+// A diretiva contém JSON aninhado (cliente/endereço/itens); regex não é segura para achar seu fim.
+function endOfOrderDirective(text: string, start: number) {
+  const jsonStart = text.indexOf("{", start);
+  if (jsonStart < 0) return -1;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = jsonStart; index < text.length; index += 1) {
+    const char = text[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
+      continue;
+    }
+    if (char === '"') quoted = true;
+    else if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0 && text.slice(index + 1, index + 3) === "]]" ) return index + 3;
+    }
+  }
+  return -1;
+}
 
 function normalizeDias(value?: string | null): string {
   const dias = String(value ?? "0,1,2,3,4,5,6")
@@ -38,6 +97,35 @@ function normalizeDias(value?: string | null): string {
 export function normalizeHora(value?: string | null): string | null {
   const hora = String(value ?? "").trim();
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora) ? hora : null;
+}
+
+function normalizeDelay(value?: number | null): number {
+  const delay = Number(value);
+  return Number.isInteger(delay) && delay >= 0 && delay <= 120 ? delay : 0;
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+// Enquanto o agente aguarda, novas mensagens do cliente reiniciam a contagem por meio
+// do seu próprio processamento. Só a última mensagem recebida pode disparar a IA.
+async function canGenerateReplyAfterDelay(contaId: number, conversaId: number, incomingMessageId: number) {
+  const [conversa, latestIncoming] = await Promise.all([
+    prisma.whatsAppConversa.findFirst({
+      where: { id: conversaId, contaId },
+      select: { status: true, atendenteId: true },
+    }),
+    prisma.whatsAppMensagem.findFirst({
+      where: { contaId, conversaId, direcao: WhatsAppMensagemDirecao.ENTRADA },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    }),
+  ]);
+
+  return conversa?.status === "PENDENTE"
+    && !conversa.atendenteId
+    && latestIncoming?.id === incomingMessageId;
 }
 
 // Está dentro da janela de horário [inicio, fim] (fuso America/Sao_Paulo)? Horário não definido
@@ -150,7 +238,7 @@ export const whatsAppAgentService = {
     const agents = await prisma.whatsAppAgente.findMany({
       where: { contaId },
       orderBy: [{ ativo: "desc" }, { updatedAt: "desc" }],
-      include: { instancias: { select: { instanciaId: true } } },
+      include: { instancias: { where: { Instancia: { ativo: true } }, select: { instanciaId: true } } },
     });
     return agents.map(publicAgent);
   },
@@ -158,7 +246,7 @@ export const whatsAppAgentService = {
   async getAgent(contaId: number, id: number) {
     const agent = await prisma.whatsAppAgente.findFirst({
       where: { id, contaId },
-      include: { instancias: { select: { instanciaId: true } } },
+      include: { instancias: { where: { Instancia: { ativo: true } }, select: { instanciaId: true } } },
     });
     if (!agent) throw new Error("Agente não encontrado para esta conta");
     return publicAgent(agent);
@@ -175,6 +263,7 @@ export const whatsAppAgentService = {
         prompt: input.prompt.trim(),
         modelo,
         ativo: input.ativo ?? true,
+        delaySegundos: normalizeDelay(input.delaySegundos),
         horaInicio: normalizeHora(input.horaInicio),
         horaFim: normalizeHora(input.horaFim),
         diasSemana: normalizeDias(input.diasSemana),
@@ -194,6 +283,7 @@ export const whatsAppAgentService = {
       data.modelo = input.modelo.trim();
     }
     if (typeof input.ativo === "boolean") data.ativo = input.ativo;
+    if (typeof input.delaySegundos === "number") data.delaySegundos = normalizeDelay(input.delaySegundos);
     if ("horaInicio" in input) data.horaInicio = normalizeHora(input.horaInicio);
     if ("horaFim" in input) data.horaFim = normalizeHora(input.horaFim);
     if ("diasSemana" in input) data.diasSemana = normalizeDias(input.diasSemana);
@@ -207,6 +297,36 @@ export const whatsAppAgentService = {
     await this.getAgent(contaId, id);
     await prisma.whatsAppAgente.delete({ where: { id } });
     return { id };
+  },
+
+  // Homologação segura: usa instruções e consultas reais, mas não cria pedido, não transfere
+  // conversa e não envia nenhuma mensagem ao WhatsApp.
+  async testAgent(contaId: number, id: number, message: string, history: AgentHistoryItem[] = []) {
+    const agent = await prisma.whatsAppAgente.findFirst({ where: { id, contaId } });
+    if (!agent) throw new Error("Agente não encontrado para esta conta");
+    const apiKey = await iaPlatformService.getDefaultApiKey();
+    if (!apiKey) throw new Error("Nenhuma chave de IA está configurada pela plataforma");
+    const targets = await prisma.whatsAppAgente.findMany({ where: { contaId, id: { not: id }, ativo: true }, select: { id: true, nome: true, ativo: true, diasSemana: true, horaInicio: true, horaFim: true } });
+    const restaurant = wantsRestaurantTools(message, history) ? await restaurantAssistantContext(contaId) : null;
+    const eligibleTargets = targets.filter(agentAttendsNow);
+    let activeAgent = agent;
+    let reply = await generateAgentReply({ apiKey, modelo: agent.modelo, systemPrompt: buildSystemPrompt(agent, eligibleTargets, restaurant?.prompt, true), history, userText: message });
+    await iaUsageService.recordUsage({ contaId, feature: "atendimento_agente_teste", modelId: agent.modelo, ...reply.usage });
+    let transferredTo: { id: number; nome: string } | null = null;
+    const transferTo = transferDirective(reply.text || "");
+    if (transferTo) {
+      const target = eligibleTargets.find((candidate) => candidate.id === transferTo);
+      if (target) {
+        const nextAgent = await prisma.whatsAppAgente.findFirst({ where: { id: target.id, contaId } });
+        if (nextAgent) {
+          activeAgent = nextAgent;
+          transferredTo = { id: nextAgent.id, nome: nextAgent.nome };
+          reply = await generateAgentReply({ apiKey, modelo: nextAgent.modelo, systemPrompt: buildSystemPrompt(nextAgent, [], restaurant?.prompt, true), history, userText: message });
+          await iaUsageService.recordUsage({ contaId, feature: "atendimento_agente_teste", modelId: nextAgent.modelo, ...reply.usage });
+        }
+      }
+    }
+    return { text: stripInternalDirectives(reply.text || "") || "O agente não gerou uma resposta.", restaurantToolsEnabled: Boolean(restaurant), agent: { id: activeAgent.id, nome: activeAgent.nome }, transferredTo };
   },
 
   // Autoatendimento: chamado ao receber uma mensagem do cliente. Só age se a conversa está em
@@ -224,12 +344,26 @@ export const whatsAppAgentService = {
       if (!(await contaHasActiveModule(contaId, "core-ia"))) return;
       if (conversa.status !== "PENDENTE" || conversa.atendenteId) return;
 
-      const link = await prisma.whatsAppAgenteInstancia.findUnique({
-        where: { contaId_instanciaId: { contaId, instanciaId: instance.id } },
-        include: { Agente: true },
+      const assigned = await prisma.whatsAppConversa.findFirst({ where: { id: conversa.id, contaId }, select: { agenteId: true } });
+      const assignedAgent = assigned?.agenteId
+        ? await prisma.whatsAppAgente.findFirst({ where: { id: assigned.agenteId, contaId } })
+        : null;
+      const link = assignedAgent ? null : await prisma.whatsAppAgenteInstancia.findUnique({
+        where: { contaId_instanciaId: { contaId, instanciaId: instance.id } }, include: { Agente: true },
       });
-      const agent = link?.Agente;
+      let agent = assignedAgent || link?.Agente;
       if (!agent || !agentAttendsNow(agent)) return;
+
+      const delayMs = normalizeDelay(agent.delaySegundos) * 1000;
+      if (delayMs) {
+        await wait(delayMs);
+        if (!(await canGenerateReplyAfterDelay(contaId, conversa.id, params.incomingMessageId))) return;
+
+        // A configuração pode ter mudado durante a espera; não gere com um agente desativado.
+        const refreshedAgent = await prisma.whatsAppAgente.findFirst({ where: { id: agent.id, contaId, ativo: true } });
+        if (!refreshedAgent || !agentAttendsNow(refreshedAgent)) return;
+        agent = refreshedAgent;
+      }
 
       const previas = await prisma.whatsAppMensagem.findMany({
         where: { contaId, conversaId: conversa.id, id: { not: params.incomingMessageId } },
@@ -265,10 +399,18 @@ export const whatsAppAgentService = {
         return;
       }
 
-      const reply = await generateAgentReply({
+      const transferTargets = await prisma.whatsAppAgente.findMany({
+        where: { contaId, id: { not: agent.id }, ativo: true },
+        select: { id: true, nome: true, ativo: true, diasSemana: true, horaInicio: true, horaFim: true },
+      });
+      const eligibleTargets = transferTargets.filter(agentAttendsNow);
+      const restaurant = wantsRestaurantTools(incoming.conteudo || "", history)
+        ? await restaurantAssistantContext(contaId)
+        : null;
+      let reply = await generateAgentReply({
         apiKey,
         modelo: agent.modelo,
-        systemPrompt: buildSystemPrompt(agent),
+        systemPrompt: buildSystemPrompt(agent, eligibleTargets, restaurant?.prompt),
         history,
         userText: incoming.conteudo || (media ? "(o cliente enviou um anexo)" : "(mensagem sem texto)"),
         media,
@@ -282,8 +424,47 @@ export const whatsAppAgentService = {
         ...reply.usage,
       });
 
-      if (reply.text?.trim()) {
-        await this.sendAgentMessage(contaId, instance, conversa.id, conversa.telefone, reply.text.trim());
+      const transferTo = transferDirective(reply.text || "");
+      if (transferTo) {
+        const target = eligibleTargets.find((candidate) => candidate.id === transferTo);
+        if (target) {
+          const nextAgent = await prisma.whatsAppAgente.findFirst({ where: { id: target.id, contaId } });
+          if (nextAgent) {
+            await prisma.$transaction([
+              prisma.whatsAppConversa.update({ where: { id: conversa.id }, data: { agenteId: nextAgent.id } }),
+              prisma.whatsAppConversaEvento.create({ data: { contaId, conversaId: conversa.id, tipo: "TRANSFERIDA_AGENTE" } }),
+            ]);
+            agent = nextAgent;
+            reply = await generateAgentReply({
+              apiKey, modelo: agent.modelo, systemPrompt: buildSystemPrompt(agent, [], restaurant?.prompt), history,
+              userText: incoming.conteudo || "(mensagem sem texto)", media,
+            });
+            await iaUsageService.recordUsage({ contaId, feature: "atendimento_agente", modelId: agent.modelo, ...reply.usage });
+          }
+        }
+      }
+
+      const draft = restaurant ? orderDirective(reply.text || "") : null;
+      let responseText = stripInternalDirectives(reply.text || "");
+      let pixQrCode: string | null = null;
+      if (draft) {
+        try {
+          const order = await createRestaurantOrderFromAssistant({ contaId, idempotencyKey: `wa-agent-${conversa.id}-${params.incomingMessageId}`, draft });
+          const total = new Decimal(order.pedido.total).toFixed(2).replace(".", ",");
+          responseText = `Pedido ${order.pedido.codigo} confirmado. Total: R$ ${total}.`;
+          if (order.paymentAction?.pixCopiaCola) {
+            responseText += `\n\nPix copia e cola:\n${order.paymentAction.pixCopiaCola}\n\nEnviei também o QR Code para pagamento.`;
+            pixQrCode = order.paymentAction.qrCodeDataUrl || null;
+          }
+        } catch (error: any) {
+          responseText = error?.message || "Não foi possível confirmar o pedido. Revise os dados e tente novamente.";
+        }
+      }
+      if (responseText) {
+        await this.sendAgentMessage(contaId, instance, conversa.id, conversa.telefone, responseText);
+      }
+      if (pixQrCode) {
+        await this.sendAgentImage(contaId, instance, conversa.id, conversa.telefone, pixQrCode, "QR Code Pix do pedido");
       }
     } catch (error) {
       console.warn(`[whatsapp-agent] falha no autoatendimento conversa=${conversa.id}`, error);
@@ -339,6 +520,20 @@ export const whatsAppAgentService = {
       });
     }
   },
+
+  async sendAgentImage(contaId: number, instance: { id: number; instanceId: string; token: string }, conversaId: number, telefone: string, mediaUrl: string, caption: string) {
+    const messageId = `agent-image-${contaId}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    const pending = await prisma.whatsAppMensagem.create({ data: { contaId, conversaId, instanciaId: instance.id, direcao: WhatsAppMensagemDirecao.SAIDA, tipo: WhatsAppMensagemTipo.IMAGEM, externalMessageId: messageId, conteudo: caption, mediaUrl, origem: WhatsAppMensagemOrigem.AGENTE_IA, statusEnvio: WhatsAppMensagemStatus.PENDENTE } });
+    sendWhatsAppMessageCreated(contaId, pending);
+    try {
+      const client = new WApiClient(instance.instanceId, instance.token);
+      const result = await client.send("image", { phone: telefone, mediaUrl, caption, messageId });
+      const updated = await prisma.whatsAppMensagem.update({ where: { id: pending.id }, data: { externalMessageId: wApiMessageIdFromResponse(result) || messageId, statusEnvio: WhatsAppMensagemStatus.ENVIADA, enviadoEm: new Date(), rawPayload: safeJson(result) } });
+      sendWhatsAppMessageCreated(contaId, updated);
+    } catch (error: any) {
+      await prisma.whatsAppMensagem.update({ where: { id: pending.id }, data: { statusEnvio: WhatsAppMensagemStatus.ERRO, erroEnvio: error?.response?.data ? safeJson(error.response.data) : error?.message || "Erro ao enviar QR Code Pix" } });
+    }
+  },
 };
 
 function safeJson(value: unknown) {
@@ -349,7 +544,7 @@ function safeJson(value: unknown) {
   }
 }
 
-function buildSystemPrompt(agent: { nome: string; prompt: string }): string {
+function buildSystemPrompt(agent: { nome: string; prompt: string }, transferTargets: Array<{ id: number; nome: string }>, restaurantPrompt?: string, testMode = false): string {
   const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   return [
     agent.prompt,
@@ -359,6 +554,12 @@ function buildSystemPrompt(agent: { nome: string; prompt: string }): string {
     "Responda de forma curta, cordial e objetiva, como em uma conversa de WhatsApp.",
     "Escreva no mesmo idioma do cliente. Não invente informações que você não tem.",
     "Se o cliente pedir algo que exige um humano, informe que vai encaminhar para um atendente.",
+    ...(transferTargets.length ? [
+      `Agentes especialistas disponíveis: ${transferTargets.map((target) => `${target.nome} (id ${target.id})`).join(", ")}.`,
+      "Quando outro especialista for mais adequado, responda somente em uma linha com `/transferir ID`. Isso é interno e não deve ser explicado ao cliente.",
+    ] : []),
+    ...(restaurantPrompt ? [restaurantPrompt] : []),
+    ...(testMode ? ["--- Modo de teste ---", "Nunca execute diretivas internas, crie pedido ou envie WhatsApp neste modo."] : []),
     `Data de hoje: ${hoje}.`,
   ].join("\n");
 }

@@ -3570,6 +3570,7 @@ enum WhatsAppConversaEventoTipo {
   ENFILEIRADA // entrou na fila aguardando atendimento humano
   ASSUMIDA // um atendente assumiu
   FINALIZADA // atendimento encerrado
+  TRANSFERIDA_AGENTE // o orquestrador mudou o agente responsavel sem expor isso ao cliente
 }
 
 enum WhatsAppMensagemTipo {
@@ -3682,6 +3683,9 @@ model WhatsAppAgente {
   prompt     String                    @db.Text
   modelo     String                    @default("gemini-2.0-flash")
   ativo      Boolean                   @default(true)
+  // Intervalo, em segundos, aplicado pela fila da W-API entre respostas deste agente.
+  // Zero mantém o comportamento imediato configurado anteriormente.
+  delaySegundos Int                     @default(0)
   // Janela de atendimento (horário local America/Sao_Paulo). Nulo = sem restrição de horário.
   horaInicio String?
   horaFim    String?
@@ -3690,6 +3694,7 @@ model WhatsAppAgente {
   createdAt  DateTime                  @default(now())
   updatedAt  DateTime                  @updatedAt
   instancias WhatsAppAgenteInstancia[]
+  conversasAtuais WhatsAppConversa[]   @relation("WhatsAppConversaAgenteAtual")
 
   @@index([contaId, ativo])
 }
@@ -3805,6 +3810,10 @@ model WhatsAppConversa {
   status            WhatsAppConversaStatus   @default(ABERTA)
   atendenteId       Int?
   Atendente         Usuarios?                @relation("WhatsAppAtendente", fields: [atendenteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  // Agente que assumiu esta conversa. Nulo significa que a proxima resposta usa o agente padrao
+  // da instancia; assim a transferencia preserva todo o historico sem alterar o cliente.
+  agenteId          Int?
+  AgenteAtual       WhatsAppAgente?          @relation("WhatsAppConversaAgenteAtual", fields: [agenteId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   setor             String?
   fila              String?
   canal             String                   @default("whatsapp")
@@ -3824,6 +3833,7 @@ model WhatsAppConversa {
   @@unique([contaId, instanciaId, telefone])
   @@index([contaId, status, ultimaInteracaoEm])
   @@index([contaId, atendenteId])
+  @@index([contaId, agenteId])
   @@index([contaId, clienteId])
   @@index([contaId, filaDesde])
 }

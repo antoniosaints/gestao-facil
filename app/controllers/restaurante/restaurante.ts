@@ -288,13 +288,13 @@ function notifyRestaurant(contaId: number, event: "pedido" | "mesas" | "kds" | "
   }
 }
 
-class CheckoutError extends Error {
+export class CheckoutError extends Error {
   constructor(public code: string, message: string, public status = 422) {
     super(message);
   }
 }
 
-async function calculatePublicCheckout(
+export async function calculatePublicCheckout(
   config: any,
   input: z.infer<typeof checkoutPreviewSchema>,
   enforceMinimum = false,

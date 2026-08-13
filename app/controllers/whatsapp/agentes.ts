@@ -29,6 +29,7 @@ const agentSchema = z.object({
   prompt: z.string().min(10, "Descreva o comportamento do agente (prompt)"),
   modelo: z.string().min(1).optional(),
   ativo: z.boolean().optional(),
+  delaySegundos: z.coerce.number().int().min(0).max(120, "O atraso máximo é de 120 segundos").optional(),
   horaInicio: horaSchema,
   horaFim: horaSchema,
   diasSemana: z.string().nullable().optional(),
@@ -36,6 +37,10 @@ const agentSchema = z.object({
 });
 
 const agentUpdateSchema = agentSchema.partial();
+const testSchema = z.object({
+  mensagem: z.string().trim().min(1).max(8000),
+  historico: z.array(z.object({ role: z.enum(["user", "model"]), text: z.string().trim().min(1).max(8000) })).max(20).default([]),
+});
 
 export const listAgents = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -81,6 +86,18 @@ export const removeAgent = async (req: Request, res: Response): Promise<any> => 
     if (!customData) return;
     const result = await whatsAppAgentService.removeAgent(customData.contaId, Number(req.params.id));
     ResponseHandler(res, "Agente removido", result);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const testAgent = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = await requireAdmin(req, res);
+    if (!customData) return;
+    const data = testSchema.parse(req.body);
+    const result = await whatsAppAgentService.testAgent(customData.contaId, Number(req.params.id), data.mensagem, data.historico);
+    ResponseHandler(res, "Teste do agente concluído", result);
   } catch (error) {
     handleError(res, error);
   }
