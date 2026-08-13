@@ -544,8 +544,23 @@ function safeJson(value: unknown) {
   }
 }
 
+function currentDateTimeInBrasilia(now = new Date()) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(now);
+}
+
 function buildSystemPrompt(agent: { nome: string; prompt: string }, transferTargets: Array<{ id: number; nome: string }>, restaurantPrompt?: string, testMode = false): string {
-  const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  // Calculado no instante em que cada resposta é gerada, depois de eventual atraso configurado.
+  const agora = currentDateTimeInBrasilia();
   return [
     agent.prompt,
     "",
@@ -560,6 +575,6 @@ function buildSystemPrompt(agent: { nome: string; prompt: string }, transferTarg
     ] : []),
     ...(restaurantPrompt ? [restaurantPrompt] : []),
     ...(testMode ? ["--- Modo de teste ---", "Nunca execute diretivas internas, crie pedido ou envie WhatsApp neste modo."] : []),
-    `Data de hoje: ${hoje}.`,
+    `Data e hora atuais: ${agora} (fuso America/Sao_Paulo, horário de Brasília). Use esta referência para prazos, funcionamento e perguntas temporais; não presuma que este é o fuso do cliente.`,
   ].join("\n");
 }
