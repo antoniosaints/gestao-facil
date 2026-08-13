@@ -34,6 +34,7 @@ import { buildScopedUploadKey, uploadPublicFile } from "../uploads/fileStorageSe
 import { downscaleImage } from "../uploads/imageProcessingService";
 import { transcodeAudioToOgg } from "../uploads/audioProcessingService";
 import { resolveWebhookIdentity } from "./whatsappWebhookPolicy";
+import { getAtendimentoAccess } from "./atendimentoAccess";
 
 const DEFAULT_TAKE = 50;
 const MAX_TAKE = 100;
@@ -1921,6 +1922,11 @@ export const whatsAppService = {
       const error = new Error("Instância de webhook inválida ou inativa");
       (error as any).statusCode = 404;
       throw error;
+    }
+
+    const atendimentoAccess = await getAtendimentoAccess(instance.contaId);
+    if (!atendimentoAccess.enabled) {
+      return { accepted: false, ignored: true, reason: atendimentoAccess.reason };
     }
 
     const { eventId, tipo } = resolveWebhookIdentity(explicitKind, payload);

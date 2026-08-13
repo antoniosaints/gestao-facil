@@ -23,6 +23,7 @@ import {
   publicInstance,
   safeJson,
 } from "./whatsappService";
+import { getAtendimentoAccess } from "./atendimentoAccess";
 
 export class DeferredWebhookError extends Error {
   constructor(message: string) {
@@ -116,6 +117,15 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
     const instance = await tx.whatsAppInstancia.findUnique({ where: { id: event.instanciaId } });
     if (!instance || !instance.ativo) {
       await markIgnored(tx, event.id, "instancia-inativa-ou-removida");
+      return { contaId: event.contaId };
+    }
+
+    // Um evento pode ter sido aceito pouco antes do app/menu ser desativado.
+    // Preservamos a inbox já existente para auditoria, mas não criamos contato,
+    // conversa, mensagem ou automação de Atendimento depois da desativação.
+    const atendimentoAccess = await getAtendimentoAccess(instance.contaId);
+    if (!atendimentoAccess.enabled) {
+      await markIgnored(tx, event.id, `atendimento-${atendimentoAccess.reason}`);
       return { contaId: event.contaId };
     }
 

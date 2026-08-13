@@ -5,7 +5,7 @@
   "scripts": {
     "build": "prisma generate && tsup --config tsup.config.ts",
     "test:email-worker": "tsx --test app/services/email/resendEmailJob.test.ts app/services/email/welcomeEmailTemplate.test.ts",
-    "test:whatsapp-webhook": "tsx --test app/services/whatsapp/whatsappWebhookPolicy.test.ts app/services/whatsapp/wApiClient.test.ts",
+    "test:whatsapp-webhook": "tsx --test app/services/whatsapp/atendimentoAccess.test.ts app/services/whatsapp/whatsappWebhookPolicy.test.ts app/services/whatsapp/wApiClient.test.ts",
     "test:fiscal": "tsx --test app/services/notasFiscais/*.test.ts",
     "test:restaurante": "tsx --test app/services/restaurante/*.test.ts",
     "dev": "tsx watch app/server.ts",
