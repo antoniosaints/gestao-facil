@@ -17,6 +17,21 @@ import { assertOperationalChargeOriginBelongsToAccount } from "../../../services
 
 type PrismaExecutor = Prisma.TransactionClient | typeof prisma;
 
+async function buscarClienteDaCobranca(
+  executor: PrismaExecutor,
+  contaId: number,
+  clienteId: number | null | undefined,
+) {
+  if (clienteId == null) return null;
+
+  return executor.clientesFornecedores.findFirst({
+    where: {
+      id: clienteId,
+      contaId,
+    },
+  });
+}
+
 export interface GeneratedChargeResult {
   paymentLink: string | null;
   chargeId: number | null;
@@ -229,12 +244,11 @@ export const gerarCobrancaMercadoPagoPix = async (
 ): Promise<GeneratedChargeResult> => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
 
-  const cliente = await executor.clientesFornecedores.findFirst({
-    where: {
-      id: body.clienteId,
-      contaId: parametros.contaId,
-    },
-  });
+  const cliente = await buscarClienteDaCobranca(
+    executor,
+    parametros.contaId,
+    body.clienteId,
+  );
 
   const pixGenerated = await mp.payment.create({
     requestOptions: {
@@ -281,12 +295,11 @@ export const gerarCobrancaMercadoPagoPixPublico = async (
   executor: PrismaExecutor = prisma,
 ) => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
-  const cliente = await executor.clientesFornecedores.findFirst({
-    where: {
-      id: body.clienteId as number,
-      contaId: parametros.contaId,
-    },
-  });
+  const cliente = await buscarClienteDaCobranca(
+    executor,
+    parametros.contaId,
+    body.clienteId,
+  );
   const pixGenerated = await mp.payment.create({
     requestOptions: {
       idempotencyKey: String(parametros.contaId) + randomUUID(),
@@ -380,12 +393,11 @@ export const gerarCobrancaMercadoPagoLink = async (
   executor: PrismaExecutor = prisma,
 ): Promise<GeneratedChargeResult> => {
   const Uid = gerarIdUnicoComMetaFinal("COB");
-   const cliente = await executor.clientesFornecedores.findFirst({
-    where: {
-      id: body.clienteId,
-      contaId: parametros.contaId,
-    },
-  });
+  const cliente = await buscarClienteDaCobranca(
+    executor,
+    parametros.contaId,
+    body.clienteId,
+  );
   const origin = body.vinculo
     ? { type: body.vinculo.tipo, id: Number(body.vinculo.id) }
     : undefined;
