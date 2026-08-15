@@ -3108,10 +3108,12 @@ model OuriveMaterial {
   ordemOuriveId       Int
   pecaId              Int?
   produtoId           Int
+  fornecidoPeloCliente Boolean @default(false)
   quantidadePlanejada Int
   quantidadeConsumida Int @default(0)
   quantidadeDevolvida Int @default(0)
   custoSnapshot       Decimal? @db.Decimal(10, 2)
+  valorUnitario       Decimal @default(0) @db.Decimal(10, 2)
   consumidoEm         DateTime?
   createdAt           DateTime @default(now())
   @@index([ordemOuriveId, produtoId])

@@ -94,6 +94,7 @@ export async function enqueueWhatsAppNotificationByPreference(
   event: WhatsAppNotificationEvent,
   payload: WhatsAppNotificationPayload,
   contaId: number,
+  adminsOnly = false,
 ) {
   try {
     const parametros = await prisma.parametrosConta.findUnique({
@@ -156,7 +157,7 @@ export async function enqueueWhatsAppNotificationByPreference(
         contaId,
         status: "ATIVO",
         permissao: {
-          in: ["root", "admin", "gerente"],
+          in: adminsOnly ? ["root", "admin"] : ["root", "admin", "gerente"],
         },
       },
       select: {
