@@ -4,7 +4,7 @@
 `workers` executa processos assíncronos fora do servidor HTTP principal.
 
 ## Processos atuais
-- `whatsappWebhookWorker.ts`: processa a inbox durável `WhatsAppWebhookEvento` no MySQL com transação, retry e retenção, sem usar Redis como fila.
+- `whatsappWebhookWorker.ts`: processa a inbox durável `WhatsAppWebhookEvento` no MySQL com transação e retry, sem usar Redis como fila; remove eventos concluídos após dois dias, preservando pendentes/em processamento contra perda durante indisponibilidades.
 - `sendEmailWorker.ts`: consome a fila BullMQ `email` e envia e-mails transacionais pelo Resend com retry.
 - `fiscalEmissionWorker.ts`: consome a fila `fiscal-emission`, envia NF-e/NFC-e ao PlugNotas com retry e reconcilia documentos pendentes a cada minuto. O banco mantém a intenção e os snapshots; o webhook apenas acelera a atualização.
 - `pushNotificationWorker.ts`: consome a fila de push.

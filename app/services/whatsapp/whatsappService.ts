@@ -33,7 +33,7 @@ import {
 import { buildScopedUploadKey, uploadPublicFile } from "../uploads/fileStorageService";
 import { downscaleImage } from "../uploads/imageProcessingService";
 import { transcodeAudioToOgg } from "../uploads/audioProcessingService";
-import { resolveWebhookIdentity } from "./whatsappWebhookPolicy";
+import { compactWebhookPayload, resolveWebhookIdentity, shouldPersistWebhookEvent } from "./whatsappWebhookPolicy";
 import { getAtendimentoAccess } from "./atendimentoAccess";
 
 const DEFAULT_TAKE = 50;
@@ -1931,6 +1931,12 @@ export const whatsAppService = {
 
     const { eventId, tipo } = resolveWebhookIdentity(explicitKind, payload);
     const message = extractMessagePayload(payload);
+    const storageDecision = shouldPersistWebhookEvent(tipo, payload);
+    if (!storageDecision.persist) {
+      // Grupos, canais, status e presença não fazem parte de conversas 1:1 do Atendimento.
+      // Respondemos com sucesso para a W-API sem criar uma linha na inbox.
+      return { accepted: false, ignored: true, reason: storageDecision.reason };
+    }
     const telefone =
       message.phone && !message.isGroup && !message.isStatusBroadcast && !message.isChannel
         ? message.phone
@@ -1946,7 +1952,9 @@ export const whatsAppService = {
           tipo,
           telefone,
           partitionKey,
-          payload: safeJson(payload),
+          // A inbox e a mensagem persistida pelo worker recebem este mesmo envelope compacto.
+          // Ele preserva texto, mídia, citação, reações e revogação sem reter o corpo bruto.
+          payload: safeJson(compactWebhookPayload(payload)),
           status: "PENDENTE",
           proximaTentativaEm: new Date(),
         },

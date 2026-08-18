@@ -189,6 +189,12 @@ const pedidoInternoSchema = z.object({
   observacao: z.string().trim().max(2000).nullable().optional(),
 });
 
+const pedidoManualSchema = pedidoInternoSchema.extend({
+  clienteId: z.coerce.number().int().positive().nullable().optional(),
+  clienteNome: z.string().trim().max(160).nullable().optional(),
+  clienteTelefone: z.string().trim().max(32).nullable().optional(),
+});
+
 const pontoProducaoSchema = z.object({
   nome: z.string().trim().min(2).max(100),
   cor: z.string().trim().min(2).max(30).default("orange"),
@@ -760,7 +766,7 @@ export async function listOrders(req: Request, res: Response) {
       include: {
         itens: true,
         Mesa: true,
-        tickets: { select: { id: true } },
+        tickets: { select: { id: true, pontoId: true } },
         Entrega: { include: { Entregador: { include: { Usuario: { select: { nome: true } } } } } },
       },
     }),
@@ -1544,6 +1550,96 @@ export async function createTableOrder(req: Request, res: Response) {
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
   return ok(req, res, order, 201);
+}
+
+/**
+ * Pedido criado pelo backoffice, sem mesa nem comanda. Ele usa a mesma cotação,
+ * estoque e expedição do pedido de mesa, portanto somente itens roteados chegam ao KDS.
+ */
+export async function createManualOrder(req: Request, res: Response) {
+  const parsed = pedidoManualSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const config = await prisma.restauranteConfig.findUnique({ where: { contaId } });
+  if (!config) return fail(req, res, 422, "restaurant_not_configured", "Configure o restaurante antes de lançar pedidos.");
+  const customer = parsed.data.clienteId
+    ? await prisma.clientesFornecedores.findFirst({
+        where: { id: parsed.data.clienteId, contaId },
+        select: { id: true, nome: true, telefone: true, whastapp: true },
+      })
+    : null;
+  if (parsed.data.clienteId && !customer) {
+    return fail(req, res, 422, "customer_not_found", "O cliente selecionado não pertence a esta conta.");
+  }
+
+  let quote: Awaited<ReturnType<typeof calculatePublicCheckout>>;
+  try {
+    quote = await calculatePublicCheckout(
+      { ...config, retiradaAtiva: true, pedidoMinimo: new Decimal(0) },
+      { origem: "RETIRADA", itens: parsed.data.itens },
+      false,
+      false,
+    );
+  } catch (error) {
+    if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
+    throw error;
+  }
+
+  try {
+    const order = await prisma.$transaction(async (tx) => {
+      const codigo = await reservarNumeroPedido(tx, contaId);
+      const created = await tx.restaurantePedido.create({
+        data: {
+          contaId,
+          codigo,
+          origem: "RETIRADA",
+          status: "CONFIRMADO",
+          pagamentoStatus: "NA_ENTREGA",
+          pagamentoMetodoSnapshot: "MANUAL",
+          clienteId: customer?.id || null,
+          clienteNomeSnapshot: parsed.data.clienteNome || customer?.nome || null,
+          clienteTelefone: parsed.data.clienteTelefone || customer?.telefone || customer?.whastapp || null,
+          subtotal: quote.subtotal,
+          frete: 0,
+          total: quote.total,
+          observacao: parsed.data.observacao,
+          trackingTokenHash: hash(randomBytes(32).toString("base64url")),
+          itens: {
+            create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({
+              catalogoItemId: item.id,
+              produtoId: item.produtoId,
+              quantidade: requested.quantidade,
+              nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardápio",
+              precoUnitarioSnapshot: unit,
+              subtotalSnapshot: line,
+              tamanhoSnapshot: requested.tamanho,
+              selecoesSnapshotJson: selections as any,
+              regraPrecoSnapshot: item.regraPrecoSabores,
+              observacao: requested.observacao,
+            })),
+          },
+        },
+        include: { itens: true, tickets: { select: { id: true } } },
+      });
+      await debitRestaurantOrderStock(tx, contaId, created.id);
+      await dispatchOrderToProduction(tx, contaId, created.id, { requireDestination: true });
+      return tx.restaurantePedido.findUniqueOrThrow({
+        where: { id: created.id }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } },
+      });
+    });
+    notifyRestaurant(contaId, "pedido", { pedidoId: order.id, reason: "manual-created" });
+    notifyRestaurant(contaId, "kds", { pedidoId: order.id });
+    notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
+    return ok(req, res, order, 201);
+  } catch (error) {
+    if (error instanceof ProductionRoutingMissingError) {
+      return fail(req, res, 422, "production_route_missing", error.message);
+    }
+    if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
+      return fail(req, res, 422, error.code, error.message);
+    }
+    throw error;
+  }
 }
 
 export async function listProductionPoints(req: Request, res: Response) {

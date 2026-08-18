@@ -45,6 +45,10 @@ const ackSchema = z.object({
   error: z.string().trim().max(2000).nullable().optional(),
 });
 
+const reprintOrderSchema = z.object({
+  estacaoIds: z.array(z.coerce.number().int().positive()).min(1).max(50),
+});
+
 function requestId(req: Request) {
   return String(req.headers["x-request-id"] || randomUUID());
 }
@@ -231,6 +235,38 @@ export async function reprintProductionTicket(req: Request, res: Response) {
   const jobs = await prisma.$transaction((tx) => enqueueTicketPrintJobs(tx, contaId, ticket.id, `reprint:${ticket.id}:${randomUUID()}`));
   if (!jobs.length) return fail(req, res, 422, "print_rule_not_configured", "Configure ao menos uma saida de impressao ativa para este ponto.");
   sendRestaurantUpdate(contaId, "impressao", { trabalhoIds: jobs.map((job) => job.id) });
+  return ok(req, res, jobs, 201);
+}
+
+export async function reprintOrder(req: Request, res: Response) {
+  const parsed = reprintOrderSchema.safeParse(req.body);
+  if (!parsed.success) return fail(req, res, 422, "validation_error", "Selecione ao menos um conector de impressão.", parsed.error.flatten());
+  const { contaId } = getCustomRequest(req).customData;
+  const order = await prisma.restaurantePedido.findFirst({
+    where: { id: Number(req.params.id), contaId },
+    include: { tickets: { select: { id: true } } },
+  });
+  if (!order) return fail(req, res, 404, "order_not_found", "Pedido não encontrado.");
+  if (!order.tickets.length) return fail(req, res, 422, "order_without_production_ticket", "Este pedido não possui ticket de produção para imprimir.");
+
+  const stationIds = [...new Set(parsed.data.estacaoIds)];
+  const stations = await prisma.restauranteEstacaoImpressao.findMany({
+    where: { contaId, id: { in: stationIds }, ativa: true }, select: { id: true },
+  });
+  if (stations.length !== stationIds.length) return fail(req, res, 422, "invalid_print_stations", "Um ou mais conectores estão inativos ou não pertencem à conta.");
+
+  const jobs = await prisma.$transaction(async (tx) => {
+    const created = [];
+    const manualKey = `order-reprint:${order.id}:${randomUUID()}`;
+    for (const ticket of order.tickets) {
+      created.push(...await enqueueTicketPrintJobs(tx, contaId, ticket.id, `${manualKey}:ticket:${ticket.id}`, stationIds));
+    }
+    return created;
+  });
+  if (!jobs.length) {
+    return fail(req, res, 422, "print_destination_not_configured", "Os conectores selecionados não são destinos configurados para os pontos deste pedido.");
+  }
+  sendRestaurantUpdate(contaId, "impressao", { trabalhoIds: jobs.map((job) => job.id), pedidoId: order.id });
   return ok(req, res, jobs, 201);
 }
 

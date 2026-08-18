@@ -116,7 +116,13 @@ async function buildJobContent(tx: any, ticketId: number, fullOrder: boolean, ui
   };
 }
 
-export async function enqueueTicketPrintJobs(tx: any, contaId: number, ticketId: number, manualKey?: string) {
+export async function enqueueTicketPrintJobs(
+  tx: any,
+  contaId: number,
+  ticketId: number,
+  manualKey?: string,
+  stationIds?: number[],
+) {
   const ticket = await tx.restauranteTicketProducao.findFirst({
     where: { id: ticketId, contaId },
     include: {
@@ -139,9 +145,12 @@ export async function enqueueTicketPrintJobs(tx: any, contaId: number, ticketId:
     },
     ...rule.destinos,
   ];
+  const selectedDestinations = stationIds?.length
+    ? destinations.filter((destination) => stationIds.includes(destination.estacaoId))
+    : destinations;
   const jobs = [];
   const dedupeBase = manualKey || `ticket:${ticket.id}:sequencia:${ticket.sequencia}`;
-  for (const destination of destinations) {
+  for (const destination of selectedDestinations) {
     const dedupeKey = `${dedupeBase}:destino:${destination.estacaoId}`;
     const existing = await tx.restauranteTrabalhoImpressao.findUnique({ where: { dedupeKey } });
     if (existing) {

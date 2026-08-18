@@ -10,6 +10,7 @@ const POLL_INTERVAL_MS = 500;
 const LOCK_TIMEOUT_MS = 2 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 15 * 1000;
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const EVENT_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 
 let running = true;
 let lastHeartbeatAt = 0;
@@ -65,13 +66,13 @@ async function cleanupOldEvents() {
     prisma.whatsAppWebhookEvento.deleteMany({
       where: {
         status: { in: ["PROCESSADO", "IGNORADO"] },
-        processedAt: { lt: new Date(now - 30 * 24 * 60 * 60 * 1000) },
+        createdAt: { lt: new Date(now - EVENT_RETENTION_MS) },
       },
     }),
     prisma.whatsAppWebhookEvento.deleteMany({
       where: {
         status: "FALHOU",
-        updatedAt: { lt: new Date(now - 90 * 24 * 60 * 60 * 1000) },
+        createdAt: { lt: new Date(now - EVENT_RETENTION_MS) },
       },
     }),
   ]);

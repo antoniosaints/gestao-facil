@@ -103,3 +103,48 @@ test("enfileira uma impressao independente para cada saida simultanea", async ()
   assert.match(created[0].dedupeKey, /destino:30$/);
   assert.match(created[1].dedupeKey, /destino:31$/);
 });
+
+test("reimprime somente nos conectores selecionados que sao destinos do ticket", async () => {
+  const created: any[] = [];
+  const ticket = {
+    id: 10,
+    contaId: 1,
+    pontoId: 20,
+    sequencia: 1,
+    Ponto: {
+      nome: "Cozinha",
+      regraImpressao: {
+        ativa: true,
+        estacaoId: 30,
+        fallbackEstacaoId: null,
+        papel: "80mm",
+        vias: 1,
+        imprimirPedidoCompleto: false,
+        destinos: [{ estacaoId: 31, fallbackEstacaoId: null, papel: "58mm", vias: 1, imprimirPedidoCompleto: false }],
+      },
+    },
+  };
+  const tx = {
+    restauranteTicketProducao: {
+      findFirst: async () => ticket,
+      findUniqueOrThrow: async () => ({
+        ...ticket,
+        Pedido: { codigo: "R-0010", origem: "RETIRADA", observacao: null, createdAt: new Date(), Mesa: null, itens: [] },
+        itens: [],
+      }),
+    },
+    restauranteTrabalhoImpressao: {
+      findUnique: async () => null,
+      create: async ({ data }: any) => {
+        const job = { id: created.length + 1, ...data };
+        created.push(job);
+        return job;
+      },
+    },
+  };
+
+  const jobs = await enqueueTicketPrintJobs(tx, 1, 10, "manual", [31, 99]);
+
+  assert.equal(jobs.length, 1);
+  assert.equal(created[0].estacaoId, 31);
+});

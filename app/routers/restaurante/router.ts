@@ -1,11 +1,11 @@
 import { Router, type RequestHandler } from "express";
 import multer from "multer";
-import { cancelPublicOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
+import { cancelPublicOrder, createManualOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
 import { deleteRestaurantAccountAddress, getRestaurantAccount, loginRestaurantAccount, registerRestaurantAccount, saveRestaurantAccountAddress, updateRestaurantAccount } from "../../controllers/restaurante/customer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../middlewares/restaurantCustomerAuth";
 import { requireRestauranteAccess, requireRestauranteModule } from "../../middlewares/restauranteAccess";
-import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
+import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintOrder, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
 import { currentRestaurantAccess, listRestaurantUserRoles, saveRestaurantUserRoles } from "../../controllers/restaurante/access";
 import { fidelityOptions, getFidelityProgram, saveFidelityProgram } from "../../controllers/restaurante/loyalty";
 import { acceptDelivery, directDelivery, driverContext, driverDeliveryHistory, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
@@ -83,8 +83,10 @@ routerRestaurante.put("/regras-impressao", requireRestauranteAccess("IMPRESSAO_C
 routerRestaurante.get("/trabalhos-impressao", requireRestauranteAccess("IMPRESSAO_VISUALIZAR"), use(listPrintJobs));
 routerRestaurante.post("/kds/:id/reimprimir", requireRestauranteAccess("KDS_OPERAR"), use(reprintProductionTicket));
 routerRestaurante.get("/pedidos", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listOrders));
+routerRestaurante.post("/pedidos", requireRestauranteAccess("PEDIDOS_OPERAR"), use(createManualOrder));
 routerRestaurante.get("/painel", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(restaurantDashboard));
 routerRestaurante.post("/pedidos/:id/transicao", requireRestauranteAccess("PEDIDOS_OPERAR"), use(transitionOrder));
+routerRestaurante.post("/pedidos/:id/imprimir", requireRestauranteAccess("IMPRESSAO_VISUALIZAR"), use(reprintOrder));
 routerRestaurante.get("/entregas/despacho", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listDeliveryDispatch));
 routerRestaurante.post("/entregas/:pedidoId/ofertar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(offerDelivery));
 routerRestaurante.post("/entregas/:pedidoId/direcionar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(directDelivery));
