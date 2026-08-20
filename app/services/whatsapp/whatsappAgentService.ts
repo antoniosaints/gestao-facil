@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { ZodError } from "zod";
 import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { WApiClient, wApiMessageIdFromResponse } from "./wApiClient";
@@ -42,6 +43,12 @@ function stripInternalDirectives(text: string) {
   return (end >= 0 ? `${text.slice(0, start)}${text.slice(end)}` : text)
     .replace(/^\s*(?:\[\[)?\/?transferir\s*[: ]\s*\d+\s*(?:\]\])?\s*$/gim, "")
     .trim();
+}
+
+// Retorna null para erros da diretiva interna: não há nada a comunicar ao cliente.
+export function customerReplyForRestaurantOrderError(error: unknown): string | null {
+  if (error instanceof ZodError) return null;
+  return "Não foi possível confirmar o pedido agora. Revise os dados e tente novamente.";
 }
 
 function transferDirective(text: string) {
@@ -457,7 +464,21 @@ export const whatsAppAgentService = {
             pixQrCode = order.paymentAction.qrCodeDataUrl || null;
           }
         } catch (error: any) {
-          responseText = error?.message || "Não foi possível confirmar o pedido. Revise os dados e tente novamente.";
+          // A diretiva de criação é uma implementação interna. Quando o modelo monta um
+          // rascunho inválido, o Zod serializa os detalhes em JSON; isso não pode chegar ao
+          // WhatsApp nem ser apresentado como uma resposta para o cliente.
+          const customerReply = customerReplyForRestaurantOrderError(error);
+          if (!customerReply) {
+            console.warn(
+              `[whatsapp-agent] diretiva de pedido inválida ignorada conversa=${conversa.id}`,
+              (error as ZodError).issues,
+            );
+            responseText = "";
+          } else {
+            // Não exponha mensagens de exceções da infraestrutura ou de integrações ao cliente.
+            console.warn(`[whatsapp-agent] falha ao criar pedido conversa=${conversa.id}`, error);
+            responseText = customerReply;
+          }
         }
       }
       if (responseText) {
