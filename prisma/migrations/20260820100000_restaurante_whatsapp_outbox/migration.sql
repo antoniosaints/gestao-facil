@@ -23,7 +23,7 @@ CREATE TABLE `RestauranteWhatsAppNotificacao` (
     UNIQUE INDEX `RestauranteWhatsAppNotificacao_bullJobId_key`(`bullJobId`),
     UNIQUE INDEX `RestauranteWhatsAppNotificacao_pedidoId_evento_key`(`pedidoId`, `evento`),
     INDEX `RestauranteWhatsAppNotificacao_contaId_status_updatedAt_idx`(`contaId`, `status`, `updatedAt`),
-    INDEX `RestauranteWhatsAppNotificacao_contaId_instanciaId_externalMessageId_idx`(`contaId`, `instanciaId`, `externalMessageId`),
+    INDEX `RestWppNtf_cta_inst_extMsg_idx`(`contaId`, `instanciaId`, `externalMessageId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

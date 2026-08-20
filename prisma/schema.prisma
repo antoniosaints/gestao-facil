@@ -1876,7 +1876,7 @@ model RestauranteWhatsAppNotificacao {
 
   @@unique([pedidoId, evento])
   @@index([contaId, status, updatedAt])
-  @@index([contaId, instanciaId, externalMessageId])
+  @@index([contaId, instanciaId, externalMessageId], map: "RestWppNtf_cta_inst_extMsg_idx")
 }
 
 /// Perfil operacional do entregador. A existencia deste registro nunca concede
