@@ -48,6 +48,8 @@ export interface WhatsAppReservationMessageJobData {
 
 export interface WhatsAppRestaurantMessageJobData {
   kind: "RESTAURANT_MESSAGE";
+  /** Identificador da outbox persistente do restaurante. Jobs legados não o possuem. */
+  notificationId?: number;
   contaId: number;
   instanceId: number;
   pedidoId: number;

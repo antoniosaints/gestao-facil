@@ -176,6 +176,22 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
         await markIgnored(tx, event.id, "delivery-sem-message-id");
         return { contaId: instance.contaId, instance: emittedInstance };
       }
+      const statusEnvio = mapMessageStatus(payload);
+      const restaurantDelivery = await tx.restauranteWhatsAppNotificacao.updateMany({
+        where: {
+          contaId: instance.contaId,
+          instanciaId: instance.id,
+          externalMessageId,
+          status: { in: ["ENVIADA", "ENTREGUE"] },
+        },
+        data: {
+          ...(statusEnvio === WhatsAppMensagemStatus.LIDA
+            ? { status: "LIDA", lidoEm: new Date(), entregueEm: new Date() }
+            : statusEnvio === WhatsAppMensagemStatus.ENTREGUE
+              ? { status: "ENTREGUE", entregueEm: new Date() }
+              : {}),
+        },
+      });
       let existing = await tx.whatsAppMensagem.findUnique({
         where: {
           contaId_instanciaId_externalMessageId: {
@@ -214,18 +230,19 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
         }
       }
 
-      if (!existing) {
+      if (!existing && !restaurantDelivery.count) {
         await markIgnored(tx, event.id, "delivery-de-envio-nao-rastreado");
         return { contaId: instance.contaId, instance: emittedInstance };
       }
-      const statusEnvio = mapMessageStatus(payload);
-      emittedMessage = await tx.whatsAppMensagem.update({
-        where: { id: existing.id },
-        data: {
-          statusEnvio,
-          ...(statusEnvio === WhatsAppMensagemStatus.LIDA ? { lidoEm: new Date() } : {}),
-        },
-      });
+      if (existing) {
+        emittedMessage = await tx.whatsAppMensagem.update({
+          where: { id: existing.id },
+          data: {
+            statusEnvio,
+            ...(statusEnvio === WhatsAppMensagemStatus.LIDA ? { lidoEm: new Date() } : {}),
+          },
+        });
+      }
     }
 
     if (isMessageEvent && event.tipo !== "delivery") {

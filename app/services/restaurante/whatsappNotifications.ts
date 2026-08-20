@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import { WhatsAppInstanciaStatus } from "../../../generated";
 import { whatsappNotificationQueue } from "../../queues/whatsappNotificationQueue";
 import { normalizeClienteWhatsappPhone } from "../clientes/clienteWhatsappPolicy";
 import { contaHasActiveModule } from "../contas/storeModulesService";
@@ -29,6 +28,81 @@ const DEFAULT_MESSAGES: Record<RestaurantWhatsAppEvent, string> = {
   FIDELIDADE: "Olá, {cliente}! Sua fidelidade foi atualizada: {fidelidade}",
   POS_PEDIDO: "Olá, {cliente}! Obrigado por pedir na {empresa}. Esperamos que tenha gostado!",
 };
+
+// A outbox continua tentando enquanto a instância ou a W-API estiverem indisponíveis.
+// O backoff fixo evita que uma indisponibilidade longa transforme as tentativas em meses.
+export const RESTAURANT_WHATSAPP_RETRY_ATTEMPTS = 1_000_000;
+export const RESTAURANT_WHATSAPP_RETRY_DELAY_MS = 30_000;
+
+function restaurantNotificationJobOptions(jobId: string) {
+  return {
+    jobId,
+    attempts: RESTAURANT_WHATSAPP_RETRY_ATTEMPTS,
+    backoff: { type: "fixed" as const, delay: RESTAURANT_WHATSAPP_RETRY_DELAY_MS },
+    removeOnComplete: true,
+    // Preserva a evidência de uma falha terminal inesperada para inspeção operacional.
+    removeOnFail: false,
+  };
+}
+
+function restaurantNotificationJobData(notification: {
+  id: number;
+  contaId: number;
+  instanciaId: number;
+  pedidoId: number;
+  telefone: string;
+  mensagem: string;
+}) {
+  return {
+    kind: "RESTAURANT_MESSAGE" as const,
+    notificationId: notification.id,
+    contaId: notification.contaId,
+    instanceId: notification.instanciaId,
+    pedidoId: notification.pedidoId,
+    phone: notification.telefone,
+    message: notification.mensagem,
+  } satisfies WhatsAppRestaurantMessageJobData;
+}
+
+async function addRestaurantNotificationJob(notification: {
+  id: number;
+  bullJobId: string;
+  contaId: number;
+  instanciaId: number;
+  pedidoId: number;
+  telefone: string;
+  mensagem: string;
+}) {
+  await whatsappNotificationQueue.add(
+    "send-restaurant-message",
+    restaurantNotificationJobData(notification),
+    restaurantNotificationJobOptions(notification.bullJobId),
+  );
+}
+
+/** Recupera registros gravados antes de uma queda entre o banco e o Redis. */
+export async function requeuePendingRestaurantWhatsAppNotifications(limit = 100) {
+  const pending = await prisma.restauranteWhatsAppNotificacao.findMany({
+    where: { status: "PENDENTE" },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: {
+      id: true,
+      bullJobId: true,
+      contaId: true,
+      instanciaId: true,
+      pedidoId: true,
+      telefone: true,
+      mensagem: true,
+    },
+  });
+  const results = await Promise.allSettled(pending.map(addRestaurantNotificationJob));
+  const failures = results.filter((result) => result.status === "rejected").length;
+  if (failures) {
+    console.warn(`[restaurante-whatsapp] ${failures} notificação(ões) pendentes não puderam ser reenfileiradas.`);
+  }
+  return { recovered: pending.length - failures, failures };
+}
 
 export function defaultRestaurantWhatsAppSettings(): RestaurantWhatsAppSettings {
   return Object.fromEntries(
@@ -71,10 +145,7 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
     });
     const settings = normalizeRestaurantWhatsAppSettings(config?.whatsappNotificacoesJson);
     const definition = settings[event];
-    const alreadyQueued = Array.isArray(order.whatsappNotificacoesJson)
-      ? order.whatsappNotificacoesJson.filter((item): item is string => typeof item === "string")
-      : [];
-    if (!definition.ativo || alreadyQueued.includes(event)) return false;
+    if (!definition.ativo) return false;
 
     const phone = normalizeClienteWhatsappPhone(order.clienteTelefone);
     if (!phone || !(await contaHasActiveModule(order.contaId, "whatsapp"))) return false;
@@ -89,7 +160,6 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
         id: parameters.whatsappNotificacoesInstanciaId,
         contaId: order.contaId,
         ativo: true,
-        status: WhatsAppInstanciaStatus.CONECTADA,
       },
       select: { id: true },
     });
@@ -117,28 +187,26 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
     }
     if (!message.trim()) return false;
 
-    await whatsappNotificationQueue.add(
-      "send-restaurant-message",
-      {
-        kind: "RESTAURANT_MESSAGE",
+    // A chave única pedido/evento torna o disparo idempotente mesmo quando o pedido
+    // recebe duas atualizações quase simultâneas. O conteúdo é o snapshot do evento
+    // original e não deve ser alterado quando uma notificação pendente é reenfileirada.
+    const notification = await prisma.restauranteWhatsAppNotificacao.upsert({
+      where: { pedidoId_evento: { pedidoId: order.id, evento: event } },
+      update: {},
+      create: {
         contaId: order.contaId,
-        instanceId: instance.id,
         pedidoId: order.id,
-        phone,
-        message,
-      } satisfies WhatsAppRestaurantMessageJobData,
-      {
-        jobId: `wa-restaurant-${order.contaId}-${order.id}-${event}-${crypto.randomUUID()}`,
-        attempts: 3,
-        backoff: { type: "exponential", delay: 5000 },
-        removeOnComplete: true,
-        removeOnFail: 50,
+        evento: event,
+        instanciaId: instance.id,
+        telefone: phone,
+        mensagem: message,
+        bullJobId: `wa-restaurant-${order.contaId}-${order.id}-${event}-${crypto.randomUUID()}`,
       },
-    );
-    await prisma.restaurantePedido.update({
-      where: { id: order.id },
-      data: { whatsappNotificacoesJson: [...alreadyQueued, event] },
     });
+    if (["ENVIADA", "ENTREGUE", "LIDA", "FALHOU"].includes(notification.status)) {
+      return false;
+    }
+    await addRestaurantNotificationJob(notification);
     return true;
   } catch (error) {
     console.warn(`[restaurante-whatsapp] Falha ao enfileirar ${event} do pedido ${orderId}`, error);

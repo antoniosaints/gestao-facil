@@ -29,6 +29,22 @@ export function wApiMessageIdFromResponse(response: any): string {
   );
 }
 
+/**
+ * A W-API pode responder HTTP 2xx para uma solicitação recusada. Não considerar essa
+ * resposta como envio aceito é essencial para que a fila aplique o retry.
+ */
+export function wApiSendAccepted(response: any): boolean {
+  const payload = response?.data && typeof response.data === "object" ? response.data : response;
+  if (!payload || typeof payload !== "object") return false;
+  const status = String(payload?.status || payload?.state || "").toLowerCase();
+  return !(
+    payload?.error === true ||
+    payload?.success === false ||
+    payload?.ok === false ||
+    ["error", "failed", "failure", "rejected"].includes(status)
+  );
+}
+
 export interface WApiSendMessageInput {
   phone: string;
   message?: string;

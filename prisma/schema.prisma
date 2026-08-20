@@ -309,6 +309,7 @@ model Contas {
   RestauranteClientes             RestauranteCliente[]
   RestauranteClientesEnderecos    RestauranteClienteEndereco[]
   RestaurantePedidos              RestaurantePedido[]
+  RestauranteWhatsAppNotificacoes RestauranteWhatsAppNotificacao[]
   RestauranteEntregadores         RestauranteEntregador[]
   RestauranteEntregas             RestauranteEntrega[]
   RestauranteEntregasLocalizacao  RestauranteEntregaLocalizacao[]
@@ -1836,6 +1837,7 @@ model RestaurantePedido {
   tickets                  RestauranteTicketProducao[]
   Cobrancas                CobrancasFinanceiras[]
   estoques                 RestaurantePedidoEstoque[]
+  whatsappNotificacoes     RestauranteWhatsAppNotificacao[]
   fidelidadeLancamento     RestauranteFidelidadeLancamento?
   Entrega                  RestauranteEntrega?
 
@@ -1844,6 +1846,37 @@ model RestaurantePedido {
   @@index([contaId, producaoStatus, createdAt])
   @@index([contaId, restauranteClienteId, createdAt], map: "RestaurantePedido_contaId_restauranteClienteId_createdAt_idx")
   @@index([sessaoMesaId, createdAt])
+}
+
+/// Outbox durável das notificações ao cliente. O pedido só é marcado como notificado
+/// depois que a W-API aceita o envio; enquanto isso o worker do BullMQ mantém a linha
+/// pendente para que uma indisponibilidade temporária não descarte a mensagem.
+model RestauranteWhatsAppNotificacao {
+  id                   Int               @id @default(autoincrement())
+  contaId              Int
+  Conta                Contas            @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pedidoId             Int
+  Pedido               RestaurantePedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  evento               String            @db.VarChar(30)
+  instanciaId          Int
+  telefone             String            @db.VarChar(32)
+  mensagem             String            @db.Text
+  status               String            @default("PENDENTE") @db.VarChar(20)
+  tentativas           Int               @default(0)
+  ultimoErro           String?           @db.Text
+  externalMessageId    String?           @db.VarChar(191)
+  respostaApiJson      String?           @db.LongText
+  ultimaTentativaEm    DateTime?
+  enviadaEm            DateTime?
+  entregueEm           DateTime?
+  lidoEm               DateTime?
+  bullJobId            String            @unique @db.VarChar(191)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@unique([pedidoId, evento])
+  @@index([contaId, status, updatedAt])
+  @@index([contaId, instanciaId, externalMessageId])
 }
 
 /// Perfil operacional do entregador. A existencia deste registro nunca concede

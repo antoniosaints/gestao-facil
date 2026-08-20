@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { wApiMessageIdFromResponse } from "./wApiClient";
+import { wApiMessageIdFromResponse, wApiSendAccepted } from "./wApiClient";
 
 describe("wApiMessageIdFromResponse", () => {
   it("extrai o messageId retornado diretamente pela W-API", () => {
@@ -29,5 +29,18 @@ describe("wApiMessageIdFromResponse", () => {
       }),
       "3EB0-LOCATION",
     );
+  });
+});
+
+describe("wApiSendAccepted", () => {
+  it("aceita uma confirmação normal da W-API", () => {
+    assert.equal(wApiSendAccepted({ messageId: "3EB0-OK" }), true);
+  });
+
+  it("detecta uma rejeição retornada com HTTP bem-sucedido", () => {
+    assert.equal(wApiSendAccepted({ error: true, message: "Instância indisponível" }), false);
+    assert.equal(wApiSendAccepted({ data: { success: false } }), false);
+    assert.equal(wApiSendAccepted({ status: "failed" }), false);
+    assert.equal(wApiSendAccepted(undefined), false);
   });
 });
