@@ -14,7 +14,7 @@ import { formatCurrencyBR } from "../../../helpers/formatters";
 import { addDays } from "date-fns";
 
 interface OrdemServicoData {
-  Cliente: ClientesFornecedores;
+  Cliente: ClientesFornecedores | null;
   Empresa: Contas & {
     ParametrosConta: ParametrosConta[];
   };
@@ -113,9 +113,9 @@ export async function gerarPdfOrdemServico(
     }`
   );
   infoLine(
-    `Cliente: ${ordem.Cliente.nome} - ${
-      ordem.Cliente.documento || "Sem documento"
-    }`
+    ordem.Cliente
+      ? `Cliente: ${ordem.Cliente.nome} - ${ordem.Cliente.documento || "Sem documento"}`
+      : "Cliente: Não informado"
   );
   infoLine(
     `Garantia: ${ordem.Ordem.garantia} dias - ${addDays(new Date(ordem.Ordem.data), Number(ordem.Ordem.garantia || 0)).toLocaleDateString("pt-BR")}`
@@ -286,7 +286,7 @@ export async function gerarPdfOrdemServico(
     doc
       .fontSize(9)
       .fillColor("#555")
-      .text(`${ordem.Cliente.nome}`, 80, assinaturaY + 25, {
+      .text(`${ordem.Cliente?.nome || "Cliente não informado"}`, 80, assinaturaY + 25, {
         width: 170,
         align: "center",
       });

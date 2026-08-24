@@ -111,7 +111,7 @@ export const painelOrdensServico = async (req: Request, res: Response): Promise<
       if (!cancelada) {
         dia.quantidade += 1;
         dia.valor += valor;
-        clientes.add(ordem.Cliente.id);
+        if (ordem.Cliente) clientes.add(ordem.Cliente.id);
         const operador = operadores.get(ordem.Operador.nome) || { quantidade: 0, valor: 0 };
         operador.quantidade += 1;
         operador.valor += valor;
@@ -145,7 +145,7 @@ export const painelOrdensServico = async (req: Request, res: Response): Promise<
         id: ordem.id,
         uid: ordem.Uid,
         descricao: ordem.descricao,
-        cliente: ordem.Cliente.nome,
+        cliente: ordem.Cliente?.nome || "Cliente não informado",
         operador: ordem.Operador.nome,
         status: ordem.status,
         data: ordem.data,
