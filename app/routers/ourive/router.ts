@@ -26,6 +26,7 @@ import {
   getOrderFinancial,
   listCommissions,
   listOrders,
+  listLeftovers,
   listOurivePayments,
   listOuriveTransfers,
   listProLabore,
@@ -45,6 +46,7 @@ import {
   settleCommission,
   startProduction,
   consolidateOrderFinancial,
+  consolidateLeftover,
   reopenOrderFinancial,
   updateOrderFinancial,
   updateOrderStatus,
@@ -139,6 +141,7 @@ routerOurive.get(
   requireOuriveAccess("PRODUCAO"),
   use(listPurchaseNeeds),
 );
+routerOurive.get("/sobras", requireOuriveAccess("PRODUCAO"), use(listLeftovers));
 routerOurive.post("/ordens", requireOuriveAccess("RECEBER"), use(createOrder));
 routerOurive.delete(
   "/ordens/:id",
@@ -220,4 +223,9 @@ routerOurive.post(
   "/necessidades-compra/:needId/atender",
   requireOuriveAccess("PRODUCAO"),
   use(fulfillPurchaseNeed),
+);
+routerOurive.post(
+  "/sobras/:id/consolidar",
+  requireOuriveAccess("PRODUCAO"),
+  use(consolidateLeftover),
 );

@@ -1,0 +1,21 @@
+CREATE TABLE `OuriveSobra` (
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
+  `contaId` INTEGER NOT NULL,
+  `ordemOuriveId` INTEGER NOT NULL,
+  `materialId` INTEGER NOT NULL,
+  `tipo` VARCHAR(20) NOT NULL,
+  `unidade` ENUM('QUANTIDADE', 'PESO') NOT NULL,
+  `medidaInformada` DECIMAL(12, 3) NOT NULL,
+  `medidaReal` DECIMAL(12, 3) NULL,
+  `medidaConsumida` DECIMAL(12, 3) NOT NULL DEFAULT 0,
+  `produtoDestinoId` INTEGER NULL,
+  `observacao` TEXT NULL,
+  `status` ENUM('PENDENTE', 'CONSOLIDADA') NOT NULL DEFAULT 'PENDENTE',
+  `consolidadaEm` DATETIME(3) NULL,
+  `consolidadaPorId` INTEGER NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `OuriveSobra_contaId_status_idx`(`contaId`, `status`),
+  INDEX `OuriveSobra_ordemOuriveId_materialId_idx`(`ordemOuriveId`, `materialId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

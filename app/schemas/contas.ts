@@ -214,6 +214,7 @@ export const updateParametrosContaSchema = z.object(
         fundoDark: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de fundo escura invalida"),
         radius: z.string().max(12).optional().nullable(),
         fonte: z.string().max(40).optional().nullable(),
+        tamanhoFonte: z.enum(["100%", "112.5%", "125%", "137.5%"]).optional().nullable(),
       })
       .optional()
       .nullable(),

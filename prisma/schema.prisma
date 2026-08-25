@@ -2992,6 +2992,11 @@ enum OuriveStatusNecessidadeCompra {
   CANCELADA
 }
 
+enum OuriveStatusSobra {
+  PENDENTE
+  CONSOLIDADA
+}
+
 enum OuriveStatusFinanceiro {
   ABERTO
   CALCULADO
@@ -3176,6 +3181,7 @@ model OuriveOrcamento {
   aprovacaoOrigem     String?
   aprovacaoObservacao String?   @db.Text
   tokenHash           String?   @unique
+  tokenPublico        String?   @db.VarChar(128)
   tokenExpiraEm       DateTime?
   invalidoEm          DateTime?
   createdAt           DateTime  @default(now())
@@ -3257,6 +3263,28 @@ model OuriveNecessidadeCompra {
   updatedAt            DateTime                      @updatedAt
 
   @@index([contaId, ordemOuriveId, status])
+}
+
+model OuriveSobra {
+  id                Int                @id @default(autoincrement())
+  contaId           Int
+  ordemOuriveId     Int
+  materialId        Int
+  tipo              String             @db.VarChar(20)
+  unidade           OuriveUnidadeMaterial
+  medidaInformada   Decimal            @db.Decimal(12, 3)
+  medidaReal        Decimal?           @db.Decimal(12, 3)
+  medidaConsumida   Decimal            @default(0) @db.Decimal(12, 3)
+  produtoDestinoId  Int?
+  observacao        String?            @db.Text
+  status            OuriveStatusSobra  @default(PENDENTE)
+  consolidadaEm     DateTime?
+  consolidadaPorId  Int?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([contaId, status])
+  @@index([ordemOuriveId, materialId])
 }
 
 model OuriveRepasse {

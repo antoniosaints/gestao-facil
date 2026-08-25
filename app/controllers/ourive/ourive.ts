@@ -50,6 +50,34 @@ const measureFromStockUnits = (
   _unidade: "QUANTIDADE" | "PESO",
   quantidade: Decimal.Value,
 ) => new Decimal(quantidade);
+// Mantém a compatibilidade dos endpoints de consulta usados por cards e formulários,
+// mas entrega o contrato paginado quando a chamada vem do DataTable.
+const dataTableResponse = (
+  req: Request,
+  res: Response,
+  rows: any[],
+  searchable: (row: any) => string,
+) => {
+  if (req.query.pageSize === undefined) return undefined;
+  const page = Math.max(1, Number(req.query.page || 1));
+  const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize || 10)));
+  const search = String(req.query.search || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+  const filtered = search
+    ? rows.filter((row) =>
+        searchable(row).toLocaleLowerCase("pt-BR").includes(search),
+      )
+    : rows;
+  const total = filtered.length;
+  return res.json({
+    data: filtered.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  });
+};
 
 const rolesSchema = z.object({
   papeis: z
@@ -61,7 +89,11 @@ const orderSchema = z.object({
   tipo: z.enum(["CONSERTO", "ENCOMENDA"]).default("CONSERTO"),
   clienteId: z.preprocess(
     (value) =>
-      value === undefined || value === null || value === "" || value === 0 || value === "0"
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      value === 0 ||
+      value === "0"
         ? undefined
         : value,
     z.coerce.number().int().positive().optional(),
@@ -109,14 +141,11 @@ const budgetSchema = z.object({
         produtoId: z.coerce.number().int().positive(),
         pecaId: z.coerce.number().int().positive().optional(),
         fornecidoPeloCliente: z
-          .preprocess(
-            (value) => {
-              if (value === "true" || value === 1 || value === "1") return true;
-              if (value === "false" || value === 0 || value === "0") return false;
-              return value;
-            },
-            z.boolean(),
-          )
+          .preprocess((value) => {
+            if (value === "true" || value === 1 || value === "1") return true;
+            if (value === "false" || value === 0 || value === "0") return false;
+            return value;
+          }, z.boolean())
           .default(false),
         unidade: z.enum(["QUANTIDADE", "PESO"]).default("QUANTIDADE"),
         quantidade: z.coerce.number().positive().max(999_999),
@@ -325,7 +354,11 @@ export async function listSpecialties(req: Request, res: Response) {
 async function financialCalculationForOrder(contaId: number, order: any) {
   const [budget, materials, config, stages] = await Promise.all([
     db.ouriveOrcamento.findFirst({
-      where: { ordemOuriveId: order.id, aprovadoEm: { not: null }, invalidoEm: null },
+      where: {
+        ordemOuriveId: order.id,
+        aprovadoEm: { not: null },
+        invalidoEm: null,
+      },
       orderBy: { versao: "desc" },
     }),
     db.ouriveMaterial.findMany({ where: { ordemOuriveId: order.id } }),
@@ -341,18 +374,27 @@ async function financialCalculationForOrder(contaId: number, order: any) {
   ]);
   if (!budget) throw new Error("budget_not_approved");
 
-  const custoMaterialLoja = materials.reduce((total: Decimal, material: any) => {
-    if (material.fornecidoPeloCliente) return total;
-    const medida = material.finalizadoEm
-      ? new Decimal(material.medidaUtilizada || 0).plus(material.medidaPerdaReal || 0)
-      : new Decimal(material.medidaConsumida || material.medidaPlanejada || 0);
-    return total.plus(money(material.custoSnapshot || 0).mul(medida));
-  }, new Decimal(0));
+  const custoMaterialLoja = materials.reduce(
+    (total: Decimal, material: any) => {
+      if (material.fornecidoPeloCliente) return total;
+      const medida = material.finalizadoEm
+        ? new Decimal(material.medidaUtilizada || 0).plus(
+            material.medidaPerdaReal || 0,
+          )
+        : new Decimal(
+            material.medidaConsumida || material.medidaPlanejada || 0,
+          );
+      return total.plus(money(material.custoSnapshot || 0).mul(medida));
+    },
+    new Decimal(0),
+  );
   const valorMateriaisLoja = materials.reduce(
     (total: Decimal, material: any) =>
       material.fornecidoPeloCliente
         ? total
-        : total.plus(money(material.valorUnitario).mul(material.medidaPlanejada || 0)),
+        : total.plus(
+            money(material.valorUnitario).mul(material.medidaPlanejada || 0),
+          ),
     new Decimal(0),
   );
   const memoria = calcularFinanceiroOurive({
@@ -360,7 +402,8 @@ async function financialCalculationForOrder(contaId: number, order: any) {
     custoMaterialLoja,
     outrosCustos: order.custoExtra,
     percentualLoja: order.percentualLojaAplicado ?? config.percentualLoja,
-    percentualOurives: order.percentualOurivesAplicado ?? config.percentualOurives,
+    percentualOurives:
+      order.percentualOurivesAplicado ?? config.percentualOurives,
   });
   const [assignments, products, extraCostEvents] = await Promise.all([
     db.ouriveEtapaResponsavel.findMany({
@@ -368,7 +411,10 @@ async function financialCalculationForOrder(contaId: number, order: any) {
       select: { usuarioId: true },
     }),
     prisma.produto.findMany({
-      where: { contaId, id: { in: materials.map((material: any) => material.produtoId) } },
+      where: {
+        contaId,
+        id: { in: materials.map((material: any) => material.produtoId) },
+      },
       select: { id: true, nome: true },
     }),
     db.ouriveEvento.findMany({
@@ -379,7 +425,9 @@ async function financialCalculationForOrder(contaId: number, order: any) {
   ]);
   const materiaisDetalhados = materials.map((material: any) => {
     const medidaCusteada = material.finalizadoEm
-      ? new Decimal(material.medidaUtilizada || 0).plus(material.medidaPerdaReal || 0)
+      ? new Decimal(material.medidaUtilizada || 0).plus(
+          material.medidaPerdaReal || 0,
+        )
       : new Decimal(material.medidaConsumida || material.medidaPlanejada || 0);
     const custoUnitario = material.fornecidoPeloCliente
       ? new Decimal(0)
@@ -387,8 +435,8 @@ async function financialCalculationForOrder(contaId: number, order: any) {
     return {
       id: material.id,
       nome:
-        products.find((product: any) => product.id === material.produtoId)?.nome ||
-        `Material #${material.produtoId}`,
+        products.find((product: any) => product.id === material.produtoId)
+          ?.nome || `Material #${material.produtoId}`,
       origem: material.fornecidoPeloCliente ? "CLIENTE" : "LOJA",
       unidade: material.unidade,
       medidaCusteada: medidaCusteada.toFixed(3),
@@ -423,8 +471,12 @@ async function financialCalculationForOrder(contaId: number, order: any) {
       valor: custoExtraSemDetalhe.toFixed(2),
       createdAt: null,
     });
-  const custoTotalOperacional = money(custoMaterialLoja).plus(money(order.custoExtra));
-  const custoTotalComRepasses = custoTotalOperacional.plus(memoria.valorOurives);
+  const custoTotalOperacional = money(custoMaterialLoja).plus(
+    money(order.custoExtra),
+  );
+  const custoTotalComRepasses = custoTotalOperacional.plus(
+    memoria.valorOurives,
+  );
   const lucroLiquido = money(budget.valorFinal).minus(custoTotalComRepasses);
   const margemLiquida = money(budget.valorFinal).greaterThan(0)
     ? lucroLiquido.mul(100).div(money(budget.valorFinal))
@@ -437,13 +489,17 @@ async function financialCalculationForOrder(contaId: number, order: any) {
     materials,
     config,
     memoria,
-    responsavelIds: [...new Set(assignments.map((item: any) => Number(item.usuarioId)))],
+    responsavelIds: [
+      ...new Set(assignments.map((item: any) => Number(item.usuarioId))),
+    ],
     detalhamento: {
       valorCobrado: money(budget.valorFinal).toFixed(2),
       valorMaoObra: money(order.valorMaoObra).toFixed(2),
       valorMateriaisLoja: money(valorMateriaisLoja).toFixed(2),
       custoMaterialLoja: money(custoMaterialLoja).toFixed(2),
-      materiaisCliente: materials.filter((material: any) => material.fornecidoPeloCliente).length,
+      materiaisCliente: materials.filter(
+        (material: any) => material.fornecidoPeloCliente,
+      ).length,
       outrosCustos: money(order.custoExtra).toFixed(2),
       materiais: materiaisDetalhados,
       custosExtras: custosExtrasDetalhados,
@@ -452,7 +508,9 @@ async function financialCalculationForOrder(contaId: number, order: any) {
       custoTotalComRepasses: custoTotalComRepasses.toFixed(2),
       lucroLiquido: lucroLiquido.toFixed(2),
       margemLiquidaPercentual: margemLiquida.toDecimalPlaces(2).toFixed(2),
-      retornoSobreCustoPercentual: retornoSobreCusto.toDecimalPlaces(2).toFixed(2),
+      retornoSobreCustoPercentual: retornoSobreCusto
+        .toDecimalPlaces(2)
+        .toFixed(2),
     },
   };
 }
@@ -593,7 +651,12 @@ export async function saveConfig(req: Request, res: Response) {
         .nullable()
         .optional(),
       proLaboreCategoriaId: z.number().int().positive().nullable().optional(),
-      proLaboreContaFinanceiraId: z.number().int().positive().nullable().optional(),
+      proLaboreContaFinanceiraId: z
+        .number()
+        .int()
+        .positive()
+        .nullable()
+        .optional(),
       prazoAprovacaoDias: z.number().int().min(1).max(30).optional(),
       percentualLoja: z.coerce.number().min(0).max(100).optional(),
       percentualOurives: z.coerce.number().min(0).max(100).optional(),
@@ -610,7 +673,9 @@ export async function saveConfig(req: Request, res: Response) {
       parsed.error.flatten(),
     );
   const { contaId } = own(req);
-  const current = await db.ouriveConfiguracao.findUnique({ where: { contaId } });
+  const current = await db.ouriveConfiguracao.findUnique({
+    where: { contaId },
+  });
   const percentualLoja = Number(
     parsed.data.percentualLoja ?? current?.percentualLoja ?? 50,
   );
@@ -765,7 +830,10 @@ export async function listOrders(req: Request, res: Response) {
   const custom = own(req);
   const access = await getOuriveAccess(custom);
   const page = Math.max(1, Number(req.query.page || 1));
-  const size = Math.min(100, Math.max(1, Number(req.query.pageSize || req.query.size || 20)));
+  const size = Math.min(
+    100,
+    Math.max(1, Number(req.query.pageSize || req.query.size || 20)),
+  );
   const where: any = {
     contaId: custom.contaId,
     ...(req.query.status ? { status: String(req.query.status) } : {}),
@@ -822,13 +890,19 @@ export async function listOrders(req: Request, res: Response) {
     include: { Cliente: { select: { nome: true } } },
   });
   const data = items.map((item: any) => ({
-      ...item,
-      ordemServico: bases.find((base) => base.id === item.ordemServicoId),
-    }));
+    ...item,
+    ordemServico: bases.find((base) => base.id === item.ordemServicoId),
+  }));
   // Contrato consumido pelo componente DataTable compartilhado. Mantém a resposta
   // legada abaixo para as telas que ainda usam o repositório diretamente.
   if (req.query.pageSize !== undefined)
-    return res.json({ data, page, pageSize: size, total, totalPages: Math.max(1, Math.ceil(total / size)) });
+    return res.json({
+      data,
+      page,
+      pageSize: size,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / size)),
+    });
   return ok(req, res, {
     items: data,
     page,
@@ -853,7 +927,12 @@ export async function listPurchaseNeeds(req: Request, res: Response) {
       contaId: custom.contaId,
       id: { in: [...new Set(needs.map((need: any) => need.ordemOuriveId))] },
     },
-    select: { id: true, codigoRastreio: true, ordemServicoId: true, prazoPrevisto: true },
+    select: {
+      id: true,
+      codigoRastreio: true,
+      ordemServicoId: true,
+      prazoPrevisto: true,
+    },
   });
   const [products, baseOrders] = await Promise.all([
     prisma.produto.findMany({
@@ -876,7 +955,9 @@ export async function listPurchaseNeeds(req: Request, res: Response) {
     res,
     needs.map((need: any) => {
       const order = orders.find((item: any) => item.id === need.ordemOuriveId);
-      const baseOrder = baseOrders.find((item) => item.id === order?.ordemServicoId);
+      const baseOrder = baseOrders.find(
+        (item) => item.id === order?.ordemServicoId,
+      );
       return {
         ...need,
         produto: products.find((item) => item.id === need.produtoId),
@@ -927,13 +1008,18 @@ const operationalStatusSchema = z.enum([
 export async function updateOrderStatus(req: Request, res: Response) {
   const custom = own(req);
   const parsed = z
-    .object({ status: operationalStatusSchema, observacao: z.string().max(1000).optional() })
+    .object({
+      status: operationalStatusSchema,
+      observacao: z.string().max(1000).optional(),
+    })
     .safeParse(req.body);
   if (!parsed.success)
     return fail(req, res, 422, "validation_error", "Status inválido.");
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
-  if (!order) return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
-  if (order.status === parsed.data.status) return ok(req, res, { ...order, idempotente: true });
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (order.status === parsed.data.status)
+    return ok(req, res, { ...order, idempotente: true });
   const transitions: Record<string, string[]> = {
     RECEBIDA: ["ORCAMENTO", "CANCELADA"],
     ORCAMENTO: ["AGUARDANDO_MATERIAL", "PRONTA_PRODUCAO", "CANCELADA"],
@@ -963,7 +1049,11 @@ export async function updateOrderStatus(req: Request, res: Response) {
       "STATUS",
       `Status alterado de ${order.status} para ${parsed.data.status}.`,
       custom.userId,
-      { anterior: order.status, novo: parsed.data.status, observacao: parsed.data.observacao },
+      {
+        anterior: order.status,
+        novo: parsed.data.status,
+        observacao: parsed.data.observacao,
+      },
     );
   });
   return ok(req, res, { ordemId: order.id, status: parsed.data.status });
@@ -972,15 +1062,22 @@ export async function updateOrderStatus(req: Request, res: Response) {
 export async function getOrderFinancial(req: Request, res: Response) {
   const custom = own(req);
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
-  if (!order) return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
   try {
-    const calculation = await financialCalculationForOrder(custom.contaId, order);
+    const calculation = await financialCalculationForOrder(
+      custom.contaId,
+      order,
+    );
     const repasses = await db.ouriveRepasse.findMany({
       where: { ordemOuriveId: order.id },
       orderBy: { usuarioId: "asc" },
     });
     const users = await prisma.usuarios.findMany({
-      where: { contaId: custom.contaId, id: { in: repasses.map((item: any) => item.usuarioId) } },
+      where: {
+        contaId: custom.contaId,
+        id: { in: repasses.map((item: any) => item.usuarioId) },
+      },
       select: { id: true, nome: true },
     });
     const repasseResponsavelIds = [
@@ -1017,20 +1114,43 @@ export async function updateOrderFinancial(req: Request, res: Response) {
     .object({ valorMaoObra: z.coerce.number().nonnegative().max(99_999_999) })
     .safeParse(req.body);
   if (!parsed.success)
-    return fail(req, res, 422, "validation_error", "Valor de mão de obra inválido.");
+    return fail(
+      req,
+      res,
+      422,
+      "validation_error",
+      "Valor de mão de obra inválido.",
+    );
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
-  if (!order) return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
   if (order.financeiroConsolidadoEm)
-    return fail(req, res, 409, "financial_locked", "Reabra o financeiro antes de alterar valores.");
+    return fail(
+      req,
+      res,
+      409,
+      "financial_locked",
+      "Reabra o financeiro antes de alterar valores.",
+    );
   await prisma.$transaction(async (tx) => {
     await (tx as any).ouriveOrdem.update({
       where: { id: order.id },
-      data: { valorMaoObra: money(parsed.data.valorMaoObra), financeiroStatus: "CALCULADO" },
+      data: {
+        valorMaoObra: money(parsed.data.valorMaoObra),
+        financeiroStatus: "CALCULADO",
+      },
     });
-    await event(tx, order.id, "FINANCEIRO", "Mão de obra atualizada.", custom.userId, {
-      anterior: String(order.valorMaoObra || 0),
-      novo: money(parsed.data.valorMaoObra).toFixed(2),
-    });
+    await event(
+      tx,
+      order.id,
+      "FINANCEIRO",
+      "Mão de obra atualizada.",
+      custom.userId,
+      {
+        anterior: String(order.valorMaoObra || 0),
+        novo: money(parsed.data.valorMaoObra).toFixed(2),
+      },
+    );
   });
   return ok(req, res, { ordemId: order.id });
 }
@@ -1039,7 +1159,11 @@ export async function consolidateOrderFinancial(req: Request, res: Response) {
   const custom = own(req);
   const parsed = z
     .object({
-      responsavelIds: z.array(z.coerce.number().int().positive()).min(1).max(100).optional(),
+      responsavelIds: z
+        .array(z.coerce.number().int().positive())
+        .min(1)
+        .max(100)
+        .optional(),
     })
     .safeParse(req.body || {});
   if (!parsed.success)
@@ -1052,21 +1176,45 @@ export async function consolidateOrderFinancial(req: Request, res: Response) {
       parsed.error.flatten(),
     );
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
-  if (!order) return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
   if (order.financeiroConsolidadoEm)
-    return ok(req, res, { ordemId: order.id, consolidadoEm: order.financeiroConsolidadoEm, idempotente: true });
+    return ok(req, res, {
+      ordemId: order.id,
+      consolidadoEm: order.financeiroConsolidadoEm,
+      idempotente: true,
+    });
   if (!["FINALIZADA", "REVISAO", "PRONTA_ENTREGA"].includes(order.status))
-    return fail(req, res, 409, "production_not_finalized", "Finalize a produção antes do financeiro.");
+    return fail(
+      req,
+      res,
+      409,
+      "production_not_finalized",
+      "Finalize a produção antes do financeiro.",
+    );
   const pendingPurchases = await db.ouriveNecessidadeCompra.count({
     where: { ordemOuriveId: order.id, status: "PENDENTE" },
   });
   const pendingMaterials = await db.ouriveMaterial.count({
-    where: { ordemOuriveId: order.id, consumidoEm: { not: null }, finalizadoEm: null },
+    where: {
+      ordemOuriveId: order.id,
+      consumidoEm: { not: null },
+      finalizadoEm: null,
+    },
   });
   if (pendingPurchases || pendingMaterials)
-    return fail(req, res, 409, "materials_not_reconciled", "Conclua compras e pesos dos materiais.");
+    return fail(
+      req,
+      res,
+      409,
+      "materials_not_reconciled",
+      "Conclua compras e pesos dos materiais.",
+    );
   try {
-    const calculation = await financialCalculationForOrder(custom.contaId, order);
+    const calculation = await financialCalculationForOrder(
+      custom.contaId,
+      order,
+    );
     const responsavelIds = parsed.data.responsavelIds
       ? [...new Set(parsed.data.responsavelIds.map(Number))]
       : calculation.responsavelIds;
@@ -1108,7 +1256,10 @@ export async function consolidateOrderFinancial(req: Request, res: Response) {
       for (const split of splits)
         await (tx as any).ouriveRepasse.upsert({
           where: {
-            ordemOuriveId_usuarioId: { ordemOuriveId: order.id, usuarioId: split.usuarioId },
+            ordemOuriveId_usuarioId: {
+              ordemOuriveId: order.id,
+              usuarioId: split.usuarioId,
+            },
           },
           create: {
             contaId: custom.contaId,
@@ -1118,12 +1269,23 @@ export async function consolidateOrderFinancial(req: Request, res: Response) {
           },
           update: { valor: split.valor, status: "PENDENTE", pagoEm: null },
         });
-      await event(tx, order.id, "FINANCEIRO", "Financeiro consolidado.", custom.userId, {
-        memoria: calculation.memoria,
-        repasses: splits,
-      });
+      await event(
+        tx,
+        order.id,
+        "FINANCEIRO",
+        "Financeiro consolidado.",
+        custom.userId,
+        {
+          memoria: calculation.memoria,
+          repasses: splits,
+        },
+      );
     });
-    return ok(req, res, { ordemId: order.id, consolidadoEm: now, memoria: calculation.memoria });
+    return ok(req, res, {
+      ordemId: order.id,
+      consolidadoEm: now,
+      memoria: calculation.memoria,
+    });
   } catch (error: any) {
     return fail(
       req,
@@ -1139,14 +1301,27 @@ export async function consolidateOrderFinancial(req: Request, res: Response) {
 
 export async function reopenOrderFinancial(req: Request, res: Response) {
   const custom = own(req);
-  const parsed = z.object({ motivo: z.string().min(3).max(1000) }).safeParse(req.body);
-  if (!parsed.success) return fail(req, res, 422, "validation_error", "Informe o motivo.");
+  const parsed = z
+    .object({ motivo: z.string().min(3).max(1000) })
+    .safeParse(req.body);
+  if (!parsed.success)
+    return fail(req, res, 422, "validation_error", "Informe o motivo.");
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
-  if (!order) return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
-  if (!order.financeiroConsolidadoEm) return ok(req, res, { ordemId: order.id, idempotente: true });
-  const paid = await db.ouriveRepasse.count({ where: { ordemOuriveId: order.id, status: "PAGO" } });
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (!order.financeiroConsolidadoEm)
+    return ok(req, res, { ordemId: order.id, idempotente: true });
+  const paid = await db.ouriveRepasse.count({
+    where: { ordemOuriveId: order.id, status: "PAGO" },
+  });
   if (paid || order.faturadaEm)
-    return fail(req, res, 409, "financial_already_posted", "Não é possível reabrir após pagamento ou faturamento.");
+    return fail(
+      req,
+      res,
+      409,
+      "financial_already_posted",
+      "Não é possível reabrir após pagamento ou faturamento.",
+    );
   await prisma.$transaction(async (tx) => {
     await (tx as any).ouriveRepasse.deleteMany({
       where: { ordemOuriveId: order.id, status: "PENDENTE" },
@@ -1162,44 +1337,108 @@ export async function reopenOrderFinancial(req: Request, res: Response) {
         memoriaCalculoFinanceiro: null,
       },
     });
-    await event(tx, order.id, "FINANCEIRO", "Financeiro reaberto.", custom.userId, {
-      motivo: parsed.data.motivo,
-    });
+    await event(
+      tx,
+      order.id,
+      "FINANCEIRO",
+      "Financeiro reaberto.",
+      custom.userId,
+      {
+        motivo: parsed.data.motivo,
+      },
+    );
   });
   return ok(req, res, { ordemId: order.id });
 }
 
 export async function finalizeProduction(req: Request, res: Response) {
   const custom = own(req);
-  const parsed = z.object({ pesoFinal: z.coerce.number().positive().max(999_999) }).safeParse(req.body);
-  if (!parsed.success) return fail(req, res, 422, "validation_error", "Peso final inválido.");
+  const parsed = z
+    .object({
+      pesoFinal: z.preprocess(
+        (value) =>
+          value === undefined ||
+          value === null ||
+          (typeof value === "string" && value.trim() === "")
+            ? undefined
+            : value,
+        z.coerce.number().positive().max(999_999).optional(),
+      ),
+    })
+    .safeParse(req.body);
+  if (!parsed.success)
+    return fail(req, res, 422, "validation_error", "Peso final inválido.");
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
-  if (!order) return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
   if (order.status !== "PRODUCAO")
-    return fail(req, res, 409, "invalid_order_transition", "A ordem não está em produção.");
+    return fail(
+      req,
+      res,
+      409,
+      "invalid_order_transition",
+      "A ordem não está em produção.",
+    );
   const [materials, stages, approvedStages] = await Promise.all([
     db.ouriveMaterial.count({
-      where: { ordemOuriveId: order.id, consumidoEm: { not: null }, finalizadoEm: null },
+      where: {
+        ordemOuriveId: order.id,
+        consumidoEm: { not: null },
+        finalizadoEm: null,
+      },
     }),
     db.ouriveEtapa.count({ where: { ordemOuriveId: order.id } }),
-    db.ouriveEtapa.count({ where: { ordemOuriveId: order.id, status: "APROVADA" } }),
+    db.ouriveEtapa.count({
+      where: { ordemOuriveId: order.id, status: "APROVADA" },
+    }),
   ]);
-  if (materials) return fail(req, res, 409, "materials_not_reconciled", "Finalize todos os materiais.");
+  if (materials)
+    return fail(
+      req,
+      res,
+      409,
+      "materials_not_reconciled",
+      "Finalize todos os materiais.",
+    );
   if (stages && stages !== approvedStages)
-    return fail(req, res, 409, "stages_not_approved", "Todas as etapas precisam estar aprovadas.");
+    return fail(
+      req,
+      res,
+      409,
+      "stages_not_approved",
+      "Todas as etapas precisam estar aprovadas.",
+    );
   const now = new Date();
   await prisma.$transaction(async (tx) => {
     await (tx as any).ouriveOrdem.update({
       where: { id: order.id },
-      data: { status: "FINALIZADA", pesoFinal: parsed.data.pesoFinal, producaoFinalizadaEm: now },
+      data: {
+        status: "FINALIZADA",
+        pesoFinal: parsed.data.pesoFinal ?? null,
+        producaoFinalizadaEm: now,
+      },
     });
-    await event(tx, order.id, "PRODUCAO", "Produção finalizada com peso final registrado.", custom.userId, {
-      pesoFinal: String(parsed.data.pesoFinal),
-      statusAnterior: order.status,
-      statusNovo: "FINALIZADA",
-    });
+    await event(
+      tx,
+      order.id,
+      "PRODUCAO",
+      parsed.data.pesoFinal
+        ? "Produção finalizada com peso final registrado."
+        : "Produção finalizada sem peso final informado.",
+      custom.userId,
+      {
+        pesoFinal:
+          parsed.data.pesoFinal == null ? null : String(parsed.data.pesoFinal),
+        statusAnterior: order.status,
+        statusNovo: "FINALIZADA",
+      },
+    );
   });
-  return ok(req, res, { ordemId: order.id, status: "FINALIZADA", pesoFinal: parsed.data.pesoFinal });
+  return ok(req, res, {
+    ordemId: order.id,
+    status: "FINALIZADA",
+    pesoFinal: parsed.data.pesoFinal ?? null,
+  });
 }
 
 export async function saveBudget(req: Request, res: Response) {
@@ -1238,7 +1477,8 @@ export async function saveBudget(req: Request, res: Response) {
   if (
     parsed.data.materiais.some(
       (material) =>
-        material.unidade === "QUANTIDADE" && !Number.isInteger(material.quantidade),
+        material.unidade === "QUANTIDADE" &&
+        !Number.isInteger(material.quantidade),
     )
   )
     return fail(
@@ -1299,7 +1539,8 @@ export async function saveBudget(req: Request, res: Response) {
     const product = productById.get(material.produtoId)!;
     const medida = new Decimal(material.quantidade).toDecimalPlaces(3);
     const quantidadeEstoque = stockUnitsForMaterial(material.unidade, medida);
-    const saldoDisponivel = stockRemainingByProduct.get(material.produtoId) || 0;
+    const saldoDisponivel =
+      stockRemainingByProduct.get(material.produtoId) || 0;
     const faltaEstoque = material.fornecidoPeloCliente
       ? 0
       : Math.max(0, quantidadeEstoque - saldoDisponivel);
@@ -1442,13 +1683,13 @@ export async function saveBudget(req: Request, res: Response) {
       {
         valorFinal: finalValue.toString(),
         materiaisEmpresa: materialValue.toString(),
-        necessidadesCompra: materials.filter((material) => material.faltaEstoque > 0).map(
-          (material) => ({
+        necessidadesCompra: materials
+          .filter((material) => material.faltaEstoque > 0)
+          .map((material) => ({
             produtoId: material.produtoId,
             quantidade: material.medidaNecessariaCompra.toString(),
             unidade: material.unidade,
-          }),
-        ),
+          })),
       },
     );
     return created;
@@ -1473,14 +1714,6 @@ export async function sendBudget(req: Request, res: Response) {
       "budget_missing",
       "Crie o orcamento antes de envia-lo.",
     );
-  if (budget.aprovadoEm || budget.recusadoEm)
-    return fail(
-      req,
-      res,
-      409,
-      "budget_closed",
-      "Este orcamento ja possui uma decisao.",
-    );
   const config = await db.ouriveConfiguracao.upsert({
     where: { contaId: custom.contaId },
     create: { contaId: custom.contaId },
@@ -1488,32 +1721,38 @@ export async function sendBudget(req: Request, res: Response) {
   });
   const rawToken = token();
   const expires = new Date(Date.now() + config.prazoAprovacaoDias * 86_400_000);
+  const isDecisionRecorded = Boolean(budget.aprovadoEm || budget.recusadoEm);
   await db.ouriveOrcamento.update({
     where: { id: budget.id },
     data: {
       tokenHash: hash(rawToken),
+      tokenPublico: rawToken,
       tokenExpiraEm: expires,
-      enviadoEm: new Date(),
+      ...(isDecisionRecorded ? {} : { enviadoEm: new Date() }),
     },
   });
   await db.ouriveEvento.create({
     data: {
       ordemOuriveId: order.id,
       tipo: "ORCAMENTO",
-      descricao: `Orcamento versao ${budget.versao} enviado para aprovacao.`,
+      descricao: isDecisionRecorded
+        ? `Link de comprovante do orçamento versão ${budget.versao} gerado.`
+        : `Orcamento versao ${budget.versao} enviado para aprovacao.`,
       autorId: custom.userId,
     },
   });
-  notify(
-    custom.contaId,
-    "Orçamento Ourive enviado",
-    `Orçamento ${order.codigoRastreio} aguarda aprovação.`,
-  );
+  if (!isDecisionRecorded)
+    notify(
+      custom.contaId,
+      "Orçamento Ourive enviado",
+      `Orçamento ${order.codigoRastreio} aguarda aprovação.`,
+    );
   return ok(req, res, {
     versao: budget.versao,
     expiraEm: expires,
     token: rawToken,
     url: `/ourive/orcamento/${rawToken}`,
+    comprovante: isDecisionRecorded,
   });
 }
 
@@ -1582,7 +1821,12 @@ async function decideBudget(
       accepted ? "APROVACAO" : "RECUSA",
       accepted ? "Orcamento aprovado." : "Orcamento recusado.",
       undefined,
-      { origem: origin, versao: budget.versao, observacao: observation, novoStatus: nextStatus },
+      {
+        origem: origin,
+        versao: budget.versao,
+        observacao: observation,
+        novoStatus: nextStatus,
+      },
     );
     return true;
   });
@@ -1670,12 +1914,12 @@ export async function decideBudgetInternal(req: Request, res: Response) {
   );
   if ("error" in result)
     return fail(
-        req,
-        res,
-        409,
-        String(result.error || "budget_unavailable"),
-        "Este orcamento nao esta mais disponivel.",
-      );
+      req,
+      res,
+      409,
+      String(result.error || "budget_unavailable"),
+      "Este orcamento nao esta mais disponivel.",
+    );
   notify(
     custom.contaId,
     result.accepted ? "Orçamento de OS aprovado" : "Orçamento de OS recusado",
@@ -1694,7 +1938,9 @@ export async function publicBudget(req: Request, res: Response) {
     budget.invalidoEm ||
     !budget.enviadoEm ||
     !budget.tokenExpiraEm ||
-    budget.tokenExpiraEm < new Date()
+    (!budget.aprovadoEm &&
+      !budget.recusadoEm &&
+      budget.tokenExpiraEm < new Date())
   )
     return fail(
       req,
@@ -1760,7 +2006,8 @@ export async function publicBudget(req: Request, res: Response) {
       "Material",
   }));
   const materiaisEmpresa = materialLines.filter(
-    (material: (typeof materialLines)[number]) => !material.fornecidoPeloCliente,
+    (material: (typeof materialLines)[number]) =>
+      !material.fornecidoPeloCliente,
   );
   const materiaisCliente = materialLines.filter(
     (material: (typeof materialLines)[number]) => material.fornecidoPeloCliente,
@@ -1784,6 +2031,10 @@ export async function publicBudget(req: Request, res: Response) {
       prazoPrevisto: budget.prazoPrevisto,
       valorFinal: budget.valorFinal,
       expiraEm: budget.tokenExpiraEm,
+      aprovadoEm: budget.aprovadoEm,
+      recusadoEm: budget.recusadoEm,
+      aprovacaoOrigem: budget.aprovacaoOrigem,
+      aprovacaoObservacao: budget.aprovacaoObservacao,
       materiais: materialLines,
       materiaisEmpresa,
       materiaisCliente,
@@ -2073,7 +2324,8 @@ export async function updateStage(req: Request, res: Response) {
       data: {
         ordemOuriveId: order.id,
         tipo: "PRODUCAO",
-        descricao: "Todas as etapas foram aprovadas; a produção pode ser finalizada.",
+        descricao:
+          "Todas as etapas foram aprovadas; a produção pode ser finalizada.",
         autorId: custom.userId,
       },
     });
@@ -2122,10 +2374,17 @@ export async function startProduction(req: Request, res: Response) {
   if (pendingPurchases.length) {
     const pendingMaterials = await db.ouriveMaterial.findMany({
       where: { ordemOuriveId: order.id, necessitaCompra: true },
-      select: { id: true, produtoId: true, medidaPlanejada: true, unidade: true },
+      select: {
+        id: true,
+        produtoId: true,
+        medidaPlanejada: true,
+        unidade: true,
+      },
     });
     const productIds = Array.from(
-      new Set<number>(pendingMaterials.map((item: any) => Number(item.produtoId))),
+      new Set<number>(
+        pendingMaterials.map((item: any) => Number(item.produtoId)),
+      ),
     );
     const stockRows = await prisma.produto.findMany({
       where: { contaId: custom.contaId, id: { in: productIds } },
@@ -2140,9 +2399,8 @@ export async function startProduction(req: Request, res: Response) {
         ),
       );
     const coveredProductIds = stockRows
-      .filter(
-        (product) =>
-          new Decimal(product.estoque).gte(plannedByProduct.get(product.id) || 0),
+      .filter((product) =>
+        new Decimal(product.estoque).gte(plannedByProduct.get(product.id) || 0),
       )
       .map((product) => product.id);
     if (coveredProductIds.length) {
@@ -2156,7 +2414,10 @@ export async function startProduction(req: Request, res: Response) {
           data: { status: "CANCELADA" },
         });
         await (tx as any).ouriveMaterial.updateMany({
-          where: { ordemOuriveId: order.id, produtoId: { in: coveredProductIds } },
+          where: {
+            ordemOuriveId: order.id,
+            produtoId: { in: coveredProductIds },
+          },
           data: { necessitaCompra: false, medidaNecessariaCompra: 0 },
         });
       });
@@ -2198,7 +2459,10 @@ export async function startProduction(req: Request, res: Response) {
             "MATERIAL",
             "Material fornecido pelo cliente registrado na produção.",
             custom.userId,
-            { materialId: material.id, quantidade: material.quantidadePlanejada },
+            {
+              materialId: material.id,
+              quantidade: material.quantidadePlanejada,
+            },
           );
           continue;
         }
@@ -2212,9 +2476,63 @@ export async function startProduction(req: Request, res: Response) {
           material.produtoId,
           material.quantidadePlanejada,
         );
+        // Estoque de sobra/quebra já consolidado é rastreado separadamente: ele baixa o
+        // estoque físico normalmente, mas não carrega custo para a nova OS. Quando houver
+        // uso misto, o snapshot recebe apenas a fração que veio do estoque comprado.
+        const plannedMeasure = new Decimal(
+          material.medidaPlanejada || material.quantidadePlanejada,
+        );
+        const freeLots = await (tx as any).ouriveSobra.findMany({
+          where: {
+            contaId: custom.contaId,
+            produtoDestinoId: material.produtoId,
+            unidade: material.unidade,
+            status: "CONSOLIDADA",
+          },
+          orderBy: { consolidadaEm: "asc" },
+        });
+        let availableFree = new Decimal(0);
+        for (const lot of freeLots)
+          availableFree = availableFree.plus(
+            new Decimal(lot.medidaReal || 0).minus(lot.medidaConsumida || 0),
+          );
+        const freeMeasure = Decimal.min(
+          plannedMeasure,
+          Decimal.max(0, availableFree),
+        );
+        let toAllocate = freeMeasure;
+        const usedLots: Array<{ id: number; medida: string }> = [];
+        for (const lot of freeLots) {
+          if (toAllocate.lte(0)) break;
+          const available = Decimal.max(
+            0,
+            new Decimal(lot.medidaReal || 0).minus(lot.medidaConsumida || 0),
+          );
+          const allocation = Decimal.min(available, toAllocate);
+          if (allocation.lte(0)) continue;
+          await (tx as any).ouriveSobra.update({
+            where: { id: lot.id },
+            data: {
+              medidaConsumida: new Decimal(lot.medidaConsumida || 0).plus(
+                allocation,
+              ),
+            },
+          });
+          usedLots.push({ id: lot.id, medida: allocation.toString() });
+          toAllocate = toAllocate.minus(allocation);
+        }
         // O custo pode ter sido ajustado no orçamento. Preservamos esse snapshot para que
         // alterações posteriores no cadastro do produto não mudem o custo histórico da OS.
-        const snapshot = material.custoSnapshot ?? product.custoMedioProducao ?? product.precoCompra ?? 0;
+        const stockCost = money(
+          material.custoSnapshot ??
+            product.custoMedioProducao ??
+            product.precoCompra ??
+            0,
+        );
+        const paidMeasure = plannedMeasure.minus(freeMeasure);
+        const snapshot = plannedMeasure.gt(0)
+          ? stockCost.mul(paidMeasure).div(plannedMeasure).toDecimalPlaces(2)
+          : stockCost;
         await (tx as any).ouriveMaterial.update({
           where: { id: material.id },
           data: {
@@ -2235,8 +2553,24 @@ export async function startProduction(req: Request, res: Response) {
             quantidade: material.quantidadePlanejada,
             custo: snapshot,
             status: "CONCLUIDO",
+            observacao: freeMeasure.gt(0)
+              ? `Baixa com ${freeMeasure.toString()} ${material.unidade === "PESO" ? "g" : "un."} de sobra/quebra sem custo.`
+              : undefined,
           },
         });
+        if (usedLots.length)
+          await event(
+            tx,
+            order.id,
+            "MATERIAL",
+            "Sobra/quebra consolidada utilizada sem custo na produção.",
+            custom.userId,
+            {
+              materialId: material.id,
+              sobraUtilizada: freeMeasure.toString(),
+              lotes: usedLots,
+            },
+          );
       }
       await (tx as any).ouriveOrdem.update({
         where: { id: order.id },
@@ -2273,82 +2607,13 @@ export async function startProduction(req: Request, res: Response) {
 }
 
 export async function returnMaterial(req: Request, res: Response) {
-  const custom = own(req);
-  const parsed = z
-    .object({ quantidade: z.number().int().positive() })
-    .safeParse(req.body);
-  if (!parsed.success)
-    return fail(req, res, 422, "validation_error", "Quantidade invalida.");
-  const material = await db.ouriveMaterial.findFirst({
-    where: { id: Number(req.params.materialId) },
-  });
-  if (!material)
-    return fail(
-      req,
-      res,
-      404,
-      "material_not_found",
-      "Material nao encontrado.",
-    );
-  const order = await orderForAccount(custom.contaId, material.ordemOuriveId);
-  if (!order)
-    return fail(
-      req,
-      res,
-      404,
-      "material_not_found",
-      "Material nao encontrado.",
-    );
-  if (material.fornecidoPeloCliente)
-    return fail(
-      req,
-      res,
-      409,
-      "customer_material_not_returnable",
-      "Material fornecido pelo cliente nao pode ser devolvido ao estoque da empresa.",
-    );
-  if (
-    parsed.data.quantidade >
-    material.quantidadeConsumida - material.quantidadeDevolvida
-  )
-    return fail(
-      req,
-      res,
-      422,
-      "invalid_return",
-      "Quantidade devolvida excede o consumo.",
-    );
-  await prisma.$transaction(async (tx) => {
-    await tx.produto.update({
-      where: { id: material.produtoId },
-      data: { estoque: { increment: parsed.data.quantidade } },
-    });
-    await (tx as any).ouriveMaterial.update({
-      where: { id: material.id },
-      data: { quantidadeDevolvida: { increment: parsed.data.quantidade } },
-    });
-    await tx.movimentacoesEstoque.create({
-      data: {
-        contaId: custom.contaId,
-        Uid: gerarIdUnicoComMetaFinal("MOV"),
-        tipo: "ENTRADA",
-        ordemId: order.ordemServicoId,
-        produtoId: material.produtoId,
-        quantidade: parsed.data.quantidade,
-        custo: material.custoSnapshot || 0,
-        status: "CONCLUIDO",
-      },
-    });
-    await event(
-      tx,
-      order.id,
-      "MATERIAL",
-      "Material devolvido ao estoque.",
-      custom.userId,
-      parsed.data,
-    );
-  });
-  return ok(req, res, { materialId: material.id });
+  return fail(
+    req,
+    res,
+    409,
+    "direct_return_replaced",
+    "A devolução direta foi substituída. Feche o material informando a sobra ou quebra e consolide-a na tela Sobras e quebras.",
+  );
 }
 
 export async function fulfillPurchaseNeed(req: Request, res: Response) {
@@ -2361,14 +2626,32 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
     })
     .safeParse(req.body);
   if (!parsed.success)
-    return fail(req, res, 422, "validation_error", "Dados da compra inválidos.");
+    return fail(
+      req,
+      res,
+      422,
+      "validation_error",
+      "Dados da compra inválidos.",
+    );
   const need = await db.ouriveNecessidadeCompra.findFirst({
     where: { id: Number(req.params.needId), contaId: custom.contaId },
   });
   if (!need)
-    return fail(req, res, 404, "purchase_need_not_found", "Necessidade de compra não encontrada.");
+    return fail(
+      req,
+      res,
+      404,
+      "purchase_need_not_found",
+      "Necessidade de compra não encontrada.",
+    );
   if (need.status !== "PENDENTE")
-    return fail(req, res, 409, "purchase_already_fulfilled", "Esta compra já foi registrada.");
+    return fail(
+      req,
+      res,
+      409,
+      "purchase_already_fulfilled",
+      "Esta compra já foi registrada.",
+    );
   if (new Decimal(parsed.data.quantidadeComprada).lt(need.quantidadeNecessaria))
     return fail(
       req,
@@ -2396,7 +2679,13 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
     select: { id: true, nome: true },
   });
   if (!product)
-    return fail(req, res, 422, "invalid_material", "Material não pertence a esta conta.");
+    return fail(
+      req,
+      res,
+      422,
+      "invalid_material",
+      "Material não pertence a esta conta.",
+    );
   const stockQuantity = stockUnitsForMaterial(
     need.unidade,
     parsed.data.quantidadeComprada,
@@ -2451,7 +2740,11 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
   });
   if (!remainingPurchases) {
     const approvedBudget = await db.ouriveOrcamento.findFirst({
-      where: { ordemOuriveId: order.id, aprovadoEm: { not: null }, invalidoEm: null },
+      where: {
+        ordemOuriveId: order.id,
+        aprovadoEm: { not: null },
+        invalidoEm: null,
+      },
     });
     if (approvedBudget && order.status === "AGUARDANDO_MATERIAL")
       await db.ouriveOrdem.update({
@@ -2460,6 +2753,141 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
       });
   }
   return ok(req, res, { necessidadeCompraId: need.id, status: "ATENDIDA" });
+}
+
+export async function listLeftovers(req: Request, res: Response) {
+  const custom = own(req);
+  const rows = await (db as any).ouriveSobra.findMany({
+    where: { contaId: custom.contaId, status: "PENDENTE" },
+    orderBy: { createdAt: "asc" },
+  });
+  const [orders, materials, products] = await Promise.all([
+    db.ouriveOrdem.findMany({
+      where: { id: { in: rows.map((row: any) => row.ordemOuriveId) } },
+    }),
+    db.ouriveMaterial.findMany({
+      where: { id: { in: rows.map((row: any) => row.materialId) } },
+    }),
+    prisma.produto.findMany({
+      where: { contaId: custom.contaId },
+      select: { id: true, nome: true, nomeVariante: true },
+    }),
+  ]);
+  return ok(
+    req,
+    res,
+    rows.map((row: any) => {
+      const material = materials.find(
+        (item: any) => item.id === row.materialId,
+      );
+      return {
+        ...row,
+        ordem: orders.find((item: any) => item.id === row.ordemOuriveId),
+        produtoOrigem: products.find((item) => item.id === material?.produtoId),
+      };
+    }),
+  );
+}
+
+export async function consolidateLeftover(req: Request, res: Response) {
+  const custom = own(req);
+  const parsed = z
+    .object({
+      produtoDestinoId: z.coerce.number().int().positive(),
+      medidaReal: z.coerce.number().positive().max(999_999),
+      observacao: z.string().max(2000).optional(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success)
+    return fail(
+      req,
+      res,
+      422,
+      "validation_error",
+      "Informe o peso real e o produto de destino.",
+    );
+  const leftover = await (db as any).ouriveSobra.findFirst({
+    where: { id: Number(req.params.id), contaId: custom.contaId },
+  });
+  if (!leftover || leftover.status !== "PENDENTE")
+    return fail(
+      req,
+      res,
+      404,
+      "leftover_not_found",
+      "Sobra pendente não encontrada.",
+    );
+  const product = await prisma.produto.findFirst({
+    where: { id: parsed.data.produtoDestinoId, contaId: custom.contaId },
+  });
+  if (!product)
+    return fail(
+      req,
+      res,
+      422,
+      "invalid_destination_product",
+      "O produto de destino não pertence a esta conta.",
+    );
+  const measure = new Decimal(parsed.data.medidaReal).toDecimalPlaces(3);
+  const stockQuantity = stockUnitsForMaterial(leftover.unidade, measure);
+  if (!measure.eq(stockQuantity))
+    return fail(
+      req,
+      res,
+      422,
+      "invalid_stock_measure",
+      "O estoque atual trabalha em gramas ou unidades inteiras.",
+    );
+  const order = await orderForAccount(custom.contaId, leftover.ordemOuriveId);
+  if (!order)
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  await prisma.$transaction(async (tx) => {
+    await (tx as any).ouriveSobra.update({
+      where: { id: leftover.id },
+      data: {
+        status: "CONSOLIDADA",
+        medidaReal: measure,
+        produtoDestinoId: product.id,
+        observacao: parsed.data.observacao || leftover.observacao,
+        consolidadaEm: new Date(),
+        consolidadaPorId: custom.userId,
+      },
+    });
+    await tx.produto.update({
+      where: { id: product.id },
+      data: { estoque: { increment: stockQuantity } },
+    });
+    await tx.movimentacoesEstoque.create({
+      data: {
+        contaId: custom.contaId,
+        Uid: gerarIdUnicoComMetaFinal("MOV"),
+        tipo: "ENTRADA",
+        ordemId: order.ordemServicoId,
+        produtoId: product.id,
+        quantidade: stockQuantity,
+        custo: 0,
+        status: "CONCLUIDO",
+        observacao: `${leftover.tipo === "QUEBRA" ? "Quebra recuperável" : "Sobra"} consolidada da OS ${order.codigoRastreio}; entrada sem custo.`,
+      },
+    });
+    await event(
+      tx,
+      order.id,
+      "MATERIAL",
+      "Sobra consolidada em estoque sem custo.",
+      custom.userId,
+      {
+        sobraId: leftover.id,
+        produtoDestinoId: product.id,
+        medidaReal: measure.toString(),
+      },
+    );
+  });
+  return ok(req, res, {
+    sobraId: leftover.id,
+    produtoDestinoId: product.id,
+    quantidade: stockQuantity,
+  });
 }
 
 export async function finalizeMaterial(req: Request, res: Response) {
@@ -2474,15 +2902,33 @@ export async function finalizeMaterial(req: Request, res: Response) {
     })
     .safeParse(req.body);
   if (!parsed.success)
-    return fail(req, res, 422, "validation_error", "Resultado do material inválido.");
+    return fail(
+      req,
+      res,
+      422,
+      "validation_error",
+      "Resultado do material inválido.",
+    );
   const material = await db.ouriveMaterial.findFirst({
     where: { id: Number(req.params.materialId) },
   });
   if (!material)
-    return fail(req, res, 404, "material_not_found", "Material não encontrado.");
+    return fail(
+      req,
+      res,
+      404,
+      "material_not_found",
+      "Material não encontrado.",
+    );
   const order = await orderForAccount(custom.contaId, material.ordemOuriveId);
   if (!order)
-    return fail(req, res, 404, "material_not_found", "Material não encontrado.");
+    return fail(
+      req,
+      res,
+      404,
+      "material_not_found",
+      "Material não encontrado.",
+    );
   if (!["PRODUCAO", "REVISAO"].includes(order.status))
     return fail(
       req,
@@ -2492,11 +2938,21 @@ export async function finalizeMaterial(req: Request, res: Response) {
       "O resultado do material só pode ser informado durante a produção ou revisão.",
     );
   if (material.finalizadoEm)
-    return fail(req, res, 409, "material_already_finalized", "Este material já foi fechado.");
-  const medidaUtilizada = new Decimal(parsed.data.medidaUtilizada).toDecimalPlaces(3);
+    return fail(
+      req,
+      res,
+      409,
+      "material_already_finalized",
+      "Este material já foi fechado.",
+    );
+  const medidaUtilizada = new Decimal(
+    parsed.data.medidaUtilizada,
+  ).toDecimalPlaces(3);
   const medidaSobra = new Decimal(parsed.data.medidaSobra).toDecimalPlaces(3);
   const medidaQuebra = new Decimal(parsed.data.medidaQuebra).toDecimalPlaces(3);
-  const medidaPerdaReal = new Decimal(parsed.data.medidaPerdaReal).toDecimalPlaces(3);
+  const medidaPerdaReal = new Decimal(
+    parsed.data.medidaPerdaReal,
+  ).toDecimalPlaces(3);
   if (
     !material.fornecidoPeloCliente &&
     [medidaUtilizada, medidaSobra, medidaQuebra, medidaPerdaReal].some(
@@ -2510,7 +2966,9 @@ export async function finalizeMaterial(req: Request, res: Response) {
       "invalid_material_measurement",
       "O estoque atual trabalha com unidades inteiras; o fechamento do material da loja deve usar medidas inteiras.",
     );
-  const medidaConsumida = new Decimal(material.medidaConsumida || material.medidaPlanejada);
+  const medidaConsumida = new Decimal(
+    material.medidaConsumida || material.medidaPlanejada,
+  );
   const totalApurado = medidaUtilizada
     .plus(medidaSobra)
     .plus(medidaQuebra)
@@ -2522,42 +2980,36 @@ export async function finalizeMaterial(req: Request, res: Response) {
       422,
       "material_reconciliation_invalid",
       "Utilizado, sobra, quebra e perda devem totalizar o material consumido.",
-      { medidaConsumida: medidaConsumida.toString(), totalApurado: totalApurado.toString() },
+      {
+        medidaConsumida: medidaConsumida.toString(),
+        totalApurado: totalApurado.toString(),
+      },
     );
-  const stockSobra = stockUnitsForMaterial(material.unidade, medidaSobra);
-  const stockQuebra = stockUnitsForMaterial(material.unidade, medidaQuebra);
   await prisma.$transaction(async (tx) => {
-    if (!material.fornecidoPeloCliente && stockSobra + stockQuebra > 0)
-      await tx.produto.update({
-        where: { id: material.produtoId },
-        data: { estoque: { increment: stockSobra + stockQuebra } },
-      });
-    if (!material.fornecidoPeloCliente && stockSobra > 0)
-      await tx.movimentacoesEstoque.create({
+    // Sobras e quebras não voltam automaticamente ao produto de origem. Elas precisam ser
+    // pesadas e classificadas para a variante correta antes de entrarem como estoque sem custo.
+    if (!material.fornecidoPeloCliente && medidaSobra.gt(0))
+      await (tx as any).ouriveSobra.create({
         data: {
           contaId: custom.contaId,
-          Uid: gerarIdUnicoComMetaFinal("MOV"),
-          tipo: "ENTRADA",
-          ordemId: order.ordemServicoId,
-          produtoId: material.produtoId,
-          quantidade: stockSobra,
-          custo: material.custoSnapshot || 0,
-          observacao: "Sobra reaproveitável devolvida pela OS de ourivesaria.",
-          status: "CONCLUIDO",
+          ordemOuriveId: order.id,
+          materialId: material.id,
+          tipo: "SOBRA",
+          unidade: material.unidade,
+          medidaInformada: medidaSobra,
+          observacao: parsed.data.observacao,
         },
       });
-    if (!material.fornecidoPeloCliente && stockQuebra > 0)
-      await tx.movimentacoesEstoque.create({
+    if (!material.fornecidoPeloCliente && medidaQuebra.gt(0))
+      await (tx as any).ouriveSobra.create({
         data: {
           contaId: custom.contaId,
-          Uid: gerarIdUnicoComMetaFinal("MOV"),
-          tipo: "ENTRADA",
-          ordemId: order.ordemServicoId,
-          produtoId: material.produtoId,
-          quantidade: stockQuebra,
-          custo: material.custoSnapshot || 0,
-          observacao: "Quebra recuperável registrada pela OS de ourivesaria.",
-          status: "CONCLUIDO",
+          ordemOuriveId: order.id,
+          materialId: material.id,
+          tipo: "QUEBRA",
+          unidade: material.unidade,
+          medidaInformada: medidaQuebra,
+          observacao: parsed.data.observacao,
         },
       });
     await (tx as any).ouriveMaterial.update({
@@ -2567,7 +3019,7 @@ export async function finalizeMaterial(req: Request, res: Response) {
         medidaSobra,
         medidaQuebra,
         medidaPerdaReal,
-        quantidadeDevolvida: stockSobra + stockQuebra,
+        quantidadeDevolvida: 0,
         observacao: parsed.data.observacao,
         finalizadoEm: new Date(),
       },
@@ -2728,7 +3180,9 @@ export async function deliverOrder(req: Request, res: Response) {
   const base = await prisma.ordensServico.findFirstOrThrow({
     where: { id: order.ordemServicoId, contaId: custom.contaId },
   });
-  const serviceValue = (Array.isArray(budget.servicos) ? budget.servicos : []).reduce(
+  const serviceValue = (
+    Array.isArray(budget.servicos) ? budget.servicos : []
+  ).reduce(
     (total: Decimal, service: any) =>
       total.plus(money(service.quantidade).mul(money(service.valor))),
     new Decimal(0),
@@ -2754,7 +3208,9 @@ export async function deliverOrder(req: Request, res: Response) {
     (total: Decimal, material: any) =>
       material.fornecidoPeloCliente
         ? total
-        : total.plus(money(material.valorUnitario).mul(material.quantidadePlanejada)),
+        : total.plus(
+            money(material.valorUnitario).mul(material.quantidadePlanejada),
+          ),
     new Decimal(0),
   );
   const valorBruto = serviceValue.plus(materialValue);
@@ -2763,7 +3219,9 @@ export async function deliverOrder(req: Request, res: Response) {
     (total: Decimal, material: any) => {
       if (material.fornecidoPeloCliente) return total;
       const medidaLiquidada = material.finalizadoEm
-        ? new Decimal(material.medidaUtilizada || 0).plus(material.medidaPerdaReal || 0)
+        ? new Decimal(material.medidaUtilizada || 0).plus(
+            material.medidaPerdaReal || 0,
+          )
         : new Decimal(material.medidaConsumida || 0)
             .minus(material.medidaSobra || 0)
             .minus(material.medidaQuebra || 0);
@@ -2772,10 +3230,13 @@ export async function deliverOrder(req: Request, res: Response) {
         : new Decimal(
             Math.max(
               0,
-              Number(material.quantidadeConsumida) - Number(material.quantidadeDevolvida),
+              Number(material.quantidadeConsumida) -
+                Number(material.quantidadeDevolvida),
             ),
           );
-      return total.plus(money(material.custoSnapshot || 0).mul(quantidadeUtilizada));
+      return total.plus(
+        money(material.custoSnapshot || 0).mul(quantidadeUtilizada),
+      );
     },
     new Decimal(0),
   );
@@ -2964,7 +3425,11 @@ export async function deleteOrder(req: Request, res: Response) {
       where: { contaId: custom.contaId, ordemId: order.ordemServicoId },
     }),
   ]);
-  if (materials.some((material: any) => material.quantidadeConsumida > 0) || movements || commissions)
+  if (
+    materials.some((material: any) => material.quantidadeConsumida > 0) ||
+    movements ||
+    commissions
+  )
     return fail(
       req,
       res,
@@ -2988,13 +3453,27 @@ export async function deleteOrder(req: Request, res: Response) {
     await (tx as any).ouriveEtapaResponsavel.deleteMany({
       where: { etapaId: { in: stages.map((stage: any) => stage.id) } },
     });
-    await (tx as any).ouriveComissao.deleteMany({ where: { ordemOuriveId: order.id } });
-    await (tx as any).ouriveEtapa.deleteMany({ where: { ordemOuriveId: order.id } });
-    await (tx as any).ouriveMaterial.deleteMany({ where: { ordemOuriveId: order.id } });
-    await (tx as any).ouriveEvento.deleteMany({ where: { ordemOuriveId: order.id } });
-    await (tx as any).ouriveOrcamento.deleteMany({ where: { ordemOuriveId: order.id } });
-    await (tx as any).ourivePeca.deleteMany({ where: { ordemOuriveId: order.id } });
-    await tx.itensOrdensServico.deleteMany({ where: { ordemId: order.ordemServicoId } });
+    await (tx as any).ouriveComissao.deleteMany({
+      where: { ordemOuriveId: order.id },
+    });
+    await (tx as any).ouriveEtapa.deleteMany({
+      where: { ordemOuriveId: order.id },
+    });
+    await (tx as any).ouriveMaterial.deleteMany({
+      where: { ordemOuriveId: order.id },
+    });
+    await (tx as any).ouriveEvento.deleteMany({
+      where: { ordemOuriveId: order.id },
+    });
+    await (tx as any).ouriveOrcamento.deleteMany({
+      where: { ordemOuriveId: order.id },
+    });
+    await (tx as any).ourivePeca.deleteMany({
+      where: { ordemOuriveId: order.id },
+    });
+    await tx.itensOrdensServico.deleteMany({
+      where: { ordemId: order.ordemServicoId },
+    });
     await (tx as any).ouriveOrdem.delete({ where: { id: order.id } });
     await tx.ordensServico.delete({ where: { id: order.ordemServicoId } });
   });
@@ -3113,7 +3592,9 @@ export async function settleCommission(req: Request, res: Response) {
 
 export async function listOuriveTransfers(req: Request, res: Response) {
   const custom = own(req);
-  const status = z.enum(["PENDENTE", "PAGO", "CANCELADO"]).safeParse(req.query.status);
+  const status = z
+    .enum(["PENDENTE", "PAGO", "CANCELADO"])
+    .safeParse(req.query.status);
   const repasses = await db.ouriveRepasse.findMany({
     where: {
       contaId: custom.contaId,
@@ -3132,30 +3613,43 @@ export async function listOuriveTransfers(req: Request, res: Response) {
     db.ouriveOrdem.findMany({
       where: {
         contaId: custom.contaId,
-        id: { in: [...new Set(repasses.map((item: any) => item.ordemOuriveId))] },
+        id: {
+          in: [...new Set(repasses.map((item: any) => item.ordemOuriveId))],
+        },
       },
       select: { id: true, codigoRastreio: true, ordemServicoId: true },
     }),
   ]);
   const bases = await prisma.ordensServico.findMany({
-    where: { contaId: custom.contaId, id: { in: orders.map((item: any) => item.ordemServicoId) } },
+    where: {
+      contaId: custom.contaId,
+      id: { in: orders.map((item: any) => item.ordemServicoId) },
+    },
     include: { Cliente: { select: { nome: true } } },
   });
-  return ok(
+  const data = repasses.map((repasse: any) => {
+    const order = orders.find((item: any) => item.id === repasse.ordemOuriveId);
+    const base = bases.find((item) => item.id === order?.ordemServicoId);
+    return {
+      ...repasse,
+      usuario: users.find((item) => item.id === repasse.usuarioId),
+      ordem: order
+        ? {
+            id: order.id,
+            codigoRastreio: order.codigoRastreio,
+            cliente: base?.Cliente,
+          }
+        : undefined,
+    };
+  });
+  const table = dataTableResponse(
     req,
     res,
-    repasses.map((repasse: any) => {
-      const order = orders.find((item: any) => item.id === repasse.ordemOuriveId);
-      const base = bases.find((item) => item.id === order?.ordemServicoId);
-      return {
-        ...repasse,
-        usuario: users.find((item) => item.id === repasse.usuarioId),
-        ordem: order
-          ? { id: order.id, codigoRastreio: order.codigoRastreio, cliente: base?.Cliente }
-          : undefined,
-      };
-    }),
+    data,
+    (row) =>
+      `${row.usuario?.nome || ""} ${row.ordem?.codigoRastreio || ""} ${row.ordem?.cliente?.nome || ""}`,
   );
+  return table || ok(req, res, data);
 }
 
 export async function listOurivePayments(req: Request, res: Response) {
@@ -3176,15 +3670,19 @@ export async function listOurivePayments(req: Request, res: Response) {
       where: { pagamentoId: { in: payments.map((item: any) => item.id) } },
     }),
   ]);
-  return ok(
+  const data = payments.map((payment: any) => ({
+    ...payment,
+    usuario: users.find((item) => item.id === payment.usuarioId),
+    itens: items.filter((item: any) => item.pagamentoId === payment.id),
+  }));
+  const table = dataTableResponse(
     req,
     res,
-    payments.map((payment: any) => ({
-      ...payment,
-      usuario: users.find((item) => item.id === payment.usuarioId),
-      itens: items.filter((item: any) => item.pagamentoId === payment.id),
-    })),
+    data,
+    (row) =>
+      `${row.usuario?.nome || ""} ${row.observacao || ""} ${row.valorTotal || ""}`,
   );
+  return table || ok(req, res, data);
 }
 
 export async function createOurivePayment(req: Request, res: Response) {
@@ -3196,19 +3694,44 @@ export async function createOurivePayment(req: Request, res: Response) {
       observacao: z.string().max(2000).optional(),
     })
     .safeParse(req.body);
-  if (!parsed.success) return fail(req, res, 422, "validation_error", "Pagamento inválido.");
+  if (!parsed.success)
+    return fail(req, res, 422, "validation_error", "Pagamento inválido.");
   const repasseIds = [...new Set(parsed.data.repasseIds)];
   const repasses = await db.ouriveRepasse.findMany({
-    where: { id: { in: repasseIds }, contaId: custom.contaId, status: "PENDENTE" },
+    where: {
+      id: { in: repasseIds },
+      contaId: custom.contaId,
+      status: "PENDENTE",
+    },
   });
   if (repasses.length !== repasseIds.length)
-    return fail(req, res, 409, "transfer_unavailable", "Um dos repasses não está mais pendente.");
+    return fail(
+      req,
+      res,
+      409,
+      "transfer_unavailable",
+      "Um dos repasses não está mais pendente.",
+    );
   const usuarioIds = [...new Set(repasses.map((item: any) => item.usuarioId))];
   if (usuarioIds.length !== 1)
-    return fail(req, res, 422, "mixed_payees", "Selecione repasses de um único ourives.");
-  const config = await db.ouriveConfiguracao.findUnique({ where: { contaId: custom.contaId } });
+    return fail(
+      req,
+      res,
+      422,
+      "mixed_payees",
+      "Selecione repasses de um único ourives.",
+    );
+  const config = await db.ouriveConfiguracao.findUnique({
+    where: { contaId: custom.contaId },
+  });
   if (!config?.comissaoCategoriaId || !config?.comissaoContaFinanceiraId)
-    return fail(req, res, 422, "financial_configuration_required", "Configure categoria e conta de pagamentos dos ourives.");
+    return fail(
+      req,
+      res,
+      422,
+      "financial_configuration_required",
+      "Configure categoria e conta de pagamentos dos ourives.",
+    );
   const total = repasses.reduce(
     (sum: Decimal, repasse: any) => sum.plus(repasse.valor),
     new Decimal(0),
@@ -3218,7 +3741,8 @@ export async function createOurivePayment(req: Request, res: Response) {
       where: { id: { in: repasseIds }, status: "PENDENTE" },
       data: { status: "PAGO", pagoEm: parsed.data.dataPagamento },
     });
-    if (reserved.count !== repasseIds.length) throw new Error("transfer_unavailable");
+    if (reserved.count !== repasseIds.length)
+      throw new Error("transfer_unavailable");
     const launch = await tx.lancamentoFinanceiro.create({
       data: {
         contaId: custom.contaId,
@@ -3267,10 +3791,15 @@ export async function createOurivePayment(req: Request, res: Response) {
         valor: repasse.valor,
       })),
     });
-    for (const orderId of [...new Set(repasses.map((item: any) => item.ordemOuriveId))]) {
+    for (const orderId of [
+      ...new Set(repasses.map((item: any) => item.ordemOuriveId)),
+    ]) {
       const orderPayment = repasses
         .filter((item: any) => item.ordemOuriveId === orderId)
-        .reduce((sum: Decimal, item: any) => sum.plus(item.valor), new Decimal(0));
+        .reduce(
+          (sum: Decimal, item: any) => sum.plus(item.valor),
+          new Decimal(0),
+        );
       const remaining = await (tx as any).ouriveRepasse.count({
         where: { ordemOuriveId: orderId, status: "PENDENTE" },
       });
@@ -3279,14 +3808,26 @@ export async function createOurivePayment(req: Request, res: Response) {
           where: { id: orderId },
           data: { financeiroStatus: "PAGO" },
         });
-      await event(tx, orderId, "PAGAMENTO", "Repasse ao ourives pago em lote.", custom.userId, {
-        pagamentoId: payment.id,
-        valor: money(orderPayment).toFixed(2),
-      });
+      await event(
+        tx,
+        orderId,
+        "PAGAMENTO",
+        "Repasse ao ourives pago em lote.",
+        custom.userId,
+        {
+          pagamentoId: payment.id,
+          valor: money(orderPayment).toFixed(2),
+        },
+      );
     }
     return { payment, launch };
   });
-  return ok(req, res, { pagamentoId: result.payment.id, valorTotal: money(total).toFixed(2) }, 201);
+  return ok(
+    req,
+    res,
+    { pagamentoId: result.payment.id, valorTotal: money(total).toFixed(2) },
+    201,
+  );
 }
 
 export async function listProLabore(req: Request, res: Response) {
@@ -3302,7 +3843,18 @@ export async function listProLabore(req: Request, res: Response) {
     },
     select: { id: true, nome: true },
   });
-  return ok(req, res, rows.map((row: any) => ({ ...row, beneficiario: users.find((user) => user.id === row.beneficiarioId) })));
+  const data = rows.map((row: any) => ({
+    ...row,
+    beneficiario: users.find((user) => user.id === row.beneficiarioId),
+  }));
+  const table = dataTableResponse(
+    req,
+    res,
+    data,
+    (row) =>
+      `${row.beneficiario?.nome || ""} ${row.observacao || ""} ${row.status || ""}`,
+  );
+  return table || ok(req, res, data);
 }
 
 export async function createProLabore(req: Request, res: Response) {
@@ -3315,7 +3867,8 @@ export async function createProLabore(req: Request, res: Response) {
       observacao: z.string().max(2000).optional(),
     })
     .safeParse(req.body);
-  if (!parsed.success) return fail(req, res, 422, "validation_error", "Pró-labore inválido.");
+  if (!parsed.success)
+    return fail(req, res, 422, "validation_error", "Pró-labore inválido.");
   const [beneficiary, config] = await Promise.all([
     prisma.usuarios.findFirst({
       where: { id: parsed.data.beneficiarioId, contaId: custom.contaId },
@@ -3323,9 +3876,16 @@ export async function createProLabore(req: Request, res: Response) {
     }),
     db.ouriveConfiguracao.findUnique({ where: { contaId: custom.contaId } }),
   ]);
-  if (!beneficiary) return fail(req, res, 422, "invalid_beneficiary", "Beneficiário inválido.");
+  if (!beneficiary)
+    return fail(req, res, 422, "invalid_beneficiary", "Beneficiário inválido.");
   if (!config?.proLaboreCategoriaId || !config?.proLaboreContaFinanceiraId)
-    return fail(req, res, 422, "financial_configuration_required", "Configure categoria e conta do pró-labore.");
+    return fail(
+      req,
+      res,
+      422,
+      "financial_configuration_required",
+      "Configure categoria e conta do pró-labore.",
+    );
   const competenceStart = new Date(parsed.data.competencia);
   competenceStart.setDate(1);
   competenceStart.setHours(0, 0, 0, 0);
@@ -3394,9 +3954,24 @@ export async function payProLabore(req: Request, res: Response) {
   const row = await db.ouriveProLabore.findFirst({
     where: { id: Number(req.params.id), contaId: custom.contaId },
   });
-  if (!row) return fail(req, res, 404, "pro_labore_not_found", "Pró-labore não encontrado.");
-  if (row.status === "PAGO") return ok(req, res, { id: row.id, idempotente: true });
-  if (row.status !== "PENDENTE") return fail(req, res, 409, "pro_labore_unavailable", "Pró-labore não está pendente.");
+  if (!row)
+    return fail(
+      req,
+      res,
+      404,
+      "pro_labore_not_found",
+      "Pró-labore não encontrado.",
+    );
+  if (row.status === "PAGO")
+    return ok(req, res, { id: row.id, idempotente: true });
+  if (row.status !== "PENDENTE")
+    return fail(
+      req,
+      res,
+      409,
+      "pro_labore_unavailable",
+      "Pró-labore não está pendente.",
+    );
   const paidAt = new Date();
   await prisma.$transaction(async (tx) => {
     await (tx as any).ouriveProLabore.update({
@@ -3468,43 +4043,46 @@ export async function dashboard(req: Request, res: Response) {
     },
   });
   const orderIds = orders.map((item: any) => item.id);
-  const [budgets, stages, commissions, pendingTransfers, pendingPurchases] = await Promise.all([
-    db.ouriveOrcamento.findMany({
-      where: { ordemOuriveId: { in: orderIds }, aprovadoEm: { not: null } },
-      select: { ordemOuriveId: true, valorFinal: true, aprovadoEm: true },
-    }),
-    db.ouriveEtapa.findMany({
-      where: {
-        ordemOuriveId: { in: orderIds },
-        status: {
-          in: ["PENDENTE", "EM_EXECUCAO", "AGUARDANDO_REVISAO", "REPROVADA"],
+  const [budgets, stages, commissions, pendingTransfers, pendingPurchases] =
+    await Promise.all([
+      db.ouriveOrcamento.findMany({
+        where: { ordemOuriveId: { in: orderIds }, aprovadoEm: { not: null } },
+        select: { ordemOuriveId: true, valorFinal: true, aprovadoEm: true },
+      }),
+      db.ouriveEtapa.findMany({
+        where: {
+          ordemOuriveId: { in: orderIds },
+          status: {
+            in: ["PENDENTE", "EM_EXECUCAO", "AGUARDANDO_REVISAO", "REPROVADA"],
+          },
         },
-      },
-      orderBy: { prazoPrevisto: "asc" },
-      take: 15,
-    }),
-    db.ouriveComissao.aggregate({
-      where: {
-        ordemOuriveId: { in: orderIds },
-        ...(access.capabilities.includes("CONFIGURAR")
-          ? {}
-          : { usuarioId: custom.userId }),
-        consolidadaEm: { not: null },
-      },
-      _sum: { valorConsolidado: true },
-    }),
-    db.ouriveRepasse.aggregate({
-      where: {
-        contaId: custom.contaId,
-        status: "PENDENTE",
-        ...(access.capabilities.includes("CONFIGURAR") ? {} : { usuarioId: custom.userId }),
-      },
-      _sum: { valor: true },
-    }),
-    db.ouriveNecessidadeCompra.count({
-      where: { contaId: custom.contaId, status: "PENDENTE" },
-    }),
-  ]);
+        orderBy: { prazoPrevisto: "asc" },
+        take: 15,
+      }),
+      db.ouriveComissao.aggregate({
+        where: {
+          ordemOuriveId: { in: orderIds },
+          ...(access.capabilities.includes("CONFIGURAR")
+            ? {}
+            : { usuarioId: custom.userId }),
+          consolidadaEm: { not: null },
+        },
+        _sum: { valorConsolidado: true },
+      }),
+      db.ouriveRepasse.aggregate({
+        where: {
+          contaId: custom.contaId,
+          status: "PENDENTE",
+          ...(access.capabilities.includes("CONFIGURAR")
+            ? {}
+            : { usuarioId: custom.userId }),
+        },
+        _sum: { valor: true },
+      }),
+      db.ouriveNecessidadeCompra.count({
+        where: { contaId: custom.contaId, status: "PENDENTE" },
+      }),
+    ]);
   const inRange = (value: Date | null | undefined, start: Date, end: Date) =>
     Boolean(value && value >= start && value <= end);
   const sum = (items: any[]) =>
@@ -3591,7 +4169,9 @@ export async function dashboard(req: Request, res: Response) {
         ["RECEBIDA", "ORCAMENTO"].includes(order.status),
       ).length,
       comissoes: Number(commissions._sum.valorConsolidado || 0),
-      aguardandoMaterial: orders.filter((order: any) => order.status === "AGUARDANDO_MATERIAL").length,
+      aguardandoMaterial: orders.filter(
+        (order: any) => order.status === "AGUARDANDO_MATERIAL",
+      ).length,
       comprasPendentes: pendingPurchases,
       atrasadas: orders.filter(
         (order: any) =>
@@ -3599,7 +4179,9 @@ export async function dashboard(req: Request, res: Response) {
           order.prazoPrevisto < now &&
           !["ENTREGUE", "RECUSADA", "CANCELADA"].includes(order.status),
       ).length,
-      prontasEntrega: orders.filter((order: any) => order.status === "PRONTA_ENTREGA").length,
+      prontasEntrega: orders.filter(
+        (order: any) => order.status === "PRONTA_ENTREGA",
+      ).length,
       valorPendenteOurives: Number(pendingTransfers._sum.valor || 0),
     },
     serieReceita: {
@@ -3645,18 +4227,33 @@ export async function listCommissions(req: Request, res: Response) {
     select: { id: true, nome: true },
   });
   const data = rows.map((row: any) => ({
-      ...row,
-      usuario: users.find((user) => user.id === row.usuarioId),
-    }));
+    ...row,
+    usuario: users.find((user) => user.id === row.usuarioId),
+  }));
   if (req.query.pageSize !== undefined) {
     const page = Math.max(1, Number(req.query.page || 1));
-    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize || 10)));
-    const search = String(req.query.search || '').trim().toLowerCase();
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Number(req.query.pageSize || 10)),
+    );
+    const search = String(req.query.search || "")
+      .trim()
+      .toLowerCase();
     const filtered = search
-      ? data.filter((row: any) => `${row.usuario?.nome || ''} ${row.tipo} ${row.etapaId}`.toLowerCase().includes(search))
+      ? data.filter((row: any) =>
+          `${row.usuario?.nome || ""} ${row.tipo} ${row.etapaId}`
+            .toLowerCase()
+            .includes(search),
+        )
       : data;
     const total = filtered.length;
-    return res.json({ data: filtered.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+    return res.json({
+      data: filtered.slice((page - 1) * pageSize, page * pageSize),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    });
   }
   return ok(req, res, data);
 }
@@ -3672,11 +4269,19 @@ export async function report(req: Request, res: Response) {
     })
     .safeParse(req.query);
   if (!filters.success)
-    return fail(req, res, 422, "validation_error", "Filtros do relatório inválidos.");
+    return fail(
+      req,
+      res,
+      422,
+      "validation_error",
+      "Filtros do relatório inválidos.",
+    );
   const dateRange =
     req.query.inicio || req.query.fim
       ? {
-          ...(req.query.inicio ? { gte: new Date(String(req.query.inicio)) } : {}),
+          ...(req.query.inicio
+            ? { gte: new Date(String(req.query.inicio)) }
+            : {}),
           ...(req.query.fim ? { lte: new Date(String(req.query.fim)) } : {}),
         }
       : undefined;
@@ -3684,7 +4289,10 @@ export async function report(req: Request, res: Response) {
     filters.data.clienteId
       ? prisma.ordensServico
           .findMany({
-            where: { contaId: custom.contaId, clienteId: filters.data.clienteId },
+            where: {
+              contaId: custom.contaId,
+              clienteId: filters.data.clienteId,
+            },
             select: { id: true },
           })
           .then((rows) => rows.map((row) => row.id))
@@ -3700,7 +4308,9 @@ export async function report(req: Request, res: Response) {
               where: { id: { in: links.map((link: any) => link.etapaId) } },
               select: { ordemOuriveId: true },
             });
-            return [...new Set(stages.map((stage: any) => stage.ordemOuriveId))];
+            return [
+              ...new Set(stages.map((stage: any) => stage.ordemOuriveId)),
+            ];
           })
       : undefined,
   ]);
@@ -3716,7 +4326,10 @@ export async function report(req: Request, res: Response) {
   // um orçamento aprovado infle o resultado antes da entrega.
   const [orders, billedOrders, statusRows] = await Promise.all([
     db.ouriveOrdem.findMany({
-      where: { ...filteredOrderWhere, ...(dateRange ? { createdAt: dateRange } : {}) },
+      where: {
+        ...filteredOrderWhere,
+        ...(dateRange ? { createdAt: dateRange } : {}),
+      },
     }),
     db.ouriveOrdem.findMany({
       where: {
@@ -3726,7 +4339,10 @@ export async function report(req: Request, res: Response) {
     }),
     db.ouriveOrdem.groupBy({
       by: ["status"],
-      where: { ...filteredOrderWhere, ...(dateRange ? { createdAt: dateRange } : {}) },
+      where: {
+        ...filteredOrderWhere,
+        ...(dateRange ? { createdAt: dateRange } : {}),
+      },
       _count: { _all: true },
     }),
   ]);
@@ -3768,13 +4384,18 @@ export async function report(req: Request, res: Response) {
       select: { pagamentoId: true, valor: true },
     }),
     db.ouriveProLabore.findMany({
-      where: { contaId: custom.contaId, ...(dateRange ? { competencia: dateRange } : {}) },
+      where: {
+        contaId: custom.contaId,
+        ...(dateRange ? { competencia: dateRange } : {}),
+      },
     }),
   ]);
   const payments = await db.ourivePagamento.findMany({
     where: {
       contaId: custom.contaId,
-      id: { in: [...new Set(paymentItems.map((item: any) => item.pagamentoId))] },
+      id: {
+        in: [...new Set(paymentItems.map((item: any) => item.pagamentoId))],
+      },
       ...(dateRange ? { dataPagamento: dateRange } : {}),
     },
   });
@@ -3798,7 +4419,8 @@ export async function report(req: Request, res: Response) {
                       .minus(material.medidaQuebra || 0)
                   : Math.max(
                       0,
-                      material.quantidadeConsumida - material.quantidadeDevolvida,
+                      material.quantidadeConsumida -
+                        material.quantidadeDevolvida,
                     ),
             ),
           ),
@@ -3832,7 +4454,8 @@ export async function report(req: Request, res: Response) {
       !["ENTREGUE", "RECUSADA", "CANCELADA"].includes(order.status),
   ).length;
   const losses = operationalMaterials.reduce(
-    (total: Decimal, material: any) => total.plus(material.medidaPerdaReal || 0),
+    (total: Decimal, material: any) =>
+      total.plus(material.medidaPerdaReal || 0),
     new Decimal(0),
   );
   const consolidatedMemories = billedOrders
@@ -3848,14 +4471,17 @@ export async function report(req: Request, res: Response) {
   );
   const pendingTransfers = repasses
     .filter((item: any) => item.status === "PENDENTE")
-    .reduce((total: Decimal, item: any) => total.plus(item.valor), new Decimal(0));
+    .reduce(
+      (total: Decimal, item: any) => total.plus(item.valor),
+      new Decimal(0),
+    );
   const paidPaymentIds = new Set(payments.map((item: any) => item.id));
   const paidTransfers = paymentItems
     .filter((item: any) => paidPaymentIds.has(item.pagamentoId))
     .reduce(
-    (total: Decimal, item: any) => total.plus(item.valor),
-    new Decimal(0),
-  );
+      (total: Decimal, item: any) => total.plus(item.valor),
+      new Decimal(0),
+    );
   const proLaboreTotal = proLabore.reduce(
     (total: Decimal, item: any) => total.plus(item.valor),
     new Decimal(0),
@@ -3863,12 +4489,20 @@ export async function report(req: Request, res: Response) {
   const lossMaterials = operationalMaterials.filter((material: any) =>
     new Decimal(material.medidaPerdaReal || 0).greaterThan(0),
   );
-  const lossOrderIds = [...new Set(lossMaterials.map((material: any) => material.ordemOuriveId))];
+  const lossOrderIds = [
+    ...new Set(lossMaterials.map((material: any) => material.ordemOuriveId)),
+  ];
   const [lossProducts, lossStages, transferUsers] = await Promise.all([
     prisma.produto.findMany({
       where: {
         contaId: custom.contaId,
-        id: { in: [...new Set(lossMaterials.map((material: any) => material.produtoId))] },
+        id: {
+          in: [
+            ...new Set(
+              lossMaterials.map((material: any) => material.produtoId),
+            ),
+          ],
+        },
       },
       select: { id: true, nome: true },
     }),
@@ -3879,7 +4513,9 @@ export async function report(req: Request, res: Response) {
     prisma.usuarios.findMany({
       where: {
         contaId: custom.contaId,
-        id: { in: [...new Set(repasses.map((repasse: any) => repasse.usuarioId))] },
+        id: {
+          in: [...new Set(repasses.map((repasse: any) => repasse.usuarioId))],
+        },
       },
       select: { id: true, nome: true },
     }),
@@ -3888,20 +4524,30 @@ export async function report(req: Request, res: Response) {
     where: { etapaId: { in: lossStages.map((stage: any) => stage.id) } },
     select: { etapaId: true, usuarioId: true },
   });
-  const lossUserIds = [...new Set(lossAssignments.map((item: any) => item.usuarioId))];
+  const lossUserIds = [
+    ...new Set(lossAssignments.map((item: any) => item.usuarioId)),
+  ];
   const lossUsers = await prisma.usuarios.findMany({
     where: { contaId: custom.contaId, id: { in: lossUserIds } },
     select: { id: true, nome: true },
   });
-  const pendingByGoldsmith = [...new Set(repasses.map((repasse: any) => repasse.usuarioId))]
+  const pendingByGoldsmith = [
+    ...new Set(repasses.map((repasse: any) => repasse.usuarioId)),
+  ]
     .map((usuarioId) => ({
       usuarioId,
       nome:
         transferUsers.find((user) => user.id === usuarioId)?.nome ||
         `Ourives #${usuarioId}`,
       valor: repasses
-        .filter((repasse: any) => repasse.usuarioId === usuarioId && repasse.status === "PENDENTE")
-        .reduce((total: Decimal, repasse: any) => total.plus(repasse.valor), new Decimal(0)),
+        .filter(
+          (repasse: any) =>
+            repasse.usuarioId === usuarioId && repasse.status === "PENDENTE",
+        )
+        .reduce(
+          (total: Decimal, repasse: any) => total.plus(repasse.valor),
+          new Decimal(0),
+        ),
     }))
     .filter((item) => new Decimal(item.valor).greaterThan(0));
   return ok(req, res, {
@@ -3924,21 +4570,29 @@ export async function report(req: Request, res: Response) {
     perdas: {
       quantidade: losses,
       itens: lossMaterials.map((material: any) => {
-        const order = orders.find((item: any) => item.id === material.ordemOuriveId);
+        const order = orders.find(
+          (item: any) => item.id === material.ordemOuriveId,
+        );
         const stageIds = lossStages
-          .filter((stage: any) => stage.ordemOuriveId === material.ordemOuriveId)
+          .filter(
+            (stage: any) => stage.ordemOuriveId === material.ordemOuriveId,
+          )
           .map((stage: any) => stage.id);
         const userIds = lossAssignments
           .filter((assignment: any) => stageIds.includes(assignment.etapaId))
           .map((assignment: any) => assignment.usuarioId);
         return {
           materialId: material.id,
-          material: lossProducts.find((product) => product.id === material.produtoId)?.nome,
+          material: lossProducts.find(
+            (product) => product.id === material.produtoId,
+          )?.nome,
           ordemId: material.ordemOuriveId,
           ordem: order?.codigoRastreio,
           quantidade: material.medidaPerdaReal,
           unidade: material.unidade,
-          ourives: lossUsers.filter((user) => userIds.includes(user.id)).map((user) => user.nome),
+          ourives: lossUsers
+            .filter((user) => userIds.includes(user.id))
+            .map((user) => user.nome),
           data: material.finalizadoEm,
         };
       }),
