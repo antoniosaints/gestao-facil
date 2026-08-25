@@ -138,7 +138,7 @@ const budgetSchema = z.object({
   materiais: z
     .array(
       z.object({
-        produtoId: z.coerce.number().int().positive(),
+        produtoId: z.coerce.number().int().positive().optional(),
         pecaId: z.coerce.number().int().positive().optional(),
         fornecidoPeloCliente: z
           .preprocess((value) => {
@@ -154,7 +154,17 @@ const budgetSchema = z.object({
         observacao: z.string().max(2_000).optional(),
       }),
     )
-    .default([]),
+    .default([])
+    .superRefine((materials, context) => {
+      materials.forEach((material, index) => {
+        if (!material.fornecidoPeloCliente && !material.produtoId)
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, "produtoId"],
+            message: "Selecione o material fornecido pela loja.",
+          });
+      });
+    }),
   custoEstimado: z.coerce.number().nonnegative().default(0),
 });
 const stageSchema = z.object({
@@ -287,7 +297,14 @@ async function orderDetails(contaId: number, id: number) {
       where: { etapaId: { in: stageIds } },
     }),
     prisma.produto.findMany({
-      where: { contaId, id: { in: materiais.map((m: any) => m.produtoId) } },
+      where: {
+        contaId,
+        id: {
+          in: materiais
+            .map((material: any) => material.produtoId)
+            .filter((produtoId: unknown): produtoId is number => typeof produtoId === "number"),
+        },
+      },
       select: { id: true, nome: true },
     }),
   ]);
@@ -413,7 +430,11 @@ async function financialCalculationForOrder(contaId: number, order: any) {
     prisma.produto.findMany({
       where: {
         contaId,
-        id: { in: materials.map((material: any) => material.produtoId) },
+        id: {
+          in: materials
+            .map((material: any) => material.produtoId)
+            .filter((produtoId: unknown): produtoId is number => typeof produtoId === "number"),
+        },
       },
       select: { id: true, nome: true },
     }),
@@ -436,7 +457,10 @@ async function financialCalculationForOrder(contaId: number, order: any) {
       id: material.id,
       nome:
         products.find((product: any) => product.id === material.produtoId)
-          ?.nome || `Material #${material.produtoId}`,
+          ?.nome ||
+        (material.fornecidoPeloCliente
+          ? "Material fornecido pelo cliente"
+          : `Material #${material.produtoId}`),
       origem: material.fornecidoPeloCliente ? "CLIENTE" : "LOJA",
       unidade: material.unidade,
       medidaCusteada: medidaCusteada.toFixed(3),
@@ -1503,10 +1527,17 @@ export async function saveBudget(req: Request, res: Response) {
       "invalid_store_weight",
       "O estoque atual trabalha em gramas inteiras; informe o peso da loja em gramas inteiras.",
     );
+  const companyProductIds = [
+    ...new Set(
+      parsed.data.materiais
+        .filter((material) => !material.fornecidoPeloCliente)
+        .map((material) => material.produtoId!),
+    ),
+  ];
   const products = await prisma.produto.findMany({
     where: {
       contaId: custom.contaId,
-      id: { in: parsed.data.materiais.map((item) => item.produtoId) },
+      id: { in: companyProductIds },
     },
     select: {
       id: true,
@@ -1519,7 +1550,7 @@ export async function saveBudget(req: Request, res: Response) {
   });
   if (
     products.length !==
-    new Set(parsed.data.materiais.map((item) => item.produtoId)).size
+    companyProductIds.length
   )
     return fail(
       req,
@@ -1536,26 +1567,33 @@ export async function saveBudget(req: Request, res: Response) {
   // Mesmo quando a tela ainda enviar o valor zerado (OS antigas ou cache do navegador),
   // o material da empresa deve compor a proposta com o preço cadastrado da variante.
   const materials = parsed.data.materiais.map((material) => {
-    const product = productById.get(material.produtoId)!;
     const medida = new Decimal(material.quantidade).toDecimalPlaces(3);
     const quantidadeEstoque = stockUnitsForMaterial(material.unidade, medida);
+    if (material.fornecidoPeloCliente)
+      return {
+        ...material,
+        produtoId: undefined,
+        medida,
+        quantidadeEstoque,
+        faltaEstoque: 0,
+        medidaNecessariaCompra: new Decimal(0),
+        custoUnitario: 0,
+        valorUnitario: 0,
+      };
+    const product = productById.get(material.produtoId!)!;
     const saldoDisponivel =
-      stockRemainingByProduct.get(material.produtoId) || 0;
-    const faltaEstoque = material.fornecidoPeloCliente
-      ? 0
-      : Math.max(0, quantidadeEstoque - saldoDisponivel);
-    if (!material.fornecidoPeloCliente)
-      stockRemainingByProduct.set(
-        material.produtoId,
-        Math.max(0, saldoDisponivel - quantidadeEstoque),
-      );
+      stockRemainingByProduct.get(material.produtoId!) || 0;
+    const faltaEstoque = Math.max(0, quantidadeEstoque - saldoDisponivel);
+    stockRemainingByProduct.set(
+      material.produtoId!,
+      Math.max(0, saldoDisponivel - quantidadeEstoque),
+    );
     const internalCost =
       material.custoUnitario > 0
         ? material.custoUnitario
         : Number(product.custoMedioProducao ?? product.precoCompra ?? 0);
-    const customerValue = material.fornecidoPeloCliente
-      ? 0
-      : material.valorUnitario > 0
+    const customerValue =
+      material.valorUnitario > 0
         ? material.valorUnitario
         : Number(product.preco ?? internalCost);
     return {
@@ -1637,7 +1675,7 @@ export async function saveBudget(req: Request, res: Response) {
       const savedMaterial = await (tx as any).ouriveMaterial.create({
         data: {
           ordemOuriveId: order.id,
-          produtoId: material.produtoId,
+          produtoId: material.produtoId ?? null,
           pecaId: material.pecaId,
           fornecidoPeloCliente: material.fornecidoPeloCliente,
           unidade: material.unidade,
@@ -1986,7 +2024,11 @@ export async function publicBudget(req: Request, res: Response) {
   const products = await prisma.produto.findMany({
     where: {
       contaId: order.contaId,
-      id: { in: (materials || []).map((material: any) => material.produtoId) },
+      id: {
+        in: (materials || [])
+          .map((material: any) => material.produtoId)
+          .filter((produtoId: unknown): produtoId is number => typeof produtoId === "number"),
+      },
     },
     select: { id: true, nome: true, nomeVariante: true },
   });
@@ -2003,7 +2045,7 @@ export async function publicBudget(req: Request, res: Response) {
     valorUnitario: material.valorUnitario,
     descricao:
       products.find((product) => product.id === material.produtoId)?.nome ||
-      "Material",
+      (material.fornecidoPeloCliente ? "Material fornecido pelo cliente" : "Material"),
   }));
   const materiaisEmpresa = materialLines.filter(
     (material: (typeof materialLines)[number]) =>
@@ -2383,7 +2425,9 @@ export async function startProduction(req: Request, res: Response) {
     });
     const productIds = Array.from(
       new Set<number>(
-        pendingMaterials.map((item: any) => Number(item.produtoId)),
+        pendingMaterials
+          .map((item: any) => Number(item.produtoId))
+          .filter((produtoId) => Number.isInteger(produtoId) && produtoId > 0),
       ),
     );
     const stockRows = await prisma.produto.findMany({
@@ -2391,13 +2435,15 @@ export async function startProduction(req: Request, res: Response) {
       select: { id: true, estoque: true },
     });
     const plannedByProduct = new Map<number, Decimal>();
-    for (const material of pendingMaterials)
+    for (const material of pendingMaterials) {
+      if (!material.produtoId) continue;
       plannedByProduct.set(
         material.produtoId,
         (plannedByProduct.get(material.produtoId) || new Decimal(0)).plus(
           material.medidaPlanejada,
         ),
       );
+    }
     const coveredProductIds = stockRows
       .filter((product) =>
         new Decimal(product.estoque).gte(plannedByProduct.get(product.id) || 0),
@@ -2466,14 +2512,16 @@ export async function startProduction(req: Request, res: Response) {
           );
           continue;
         }
+        const produtoId = Number(material.produtoId);
+        if (!produtoId) throw new Error("ourive_store_material_missing_product");
         const product = await tx.produto.findFirstOrThrow({
-          where: { id: material.produtoId, contaId: custom.contaId },
+          where: { id: produtoId, contaId: custom.contaId },
           select: { id: true, custoMedioProducao: true, precoCompra: true },
         });
         await assertAvailableAndDecrement(
           tx,
           custom.contaId,
-          material.produtoId,
+          produtoId,
           material.quantidadePlanejada,
         );
         // Estoque de sobra/quebra já consolidado é rastreado separadamente: ele baixa o
@@ -2485,7 +2533,7 @@ export async function startProduction(req: Request, res: Response) {
         const freeLots = await (tx as any).ouriveSobra.findMany({
           where: {
             contaId: custom.contaId,
-            produtoDestinoId: material.produtoId,
+            produtoDestinoId: produtoId,
             unidade: material.unidade,
             status: "CONSOLIDADA",
           },
@@ -2549,7 +2597,7 @@ export async function startProduction(req: Request, res: Response) {
             Uid: gerarIdUnicoComMetaFinal("MOV"),
             tipo: "SAIDA",
             ordemId: order.ordemServicoId,
-            produtoId: material.produtoId,
+            produtoId,
             quantidade: material.quantidadePlanejada,
             custo: snapshot,
             status: "CONCLUIDO",

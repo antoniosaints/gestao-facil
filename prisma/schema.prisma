@@ -3221,7 +3221,7 @@ model OuriveMaterial {
   id                     Int                   @id @default(autoincrement())
   ordemOuriveId          Int
   pecaId                 Int?
-  produtoId              Int
+  produtoId              Int?
   fornecidoPeloCliente   Boolean               @default(false)
   unidade                OuriveUnidadeMaterial @default(QUANTIDADE)
   quantidadePlanejada    Int
