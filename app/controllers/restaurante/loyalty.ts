@@ -40,19 +40,21 @@ export async function fidelityOptions(req: Request, res: Response) {
 
 export async function getFidelityProgram(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
-  const program = await prisma.restauranteFidelidadePrograma.findUnique({ where: { contaId } });
-  return ok(req, res, program ? {
+  const programs = await prisma.restauranteFidelidadePrograma.findMany({ where: { contaId }, orderBy: [{ ativo: "desc" }, { createdAt: "desc" }] });
+  return ok(req, res, programs.map((program) => ({
     ...program,
     categoriaIds: normalizeFidelityIds(program.categoriaIdsJson),
     catalogoItemIds: normalizeFidelityIds(program.catalogoItemIdsJson),
-  } : null);
+  })));
 }
 
 export async function saveFidelityProgram(req: Request, res: Response) {
   const parsed = programSchema.safeParse(req.body);
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Revise as regras de fidelidade.", parsed.error.flatten());
   const { contaId } = getCustomRequest(req).customData;
-  const current = await prisma.restauranteFidelidadePrograma.findUnique({ where: { contaId } });
+  const id = Number(req.params.id || 0);
+  const current = id ? await prisma.restauranteFidelidadePrograma.findFirst({ where: { id, contaId } }) : null;
+  if (id && !current) return fail(req, res, 404, "fidelity_program_not_found", "Promoção de fidelidade não encontrada.");
   if (current && parsed.data.version && current.version !== parsed.data.version) {
     return fail(req, res, 409, "version_conflict", "A fidelidade foi alterada em outra sessao.");
   }
@@ -70,4 +72,13 @@ export async function saveFidelityProgram(req: Request, res: Response) {
     ? await prisma.restauranteFidelidadePrograma.update({ where: { id: current.id }, data: { ...data, categoriaIdsJson: normalizeFidelityIds(categoriaIds), catalogoItemIdsJson: normalizeFidelityIds(catalogoItemIds), version: { increment: 1 } } })
     : await prisma.restauranteFidelidadePrograma.create({ data: { ...data, contaId, categoriaIdsJson: normalizeFidelityIds(categoriaIds), catalogoItemIdsJson: normalizeFidelityIds(catalogoItemIds) } });
   return ok(req, res, { ...saved, categoriaIds: normalizeFidelityIds(saved.categoriaIdsJson), catalogoItemIds: normalizeFidelityIds(saved.catalogoItemIdsJson) }, current ? 200 : 201);
+}
+
+export async function deleteFidelityProgram(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const id = Number(req.params.id);
+  const current = await prisma.restauranteFidelidadePrograma.findFirst({ where: { id, contaId }, select: { id: true } });
+  if (!current) return fail(req, res, 404, "fidelity_program_not_found", "Promoção de fidelidade não encontrada.");
+  await prisma.restauranteFidelidadePrograma.delete({ where: { id: current.id } });
+  return ok(req, res, { id: current.id });
 }

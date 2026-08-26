@@ -86,12 +86,34 @@ test("rejeita pedido interno quando qualquer item nao possui destino de producao
     restauranteRoteamentoProducao: {
       findMany: async () => [{ pontoId: 51, categoriaId: 41, obrigatorio: true }],
     },
+    restaurantePontoProducao: { count: async () => 1 },
   };
 
   await assert.rejects(
     () => dispatchOrderToProduction(tx, 1, 11, { requireDestination: true }),
     ProductionRoutingMissingError,
   );
+});
+
+test("mantém o pedido no controle direto quando não há ponto KDS ativo", async () => {
+  const tx = {
+    restauranteTicketProducao: {
+      count: async () => 0,
+      create: async () => assert.fail("não deve criar ticket sem ponto KDS ativo"),
+    },
+    restaurantePedido: {
+      findFirst: async () => ({
+        id: 11,
+        itens: [{ id: 21, catalogoItemId: 71, produtoId: 31, quantidade: 1, observacao: null }],
+      }),
+    },
+    produto: { findMany: async () => [{ id: 31, ProdutoBase: { categoriaId: 41 } }] },
+    restauranteCatalogoItem: { findMany: async () => [{ id: 71, categoriaId: 41 }] },
+    restauranteRoteamentoProducao: { findMany: async () => [] },
+    restaurantePontoProducao: { count: async () => 0 },
+  };
+
+  assert.equal(await dispatchOrderToProduction(tx, 1, 11, { requireDestination: true }), false);
 });
 
 test("prioriza a categoria vinculada ao item do cardapio", async () => {

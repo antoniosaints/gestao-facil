@@ -5,7 +5,7 @@ import { prisma } from "../../utils/prisma";
 import { contaHasActiveModule } from "../contas/storeModulesService";
 import { calculatePublicCheckout, CheckoutError } from "../../controllers/restaurante/restaurante";
 import { createRestaurantOnlinePayment, cancelRestaurantPendingPixPayment } from "../restaurante/payment";
-import { currentFidelityForPhone } from "../restaurante/loyalty";
+import { availableFidelityRewards, currentFidelityForPhone } from "../restaurante/loyalty";
 import { reservarNumeroPedido } from "../restaurante/orderNumber";
 import { enqueueRestaurantOrderWhatsApp } from "../restaurante/whatsappNotifications";
 import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
@@ -66,8 +66,11 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
   catch (error) { if (error instanceof CheckoutError) throw new Error(error.message); throw error; }
 
   const fidelity = await currentFidelityForPhone(prisma, params.contaId, input.cliente.telefone);
-  const reward = fidelity.program?.ativo && fidelity.progress?.recompensasDisponiveis > 0 ? quote.snapshots.find((snapshot: any) => snapshot.item.id === fidelity.program!.premioCatalogoItemId) : null;
-  const discount = reward ? new Decimal(reward.unit).mul(Number(fidelity.program!.descontoPercentual)).div(100).toDecimalPlaces(2) : new Decimal(0);
+  const fidelityRewards = availableFidelityRewards(fidelity, quote.snapshots);
+  const discount = fidelityRewards.reduce(
+    (total, reward) => total.plus(new Decimal(reward.snapshot.unit).mul(Number(reward.program.descontoPercentual)).div(100)),
+    new Decimal(0),
+  ).toDecimalPlaces(2);
   if (discount.greaterThan(0)) { quote.total = new Decimal(quote.total).minus(discount).toFixed(2); (quote as any).desconto = discount.toFixed(2); }
 
   const keyHash = hash(params.idempotencyKey);
@@ -86,9 +89,11 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
         enderecoSnapshotJson: input.endereco as any, zonaEntregaSnapshotJson: quote.zone as any, subtotal: quote.subtotal, frete: quote.frete, desconto: (quote as any).desconto || 0, total: quote.total, observacao: input.observacao, trackingTokenHash: hash(trackingToken),
         itens: { create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({ catalogoItemId: item.id, produtoId: item.produtoId, quantidade: requested.quantidade, nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardápio", precoUnitarioSnapshot: unit, subtotalSnapshot: line, tamanhoSnapshot: requested.tamanho, selecoesSnapshotJson: selections as any, regraPrecoSnapshot: item.regraPrecoSabores, observacao: requested.observacao })) },
       }, include: { itens: true } });
-      if (reward && fidelity.normalizedPhone) {
-        const claimed = await tx.restauranteFidelidadeProgresso.updateMany({ where: { contaId: params.contaId, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } }, data: { recompensasDisponiveis: { decrement: 1 } } });
-        if (!claimed.count) throw new Error("A recompensa foi usada em outro pedido. Atualize o pedido antes de confirmar.");
+      if (fidelityRewards.length && fidelity.normalizedPhone) {
+        for (const reward of fidelityRewards) {
+          const claimed = await tx.restauranteFidelidadeProgresso.updateMany({ where: { contaId: params.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } }, data: { recompensasDisponiveis: { decrement: 1 } } });
+          if (!claimed.count) throw new Error("A recompensa foi usada em outro pedido. Atualize o pedido antes de confirmar.");
+        }
       }
       const payload = { pedido, trackingToken, paymentAction: null };
       await tx.restauranteIdempotencia.create({ data: { contaId: params.contaId, chaveHash: keyHash, requestHash, pedidoId: pedido.id, respostaJson: payload as any, expiresAt: new Date(Date.now() + 86_400_000) } });
@@ -103,7 +108,17 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
     } catch (error) {
       if (created) {
         await cancelRestaurantPendingPixPayment({ contaId: params.contaId, orderId: response.pedido.id }).catch(() => undefined);
-        await prisma.$transaction([prisma.cobrancasFinanceiras.deleteMany({ where: { contaId: params.contaId, restaurantePedidoId: response.pedido.id } }), prisma.restaurantePedido.deleteMany({ where: { id: response.pedido.id, contaId: params.contaId, status: "RECEBIDO", pagamentoStatus: "PENDENTE" } }), prisma.restauranteIdempotencia.deleteMany({ where: { contaId: params.contaId, chaveHash: keyHash } })]);
+        await prisma.$transaction(async (tx) => {
+          await tx.cobrancasFinanceiras.deleteMany({ where: { contaId: params.contaId, restaurantePedidoId: response.pedido.id } });
+          const removed = await tx.restaurantePedido.deleteMany({ where: { id: response.pedido.id, contaId: params.contaId, status: "RECEBIDO", pagamentoStatus: "PENDENTE" } });
+          await tx.restauranteIdempotencia.deleteMany({ where: { contaId: params.contaId, chaveHash: keyHash } });
+          if (removed.count && fidelityRewards.length && fidelity.normalizedPhone) {
+            await Promise.all(fidelityRewards.map((reward) => tx.restauranteFidelidadeProgresso.updateMany({
+              where: { contaId: params.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone },
+              data: { recompensasDisponiveis: { increment: 1 } },
+            })));
+          }
+        });
       }
       throw error;
     }

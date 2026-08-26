@@ -66,6 +66,13 @@ export async function dispatchOrderToProduction(
     routesByCategory.set(route.categoriaId, current);
   }
 
+  // O KDS é opcional. A exigência de roteamento só existe quando há ao menos
+  // um ponto de produção ativo na conta; sem pontos ativos, o pedido segue
+  // para controle direto pela tela de Pedidos.
+  const hasActiveProductionPoint = options.requireDestination
+    ? (await tx.restaurantePontoProducao.count({ where: { contaId, ativo: true } })) > 0
+    : false;
+
   const grouped = new Map<number, { obrigatorio: boolean; itemIds: number[] }>();
   for (const item of order.itens) {
     const categoryId = categoryForItem(item);
@@ -78,7 +85,7 @@ export async function dispatchOrderToProduction(
     }
   }
 
-  if (options.requireDestination) {
+  if (options.requireDestination && hasActiveProductionPoint) {
     const routedItemIds = new Set([...grouped.values()].flatMap((group) => group.itemIds));
     if (order.itens.some((item: any) => !routedItemIds.has(item.id))) {
       throw new ProductionRoutingMissingError();

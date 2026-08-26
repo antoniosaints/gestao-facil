@@ -29,6 +29,7 @@ const FRONTEND_SUBMENU_KEYS = [
   "financeiro:plano-de-contas",
   "produtos:painel",
   "produtos:lista",
+  "produtos:categorias",
   "produtos:reposicao",
   "produtos:movimentacoes",
   "produtos:combos",

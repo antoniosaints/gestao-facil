@@ -42,16 +42,41 @@ export function publicFidelity(program: any, progress?: any | null) {
   };
 }
 
+export function publicFidelities(entries: Array<{ program: any; progress?: any | null }>) {
+  return entries
+    .map(({ program, progress }) => publicFidelity(program, progress))
+    .filter(Boolean);
+}
+
+/** Recompensas utilizáveis no carrinho, uma vez para cada item-premio. */
+export function availableFidelityRewards(fidelity: { programs: Array<{ program: any; progress?: any | null }> }, snapshots: any[]) {
+  const rewardedItemIds = new Set<number>();
+  return fidelity.programs.flatMap(({ program, progress }) => {
+    if (!program.ativo || !program.premioCatalogoItemId || !progress?.recompensasDisponiveis) return [];
+    if (rewardedItemIds.has(program.premioCatalogoItemId)) return [];
+    const snapshot = snapshots.find((entry: any) => entry.item.id === program.premioCatalogoItemId);
+    if (!snapshot) return [];
+    rewardedItemIds.add(program.premioCatalogoItemId);
+    return [{ program, progress, snapshot }];
+  });
+}
+
 export async function currentFidelityForPhone(db: Db, contaId: number, phone?: string | null) {
-  const program = await db.restauranteFidelidadePrograma.findUnique({
+  const programs = await db.restauranteFidelidadePrograma.findMany({
     where: { contaId },
     include: { PremioCatalogoItem: { include: { Produto: { select: { nome: true, imagem: true } } } } },
   });
   const normalizedPhone = normalizeFidelityPhone(phone);
-  const progress = normalizedPhone
-    ? await db.restauranteFidelidadeProgresso.findUnique({ where: { contaId_telefoneNormalizado: { contaId, telefoneNormalizado: normalizedPhone } } })
-    : null;
-  return { program, progress, normalizedPhone };
+  const progressRows = normalizedPhone && programs.length
+    ? await db.restauranteFidelidadeProgresso.findMany({
+      where: { contaId, telefoneNormalizado: normalizedPhone, programaId: { in: programs.map((program: any) => program.id) } },
+    })
+    : [];
+  const progressByProgram = new Map(progressRows.map((progress: any) => [progress.programaId, progress]));
+  return {
+    programs: programs.map((program: any) => ({ program, progress: progressByProgram.get(program.id) || null })),
+    normalizedPhone,
+  };
 }
 
 async function orderMatchesProgram(tx: Db, contaId: number, order: any, program: any) {
@@ -71,31 +96,39 @@ async function orderMatchesProgram(tx: Db, contaId: number, order: any, program:
 
 /** Aplica uma vez o progresso quando um pedido chega a CONCLUIDO. */
 export async function applyCompletedOrderFidelity(tx: Db, contaId: number, orderId: number) {
-  const program = await tx.restauranteFidelidadePrograma.findUnique({ where: { contaId } });
-  if (!program?.ativo || !program.premioCatalogoItemId) return null;
+  const programs = await tx.restauranteFidelidadePrograma.findMany({
+    where: { contaId, ativo: true, premioCatalogoItemId: { not: null } },
+  });
+  if (!programs.length) return null;
   const order = await tx.restaurantePedido.findFirst({
     where: { id: orderId, contaId, status: "CONCLUIDO" },
     include: { itens: true },
   });
-  if (!order || !(await orderMatchesProgram(tx, contaId, order, program))) return null;
+  if (!order) return null;
   const phone = normalizeFidelityPhone(order.clienteTelefone);
   if (!phone) return null;
-
-  const alreadyApplied = await tx.restauranteFidelidadeLancamento.findUnique({ where: { pedidoId: orderId } });
-  if (alreadyApplied) return null;
-  const progress = await tx.restauranteFidelidadeProgresso.upsert({
-    where: { contaId_telefoneNormalizado: { contaId, telefoneNormalizado: phone } },
-    create: { contaId, telefoneNormalizado: phone, clienteNome: order.clienteNomeSnapshot || null, pedidosElegiveis: 1 },
-    update: { pedidosElegiveis: { increment: 1 }, clienteNome: order.clienteNomeSnapshot || undefined },
-  });
-  const availableByProgress = Math.floor(progress.pedidosElegiveis / program.pedidosMeta);
-  const issued = await tx.restauranteFidelidadeProgresso.updateMany({
-    where: { id: progress.id, recompensasEmitidas: { lt: availableByProgress } },
-    data: { recompensasEmitidas: { increment: 1 }, recompensasDisponiveis: { increment: 1 } },
-  });
-  await tx.restauranteFidelidadeLancamento.create({
-    data: { contaId, pedidoId: orderId, progressoId: progress.id, recompensaNova: issued.count > 0 },
-  });
-  const current = await tx.restauranteFidelidadeProgresso.findUniqueOrThrow({ where: { id: progress.id } });
-  return { ...current, novaRecompensa: issued.count > 0, pedidosMeta: program.pedidosMeta };
+  const results: any[] = [];
+  for (const program of programs) {
+    if (!(await orderMatchesProgram(tx, contaId, order, program))) continue;
+    const alreadyApplied = await tx.restauranteFidelidadeLancamento.findUnique({
+      where: { pedidoId_programaId: { pedidoId: orderId, programaId: program.id } },
+    });
+    if (alreadyApplied) continue;
+    const progress = await tx.restauranteFidelidadeProgresso.upsert({
+      where: { programaId_telefoneNormalizado: { programaId: program.id, telefoneNormalizado: phone } },
+      create: { contaId, programaId: program.id, telefoneNormalizado: phone, clienteNome: order.clienteNomeSnapshot || null, pedidosElegiveis: 1 },
+      update: { pedidosElegiveis: { increment: 1 }, clienteNome: order.clienteNomeSnapshot || undefined },
+    });
+    const availableByProgress = Math.floor(progress.pedidosElegiveis / program.pedidosMeta);
+    const issued = await tx.restauranteFidelidadeProgresso.updateMany({
+      where: { id: progress.id, recompensasEmitidas: { lt: availableByProgress } },
+      data: { recompensasEmitidas: { increment: 1 }, recompensasDisponiveis: { increment: 1 } },
+    });
+    await tx.restauranteFidelidadeLancamento.create({
+      data: { contaId, programaId: program.id, pedidoId: orderId, progressoId: progress.id, recompensaNova: issued.count > 0 },
+    });
+    const current = await tx.restauranteFidelidadeProgresso.findUniqueOrThrow({ where: { id: progress.id } });
+    results.push({ ...current, novaRecompensa: issued.count > 0, pedidosMeta: program.pedidosMeta, programaId: program.id });
+  }
+  return results.length ? results : null;
 }

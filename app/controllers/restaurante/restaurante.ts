@@ -20,7 +20,7 @@ import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrd
 import { canCustomerCancelRestaurantOrder, resolveRestaurantCancellation } from "../../services/restaurante/orderPolicy";
 import { claimRestaurantTable, RestaurantTableUnavailableError } from "../../services/restaurante/tableSession";
 import { restaurantOnlineOrderingOpen, restaurantOpenNow } from "../../services/restaurante/openingHours";
-import { applyCompletedOrderFidelity, currentFidelityForPhone, publicFidelity } from "../../services/restaurante/loyalty";
+import { applyCompletedOrderFidelity, availableFidelityRewards, currentFidelityForPhone, publicFidelities } from "../../services/restaurante/loyalty";
 import { CommerceError } from "../../services/loja/commerceError";
 import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
@@ -123,6 +123,11 @@ const catalogoSchema = z.object({
   ordem: z.coerce.number().int().default(0),
   grupoIds: z.array(z.coerce.number().int().positive()).default([]),
   version: z.coerce.number().int().positive().optional(),
+});
+
+const catalogoBulkSchema = z.object({
+  ids: z.array(z.coerce.number().int().positive()).min(1).max(100),
+  acao: z.enum(["EXIBIR", "OCULTAR", "DESTACAR", "REMOVER_DESTAQUE", "EXCLUIR"]),
 });
 
 const grupoOpcaoSchema = z.object({
@@ -712,6 +717,35 @@ export async function saveCatalogItem(req: Request, res: Response) {
   return ok(req, res, item, existing ? 200 : 201);
 }
 
+export async function bulkCatalogItems(req: Request, res: Response) {
+  const parsed = catalogoBulkSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const ids = [...new Set(parsed.data.ids)];
+  const where = { contaId, id: { in: ids } };
+  const existing = await prisma.restauranteCatalogoItem.count({ where });
+  if (existing !== ids.length) {
+    return fail(req, res, 422, "catalog_items_invalid", "Um ou mais itens não pertencem a esta conta.");
+  }
+
+  if (parsed.data.acao === "EXCLUIR") {
+    const images = await prisma.restauranteCatalogoItem.findMany({ where, select: { imagem: true } });
+    const result = await prisma.restauranteCatalogoItem.deleteMany({ where });
+    await Promise.all(images.flatMap((item) => item.imagem ? [deleteStoredFile(item.imagem).catch(() => undefined)] : []));
+    return ok(req, res, { affected: result.count, acao: parsed.data.acao });
+  }
+
+  const data = parsed.data.acao === "EXIBIR"
+    ? { disponivel: true, version: { increment: 1 } }
+    : parsed.data.acao === "OCULTAR"
+      ? { disponivel: false, version: { increment: 1 } }
+      : parsed.data.acao === "DESTACAR"
+        ? { maisPedido: true, version: { increment: 1 } }
+        : { maisPedido: false, version: { increment: 1 } };
+  const result = await prisma.restauranteCatalogoItem.updateMany({ where, data });
+  return ok(req, res, { affected: result.count, acao: parsed.data.acao });
+}
+
 export async function listDeliveryZones(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const zones = await prisma.restauranteZonaEntrega.findMany({
@@ -999,7 +1033,7 @@ export async function publicMenu(req: Request, res: Response) {
       // Portanto, o aviso público só anuncia a regra global quando ela é aplicável.
       freteGratisAcima: config.modoFrete === "FIXO" ? config.freteGratisAcima : null,
       temaPersonalizado: config.Conta.ParametrosConta[0]?.temaPersonalizado ?? null,
-      fidelidade: publicFidelity(fidelity.program, fidelity.progress),
+      fidelidades: publicFidelities(fidelity.programs),
     },
     itens: items,
   });
@@ -1047,12 +1081,11 @@ export async function createPublicOrder(req: Request, res: Response) {
   // A recompensa e aplicada automaticamente na primeira unidade do produto-premio
   // presente no carrinho. O decremento abaixo acontece na mesma transacao do pedido.
   const fidelity = await currentFidelityForPhone(prisma, config.contaId, parsed.data.cliente.telefone);
-  const rewardSnapshot = fidelity.program?.ativo && fidelity.progress?.recompensasDisponiveis > 0
-    ? quote.snapshots.find((snapshot: any) => snapshot.item.id === fidelity.program.premioCatalogoItemId)
-    : null;
-  const fidelityDiscount = rewardSnapshot
-    ? new Decimal(rewardSnapshot.unit).mul(Number(fidelity.program.descontoPercentual)).div(100).toDecimalPlaces(2)
-    : new Decimal(0);
+  const fidelityRewards = availableFidelityRewards(fidelity, quote.snapshots);
+  const fidelityDiscount = fidelityRewards.reduce(
+    (total, reward) => total.plus(new Decimal(reward.snapshot.unit).mul(Number(reward.program.descontoPercentual)).div(100)),
+    new Decimal(0),
+  ).toDecimalPlaces(2);
   if (fidelityDiscount.greaterThan(0)) {
     quote.total = new Decimal(quote.total).minus(fidelityDiscount).toFixed(2);
     (quote as any).desconto = fidelityDiscount.toFixed(2);
@@ -1085,11 +1118,11 @@ export async function createPublicOrder(req: Request, res: Response) {
       await tx.restauranteIdempotencia.deleteMany({
         where: { contaId: config.contaId, chaveHash: keyHash, pedidoId: payload.pedido.id },
       });
-      if (removed.count && rewardSnapshot && fidelity.normalizedPhone) {
-        await tx.restauranteFidelidadeProgresso.updateMany({
-          where: { contaId: config.contaId, telefoneNormalizado: fidelity.normalizedPhone },
+      if (removed.count && fidelityRewards.length && fidelity.normalizedPhone) {
+        await Promise.all(fidelityRewards.map((reward) => tx.restauranteFidelidadeProgresso.updateMany({
+          where: { contaId: config.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone },
           data: { recompensasDisponiveis: { increment: 1 } },
-        });
+        })));
       }
     });
   };
@@ -1170,12 +1203,14 @@ export async function createPublicOrder(req: Request, res: Response) {
         },
         include: { itens: true },
       });
-      if (rewardSnapshot && fidelity.normalizedPhone) {
-        const claimed = await tx.restauranteFidelidadeProgresso.updateMany({
-          where: { contaId: config.contaId, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } },
-          data: { recompensasDisponiveis: { decrement: 1 } },
-        });
-        if (!claimed.count) throw new CheckoutError("fidelity_reward_unavailable", "A recompensa foi usada em outro pedido. Atualize o carrinho.", 409);
+      if (fidelityRewards.length && fidelity.normalizedPhone) {
+        for (const reward of fidelityRewards) {
+          const claimed = await tx.restauranteFidelidadeProgresso.updateMany({
+            where: { contaId: config.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } },
+            data: { recompensasDisponiveis: { decrement: 1 } },
+          });
+          if (!claimed.count) throw new CheckoutError("fidelity_reward_unavailable", "A recompensa foi usada em outro pedido. Atualize o carrinho.", 409);
+        }
       }
       const payload = { pedido: order, trackingToken, paymentAction: null };
       await tx.restauranteIdempotencia.create({
