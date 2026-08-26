@@ -1362,6 +1362,7 @@ model RestauranteConfig {
   slug                     String               @unique @db.VarChar(120)
   nomePublico              String               @db.VarChar(160)
   ativo                    Boolean              @default(false)
+  aceitarPedidosOnline     Boolean              @default(true)
   pedidosQrDireto          Boolean              @default(false)
   modoFrete                RestauranteModoFrete @default(FIXO)
   taxaFixa                 Decimal              @default(0) @db.Decimal(10, 2)
@@ -1458,11 +1459,14 @@ model RestauranteCatalogoItem {
   Produto             Produto?                        @relation(fields: [produtoId, contaId], references: [id, contaId], onDelete: Restrict, onUpdate: Cascade)
   categoriaId         Int
   Categoria           ProdutoCategoria                @relation("RestauranteCatalogoCategoria", fields: [categoriaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  categoriaSugestaoId Int?
+  CategoriaSugestao   ProdutoCategoria?               @relation("RestauranteCatalogoCategoriaSugestao", fields: [categoriaSugestaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   preco               Decimal                         @db.Decimal(10, 2)
   nomePublico         String?                         @db.VarChar(160)
   descricao           String?                         @db.Text
   imagem              String?                         @db.Text
   disponivel          Boolean                         @default(true)
+  maisPedido          Boolean                         @default(false)
   regraPrecoSabores   RestauranteRegraPrecoSabores    @default(MAIOR_PRECO)
   disponibilidadeJson Json?
   ordem               Int                             @default(0)
@@ -2028,6 +2032,7 @@ model ProdutoCategoria {
   updatedAt                DateTime                        @updatedAt
   ProdutoBase              ProdutoBase[]
   RestauranteCatalogoItens RestauranteCatalogoItem[]       @relation("RestauranteCatalogoCategoria")
+  RestauranteItensSugeridos RestauranteCatalogoItem[]      @relation("RestauranteCatalogoCategoriaSugestao")
   RestauranteRoteamentos   RestauranteRoteamentoProducao[]
 
   @@unique([contaId, nome])

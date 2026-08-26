@@ -18,6 +18,7 @@ export function buildInitialRestaurantConfig(conta: {
     slug: `${slugifyRestaurantName(nomePublico)}-${conta.id}`,
     nomePublico,
     ativo: false,
+    aceitarPedidosOnline: true,
     pedidosQrDireto: false,
     modoFrete: "FIXO" as const,
     taxaFixa: 0,

@@ -11,6 +11,7 @@ test("preenche a configuracao inicial sem publicar o cardapio", () => {
     slug: "minha-pizza-12",
     nomePublico: "Minha Pizza",
     ativo: false,
+    aceitarPedidosOnline: true,
     pedidosQrDireto: false,
     modoFrete: "FIXO",
     taxaFixa: 0,

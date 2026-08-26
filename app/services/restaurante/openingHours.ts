@@ -60,3 +60,22 @@ export function restaurantOpenNow(hours: unknown, now = new Date()) {
   if (!today?.ativo) return { aberto: false, mensagem: `Fechado hoje (${dayLabels[current.day]}).`, configurado: true };
   return { aberto: false, mensagem: `Fechado no momento. Atendimento hoje: ${today.abertura} às ${today.fechamento}.`, configurado: true };
 }
+
+/**
+ * A pausa manual só vale para o canal público. Pedidos registrados no salão,
+ * por atendimento ou por outros fluxos internos continuam usando seus próprios
+ * controles operacionais.
+ */
+export function restaurantOnlineOrderingOpen(
+  config: { horariosJson?: unknown; aceitarPedidosOnline?: boolean },
+  now = new Date(),
+) {
+  if (config.aceitarPedidosOnline === false) {
+    return {
+      aberto: false,
+      mensagem: "Pedidos online estão temporariamente pausados.",
+      configurado: true,
+    };
+  }
+  return restaurantOpenNow(config.horariosJson, now);
+}

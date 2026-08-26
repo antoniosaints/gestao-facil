@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
 import multer from "multer";
-import { cancelPublicOrder, createManualOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
+import { cancelPublicOrder, createManualOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, getOnlineOrderingStatus, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOnlineOrderingStatus, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
 import { deleteRestaurantAccountAddress, getRestaurantAccount, loginRestaurantAccount, registerRestaurantAccount, saveRestaurantAccountAddress, updateRestaurantAccount } from "../../controllers/restaurante/customer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../middlewares/restaurantCustomerAuth";
@@ -41,6 +41,8 @@ routerRestaurante.post("/entregador/entregas/:pedidoId/aceitar", requireRestaura
 routerRestaurante.post("/entregador/entregas/:pedidoId/status", requireRestauranteEntregador(), use(updateDeliveryStatus));
 routerRestaurante.post("/entregador/entregas/:pedidoId/localizacao", requireRestauranteEntregador(), use(publishDriverLocation));
 routerRestaurante.get("/acesso", requireRestauranteModule(), use(currentRestaurantAccess));
+routerRestaurante.get("/pedidos-online", requireRestauranteModule(), use(getOnlineOrderingStatus));
+routerRestaurante.put("/pedidos-online", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(saveOnlineOrderingStatus));
 routerRestaurante.get("/usuarios-papeis", requireRestauranteAccess("PAPEIS_GERENCIAR"), use(listRestaurantUserRoles));
 routerRestaurante.put("/usuarios-papeis/:usuarioId", requireRestauranteAccess("PAPEIS_GERENCIAR"), use(saveRestaurantUserRoles));
 routerRestaurante.get("/configuracao", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(getConfig));

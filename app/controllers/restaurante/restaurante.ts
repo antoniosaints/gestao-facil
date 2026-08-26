@@ -19,7 +19,7 @@ import {
 import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "../../services/restaurante/inventory";
 import { canCustomerCancelRestaurantOrder, resolveRestaurantCancellation } from "../../services/restaurante/orderPolicy";
 import { claimRestaurantTable, RestaurantTableUnavailableError } from "../../services/restaurante/tableSession";
-import { restaurantOpenNow } from "../../services/restaurante/openingHours";
+import { restaurantOnlineOrderingOpen, restaurantOpenNow } from "../../services/restaurante/openingHours";
 import { applyCompletedOrderFidelity, currentFidelityForPhone, publicFidelity } from "../../services/restaurante/loyalty";
 import { CommerceError } from "../../services/loja/commerceError";
 import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
@@ -52,6 +52,7 @@ const configuracaoSchema = z.object({
   slug: z.string().trim().min(3).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   nomePublico: z.string().trim().min(2).max(160),
   ativo: z.boolean().default(false),
+  aceitarPedidosOnline: z.boolean().optional(),
   pedidosQrDireto: z.boolean().default(false),
   modoFrete: z.enum(["FIXO", "ZONAS"]).default("FIXO"),
   taxaFixa: z.coerce.number().min(0).default(0),
@@ -110,11 +111,13 @@ const catalogoSchema = z.object({
   modoCadastro: z.enum(["VINCULAR", "AVULSO", "CRIAR_PRODUTO"]).default("VINCULAR"),
   produtoId: z.coerce.number().int().positive().nullable().optional(),
   categoriaId: z.coerce.number().int().positive().nullable().optional(),
+  categoriaSugestaoId: z.coerce.number().int().positive().nullable().optional(),
   preco: z.coerce.number().min(0).max(999999.99).default(0),
   nomePublico: z.string().trim().max(160).nullable().optional(),
   descricao: z.string().trim().max(4000).nullable().optional(),
   imagem: z.string().trim().max(4000).nullable().optional(),
   disponivel: z.boolean().default(true),
+  maisPedido: z.boolean().default(false),
   regraPrecoSabores: z.enum(["MAIOR_PRECO", "MEDIA_PROPORCIONAL", "SOMA"]).default("MAIOR_PRECO"),
   disponibilidadeJson: z.unknown().nullable().optional(),
   ordem: z.coerce.number().int().default(0),
@@ -306,9 +309,12 @@ export async function calculatePublicCheckout(
   input: z.infer<typeof checkoutPreviewSchema>,
   enforceMinimum = false,
   enforceBusinessHours = true,
+  enforceOnlineOrderingAvailability = false,
 ) {
   if (enforceBusinessHours) {
-    const operation = restaurantOpenNow(config.horariosJson);
+    const operation = enforceOnlineOrderingAvailability
+      ? restaurantOnlineOrderingOpen(config)
+      : restaurantOpenNow(config.horariosJson);
     if (!operation.aberto) throw new CheckoutError("restaurant_closed", operation.mensagem);
   }
   if (input.origem === "RETIRADA" && !config.retiradaAtiva) {
@@ -626,6 +632,15 @@ export async function saveCatalogItem(req: Request, res: Response) {
   if (!category) {
     return fail(req, res, 422, "catalog_category_not_found", "Selecione uma categoria válida desta conta.");
   }
+  if (parsed.data.categoriaSugestaoId) {
+    const suggestedCategory = await prisma.produtoCategoria.findFirst({
+      where: { id: parsed.data.categoriaSugestaoId, contaId },
+      select: { id: true },
+    });
+    if (!suggestedCategory) {
+      return fail(req, res, 422, "suggestion_category_not_found", "Selecione uma categoria de sugestão válida desta conta.");
+    }
+  }
   const groups = parsed.data.grupoIds.length
     ? await prisma.restauranteGrupoOpcao.findMany({ where: { contaId, id: { in: parsed.data.grupoIds } }, select: { id: true } })
     : [];
@@ -874,6 +889,37 @@ export async function transitionOrder(req: Request, res: Response) {
   return ok(req, res, updated, cancellation?.httpStatus || 200);
 }
 
+export async function getOnlineOrderingStatus(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const config = await prisma.restauranteConfig.findUnique({
+    where: { contaId },
+    select: { aceitarPedidosOnline: true },
+  });
+  return ok(req, res, { aceitarPedidosOnline: config?.aceitarPedidosOnline ?? true });
+}
+
+const onlineOrderingStatusSchema = z.object({ aceitarPedidosOnline: z.boolean() });
+
+export async function saveOnlineOrderingStatus(req: Request, res: Response) {
+  const parsed = onlineOrderingStatusSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const config = await prisma.restauranteConfig.upsert({
+    where: { contaId },
+    update: { aceitarPedidosOnline: parsed.data.aceitarPedidosOnline, version: { increment: 1 } },
+    create: {
+      ...(await prisma.contas.findUniqueOrThrow({
+        where: { id: contaId },
+        select: { id: true, nome: true, nomeFantasia: true },
+      }).then(buildInitialRestaurantConfig)),
+      contaId,
+      aceitarPedidosOnline: parsed.data.aceitarPedidosOnline,
+    },
+    select: { aceitarPedidosOnline: true },
+  });
+  return ok(req, res, config);
+}
+
 export async function uploadCatalogItemImage(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const id = Number(req.params.id);
@@ -931,7 +977,7 @@ export async function publicMenu(req: Request, res: Response) {
     item.Produto.status === "ATIVO"
     && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
   ));
-  const atendimento = restaurantOpenNow(config.horariosJson);
+  const atendimento = restaurantOnlineOrderingOpen(config);
   const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
   const customer = restaurantCustomer?.contaId === config.contaId
     ? await prisma.restauranteCliente.findFirst({ where: { id: restaurantCustomer.id, contaId: config.contaId }, select: { telefone: true } })
@@ -965,7 +1011,7 @@ export async function previewPublicCheckout(req: Request, res: Response) {
   const config = await publicConfig(req.params.slug);
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
   try {
-    const quote = await calculatePublicCheckout(config, parsed.data);
+    const quote = await calculatePublicCheckout(config, parsed.data, false, true, true);
     const { snapshots: _snapshots, ...data } = quote;
     return ok(req, res, data);
   } catch (error) {
@@ -993,7 +1039,7 @@ export async function createPublicOrder(req: Request, res: Response) {
 
   let quote: Awaited<ReturnType<typeof calculatePublicCheckout>>;
   try {
-    quote = await calculatePublicCheckout(config, parsed.data, true);
+    quote = await calculatePublicCheckout(config, parsed.data, true, true, true);
   } catch (error) {
     if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
     throw error;
