@@ -20,7 +20,7 @@ import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrd
 import { canCustomerCancelRestaurantOrder, resolveRestaurantCancellation } from "../../services/restaurante/orderPolicy";
 import { claimRestaurantTable, RestaurantTableUnavailableError } from "../../services/restaurante/tableSession";
 import { restaurantOnlineOrderingOpen, restaurantOpenNow } from "../../services/restaurante/openingHours";
-import { applyCompletedOrderFidelity, availableFidelityRewards, currentFidelityForPhone, publicFidelities } from "../../services/restaurante/loyalty";
+import { applyCompletedOrderFidelity, availableFidelityRewards, currentFidelityForPhone, publicFidelities, restoreReservedFidelityRewards } from "../../services/restaurante/loyalty";
 import { CommerceError } from "../../services/loja/commerceError";
 import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { prisma } from "../../utils/prisma";
@@ -169,6 +169,8 @@ const checkoutPreviewSchema = z.object({
   origem: z.enum(["RETIRADA", "DELIVERY"]),
   endereco: enderecoSchema.optional(),
   itens: checkoutItensSchema,
+  clienteTelefone: z.string().trim().min(8).max(32).optional(),
+  fidelidadeProgramaIds: z.array(z.coerce.number().int().positive()).max(20).default([]),
 });
 
 const pedidoSchema = checkoutPreviewSchema.extend({
@@ -897,6 +899,10 @@ export async function transitionOrder(req: Request, res: Response) {
           where: { contaId, status: "PENDENTE", Ticket: { pedidoId: order.id } },
           data: { status: "CANCELADO" },
         });
+        // A recompensa é reservada no momento da criação para impedir que o
+        // mesmo saldo seja usado em dois pedidos abertos. Só a devolvemos
+        // quando o cancelamento realmente encerra o pedido.
+        await restoreReservedFidelityRewards(tx, contaId, order.clienteTelefone, order.fidelidadeRecompensasJson);
       }
       if (nextStatus === "CANCELADO" && cancellation?.returnStock) await returnRestaurantOrderStock(tx, contaId, order.id);
       if (cancelledChargeId) {
@@ -1055,8 +1061,23 @@ export async function previewPublicCheckout(req: Request, res: Response) {
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
   try {
     const quote = await calculatePublicCheckout(config, parsed.data, false, true, true);
+    const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
+    const customer = restaurantCustomer?.contaId === config.contaId
+      ? await prisma.restauranteCliente.findFirst({ where: { id: restaurantCustomer.id, contaId: config.contaId }, select: { telefone: true } })
+      : null;
+    const fidelity = await currentFidelityForPhone(prisma, config.contaId, parsed.data.clienteTelefone || customer?.telefone);
+    const selectedPrograms = fidelity.programs.filter((entry: any) => parsed.data.fidelidadeProgramaIds.includes(entry.program.id));
+    const rewards = availableFidelityRewards({ ...fidelity, programs: selectedPrograms }, quote.snapshots);
+    const discount = rewards.reduce(
+      (total, reward) => total.plus(new Decimal(reward.snapshot.unit).mul(Number(reward.program.descontoPercentual)).div(100)),
+      new Decimal(0),
+    ).toDecimalPlaces(2);
+    if (discount.greaterThan(0)) {
+      quote.total = new Decimal(quote.total).minus(discount).toFixed(2);
+      (quote as any).desconto = discount.toFixed(2);
+    }
     const { snapshots: _snapshots, ...data } = quote;
-    return ok(req, res, data);
+    return ok(req, res, { ...data, fidelidades: publicFidelities(fidelity.programs) });
   } catch (error) {
     if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
     throw error;
@@ -1090,7 +1111,8 @@ export async function createPublicOrder(req: Request, res: Response) {
   // A recompensa e aplicada automaticamente na primeira unidade do produto-premio
   // presente no carrinho. O decremento abaixo acontece na mesma transacao do pedido.
   const fidelity = await currentFidelityForPhone(prisma, config.contaId, parsed.data.cliente.telefone);
-  const fidelityRewards = availableFidelityRewards(fidelity, quote.snapshots);
+  const selectedPrograms = fidelity.programs.filter((entry: any) => parsed.data.fidelidadeProgramaIds.includes(entry.program.id));
+  const fidelityRewards = availableFidelityRewards({ ...fidelity, programs: selectedPrograms }, quote.snapshots);
   const fidelityDiscount = fidelityRewards.reduce(
     (total, reward) => total.plus(new Decimal(reward.snapshot.unit).mul(Number(reward.program.descontoPercentual)).div(100)),
     new Decimal(0),
@@ -1195,6 +1217,7 @@ export async function createPublicOrder(req: Request, res: Response) {
           total: quote.total,
           observacao: parsed.data.observacao,
           trackingTokenHash: hash(trackingToken),
+          fidelidadeRecompensasJson: fidelityRewards.map((reward) => reward.program.id) as any,
           itens: {
             create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({
               catalogoItemId: item.id,

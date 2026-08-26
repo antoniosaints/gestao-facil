@@ -170,13 +170,19 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
 
     let fidelityMessage = "";
     if (event === "FIDELIDADE") {
-      const program = await prisma.restauranteFidelidadePrograma.findUnique({ where: { contaId: order.contaId } });
-      const progress = program ? await prisma.restauranteFidelidadeProgresso.findUnique({
-        where: { contaId_telefoneNormalizado: { contaId: order.contaId, telefoneNormalizado: phone } },
-      }) : null;
-      if (program && progress) fidelityMessage = progress.recompensasDisponiveis > 0
-        ? `você tem ${progress.recompensasDisponiveis} recompensa(s) disponível(is)!`
-        : `${progress.pedidosElegiveis % program.pedidosMeta}/${program.pedidosMeta} pedidos para a próxima recompensa.`;
+      const programs = await prisma.restauranteFidelidadePrograma.findMany({ where: { contaId: order.contaId, ativo: true } });
+      const progresses = programs.length ? await prisma.restauranteFidelidadeProgresso.findMany({
+        where: { contaId: order.contaId, telefoneNormalizado: phone, programaId: { in: programs.map((program) => program.id) } },
+      }) : [];
+      const progressByProgram = new Map(progresses.map((progress) => [progress.programaId, progress]));
+      const messages = programs.flatMap((program) => {
+        const progress = progressByProgram.get(program.id);
+        if (!progress) return [];
+        return [progress.recompensasDisponiveis > 0
+          ? `você tem ${progress.recompensasDisponiveis} recompensa(s) disponível(is)!`
+          : `${progress.pedidosElegiveis % program.pedidosMeta}/${program.pedidosMeta} itens para a próxima recompensa.`];
+      });
+      fidelityMessage = messages.join(" ");
     }
     const paymentUrl = order.Cobrancas[0]?.externalLink || null;
     let message = renderRestaurantWhatsAppTemplate(definition.mensagem, buildRestaurantWhatsAppTemplateValues({

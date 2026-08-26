@@ -86,7 +86,7 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
       const pedido = await tx.restaurantePedido.create({ data: {
         contaId: params.contaId, codigo, origem: input.origem, pagamentoStatus: input.pagamento === "PIX" ? "PENDENTE" : "NA_ENTREGA", pagamentoMetodoSnapshot: input.pagamento,
         entregaStatus: input.origem === "DELIVERY" ? "AGUARDANDO_DESPACHO" : "NAO_APLICAVEL", clienteNomeSnapshot: input.cliente.nome, clienteTelefone: input.cliente.telefone, clienteEmail: input.cliente.email,
-        enderecoSnapshotJson: input.endereco as any, zonaEntregaSnapshotJson: quote.zone as any, subtotal: quote.subtotal, frete: quote.frete, desconto: (quote as any).desconto || 0, total: quote.total, observacao: input.observacao, trackingTokenHash: hash(trackingToken),
+        enderecoSnapshotJson: input.endereco as any, zonaEntregaSnapshotJson: quote.zone as any, subtotal: quote.subtotal, frete: quote.frete, desconto: (quote as any).desconto || 0, total: quote.total, observacao: input.observacao, trackingTokenHash: hash(trackingToken), fidelidadeRecompensasJson: fidelityRewards.map((reward) => reward.program.id) as any,
         itens: { create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({ catalogoItemId: item.id, produtoId: item.produtoId, quantidade: requested.quantidade, nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardápio", precoUnitarioSnapshot: unit, subtotalSnapshot: line, tamanhoSnapshot: requested.tamanho, selecoesSnapshotJson: selections as any, regraPrecoSnapshot: item.regraPrecoSabores, observacao: requested.observacao })) },
       }, include: { itens: true } });
       if (fidelityRewards.length && fidelity.normalizedPhone) {

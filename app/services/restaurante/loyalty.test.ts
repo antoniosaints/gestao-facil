@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { availableFidelityRewards, publicFidelities } from "./loyalty";
+import { availableFidelityRewards, eligibleItemQuantity, publicFidelities, restoreReservedFidelityRewards } from "./loyalty";
+
+test("soma as unidades elegíveis do mesmo pedido para a promoção", async () => {
+  const quantity = await eligibleItemQuantity(
+    { restauranteCatalogoItem: { findMany: async () => [{ id: 10, categoriaId: 7, Produto: null }, { id: 20, categoriaId: 9, Produto: null }] } },
+    1,
+    { itens: [{ catalogoItemId: 10, quantidade: 10 }, { catalogoItemId: 20, quantidade: 2 }] },
+    { catalogoItemIdsJson: [], categoriaIdsJson: [7] },
+  );
+
+  assert.equal(quantity, 10);
+});
 
 test("mantém recompensas independentes para cada promoção no mesmo carrinho", () => {
   const programs = [
@@ -22,4 +33,21 @@ test("publica apenas as promoções ativas com prêmio definido", () => {
 
   assert.equal(result.length, 1);
   assert.equal(result[0]?.premio?.nome, "Suco");
+});
+
+test("devolve no cancelamento somente as recompensas reservadas pelo pedido", async () => {
+  let received: any = null;
+  const restored = await restoreReservedFidelityRewards({
+    restauranteFidelidadeProgresso: {
+      updateMany: async (args: any) => { received = args; return { count: 2 }; },
+    },
+  }, 4, "+55 (11) 99999-0000", [12, 12, "7", 0, "inválido"]);
+
+  assert.equal(restored, true);
+  assert.deepEqual(received.where, {
+    contaId: 4,
+    telefoneNormalizado: "5511999990000",
+    programaId: { in: [12, 7] },
+  });
+  assert.deepEqual(received.data, { recompensasDisponiveis: { increment: 1 } });
 });

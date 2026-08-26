@@ -1840,6 +1840,9 @@ model RestaurantePedido {
   observacao               String?                          @db.Text
   trackingTokenHash        String                           @unique @db.VarChar(64)
   whatsappNotificacoesJson Json?
+  /// Promoções cujas recompensas foram reservadas neste pedido. A reserva só é
+  /// devolvida se o pedido for efetivamente cancelado.
+  fidelidadeRecompensasJson Json?
   version                  Int                              @default(1)
   createdAt                DateTime                         @default(now())
   updatedAt                DateTime                         @updatedAt

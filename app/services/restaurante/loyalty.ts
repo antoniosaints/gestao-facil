@@ -21,9 +21,26 @@ export function normalizeFidelityPhone(phone?: string | null) {
   return normalizeClienteWhatsappPhone(phone || "") || null;
 }
 
+/**
+ * Devolve apenas as recompensas que este pedido havia reservado. Mantemos a
+ * operação isolada para que o cancelamento nunca libere saldo de outra
+ * promoção — nem em pedidos antigos com JSON incompleto.
+ */
+export async function restoreReservedFidelityRewards(tx: Db, contaId: number, phone: string | null | undefined, reservedProgramIds: unknown) {
+  const programaIds = normalizeFidelityIds(reservedProgramIds);
+  const telefoneNormalizado = normalizeFidelityPhone(phone);
+  if (!programaIds.length || !telefoneNormalizado) return false;
+  const restored = await tx.restauranteFidelidadeProgresso.updateMany({
+    where: { contaId, telefoneNormalizado, programaId: { in: programaIds } },
+    data: { recompensasDisponiveis: { increment: 1 } },
+  });
+  return restored.count > 0;
+}
+
 export function publicFidelity(program: any, progress?: any | null) {
   if (!program?.ativo || !program.premioCatalogoItemId) return null;
   return {
+    id: program.id,
     ativo: true,
     pedidosMeta: program.pedidosMeta,
     categoriaIds: normalizeFidelityIds(program.categoriaIdsJson),
@@ -35,7 +52,7 @@ export function publicFidelity(program: any, progress?: any | null) {
       imagem: program.PremioCatalogoItem.imagem || program.PremioCatalogoItem.Produto?.imagem || null,
     } : null,
     progresso: progress ? {
-      pedidosElegiveis: progress.pedidosElegiveis,
+      itensElegiveis: progress.pedidosElegiveis,
       pedidosMeta: program.pedidosMeta,
       recompensasDisponiveis: progress.recompensasDisponiveis,
     } : null,
@@ -79,19 +96,29 @@ export async function currentFidelityForPhone(db: Db, contaId: number, phone?: s
   };
 }
 
-async function orderMatchesProgram(tx: Db, contaId: number, order: any, program: any) {
+export async function eligibleItemQuantity(tx: Db, contaId: number, order: any, program: any) {
   const catalogItemIds = normalizeFidelityIds(program.catalogoItemIdsJson);
   const categoryIds = normalizeFidelityIds(program.categoriaIdsJson);
-  // Sem filtro, qualquer pedido concluido participa. Com filtros, basta um item corresponder.
-  if (!catalogItemIds.length && !categoryIds.length) return true;
-  if (order.itens.some((item: any) => item.catalogoItemId && catalogItemIds.includes(item.catalogoItemId))) return true;
-  if (!categoryIds.length) return false;
+  const orderItems = order.itens.filter((item: any) => item.catalogoItemId && Number(item.quantidade) > 0);
+  if (!orderItems.length) return 0;
+  // Sem filtro, todas as unidades do pedido participam da promoção.
+  if (!catalogItemIds.length && !categoryIds.length) return orderItems.reduce((total: number, item: any) => total + Number(item.quantidade), 0);
 
-  const orderedCatalogItemIds = normalizeFidelityIds(order.itens.map((item: any) => item.catalogoItemId));
-  if (!orderedCatalogItemIds.length) return false;
-  return (await tx.restauranteCatalogoItem.count({
-    where: { contaId, id: { in: orderedCatalogItemIds }, categoriaId: { in: categoryIds } },
-  })) > 0;
+  const orderedCatalogItemIds = normalizeFidelityIds(orderItems.map((item: any) => item.catalogoItemId));
+  const categoryEligibleItemIds = new Set<number>();
+  if (categoryIds.length && orderedCatalogItemIds.length) {
+    const catalogItems = await tx.restauranteCatalogoItem.findMany({
+      where: { contaId, id: { in: orderedCatalogItemIds } },
+      select: { id: true, categoriaId: true, Produto: { select: { ProdutoBase: { select: { categoriaId: true } } } } },
+    });
+    for (const item of catalogItems) {
+      const categoryId = item.categoriaId || item.Produto?.ProdutoBase?.categoriaId;
+      if (categoryId && categoryIds.includes(categoryId)) categoryEligibleItemIds.add(item.id);
+    }
+  }
+  return orderItems
+    .filter((item: any) => catalogItemIds.includes(item.catalogoItemId) || categoryEligibleItemIds.has(item.catalogoItemId))
+    .reduce((total: number, item: any) => total + Number(item.quantidade), 0);
 }
 
 /** Aplica uma vez o progresso quando um pedido chega a CONCLUIDO. */
@@ -109,23 +136,25 @@ export async function applyCompletedOrderFidelity(tx: Db, contaId: number, order
   if (!phone) return null;
   const results: any[] = [];
   for (const program of programs) {
-    if (!(await orderMatchesProgram(tx, contaId, order, program))) continue;
+    const eligibleQuantity = await eligibleItemQuantity(tx, contaId, order, program);
+    if (!eligibleQuantity) continue;
     const alreadyApplied = await tx.restauranteFidelidadeLancamento.findUnique({
       where: { pedidoId_programaId: { pedidoId: orderId, programaId: program.id } },
     });
     if (alreadyApplied) continue;
     const progress = await tx.restauranteFidelidadeProgresso.upsert({
       where: { programaId_telefoneNormalizado: { programaId: program.id, telefoneNormalizado: phone } },
-      create: { contaId, programaId: program.id, telefoneNormalizado: phone, clienteNome: order.clienteNomeSnapshot || null, pedidosElegiveis: 1 },
-      update: { pedidosElegiveis: { increment: 1 }, clienteNome: order.clienteNomeSnapshot || undefined },
+      create: { contaId, programaId: program.id, telefoneNormalizado: phone, clienteNome: order.clienteNomeSnapshot || null, pedidosElegiveis: eligibleQuantity },
+      update: { pedidosElegiveis: { increment: eligibleQuantity }, clienteNome: order.clienteNomeSnapshot || undefined },
     });
     const availableByProgress = Math.floor(progress.pedidosElegiveis / program.pedidosMeta);
-    const issued = await tx.restauranteFidelidadeProgresso.updateMany({
+    const rewardsToIssue = Math.max(availableByProgress - progress.recompensasEmitidas, 0);
+    const issued = rewardsToIssue ? await tx.restauranteFidelidadeProgresso.updateMany({
       where: { id: progress.id, recompensasEmitidas: { lt: availableByProgress } },
-      data: { recompensasEmitidas: { increment: 1 }, recompensasDisponiveis: { increment: 1 } },
-    });
+      data: { recompensasEmitidas: { increment: rewardsToIssue }, recompensasDisponiveis: { increment: rewardsToIssue } },
+    }) : { count: 0 };
     await tx.restauranteFidelidadeLancamento.create({
-      data: { contaId, programaId: program.id, pedidoId: orderId, progressoId: progress.id, recompensaNova: issued.count > 0 },
+      data: { contaId, programaId: program.id, pedidoId: orderId, progressoId: progress.id, deltaPedidos: eligibleQuantity, recompensaNova: issued.count > 0 },
     });
     const current = await tx.restauranteFidelidadeProgresso.findUniqueOrThrow({ where: { id: progress.id } });
     results.push({ ...current, novaRecompensa: issued.count > 0, pedidosMeta: program.pedidosMeta, programaId: program.id });
