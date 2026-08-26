@@ -1375,6 +1375,9 @@ model RestauranteConfig {
   localizacaoJson          Json?
   horariosJson             Json?
   whatsappNotificacoesJson Json?
+  // Instância que envia somente as mensagens transacionais do Restaurante.
+  // Não reutiliza a preferência global de notificações dos demais módulos.
+  whatsappNotificacoesInstanciaId Int?
   proximoNumeroPedido      Int                  @default(1)
   version                  Int                  @default(1)
   createdAt                DateTime             @default(now())

@@ -4,12 +4,13 @@ import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensag
 import { prisma } from "../../utils/prisma";
 import { WApiClient, wApiMessageIdFromResponse } from "./wApiClient";
 import { downloadAndDecryptWhatsAppMedia } from "./whatsappMedia";
-import { AgentHistoryItem, generateAgentReply, geminiSupportsMime } from "./whatsappAgentAI";
+import { AgentHistoryItem, generateAgentReply, geminiSupportsMime, restaurantOrderTool } from "./whatsappAgentAI";
 import { iaPlatformService } from "../ia/iaPlatformService";
 import { iaUsageService } from "../ia/iaUsageService";
 import { sendWhatsAppConversationUpdated, sendWhatsAppMessageCreated } from "../../hooks/whatsapp/socket";
 import { contaHasActiveModule } from "../contas/storeModulesService";
 import { createRestaurantOrderFromAssistant, restaurantAssistantContext } from "./restaurantAgentTools";
+import { buildScopedUploadKey, uploadPublicFile } from "../uploads/fileStorageService";
 
 export interface AgentInput {
   nome: string;
@@ -31,7 +32,7 @@ const CONVERSATION_INCLUDE = {
   AgenteAtual: { select: { id: true, nome: true } },
 } satisfies Prisma.WhatsAppConversaInclude;
 
-const RESTAURANT_INTENT = /\b(card[aá]pio|restaurante|pedido|pedir|lanche|pizza|hamb[uú]rguer|hamburger|complemento|adicional|entrega|retirada|pix)\b/i;
+const RESTAURANT_INTENT = /\b(card[aá]pio|restaurante|pedido|pedir|lanche|pizza|hamb[uú]rguer|hamburger|complemento|adicional|entrega|retirada|pix|confirm(?:ar|ado)?|finaliz(?:ar|ado)?|fechar|isso mesmo|pode ser)\b/i;
 
 function wantsRestaurantTools(text: string, history: AgentHistoryItem[]) {
   return RESTAURANT_INTENT.test(`${history.map((item) => item.text).join(" ")} ${text}`);
@@ -43,6 +44,10 @@ function stripInternalDirectives(text: string) {
   return (end >= 0 ? `${text.slice(0, start)}${text.slice(end)}` : text)
     .replace(/^\s*(?:\[\[)?\/?transferir\s*[: ]\s*\d+\s*(?:\]\])?\s*$/gim, "")
     .trim();
+}
+
+function claimsRestaurantOrderConfirmation(text: string) {
+  return /\b(?:pedido|pix)\b[\s\S]{0,48}\b(?:confirmad[oa]|feito|gerad[oa]|criad[oa]|aprovad[oa])\b/i.test(text);
 }
 
 // Retorna null para erros da diretiva interna: não há nada a comunicar ao cliente.
@@ -421,6 +426,7 @@ export const whatsAppAgentService = {
         history,
         userText: incoming.conteudo || (media ? "(o cliente enviou um anexo)" : "(mensagem sem texto)"),
         media,
+        tools: restaurant ? restaurantOrderTool : undefined,
       });
 
       // Registra o consumo do agente (o modelo é o escolhido pelo cliente no agente).
@@ -445,18 +451,28 @@ export const whatsAppAgentService = {
             reply = await generateAgentReply({
               apiKey, modelo: agent.modelo, systemPrompt: buildSystemPrompt(agent, [], restaurant?.prompt), history,
               userText: incoming.conteudo || "(mensagem sem texto)", media,
+              tools: restaurant ? restaurantOrderTool : undefined,
             });
             await iaUsageService.recordUsage({ contaId, feature: "atendimento_agente", modelId: agent.modelo, ...reply.usage });
           }
         }
       }
 
-      const draft = restaurant ? orderDirective(reply.text || "") : null;
+      const restaurantCall = restaurant
+        ? reply.functionCalls.find((call) => call.name === "criar_pedido_restaurante")
+        : null;
+      const draft = !restaurantCall && restaurant ? orderDirective(reply.text || "") : null;
       let responseText = stripInternalDirectives(reply.text || "");
       let pixQrCode: string | null = null;
-      if (draft) {
+      const orderDraft = restaurantCall?.args || draft;
+      // Nunca deixe uma frase inventada pelo modelo confirmar um pedido. Só a
+      // ferramenta (ou a diretiva legada) pode produzir a confirmação real.
+      if (restaurant && !orderDraft && claimsRestaurantOrderConfirmation(responseText)) {
+        responseText = "Ainda preciso validar os dados do pedido antes de confirmar. Pode conferir os itens, a forma de entrega e o pagamento?";
+      }
+      if (orderDraft) {
         try {
-          const order = await createRestaurantOrderFromAssistant({ contaId, idempotencyKey: `wa-agent-${conversa.id}-${params.incomingMessageId}`, draft });
+          const order = await createRestaurantOrderFromAssistant({ contaId, idempotencyKey: `wa-agent-${conversa.id}-${params.incomingMessageId}`, draft: orderDraft });
           const total = new Decimal(order.pedido.total).toFixed(2).replace(".", ",");
           responseText = `Pedido ${order.pedido.codigo} confirmado. Total: R$ ${total}.`;
           if (order.paymentAction?.pixCopiaCola) {
@@ -543,6 +559,16 @@ export const whatsAppAgentService = {
   },
 
   async sendAgentImage(contaId: number, instance: { id: number; instanceId: string; token: string }, conversaId: number, telefone: string, mediaUrl: string, caption: string) {
+    // A W-API busca a imagem por URL. O QR do Mercado Pago chega como base64/data URL,
+    // portanto o persistimos antes do envio em vez de depender de suporte implícito da API.
+    if (mediaUrl.startsWith("data:image/")) {
+      const base64 = mediaUrl.slice(mediaUrl.indexOf(",") + 1);
+      const image = Buffer.from(base64, "base64");
+      if (!image.length) throw new Error("QR Code Pix inválido.");
+      const key = buildScopedUploadKey(contaId, `whatsapp/conversas/${conversaId}/pix`, `${Date.now()}-${crypto.randomBytes(4).toString("hex")}.png`);
+      const uploaded = await uploadPublicFile({ key, body: image, contentType: "image/png", cacheControl: "private, max-age=1800" });
+      mediaUrl = uploaded.url;
+    }
     const messageId = `agent-image-${contaId}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
     const pending = await prisma.whatsAppMensagem.create({ data: { contaId, conversaId, instanciaId: instance.id, direcao: WhatsAppMensagemDirecao.SAIDA, tipo: WhatsAppMensagemTipo.IMAGEM, externalMessageId: messageId, conteudo: caption, mediaUrl, origem: WhatsAppMensagemOrigem.AGENTE_IA, statusEnvio: WhatsAppMensagemStatus.PENDENTE } });
     sendWhatsAppMessageCreated(contaId, pending);

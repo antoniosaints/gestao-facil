@@ -141,7 +141,7 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
 
     const config = await prisma.restauranteConfig.findUnique({
       where: { contaId: order.contaId },
-      select: { whatsappNotificacoesJson: true },
+      select: { whatsappNotificacoesJson: true, whatsappNotificacoesInstanciaId: true },
     });
     const settings = normalizeRestaurantWhatsAppSettings(config?.whatsappNotificacoesJson);
     const definition = settings[event];
@@ -150,14 +150,17 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
     const phone = normalizeClienteWhatsappPhone(order.clienteTelefone);
     if (!phone || !(await contaHasActiveModule(order.contaId, "whatsapp"))) return false;
 
-    const parameters = await prisma.parametrosConta.findUnique({
+    // A configuração do Restaurante prevalece. O fallback mantém os restaurantes
+    // legados operando até que a migração seja aplicada em todos os ambientes.
+    const parameters = config?.whatsappNotificacoesInstanciaId ? null : await prisma.parametrosConta.findUnique({
       where: { contaId: order.contaId },
       select: { whatsappNotificacoesInstanciaId: true },
     });
-    if (!parameters?.whatsappNotificacoesInstanciaId) return false;
+    const instanciaId = config?.whatsappNotificacoesInstanciaId || parameters?.whatsappNotificacoesInstanciaId;
+    if (!instanciaId) return false;
     const instance = await prisma.whatsAppInstancia.findFirst({
       where: {
-        id: parameters.whatsappNotificacoesInstanciaId,
+        id: instanciaId,
         contaId: order.contaId,
         ativo: true,
       },

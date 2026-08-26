@@ -64,6 +64,7 @@ const configuracaoSchema = z.object({
   pagamentoNaEntregaAtivo: z.boolean().default(true),
   localizacaoJson: localizacaoSchema.nullable().optional(),
   horariosJson: horariosFuncionamentoSchema.nullable().optional(),
+  whatsappNotificacoesInstanciaId: z.coerce.number().int().positive().nullable().optional(),
   whatsappNotificacoesJson: z.record(z.object({
     ativo: z.boolean().default(false),
     mensagem: z.string().trim().min(1).max(2000),
@@ -479,6 +480,22 @@ export async function saveConfig(req: Request, res: Response) {
   }
   const { version: _version, ...data } = parsed.data;
   const whatsappNotificacoesJson = normalizeRestaurantWhatsAppSettings(data.whatsappNotificacoesJson || defaultRestaurantWhatsAppSettings());
+  const notificacoesAtivas = Object.values(whatsappNotificacoesJson).some((item) => item.ativo);
+  if (data.whatsappNotificacoesInstanciaId) {
+    const instance = await prisma.whatsAppInstancia.findFirst({
+      where: { id: data.whatsappNotificacoesInstanciaId, contaId, ativo: true },
+      select: { id: true },
+    });
+    if (!instance) return fail(req, res, 422, "whatsapp_instance_invalid", "A instância selecionada não está ativa nesta conta.");
+  }
+  if (notificacoesAtivas) {
+    if (!(await contaHasActiveModule(contaId, "whatsapp"))) {
+      return fail(req, res, 422, "whatsapp_module_inactive", "Ative o módulo WhatsApp para enviar mensagens do restaurante.");
+    }
+    if (!data.whatsappNotificacoesInstanciaId) {
+      return fail(req, res, 422, "whatsapp_instance_required", "Selecione a instância responsável pelas mensagens do restaurante.");
+    }
+  }
   const saved = current
     ? await prisma.restauranteConfig.update({ where: { contaId }, data: { ...data, localizacaoJson: data.localizacaoJson as any, horariosJson: data.horariosJson as any, whatsappNotificacoesJson: whatsappNotificacoesJson as any, version: { increment: 1 } } })
     : await prisma.restauranteConfig.create({ data: { ...data, localizacaoJson: data.localizacaoJson as any, horariosJson: data.horariosJson as any, whatsappNotificacoesJson: whatsappNotificacoesJson as any, contaId } });

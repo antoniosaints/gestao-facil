@@ -387,19 +387,26 @@ export const getDetalhePublico = async (
         data: null,
       });
 
-    const conta = await prisma.contas.findFirst({
-      where: {
-        id: Number(id),
-      },
-      select: {
-        id: true,
-        nome: true,
-        profile: true,
-        telefone: true,
-        nomeFantasia: true,
-        documento: true,
-      },
-    });
+    // O tema salvo em Aparência fica em ParametrosConta (um registro único por
+    // conta). Consultá-lo diretamente evita a página pública cair na paleta azul
+    // padrão por uma relação parcialmente carregada.
+    const [conta, parametros] = await Promise.all([
+      prisma.contas.findFirst({
+        where: { id: Number(id) },
+        select: {
+          id: true,
+          nome: true,
+          profile: true,
+          telefone: true,
+          nomeFantasia: true,
+          documento: true,
+        },
+      }),
+      prisma.parametrosConta.findUnique({
+        where: { contaId: Number(id) },
+        select: { temaPersonalizado: true },
+      }),
+    ]);
     if (!conta)
       res.status(400).json({
         status: 400,
@@ -407,7 +414,10 @@ export const getDetalhePublico = async (
         data: null,
       });
 
-    return ResponseHandler(res, "Detalhe público encontrado!", conta);
+    return ResponseHandler(res, "Detalhe público encontrado!", {
+      ...conta,
+      temaPersonalizado: parametros?.temaPersonalizado ?? null,
+    });
   } catch (err: any) {
     console.log(err);
     handleError(res, err);

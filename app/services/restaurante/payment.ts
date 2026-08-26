@@ -30,6 +30,7 @@ function trackingUrl(slug: string, trackingToken: string) {
 export async function restaurantPaymentAction(charge: {
   externalLink: string | null;
   pixCopiaCola: string | null;
+  qrCodeDataUrl?: string | null;
   dataVencimento?: Date | null;
 }) {
   if (charge.pixCopiaCola) {
@@ -37,7 +38,7 @@ export async function restaurantPaymentAction(charge: {
       type: "PIX" as const,
       url: charge.externalLink,
       pixCopiaCola: charge.pixCopiaCola,
-      qrCodeDataUrl: await qrcode.toDataURL(charge.pixCopiaCola, { errorCorrectionLevel: "M", margin: 1, width: 280 }),
+      qrCodeDataUrl: charge.qrCodeDataUrl || await qrcode.toDataURL(charge.pixCopiaCola, { errorCorrectionLevel: "M", margin: 1, width: 280 }),
       expiresAt: charge.dataVencimento?.toISOString() || null,
     };
   }
@@ -72,6 +73,7 @@ export async function createRestaurantOnlinePayment(args: {
   let gatewayReference: string;
   let externalLink: string | null;
   let pixCopiaCola: string | null = null;
+  let qrCodeDataUrl: string | null = null;
 
   const payment = await mp.payment.create({
     requestOptions: { idempotencyKey: `restaurante:${args.order.contaId}:${args.idempotencyKey}` },
@@ -93,7 +95,15 @@ export async function createRestaurantOnlinePayment(args: {
   gatewayReference = String(payment.id || uid);
   externalLink = payment.point_of_interaction?.transaction_data?.ticket_url || null;
   pixCopiaCola = payment.point_of_interaction?.transaction_data?.qr_code || null;
-  if (!pixCopiaCola && !externalLink) throw new Error("O Mercado Pago nao retornou os dados do Pix.");
+  const qrCodeBase64 = payment.point_of_interaction?.transaction_data?.qr_code_base64 || null;
+  if (qrCodeBase64) qrCodeDataUrl = qrCodeBase64.startsWith("data:image/") ? qrCodeBase64 : `data:image/png;base64,${qrCodeBase64}`;
+  // Para o atendimento, link sozinho não é uma confirmação de Pix suficiente:
+  // o cliente deve receber o código copia-e-cola e o QR Code. Compensa a cobrança
+  // remota caso o gateway responda incompleto, evitando Pix órfão.
+  if (!pixCopiaCola) {
+    await mp.payment.cancel({ id: gatewayReference }).catch(() => undefined);
+    throw new Error("O Mercado Pago não retornou o código Pix copia e cola.");
+  }
 
   try {
     const charge = await prisma.cobrancasFinanceiras.create({
@@ -113,7 +123,7 @@ export async function createRestaurantOnlinePayment(args: {
         observacao: `Pedido restaurante ${args.order.codigo}`,
       },
     });
-    return restaurantPaymentAction(charge);
+    return restaurantPaymentAction({ ...charge, qrCodeDataUrl });
   } catch (error: any) {
     if (error?.code !== "P2002") {
       // A cobrança foi aceita pelo gateway, mas não pôde ser persistida localmente.

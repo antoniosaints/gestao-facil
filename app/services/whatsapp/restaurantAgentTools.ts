@@ -49,7 +49,7 @@ export async function restaurantAssistantContext(contaId: number): Promise<Resta
     `Funcionamento: ${operation.mensagem}. Retirada: ${config.retiradaAtiva ? "sim" : "não"}. Delivery: ${config.deliveryAtivo ? "sim" : "não"}. Pix: ${config.pagamentoOnlineAtivo ? "sim" : "não"}.`,
     "Cardápio e complementos (use os IDs somente na ação interna):", JSON.stringify(available),
     "Para criar pedido, colete e confirme: nome, telefone, retirada/delivery, itens+complementos, pagamento; em delivery colete endereço completo. Nunca invente preço, item, complemento ou disponibilidade.",
-    "Somente após o cliente confirmar todos os dados, inclua em uma linha isolada a diretiva interna [[CRIAR_PEDIDO:{JSON}]]. O JSON deve conter origem, pagamento, cliente, endereco quando DELIVERY e itens com catalogoItemId, quantidade, selecaoIds. A diretiva não será mostrada ao cliente.",
+    "Depois que o cliente confirmar todos os dados, chame a ferramenta criar_pedido_restaurante com origem, pagamento, cliente, endereço (quando DELIVERY) e itens com catalogoItemId, quantidade e selecaoIds. Nunca afirme que confirmou o pedido ou que gerou Pix antes da ferramenta retornar sucesso.",
   ].join("\n") };
 }
 
