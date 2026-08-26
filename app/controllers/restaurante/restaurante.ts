@@ -1017,6 +1017,12 @@ export async function publicMenu(req: Request, res: Response) {
     ? await prisma.restauranteCliente.findFirst({ where: { id: restaurantCustomer.id, contaId: config.contaId }, select: { telefone: true } })
     : null;
   const fidelity = await currentFidelityForPhone(prisma, config.contaId, customer?.telefone);
+  const publicFidelitiesData = publicFidelities(fidelity.programs);
+  const fidelityCategoryIds = [...new Set(publicFidelitiesData.flatMap((program: any) => program.categoriaIds))];
+  const fidelityCategories = fidelityCategoryIds.length
+    ? await prisma.produtoCategoria.findMany({ where: { contaId: config.contaId, id: { in: fidelityCategoryIds } }, select: { id: true, nome: true } })
+    : [];
+  const fidelityCategoryNames = new Map(fidelityCategories.map((category) => [category.id, category.nome]));
   return ok(req, res, {
     restaurante: {
       nome: config.nomePublico,
@@ -1033,7 +1039,10 @@ export async function publicMenu(req: Request, res: Response) {
       // Portanto, o aviso público só anuncia a regra global quando ela é aplicável.
       freteGratisAcima: config.modoFrete === "FIXO" ? config.freteGratisAcima : null,
       temaPersonalizado: config.Conta.ParametrosConta[0]?.temaPersonalizado ?? null,
-      fidelidades: publicFidelities(fidelity.programs),
+      fidelidades: publicFidelitiesData.map((program: any) => ({
+        ...program,
+        categorias: program.categoriaIds.map((id: number) => ({ id, nome: fidelityCategoryNames.get(id) || "Categoria selecionada" })),
+      })),
     },
     itens: items,
   });
