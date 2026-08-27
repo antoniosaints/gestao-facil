@@ -125,10 +125,28 @@ const catalogoSchema = z.object({
   version: z.coerce.number().int().positive().optional(),
 });
 
-const catalogoBulkSchema = z.object({
-  ids: z.array(z.coerce.number().int().positive()).min(1).max(100),
-  acao: z.enum(["EXIBIR", "OCULTAR", "DESTACAR", "REMOVER_DESTAQUE", "EXCLUIR"]),
-});
+const catalogoBulkIdsSchema = z.array(z.coerce.number().int().positive()).min(1).max(100);
+const catalogoBulkSchema = z.discriminatedUnion("acao", [
+  z.object({
+    ids: catalogoBulkIdsSchema,
+    acao: z.enum(["EXIBIR", "OCULTAR", "DESTACAR", "REMOVER_DESTAQUE", "EXCLUIR"]),
+  }),
+  z.object({
+    ids: catalogoBulkIdsSchema,
+    acao: z.literal("ALTERAR_CATEGORIA"),
+    categoriaId: z.coerce.number().int().positive(),
+  }),
+  z.object({
+    ids: catalogoBulkIdsSchema,
+    acao: z.literal("DEFINIR_CATEGORIA_SUGESTAO"),
+    categoriaId: z.coerce.number().int().positive(),
+  }),
+  z.object({
+    ids: catalogoBulkIdsSchema,
+    acao: z.literal("ADICIONAR_GRUPOS"),
+    grupoIds: z.array(z.coerce.number().int().positive()).min(1).max(100),
+  }),
+]);
 
 const grupoOpcaoSchema = z.object({
   nome: z.string().trim().min(2).max(120),
@@ -204,6 +222,17 @@ const pedidoManualSchema = pedidoInternoSchema.extend({
   clienteId: z.coerce.number().int().positive().nullable().optional(),
   clienteNome: z.string().trim().max(160).nullable().optional(),
   clienteTelefone: z.string().trim().max(32).nullable().optional(),
+});
+
+const pedidoClienteEdicaoSchema = z.object({
+  clienteNome: z.string().trim().max(160).nullable().optional(),
+  clienteTelefone: z.string().trim().max(32).nullable().optional(),
+  clienteEmail: z.string().trim().email().max(190).nullable().optional(),
+  version: z.coerce.number().int().positive(),
+});
+
+const pedidoItensEdicaoSchema = pedidoInternoSchema.extend({
+  version: z.coerce.number().int().positive(),
 });
 
 const pontoProducaoSchema = z.object({
@@ -376,6 +405,8 @@ export async function calculatePublicCheckout(
       throw new CheckoutError("invalid_selection", "Uma selecao nao pertence ao item informado.");
     }
     const selections: Array<SelecaoPreco & { produtoId: number | null }> = selected.map(({ option, group }) => ({
+      grupoId: group.id,
+      grupoNome: group.nome,
       tipo: group.tipo,
       nome: option.nome,
       precoAdicional: option.precoAdicional.toString(),
@@ -491,7 +522,9 @@ export async function saveConfig(req: Request, res: Response) {
   if (current && parsed.data.version && current.version !== parsed.data.version) {
     return fail(req, res, 409, "version_conflict", "A configuracao foi alterada em outra sessao.");
   }
-  const { version: _version, ...data } = parsed.data;
+  // O recebimento de pedidos online possui um controle operacional próprio.
+  // Não o sobrescrevemos ao salvar as demais configurações da página.
+  const { version: _version, aceitarPedidosOnline: _aceitarPedidosOnline, ...data } = parsed.data;
   const whatsappNotificacoesJson = normalizeRestaurantWhatsAppSettings(data.whatsappNotificacoesJson || defaultRestaurantWhatsAppSettings());
   const notificacoesAtivas = Object.values(whatsappNotificacoesJson).some((item) => item.ativo);
   if (data.whatsappNotificacoesInstanciaId) {
@@ -737,6 +770,49 @@ export async function bulkCatalogItems(req: Request, res: Response) {
     return ok(req, res, { affected: result.count, acao: parsed.data.acao });
   }
 
+  if (parsed.data.acao === "ALTERAR_CATEGORIA" || parsed.data.acao === "DEFINIR_CATEGORIA_SUGESTAO") {
+    const category = await prisma.produtoCategoria.findFirst({
+      where: { id: parsed.data.categoriaId, contaId },
+      select: { id: true },
+    });
+    if (!category) return fail(req, res, 422, "catalog_category_not_found", "Selecione uma categoria válida desta conta.");
+    const data = parsed.data.acao === "ALTERAR_CATEGORIA"
+      ? { categoriaId: category.id, version: { increment: 1 } }
+      : { categoriaSugestaoId: category.id, version: { increment: 1 } };
+    const result = await prisma.restauranteCatalogoItem.updateMany({ where, data });
+    return ok(req, res, { affected: result.count, acao: parsed.data.acao });
+  }
+
+  if (parsed.data.acao === "ADICIONAR_GRUPOS") {
+    const groupIds = [...new Set(parsed.data.grupoIds)];
+    const groupCount = await prisma.restauranteGrupoOpcao.count({ where: { contaId, id: { in: groupIds } } });
+    if (groupCount !== groupIds.length) return fail(req, res, 422, "invalid_groups", "Um ou mais grupos não pertencem a esta conta.");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const links = await tx.restauranteCatalogoItemGrupo.findMany({
+        where: { itemId: { in: ids } },
+        select: { itemId: true, grupoId: true, ordem: true },
+      });
+      const linksByItem = new Map<number, Array<{ grupoId: number; ordem: number }>>();
+      for (const link of links) {
+        const itemLinks = linksByItem.get(link.itemId) || [];
+        itemLinks.push(link);
+        linksByItem.set(link.itemId, itemLinks);
+      }
+      const newLinks = ids.flatMap((itemId) => {
+        const itemLinks = linksByItem.get(itemId) || [];
+        const attachedGroupIds = new Set(itemLinks.map((link) => link.grupoId));
+        let ordem = itemLinks.reduce((highest, link) => Math.max(highest, link.ordem), -1) + 1;
+        return groupIds
+          .filter((groupId) => !attachedGroupIds.has(groupId))
+          .map((grupoId) => ({ itemId, grupoId, ordem: ordem++ }));
+      });
+      if (newLinks.length) await tx.restauranteCatalogoItemGrupo.createMany({ data: newLinks });
+      return tx.restauranteCatalogoItem.updateMany({ where, data: { version: { increment: 1 } } });
+    });
+    return ok(req, res, { affected: result.count, acao: parsed.data.acao });
+  }
+
   const data = parsed.data.acao === "EXIBIR"
     ? { disponivel: true, version: { increment: 1 } }
     : parsed.data.acao === "OCULTAR"
@@ -946,7 +1022,9 @@ export async function saveOnlineOrderingStatus(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const config = await prisma.restauranteConfig.upsert({
     where: { contaId },
-    update: { aceitarPedidosOnline: parsed.data.aceitarPedidosOnline, version: { increment: 1 } },
+    // Este controle é independente das configurações gerais; assim, pausar ou
+    // abrir os pedidos não invalida o formulário que o gestor está editando.
+    update: { aceitarPedidosOnline: parsed.data.aceitarPedidosOnline },
     create: {
       ...(await prisma.contas.findUniqueOrThrow({
         where: { id: contaId },
@@ -1772,6 +1850,153 @@ export async function createManualOrder(req: Request, res: Response) {
   }
 }
 
+export async function updateOrderCustomer(req: Request, res: Response) {
+  const parsed = pedidoClienteEdicaoSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const orderId = Number(req.params.id);
+  const order = await prisma.restaurantePedido.findFirst({
+    where: { id: orderId, contaId },
+    select: { id: true, status: true, version: true },
+  });
+  if (!order) return fail(req, res, 404, "order_not_found", "Pedido não encontrado.");
+  if (["CONCLUIDO", "CANCELADO"].includes(order.status)) {
+    return fail(req, res, 422, "order_closed", "Não é possível alterar os dados de um pedido finalizado ou cancelado.");
+  }
+  if (order.version !== parsed.data.version) {
+    return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessão. Atualize a tela antes de salvar.");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.restaurantePedido.updateMany({
+      where: { id: order.id, contaId, version: parsed.data.version, status: { notIn: ["CONCLUIDO", "CANCELADO"] } },
+      data: {
+        clienteNomeSnapshot: parsed.data.clienteNome || null,
+        clienteTelefone: parsed.data.clienteTelefone || null,
+        clienteEmail: parsed.data.clienteEmail || null,
+        version: { increment: 1 },
+      },
+    });
+    if (!result.count) return null;
+    return tx.restaurantePedido.findUnique({
+      where: { id: order.id },
+      include: { itens: true, Mesa: true, tickets: { select: { id: true, pontoId: true } } },
+    });
+  });
+  if (!updated) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessão. Atualize a tela antes de salvar.");
+  notifyRestaurant(contaId, "pedido", { pedidoId: updated.id, reason: "customer-updated" });
+  notifyRestaurant(contaId, "kds", { pedidoId: updated.id, reason: "customer-updated" });
+  return ok(req, res, updated);
+}
+
+export async function updateOrderItems(req: Request, res: Response) {
+  const parsed = pedidoItensEdicaoSchema.safeParse(req.body);
+  if (!parsed.success) return validationFailure(req, res, parsed.error);
+  const { contaId } = getCustomRequest(req).customData;
+  const orderId = Number(req.params.id);
+  const order = await prisma.restaurantePedido.findFirst({
+    where: { id: orderId, contaId },
+    include: { tickets: { select: { id: true, status: true } } },
+  });
+  if (!order) return fail(req, res, 404, "order_not_found", "Pedido não encontrado.");
+  if (!["RECEBIDO", "CONFIRMADO"].includes(order.status)) {
+    return fail(req, res, 422, "order_in_production", "Os itens só podem ser alterados antes do início do preparo.");
+  }
+  if (order.origem === "MESA") {
+    return fail(req, res, 422, "table_order_edit_unsupported", "Edite pedidos de mesa pela comanda para manter o fechamento correto.");
+  }
+  if (order.pagamentoStatus === "PAGO") {
+    return fail(req, res, 422, "paid_order_edit_unsupported", "Não é possível alterar os itens de um pedido já pago.");
+  }
+  if (order.tickets.some((ticket) => ticket.status !== "PENDENTE")) {
+    return fail(req, res, 422, "kds_started", "A cozinha já iniciou este pedido. Não é mais possível alterar os itens.");
+  }
+  if (order.version !== parsed.data.version) {
+    return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessão. Atualize a tela antes de salvar.");
+  }
+
+  const config = await prisma.restauranteConfig.findUnique({ where: { contaId } });
+  if (!config) return fail(req, res, 422, "restaurant_not_configured", "Configure o restaurante antes de editar pedidos.");
+  const endereco = order.origem === "DELIVERY" ? enderecoSchema.safeParse(order.enderecoSnapshotJson) : null;
+  if (order.origem === "DELIVERY" && !endereco?.success) {
+    return fail(req, res, 422, "order_address_invalid", "O endereço deste pedido não permite recalcular os itens.");
+  }
+
+  let quote: Awaited<ReturnType<typeof calculatePublicCheckout>>;
+  try {
+    const origemCheckout = order.origem === "DELIVERY" ? "DELIVERY" : "RETIRADA";
+    quote = await calculatePublicCheckout(
+      config,
+      {
+        origem: origemCheckout,
+        ...(endereco?.success ? { endereco: endereco.data } : {}),
+        itens: parsed.data.itens,
+        fidelidadeProgramaIds: [],
+      },
+      false,
+      false,
+    );
+  } catch (error) {
+    if (error instanceof CheckoutError) return fail(req, res, error.status, error.code, error.message);
+    throw error;
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.restaurantePedido.updateMany({
+        where: { id: order.id, contaId, version: parsed.data.version, status: { in: ["RECEBIDO", "CONFIRMADO"] } },
+        data: {
+          subtotal: quote.subtotal,
+          frete: quote.frete,
+          total: Decimal.max(new Decimal(quote.total).minus(order.desconto), 0),
+          zonaEntregaSnapshotJson: quote.zone as any,
+          observacao: parsed.data.observacao || null,
+          version: { increment: 1 },
+        },
+      });
+      if (!result.count) return null;
+
+      await returnRestaurantOrderStock(tx, contaId, order.id);
+      await tx.restauranteTicketProducao.deleteMany({ where: { contaId, pedidoId: order.id } });
+      await tx.restaurantePedidoItem.deleteMany({ where: { pedidoId: order.id } });
+      await tx.restaurantePedidoItem.createMany({
+        data: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({
+          pedidoId: order.id,
+          catalogoItemId: item.id,
+          produtoId: item.produtoId,
+          quantidade: requested.quantidade,
+          nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardápio",
+          precoUnitarioSnapshot: unit,
+          subtotalSnapshot: line,
+          tamanhoSnapshot: requested.tamanho,
+          selecoesSnapshotJson: selections as any,
+          regraPrecoSnapshot: item.regraPrecoSabores,
+          observacao: requested.observacao,
+        })),
+      });
+      if (order.status === "CONFIRMADO") await debitRestaurantOrderStock(tx, contaId, order.id);
+      await dispatchOrderToProduction(tx, contaId, order.id, { requireDestination: true });
+      return tx.restaurantePedido.findUnique({
+        where: { id: order.id },
+        include: { itens: true, Mesa: true, tickets: { select: { id: true, pontoId: true } } },
+      });
+    });
+    if (!updated) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessão. Atualize a tela antes de salvar.");
+    notifyRestaurant(contaId, "pedido", { pedidoId: updated.id, reason: "items-updated" });
+    notifyRestaurant(contaId, "kds", { pedidoId: updated.id, reason: "items-updated" });
+    notifyRestaurant(contaId, "impressao", { pedidoId: updated.id, reason: "items-updated" });
+    return ok(req, res, updated);
+  } catch (error) {
+    if (error instanceof ProductionRoutingMissingError) {
+      return fail(req, res, 422, "production_route_missing", error.message);
+    }
+    if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
+      return fail(req, res, 422, error.code, error.message);
+    }
+    throw error;
+  }
+}
+
 export async function listProductionPoints(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const points = await prisma.restaurantePontoProducao.findMany({
@@ -1837,7 +2062,35 @@ export async function listKdsTickets(req: Request, res: Response) {
     take: 200,
     include: {
       Ponto: true,
-      Pedido: { select: { id: true, codigo: true, origem: true, observacao: true, createdAt: true, Mesa: { select: { nome: true } } } },
+      // O cabeçalho do ticket pode abrir os mesmos detalhes usados na tela de
+      // pedidos. Incluímos o retrato completo aqui para não depender de uma
+      // permissão adicional de PEDIDOS_VISUALIZAR para quem opera somente o KDS.
+      Pedido: {
+        select: {
+          id: true,
+          codigo: true,
+          origem: true,
+          status: true,
+          producaoStatus: true,
+          pagamentoStatus: true,
+          entregaStatus: true,
+          clienteNomeSnapshot: true,
+          clienteTelefone: true,
+          clienteEmail: true,
+          enderecoSnapshotJson: true,
+          pagamentoMetodoSnapshot: true,
+          subtotal: true,
+          frete: true,
+          desconto: true,
+          total: true,
+          observacao: true,
+          version: true,
+          createdAt: true,
+          Mesa: { select: { nome: true } },
+          tickets: { select: { id: true, pontoId: true } },
+          itens: true,
+        },
+      },
       itens: { include: { PedidoItem: true } },
     },
   });
@@ -1868,7 +2121,36 @@ export async function transitionKdsTicket(req: Request, res: Response) {
     await syncOrderProductionState(tx, contaId, ticket.pedidoId);
     return tx.restauranteTicketProducao.findUnique({
       where: { id: ticket.id },
-      include: { Ponto: true, Pedido: { include: { Mesa: true } }, itens: { include: { PedidoItem: true } } },
+      include: {
+        Ponto: true,
+        Pedido: {
+          select: {
+            id: true,
+            codigo: true,
+            origem: true,
+            status: true,
+            producaoStatus: true,
+            pagamentoStatus: true,
+            entregaStatus: true,
+            clienteNomeSnapshot: true,
+            clienteTelefone: true,
+            clienteEmail: true,
+            enderecoSnapshotJson: true,
+            pagamentoMetodoSnapshot: true,
+            subtotal: true,
+            frete: true,
+            desconto: true,
+            total: true,
+            observacao: true,
+            version: true,
+            createdAt: true,
+            Mesa: { select: { nome: true } },
+            tickets: { select: { id: true, pontoId: true } },
+            itens: true,
+          },
+        },
+        itens: { include: { PedidoItem: true } },
+      },
     });
   });
   if (!updated) return fail(req, res, 409, "version_conflict", "O ticket foi alterado em outra sessao.");

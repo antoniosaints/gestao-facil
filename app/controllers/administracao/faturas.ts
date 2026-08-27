@@ -451,6 +451,18 @@ export const getDashboardFaturasAdmin = async (req: Request, res: Response): Pro
       }),
     ]);
 
+    const ultimosLogins = await prisma.usuarios.groupBy({
+      by: ["contaId"],
+      where: {
+        contaId: { in: contas.map((conta) => conta.id) },
+        ultimoLoginEm: { not: null },
+      },
+      _max: { ultimoLoginEm: true },
+    });
+    const ultimoLoginPorConta = new Map(
+      ultimosLogins.map((usuario) => [usuario.contaId, usuario._max.ultimoLoginEm]),
+    );
+
     const totalAssinantes = contas.length;
     const faturamentoMes = faturas
       .filter((item) => item.status === "PAGO" && item.vencimento >= currentMonthStart && item.vencimento <= currentMonthEnd)
@@ -547,14 +559,21 @@ export const getDashboardFaturasAdmin = async (req: Request, res: Response): Pro
     };
 
     const inativosMaisTempo = contas
-      .filter((item) => item.status !== "ATIVO" || item.vencimento < now)
-      .map((item) => ({
-        id: item.id,
-        nome: item.nomeFantasia || item.nome,
-        diasInativo: Math.abs(differenceInCalendarDays(startOfDay(item.vencimento), startOfDay(now))),
-        status: item.status,
-        email: item.email,
-      }))
+      .map((item) => {
+        const ultimoLoginEm = ultimoLoginPorConta.get(item.id) || null;
+        const referenciaAtividade = ultimoLoginEm || item.createdAt;
+        return {
+          id: item.id,
+          nome: item.nomeFantasia || item.nome,
+          diasInativo: Math.max(
+            0,
+            differenceInCalendarDays(startOfDay(now), startOfDay(referenciaAtividade)),
+          ),
+          status: item.status,
+          email: item.email,
+          ultimoLoginEm,
+        };
+      })
       .sort((a, b) => b.diasInativo - a.diasInativo)
       .slice(0, 5);
 
@@ -562,7 +581,7 @@ export const getDashboardFaturasAdmin = async (req: Request, res: Response): Pro
       labels: inativosMaisTempo.map((item) => item.nome),
       datasets: [
         {
-          label: "Dias",
+          label: "Dias sem atividade",
           data: inativosMaisTempo.map((item) => item.diasInativo),
           backgroundColor: "#ef4444",
           borderColor: "#ef4444",

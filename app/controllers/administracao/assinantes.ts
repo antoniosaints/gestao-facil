@@ -231,11 +231,22 @@ export const deleteAssinanteAdmin = async (req: Request, res: Response): Promise
       select: {
         id: true,
         nome: true,
+        Usuarios: {
+          where: { superAdmin: true },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
 
     if (!conta) {
       return res.status(404).json({ message: "Conta não encontrada." });
+    }
+
+    if (conta.Usuarios.length) {
+      return res.status(403).json({
+        message: "Não é possível apagar uma conta vinculada a um usuário superadmin.",
+      });
     }
 
     await deleteContaCompletely(contaId);
@@ -462,18 +473,6 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
               Usuarios: true,
             },
           },
-          Usuarios: {
-            where: {
-              ultimoLoginEm: { not: null },
-            },
-            orderBy: {
-              ultimoLoginEm: "desc",
-            },
-            take: 1,
-            select: {
-              ultimoLoginEm: true,
-            },
-          },
           FaturasContas: {
             where: {
               status: "PENDENTE",
@@ -491,7 +490,27 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
       }),
     ]);
 
-    const usuariosOnlinePorConta = await getContasOnlineUserCounts(contas.map((conta) => conta.id));
+    const contaIds = contas.map((conta) => conta.id);
+    const [usuariosOnlinePorConta, ultimosLogins, contasComSuperAdmin] = await Promise.all([
+      getContasOnlineUserCounts(contaIds),
+      // A atividade é da conta, não apenas do usuário root. Assim, qualquer
+      // login da equipe atualiza a data exibida no modo CEO.
+      prisma.usuarios.groupBy({
+        by: ["contaId"],
+        where: { contaId: { in: contaIds }, ultimoLoginEm: { not: null } },
+        _max: { ultimoLoginEm: true },
+      }),
+      prisma.usuarios.findMany({
+        where: { contaId: { in: contaIds }, superAdmin: true },
+        select: { contaId: true },
+      }),
+    ]);
+    const ultimoLoginPorConta = new Map(
+      ultimosLogins.map((usuario) => [usuario.contaId, usuario._max.ultimoLoginEm]),
+    );
+    const contaProtegidaPorSuperAdmin = new Set(
+      contasComSuperAdmin.map((usuario) => usuario.contaId),
+    );
 
     const today = startOfDay(new Date());
     const data = contas.map((conta) => {
@@ -521,7 +540,8 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
         usuariosTotal: conta._count.Usuarios,
         usuariosOnline: usuariosOnlinePorConta.get(conta.id) || 0,
         temUsuarioOnline: (usuariosOnlinePorConta.get(conta.id) || 0) > 0,
-        ultimoLoginEm: conta.Usuarios[0]?.ultimoLoginEm || null,
+        ultimoLoginEm: ultimoLoginPorConta.get(conta.id) || null,
+        protegidaPorSuperAdmin: contaProtegidaPorSuperAdmin.has(conta.id),
         diasParaVencer,
         statusAssinatura: diasParaVencer < 0 ? "VENCIDA" : diasParaVencer === 0 ? "VENCE_HOJE" : "EM_DIA",
         linkPagamentoPendente: conta.FaturasContas[0]?.urlPagamento || null,

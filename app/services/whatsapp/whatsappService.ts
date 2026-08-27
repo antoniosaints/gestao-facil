@@ -1893,6 +1893,7 @@ export const whatsAppService = {
         contatoId: contato.id,
         clienteId: clienteId ?? undefined,
         status: WhatsAppConversaStatus.ABERTA,
+        ultimaInteracaoEm: new Date(),
       },
       create: {
         contaId,

@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
 import multer from "multer";
-import { bulkCatalogItems, cancelPublicOrder, createManualOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, getOnlineOrderingStatus, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOnlineOrderingStatus, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
+import { bulkCatalogItems, cancelPublicOrder, createManualOrder, createPublicOrder, createTableOrder, deleteCatalogItemImage, finishTableCleaning, getConfig, getOnlineOrderingStatus, listCatalog, listCatalogProducts, listDeliveryZones, listKdsTickets, listOptionGroups, listOrders, listProductionCategories, listProductionPoints, listTables, openTableSession, previewPublicCheckout, publicMenu, publicTracking, releaseTable, saveCatalogItem, saveConfig, saveDeliveryZone, saveOnlineOrderingStatus, saveOptionGroup, saveProductionPoint, saveTable, transitionKdsTicket, transitionOrder, updateOrderCustomer, updateOrderItems, uploadCatalogItemImage, waitTableBill } from "../../controllers/restaurante/restaurante";
 import { deleteRestaurantAccountAddress, getRestaurantAccount, loginRestaurantAccount, registerRestaurantAccount, saveRestaurantAccountAddress, updateRestaurantAccount } from "../../controllers/restaurante/customer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { optionalRestaurantCustomer, requireRestaurantCustomer } from "../../middlewares/restaurantCustomerAuth";
@@ -89,6 +89,8 @@ routerRestaurante.get("/trabalhos-impressao", requireRestauranteAccess("IMPRESSA
 routerRestaurante.post("/kds/:id/reimprimir", requireRestauranteAccess("KDS_OPERAR"), use(reprintProductionTicket));
 routerRestaurante.get("/pedidos", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listOrders));
 routerRestaurante.post("/pedidos", requireRestauranteAccess("PEDIDOS_OPERAR"), use(createManualOrder));
+routerRestaurante.patch("/pedidos/:id/cliente", requireRestauranteAccess("PEDIDOS_OPERAR"), use(updateOrderCustomer));
+routerRestaurante.patch("/pedidos/:id/itens", requireRestauranteAccess("PEDIDOS_OPERAR"), use(updateOrderItems));
 routerRestaurante.get("/painel", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(restaurantDashboard));
 routerRestaurante.post("/pedidos/:id/transicao", requireRestauranteAccess("PEDIDOS_OPERAR"), use(transitionOrder));
 routerRestaurante.post("/pedidos/:id/imprimir", requireRestauranteAccess("IMPRESSAO_VISUALIZAR"), use(reprintOrder));
