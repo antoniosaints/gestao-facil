@@ -1753,7 +1753,7 @@ export async function createTableOrder(req: Request, res: Response) {
     }
     throw error;
   }
-  notifyRestaurant(contaId, "pedido", { pedidoId: order.id });
+  notifyRestaurant(contaId, "pedido", { pedidoId: order.id, reason: "table-created" });
   notifyRestaurant(contaId, "mesas", { mesaId: session.mesaId });
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
