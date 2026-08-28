@@ -22,6 +22,7 @@ interface OrdemServicoData {
     ItensOrdensServico: ItensOrdensServico[];
     Operador: Usuarios;
   };
+  imagens?: Array<{ url: string; descricao?: string }>;
 }
 
 export async function gerarPdfOrdemServico(
@@ -134,6 +135,39 @@ export async function gerarPdfOrdemServico(
     doc
       .font("Roboto")
       .text(ordem.Ordem.descricao, left, doc.y, { width: contentWidth });
+  }
+
+  if (ordem.imagens?.length) {
+    doc.moveDown(0.8);
+    ensureSpace(36);
+    doc
+      .font("Roboto-Bold")
+      .fontSize(12)
+      .fillColor("#111827")
+      .text("Imagens das peças", left, doc.y, { width: contentWidth });
+    doc.moveDown(0.35);
+    for (const [index, imagem] of ordem.imagens.entries()) {
+      ensureSpace(220);
+      const imageY = doc.y;
+      doc
+        .font("Roboto")
+        .fontSize(10)
+        .fillColor("#4B5563")
+        .text(`Imagem ${index + 1}${imagem.descricao ? ` - ${imagem.descricao}` : ""}`, left, imageY, {
+          width: contentWidth,
+        });
+      try {
+        const source = await resolveRenderableImageSource(imagem.url);
+        doc.image(source, left, imageY + 18, { fit: [contentWidth, 180] });
+      } catch {
+        doc
+          .font("Roboto")
+          .fontSize(10)
+          .fillColor("#6B7280")
+          .text("Imagem indisponível no momento da geração.", left, imageY + 36);
+      }
+      doc.y = imageY + 202;
+    }
   }
 
   doc.moveDown(0.8);

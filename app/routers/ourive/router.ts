@@ -9,6 +9,7 @@ import {
   addPiecePhoto,
   cancelOrder,
   createOrder,
+  createPreset,
   createOurivePayment,
   createProLabore,
   createStage,
@@ -31,6 +32,7 @@ import {
   listOuriveTransfers,
   listProLabore,
   listPurchaseNeeds,
+  listPresets,
   listSpecialties,
   listUsers,
   publicBudget,
@@ -64,6 +66,8 @@ routerOurive.post(
 
 routerOurive.use(authenticateJWT);
 routerOurive.get("/acesso", requireOuriveModule(), use(currentOuriveAccess));
+routerOurive.get("/predefinicoes", requireOuriveAccess("VISUALIZAR"), use(listPresets));
+routerOurive.post("/predefinicoes", requireOuriveModule(), use(createPreset));
 routerOurive.get("/painel", requireOuriveAccess("VISUALIZAR"), use(dashboard));
 routerOurive.get("/relatorios", requireOuriveAccess("RELATORIOS"), use(report));
 routerOurive.get("/repasses", requireOuriveAccess("PAGAMENTOS"), use(listOuriveTransfers));

@@ -42,6 +42,26 @@ const fail = (
     },
   });
 const own = (req: Request) => getCustomRequest(req).customData;
+async function settleOuriveRevenue(
+  tx: any,
+  lancamentoId: number,
+  valor: unknown,
+  paidAt: Date,
+) {
+  await tx.lancamentoFinanceiro.update({
+    where: { id: lancamentoId },
+    data: { status: "PAGO", dataEntrada: paidAt },
+  });
+  await tx.parcelaFinanceiro.updateMany({
+    where: { lancamentoId },
+    data: {
+      pago: true,
+      valorPago: money(valor),
+      formaPagamento: "OUTRO",
+      dataPagamento: paidAt,
+    },
+  });
+}
 const stockUnitsForMaterial = (
   _unidade: "QUANTIDADE" | "PESO",
   medida: Decimal.Value,
@@ -102,6 +122,7 @@ const orderSchema = z.object({
   garantia: z.string().default("Sem garantia informada"),
   observacoes: z.string().max(5000).optional(),
   prazoPrevisto: z.coerce.date().optional(),
+  valorMaoObra: z.coerce.number().nonnegative().max(99_999_999).optional(),
   pecas: z
     .array(
       z.object({
@@ -123,6 +144,31 @@ const orderSchema = z.object({
     )
     .min(1),
 });
+const presetSchema = z.object({
+  tipo: z.enum(["PECA", "METAL", "ETAPA"]),
+  nome: z.string().trim().min(2).max(120),
+});
+const ourivePresetDefaults = {
+  PECA: ["Anel", "Cordão", "Colar", "Pulseira"],
+  METAL: ["Ouro 18k", "Ouro 14k", "Prata 925", "Aço inoxidável"],
+  ETAPA: ["Criação", "Cravejação", "Solda"],
+} as const;
+const presetModelByType = {
+  PECA: "ourivePredefinicaoPeca",
+  METAL: "ourivePredefinicaoMetal",
+  ETAPA: "ourivePredefinicaoEtapa",
+} as const;
+
+async function ensureOurivePresets(contaId: number) {
+  await Promise.all(
+    Object.entries(ourivePresetDefaults).map(([tipo, nomes]) =>
+      db[presetModelByType[tipo as keyof typeof presetModelByType]].createMany({
+        data: nomes.map((nome) => ({ contaId, nome })),
+        skipDuplicates: true,
+      }),
+    ),
+  );
+}
 const budgetSchema = z.object({
   servicos: z
     .array(
@@ -366,6 +412,29 @@ export async function listSpecialties(req: Request, res: Response) {
       orderBy: { nome: "asc" },
     }),
   );
+}
+export async function listPresets(req: Request, res: Response) {
+  const { contaId } = own(req);
+  await ensureOurivePresets(contaId);
+  const [pecas, metais, etapas] = await Promise.all([
+    db.ourivePredefinicaoPeca.findMany({ where: { contaId }, orderBy: { nome: "asc" } }),
+    db.ourivePredefinicaoMetal.findMany({ where: { contaId }, orderBy: { nome: "asc" } }),
+    db.ourivePredefinicaoEtapa.findMany({ where: { contaId }, orderBy: { nome: "asc" } }),
+  ]);
+  return ok(req, res, { pecas, metais, etapas });
+}
+export async function createPreset(req: Request, res: Response) {
+  const parsed = presetSchema.safeParse(req.body);
+  if (!parsed.success)
+    return fail(req, res, 422, "validation_error", "Predefinição inválida.", parsed.error.flatten());
+  const { contaId } = own(req);
+  const model = db[presetModelByType[parsed.data.tipo]];
+  const row = await model.upsert({
+    where: { contaId_nome: { contaId, nome: parsed.data.nome } },
+    create: { contaId, nome: parsed.data.nome },
+    update: {},
+  });
+  return ok(req, res, row, 201);
 }
 
 async function financialCalculationForOrder(contaId: number, order: any) {
@@ -810,6 +879,7 @@ export async function createOrder(req: Request, res: Response) {
         codigoRastreio: `OUR-${base.id}-${randomBytes(3).toString("hex").toUpperCase()}`,
         observacoes: parsed.data.observacoes,
         prazoPrevisto: parsed.data.prazoPrevisto,
+        valorMaoObra: money(parsed.data.valorMaoObra),
       },
     });
     for (const [index, piece] of parsed.data.pecas.entries()) {
@@ -838,7 +908,10 @@ export async function createOrder(req: Request, res: Response) {
         ? "Encomenda registrada."
         : "Peça(s) recebida(s) sob custodia.",
       custom.userId,
-      { tipo: parsed.data.tipo },
+      {
+        tipo: parsed.data.tipo,
+        valorMaoObra: money(parsed.data.valorMaoObra).toFixed(2),
+      },
     );
     return ourive;
   });
@@ -2009,12 +2082,17 @@ export async function publicBudget(req: Request, res: Response) {
     (await db.ourivePeca.findMany({
       where: { ordemOuriveId: order.id },
       select: {
+        id: true,
         descricao: true,
         metal: true,
         pedras: true,
         codigoRastreio: true,
       },
     }));
+  const photos = await db.ourivePecaFoto.findMany({
+    where: { pecaId: { in: (pieces || []).map((piece: any) => piece.id) } },
+    orderBy: { id: "asc" },
+  });
   const materials =
     order &&
     (await db.ouriveMaterial.findMany({
@@ -2064,7 +2142,10 @@ export async function publicBudget(req: Request, res: Response) {
       codigoRastreio: order?.codigoRastreio,
       cliente: base?.Cliente?.nome,
       descricao: base?.descricao,
-      pecas: pieces,
+      pecas: (pieces || []).map((piece: any) => ({
+        ...piece,
+        fotos: photos.filter((photo: any) => photo.pecaId === piece.id),
+      })),
     },
     orcamento: {
       versao: budget.versao,
@@ -2805,16 +2886,76 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
 
 export async function listLeftovers(req: Request, res: Response) {
   const custom = own(req);
+  const orders = await db.ouriveOrdem.findMany({
+    where: { contaId: custom.contaId },
+    select: { id: true, codigoRastreio: true },
+  });
+  const orderIds = orders.map((order: any) => order.id);
+
+  // Recupera fechamentos realizados antes da tela de triagem existir e também evita que
+  // material fornecido pelo cliente fique sem um destino registrado. A comparação por tipo
+  // impede criar outra pendência quando a mesma sobra ou quebra já foi consolidada.
+  const finalizedMaterials = await db.ouriveMaterial.findMany({
+    where: {
+      ordemOuriveId: { in: orderIds },
+      finalizadoEm: { not: null },
+      OR: [{ medidaSobra: { gt: 0 } }, { medidaQuebra: { gt: 0 } }],
+    },
+    select: {
+      id: true,
+      ordemOuriveId: true,
+      unidade: true,
+      medidaSobra: true,
+      medidaQuebra: true,
+      observacao: true,
+    },
+  });
+  const existing = finalizedMaterials.length
+    ? await (db as any).ouriveSobra.findMany({
+        where: {
+          contaId: custom.contaId,
+          materialId: { in: finalizedMaterials.map((material: any) => material.id) },
+        },
+        select: { materialId: true, tipo: true },
+      })
+    : [];
+  const recovered = finalizedMaterials.flatMap((material: any) =>
+    [
+      { tipo: "SOBRA", medida: material.medidaSobra },
+      { tipo: "QUEBRA", medida: material.medidaQuebra },
+    ]
+      .filter(
+        ({ tipo, medida }) =>
+          new Decimal(medida || 0).gt(0) &&
+          !existing.some(
+            (row: any) => row.materialId === material.id && row.tipo === tipo,
+          ),
+      )
+      .map(({ tipo, medida }) => ({
+        contaId: custom.contaId,
+        ordemOuriveId: material.ordemOuriveId,
+        materialId: material.id,
+        tipo,
+        unidade: material.unidade,
+        medidaInformada: medida,
+        observacao: material.observacao,
+      })),
+  );
+  if (recovered.length)
+    await (db as any).ouriveSobra.createMany({ data: recovered });
+
   const rows = await (db as any).ouriveSobra.findMany({
     where: { contaId: custom.contaId, status: "PENDENTE" },
     orderBy: { createdAt: "asc" },
   });
-  const [orders, materials, products] = await Promise.all([
-    db.ouriveOrdem.findMany({
-      where: { id: { in: rows.map((row: any) => row.ordemOuriveId) } },
-    }),
+  const [materials, pieces, products] = await Promise.all([
     db.ouriveMaterial.findMany({
       where: { id: { in: rows.map((row: any) => row.materialId) } },
+    }),
+    db.ourivePeca.findMany({
+      where: { ordemOuriveId: { in: rows.map((row: any) => row.ordemOuriveId) } },
+      select: { ordemOuriveId: true, descricao: true, pesoInformado: true },
+      orderBy: { id: "asc" },
     }),
     prisma.produto.findMany({
       where: { contaId: custom.contaId },
@@ -2831,6 +2972,11 @@ export async function listLeftovers(req: Request, res: Response) {
       return {
         ...row,
         ordem: orders.find((item: any) => item.id === row.ordemOuriveId),
+        pecas: pieces.filter(
+          (piece: any) => piece.ordemOuriveId === row.ordemOuriveId,
+        ),
+        materialFornecidoPeloCliente: Boolean(material?.fornecidoPeloCliente),
+        produtoOrigemId: material?.produtoId ?? null,
         produtoOrigem: products.find((item) => item.id === material?.produtoId),
       };
     }),
@@ -3036,7 +3182,7 @@ export async function finalizeMaterial(req: Request, res: Response) {
   await prisma.$transaction(async (tx) => {
     // Sobras e quebras não voltam automaticamente ao produto de origem. Elas precisam ser
     // pesadas e classificadas para a variante correta antes de entrarem como estoque sem custo.
-    if (!material.fornecidoPeloCliente && medidaSobra.gt(0))
+    if (medidaSobra.gt(0))
       await (tx as any).ouriveSobra.create({
         data: {
           contaId: custom.contaId,
@@ -3048,7 +3194,7 @@ export async function finalizeMaterial(req: Request, res: Response) {
           observacao: parsed.data.observacao,
         },
       });
-    if (!material.fornecidoPeloCliente && medidaQuebra.gt(0))
+    if (medidaQuebra.gt(0))
       await (tx as any).ouriveSobra.create({
         data: {
           contaId: custom.contaId,
@@ -3153,12 +3299,28 @@ export async function deliverOrder(req: Request, res: Response) {
   const order = await orderForAccount(custom.contaId, Number(req.params.id));
   if (!order)
     return fail(req, res, 404, "order_not_found", "Ordem nao encontrada.");
-  if (order.faturadaEm)
+  if (order.faturadaEm) {
+    if (order.receitaLancamentoId) {
+      const revenue = await prisma.lancamentoFinanceiro.findFirst({
+        where: { id: order.receitaLancamentoId, contaId: custom.contaId },
+        select: { id: true, valorTotal: true },
+      });
+      if (revenue)
+        await prisma.$transaction((tx) =>
+          settleOuriveRevenue(
+            tx,
+            revenue.id,
+            revenue.valorTotal,
+            order.entregueEm || order.faturadaEm || new Date(),
+          ),
+        );
+    }
     return ok(req, res, {
       ordemId: order.id,
       faturadaEm: order.faturadaEm,
       idempotente: true,
     });
+  }
   if (!["REVISAO", "PRONTA_ENTREGA"].includes(order.status))
     return fail(
       req,
@@ -3289,12 +3451,13 @@ export async function deliverOrder(req: Request, res: Response) {
     new Decimal(0),
   );
   const memoriaCalculoFinanceiro = order.memoriaCalculoFinanceiro as any;
+  const deliveredAt = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const reserved = await (tx as any).ouriveOrdem.updateMany({
       where: { id: order.id, faturadaEm: null },
       data: {
-        faturadaEm: new Date(),
-        entregueEm: new Date(),
+        faturadaEm: deliveredAt,
+        entregueEm: deliveredAt,
         status: "ENTREGUE",
         financeiroStatus: order.financeiroStatus,
       },
@@ -3310,8 +3473,9 @@ export async function deliverOrder(req: Request, res: Response) {
         desconto,
         tipo: "RECEITA",
         formaPagamento: "OUTRO",
-        status: "PENDENTE",
-        dataLancamento: new Date(),
+        status: "PAGO",
+        dataLancamento: deliveredAt,
+        dataEntrada: deliveredAt,
         clienteId: base.clienteId,
         categoriaId: config.receitaCategoriaId,
         contasFinanceiroId: config.receitaContaFinanceiraId,
@@ -3320,8 +3484,11 @@ export async function deliverOrder(req: Request, res: Response) {
             Uid: gerarIdUnicoComMetaFinal("PAR"),
             numero: 1,
             valor: money(budget.valorFinal),
-            vencimento: new Date(),
-            pago: false,
+            vencimento: deliveredAt,
+            pago: true,
+            valorPago: money(budget.valorFinal),
+            formaPagamento: "OUTRO",
+            dataPagamento: deliveredAt,
           },
         },
       },
@@ -3371,7 +3538,7 @@ export async function deliverOrder(req: Request, res: Response) {
       tx,
       order.id,
       "FINANCEIRO",
-      "Entrega faturada; receita e comissoes pendentes geradas.",
+      "Entrega faturada; receita efetivada e comissoes pendentes geradas.",
       custom.userId,
       {
         receitaLancamentoId: revenue.id,
@@ -4088,10 +4255,13 @@ export async function dashboard(req: Request, res: Response) {
       prazoPrevisto: true,
       producaoIniciadaEm: true,
       producaoFinalizadaEm: true,
+      custoExtra: true,
+      percentualLojaAplicado: true,
+      percentualOurivesAplicado: true,
     },
   });
   const orderIds = orders.map((item: any) => item.id);
-  const [budgets, stages, commissions, pendingTransfers, pendingPurchases] =
+  const [budgets, stages, commissions, pendingTransfers, pendingPurchases, materials, config] =
     await Promise.all([
       db.ouriveOrcamento.findMany({
         where: { ordemOuriveId: { in: orderIds }, aprovadoEm: { not: null } },
@@ -4130,6 +4300,20 @@ export async function dashboard(req: Request, res: Response) {
       db.ouriveNecessidadeCompra.count({
         where: { contaId: custom.contaId, status: "PENDENTE" },
       }),
+      db.ouriveMaterial.findMany({
+        where: { ordemOuriveId: { in: orderIds } },
+        select: {
+          ordemOuriveId: true,
+          fornecidoPeloCliente: true,
+          custoSnapshot: true,
+          medidaPlanejada: true,
+          medidaConsumida: true,
+          medidaUtilizada: true,
+          medidaPerdaReal: true,
+          finalizadoEm: true,
+        },
+      }),
+      db.ouriveConfiguracao.findUnique({ where: { contaId: custom.contaId } }),
     ]);
   const inRange = (value: Date | null | undefined, start: Date, end: Date) =>
     Boolean(value && value >= start && value <= end);
@@ -4156,12 +4340,32 @@ export async function dashboard(req: Request, res: Response) {
   );
   const revenueCurrent = sum(budgetsCurrent);
   const revenuePrevious = sum(budgetsPrevious);
-  const ticketCurrent = budgetsCurrent.length
-    ? revenueCurrent / budgetsCurrent.length
-    : 0;
-  const ticketPrevious = budgetsPrevious.length
-    ? sum(budgetsPrevious) / budgetsPrevious.length
-    : 0;
+  const orderByIdForFinance = new Map(orders.map((order: any) => [order.id, order]));
+  const netStore = (budget: any) => {
+    const order = orderByIdForFinance.get(budget.ordemOuriveId);
+    if (!order) return new Decimal(0);
+    const custoMaterial = materials
+      .filter((material: any) =>
+        material.ordemOuriveId === order.id && !material.fornecidoPeloCliente,
+      )
+      .reduce((total: Decimal, material: any) => {
+        const medida = material.finalizadoEm
+          ? new Decimal(material.medidaUtilizada || 0).plus(material.medidaPerdaReal || 0)
+          : new Decimal(material.medidaConsumida || material.medidaPlanejada || 0);
+        return total.plus(money(material.custoSnapshot || 0).mul(medida));
+      }, new Decimal(0));
+    return new Decimal(
+      calcularFinanceiroOurive({
+        valorBruto: budget.valorFinal,
+        custoMaterialLoja: custoMaterial,
+        outrosCustos: order.custoExtra,
+        percentualLoja: order.percentualLojaAplicado ?? config?.percentualLoja ?? 50,
+        percentualOurives: order.percentualOurivesAplicado ?? config?.percentualOurives ?? 50,
+      }).valorLoja,
+    );
+  };
+  const netCurrent = budgetsCurrent.reduce((total: Decimal, budget: any) => total.plus(netStore(budget)), new Decimal(0)).toNumber();
+  const netPrevious = budgetsPrevious.reduce((total: Decimal, budget: any) => total.plus(netStore(budget)), new Decimal(0)).toNumber();
   const deliveries = orders.filter((order: any) =>
     inRange(order.entregueEm, inicio, fim),
   );
@@ -4205,7 +4409,7 @@ export async function dashboard(req: Request, res: Response) {
     kpis: {
       receita: metric(revenueCurrent, revenuePrevious),
       ordens: metric(ordersCurrent.length, ordersPrevious.length),
-      ticketMedio: metric(ticketCurrent, ticketPrevious),
+      liquidoLoja: metric(netCurrent, netPrevious),
       entregas: {
         atual: deliveries.length,
         prazoMedioDias: averageDeliveryDays,

@@ -10,10 +10,11 @@ import {
 } from "../financeiro/mercadoPagoChargeReference";
 import { dispatchOrderToProduction } from "./production";
 import { debitRestaurantOrderStock, RestauranteEstoqueError, returnRestaurantOrderStock } from "./inventory";
+import { restoreReservedFidelityRewards } from "./loyalty";
 import { CommerceError } from "../loja/commerceError";
 
 export type RestauranteOnlinePaymentMethod = "PIX";
-const RESTAURANT_PIX_EXPIRATION_MS = 30 * 60 * 1000;
+export const RESTAURANT_PIX_EXPIRATION_MS = 5 * 60 * 1000;
 
 export class RestaurantPaymentCancellationError extends Error {
   constructor(public code: "payment_already_paid" | "payment_cancellation_failed", message: string) {
@@ -164,6 +165,103 @@ export async function cancelRestaurantPendingPixPayment(args: { contaId: number;
     }
   }
   return charge.id;
+}
+
+/**
+ * Cancela pedidos do cardápio que continuam aguardando o Pix após a validade
+ * da cobrança. O gateway é cancelado antes da alteração local para não deixar
+ * um QR Code válido para um pedido já cancelado.
+ */
+export async function expireRestaurantPendingPixOrders(now = new Date()) {
+  const cutoff = new Date(now.getTime() - RESTAURANT_PIX_EXPIRATION_MS);
+  const candidates = await prisma.restaurantePedido.findMany({
+    where: {
+      status: "RECEBIDO",
+      pagamentoStatus: "PENDENTE",
+      pagamentoMetodoSnapshot: "PIX",
+      createdAt: { lte: cutoff },
+      Cobrancas: {
+        some: {
+          gateway: "mercadopago",
+          status: "PENDENTE",
+          pixCopiaCola: { not: null },
+        },
+      },
+    },
+    select: {
+      id: true,
+      contaId: true,
+      clienteTelefone: true,
+      fidelidadeRecompensasJson: true,
+    },
+    take: 100,
+    orderBy: { createdAt: "asc" },
+  });
+  const expired: Array<{ id: number; contaId: number }> = [];
+  const paidDuringExpiration: Array<{ id: number; contaId: number }> = [];
+
+  for (const order of candidates) {
+    let chargeId: number | null = null;
+    try {
+      chargeId = await cancelRestaurantPendingPixPayment({
+        contaId: order.contaId,
+        orderId: order.id,
+      });
+    } catch (error) {
+      if (error instanceof RestaurantPaymentCancellationError && error.code === "payment_already_paid") {
+        await applyRestaurantPaymentEvent({
+          contaId: order.contaId,
+          orderId: order.id,
+          status: "EFETIVADO",
+        });
+        paidDuringExpiration.push({ id: order.id, contaId: order.contaId });
+        continue;
+      }
+      // Se o gateway não confirmar o cancelamento, mantém o pedido aberto para
+      // uma nova tentativa no próximo ciclo, evitando divergência de pagamento.
+      continue;
+    }
+    if (!chargeId) continue;
+
+    const cancelled = await prisma.$transaction(async (tx) => {
+      const result = await tx.restaurantePedido.updateMany({
+        where: {
+          id: order.id,
+          contaId: order.contaId,
+          status: "RECEBIDO",
+          pagamentoStatus: "PENDENTE",
+          pagamentoMetodoSnapshot: "PIX",
+          createdAt: { lte: cutoff },
+        },
+        data: {
+          status: "CANCELADO",
+          pagamentoStatus: "FALHOU",
+          canceladoAt: now,
+          version: { increment: 1 },
+        },
+      });
+      if (!result.count) return false;
+      await tx.cobrancasFinanceiras.updateMany({
+        where: {
+          id: chargeId,
+          contaId: order.contaId,
+          restaurantePedidoId: order.id,
+          status: "PENDENTE",
+        },
+        data: { status: "CANCELADO" },
+      });
+      await restoreReservedFidelityRewards(
+        tx,
+        order.contaId,
+        order.clienteTelefone,
+        order.fidelidadeRecompensasJson,
+      );
+      return true;
+    });
+    if (cancelled) expired.push({ id: order.id, contaId: order.contaId });
+  }
+
+  return { expired, paidDuringExpiration };
 }
 
 export async function applyRestaurantPaymentEvent(input: {

@@ -928,6 +928,29 @@ export async function transitionOrder(req: Request, res: Response) {
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
   if (!Number.isInteger(version) || version !== order.version) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessao.");
   if (!(transitions[order.status] || []).includes(nextStatus)) return fail(req, res, 422, "invalid_transition", `Transicao de ${order.status} para ${nextStatus} nao permitida.`);
+  if (
+    nextStatus === "CONFIRMADO" &&
+    order.status === "RECEBIDO" &&
+    order.pagamentoMetodoSnapshot === "PIX" &&
+    order.pagamentoStatus !== "PAGO"
+  ) {
+    const onlinePixPending = await prisma.cobrancasFinanceiras.count({
+      where: {
+        contaId,
+        restaurantePedidoId: order.id,
+        gateway: "mercadopago",
+        pixCopiaCola: { not: null },
+      },
+    });
+    if (onlinePixPending)
+      return fail(
+        req,
+        res,
+        422,
+        "pix_payment_required",
+        "Este pedido só pode ser confirmado após a confirmação do pagamento Pix.",
+      );
+  }
   if (nextStatus === "CONCLUIDO" && order.origem === "DELIVERY" && order.entregaStatus !== "ENTREGUE") {
     return fail(req, res, 422, "delivery_not_delivered", "Não é possível concluir o pedido enquanto o entregador não confirmar a entrega.");
   }

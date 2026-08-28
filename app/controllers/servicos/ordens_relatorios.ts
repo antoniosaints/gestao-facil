@@ -4,6 +4,8 @@ import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { handleError } from "../../utils/handleError";
 
+const db = prisma as any;
+
 export async function gerarPdfOS(req: Request, res: Response): Promise<any> {
   try {
     const { id } = req.params;
@@ -33,6 +35,29 @@ export async function gerarPdfOS(req: Request, res: Response): Promise<any> {
     if (!ordem) {
       throw new Error("Ordem nao encontrada.");
     }
+    const ourive = await db.ouriveOrdem.findFirst({
+      where: { contaId: customData.contaId, ordemServicoId: ordem.id },
+      select: { id: true },
+    });
+    const imagensOurive = ourive
+      ? await (async () => {
+          const pecas = await db.ourivePeca.findMany({
+            where: { ordemOuriveId: ourive.id },
+            select: { id: true, descricao: true, codigoRastreio: true },
+          });
+          const fotos = await db.ourivePecaFoto.findMany({
+            where: { pecaId: { in: pecas.map((peca: any) => peca.id) } },
+            orderBy: { id: "asc" },
+          });
+          return fotos.map((foto: any) => {
+            const peca = pecas.find((item: any) => item.id === foto.pecaId);
+            return {
+              url: foto.url,
+              descricao: foto.descricao || peca?.descricao || peca?.codigoRastreio || "Peça",
+            };
+          });
+        })()
+      : [];
 
     // Config global da conta oculta a assinatura por padrão; a query permite
     // sobrescrever pontualmente na hora de gerar (forçar mostrar/ocultar).
@@ -66,6 +91,7 @@ export async function gerarPdfOS(req: Request, res: Response): Promise<any> {
         Cliente: ordem.Cliente,
         Empresa: conta,
         Ordem: ordem,
+        imagens: imagensOurive,
       },
       res,
       pix,

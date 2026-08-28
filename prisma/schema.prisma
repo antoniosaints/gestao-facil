@@ -3133,6 +3133,39 @@ model OuriveConfiguracao {
   updatedAt                  DateTime @updatedAt
 }
 
+model OurivePredefinicaoPeca {
+  id        Int      @id @default(autoincrement())
+  contaId   Int
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contaId, nome])
+  @@index([contaId])
+}
+
+model OurivePredefinicaoMetal {
+  id        Int      @id @default(autoincrement())
+  contaId   Int
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contaId, nome])
+  @@index([contaId])
+}
+
+model OurivePredefinicaoEtapa {
+  id        Int      @id @default(autoincrement())
+  contaId   Int
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contaId, nome])
+  @@index([contaId])
+}
+
 model OuriveOrdem {
   id                        Int                    @id @default(autoincrement())
   contaId                   Int
