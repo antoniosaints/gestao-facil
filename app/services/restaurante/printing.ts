@@ -28,16 +28,257 @@ function wrap(value: string, columns: number) {
   const words = clean(value).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
-  for (const word of words) {
-    if (!current) current = word.slice(0, columns);
+  for (const originalWord of words) {
+    let word = originalWord;
+    while (word.length > columns) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      lines.push(word.slice(0, columns));
+      word = word.slice(columns);
+    }
+    if (!word) continue;
+    if (!current) current = word;
     else if (`${current} ${word}`.length <= columns) current += ` ${word}`;
     else {
       lines.push(current);
-      current = word.slice(0, columns);
+      current = word;
     }
   }
   if (current) lines.push(current);
   return lines;
+}
+
+function formatQuantity(value: string | number) {
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity)) return clean(value);
+  return Number.isInteger(quantity)
+    ? String(quantity)
+    : quantity.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function formatMoney(value: unknown) {
+  const amount = Number(value);
+  return `R$ ${(Number.isFinite(amount) ? amount : 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function pair(left: string, right: string, columns: number) {
+  const cleanLeft = clean(left);
+  const cleanRight = clean(right);
+  if (cleanLeft.length + cleanRight.length + 1 <= columns) {
+    return [`${cleanLeft}${" ".repeat(columns - cleanLeft.length - cleanRight.length)}${cleanRight}`];
+  }
+  return [...wrap(cleanLeft, columns), cleanRight.padStart(columns).slice(-columns)];
+}
+
+function sectionTitle(title: string, columns: number) {
+  return clean(title).toUpperCase().slice(0, columns);
+}
+
+function formatOrigin(origin: string, tableName?: string | null) {
+  const labels: Record<string, string> = {
+    BALCAO: "Balcao",
+    MESA: "Mesa",
+    QR_MESA: "Mesa",
+    CARDAPIO: "Cardapio",
+    RETIRADA: "Retirada no local",
+    DELIVERY: "Delivery",
+  };
+  const label = labels[origin] || clean(origin).replace(/_/g, " ");
+  return tableName ? `${label} - ${tableName}` : label;
+}
+
+function formatPaymentMethod(method?: string | null) {
+  const labels: Record<string, string> = {
+    DINHEIRO: "Dinheiro",
+    CARTAO: "Cartao",
+    CREDITO: "Cartao de credito",
+    DEBITO: "Cartao de debito",
+    PIX: "PIX",
+    BOLETO: "Boleto",
+    TRANSFERENCIA: "Transferencia",
+    CHEQUE: "Cheque",
+    NA_ENTREGA: "Pagamento na entrega",
+    CHECKOUT_PRO: "Pagamento online",
+    MESA: "Pagamento na mesa",
+    MANUAL: "Pagamento manual",
+  };
+  const normalized = clean(method).trim().toUpperCase();
+  return labels[normalized] || (normalized ? normalized.replace(/_/g, " ") : "Nao informado");
+}
+
+function formatPaymentStatus(status?: string | null) {
+  const labels: Record<string, string> = {
+    PENDENTE: "Pendente",
+    PAGO: "Pago",
+    NA_ENTREGA: "Cobrar do cliente",
+    FALHOU: "Falhou",
+    ESTORNADO: "Estornado",
+    EM_REVISAO: "Em revisao",
+  };
+  return labels[clean(status).toUpperCase()] || clean(status || "Nao informado").replace(/_/g, " ");
+}
+
+function formatAddress(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const address = value as Record<string, unknown>;
+  const text = (key: string) => typeof address[key] === "string" ? clean(address[key]).trim() : "";
+  const street = [text("logradouro"), text("numero")].filter(Boolean).join(", ");
+  const city = [text("cidade"), text("uf")].filter(Boolean).join(" - ");
+  return [
+    street,
+    text("complemento"),
+    [text("bairro"), city].filter(Boolean).join(" - "),
+    text("cep") ? `CEP: ${text("cep")}` : "",
+    text("referencia") ? `Referencia: ${text("referencia")}` : "",
+  ].filter(Boolean);
+}
+
+type CompleteOrderReceiptInput = {
+  uid: string;
+  paper: string;
+  pointName: string;
+  businessName: string;
+  businessAddress?: string | null;
+  businessPhone?: string | null;
+  orderCode: string;
+  origin: string;
+  tableName?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  deliveryAddress?: unknown;
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  subtotal: unknown;
+  deliveryFee: unknown;
+  discount: unknown;
+  total: unknown;
+  orderNote?: string | null;
+  createdAt: Date;
+  items: Array<{
+    quantity: string | number;
+    name: string;
+    unitPrice: unknown;
+    subtotal: unknown;
+    size?: string | null;
+    selections?: unknown;
+    note?: string | null;
+  }>;
+};
+
+/** Cupom de expedicao/caixa usado somente por destinos marcados como pedido completo. */
+export function renderCompleteOrderReceipt(input: CompleteOrderReceiptInput) {
+  const columns = input.paper === "58mm" ? 32 : 40;
+  const divider = "-".repeat(columns);
+  const businessLines = wrap(input.businessName, columns);
+  businessLines[0] = `\x1B@\x1Ba\x01\x1BE\x01${businessLines[0] || ""}`;
+  businessLines[businessLines.length - 1] += "\x1BE\x00";
+  const lines: string[] = [...businessLines];
+  if (input.businessAddress) lines.push(...wrap(input.businessAddress, columns));
+  if (input.businessPhone) lines.push(...wrap(`Tel: ${input.businessPhone}`, columns));
+  const orderTitleLines = wrap(`PEDIDO ${input.orderCode}`, Math.floor(columns / 2));
+  orderTitleLines[0] = `\x1B!\x10${orderTitleLines[0] || ""}`;
+  orderTitleLines[orderTitleLines.length - 1] += "\x1B!\x00";
+  lines.push("", ...orderTitleLines, `\x1Ba\x00${divider}`, ...wrap(`Destino: ${input.pointName}`, columns));
+  lines.push(...wrap(`Data: ${input.createdAt.toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  })}`, columns));
+  lines.push(...wrap(`Atendimento: ${formatOrigin(input.origin, input.tableName)}`, columns));
+
+  lines.push(divider, sectionTitle("Itens", columns));
+  for (const item of input.items) {
+    const itemName = `${formatQuantity(item.quantity)}x ${item.name}${item.size ? ` - ${item.size}` : ""}`;
+    lines.push(...wrap(itemName, columns));
+    lines.push(...pair(`  ${formatQuantity(item.quantity)} x ${formatMoney(item.unitPrice)}`, formatMoney(item.subtotal), columns));
+    if (Array.isArray(item.selections)) {
+      for (const selection of item.selections as Array<Record<string, unknown>>) {
+        const name = clean(selection?.nome || selection?.name || "Opcao");
+        const group = clean(selection?.grupoNome || "");
+        lines.push(...wrap(`  + ${group ? `${group}: ` : ""}${name}`, columns));
+      }
+    }
+    if (item.note) lines.push(...wrap(`  OBS: ${item.note}`, columns));
+  }
+
+  lines.push(divider, sectionTitle("Cliente", columns));
+  lines.push(...wrap(`Nome: ${input.customerName || "Nao informado"}`, columns));
+  if (input.customerPhone) lines.push(...wrap(`Telefone: ${input.customerPhone}`, columns));
+  if (input.customerEmail) lines.push(...wrap(`E-mail: ${input.customerEmail}`, columns));
+
+  const address = formatAddress(input.deliveryAddress);
+  lines.push(divider, sectionTitle(input.origin === "DELIVERY" ? "Endereco de entrega" : "Entrega", columns));
+  if (address.length) {
+    for (const addressLine of address) lines.push(...wrap(addressLine, columns));
+  } else {
+    lines.push(...wrap(formatOrigin(input.origin, input.tableName), columns));
+  }
+
+  if (input.orderNote) {
+    lines.push(divider, sectionTitle("Observacoes do pedido", columns));
+    lines.push(...wrap(input.orderNote, columns));
+  }
+
+  lines.push(divider, sectionTitle("Pagamento", columns));
+  lines.push(...wrap(`Forma: ${formatPaymentMethod(input.paymentMethod)}`, columns));
+  lines.push(...wrap(`Situacao: ${formatPaymentStatus(input.paymentStatus)}`, columns));
+  if (input.paymentStatus === "NA_ENTREGA") {
+    const chargeLines = wrap("* COBRAR DO CLIENTE *", columns);
+    chargeLines[0] = `\x1Ba\x01\x1BE\x01${chargeLines[0]}`;
+    chargeLines[chargeLines.length - 1] += "\x1BE\x00\x1Ba\x00";
+    lines.push(...chargeLines);
+  }
+  lines.push(...pair("Subtotal:", formatMoney(input.subtotal), columns));
+  if (Number(input.discount) > 0) lines.push(...pair("Desconto:", `- ${formatMoney(input.discount)}`, columns));
+  if (Number(input.deliveryFee) > 0 || input.origin === "DELIVERY") {
+    lines.push(...pair("Taxa de entrega:", formatMoney(input.deliveryFee), columns));
+  }
+  const totalLines = pair("TOTAL:", formatMoney(input.total), columns);
+  totalLines[0] = `\x1BE\x01${totalLines[0]}`;
+  totalLines[totalLines.length - 1] += "\x1BE\x00";
+  const footerLines = wrap(`PEDIDO ${input.orderCode}`, columns);
+  footerLines[0] = `\x1Ba\x01${footerLines[0]}`;
+  lines.push(...totalLines, divider, ...footerLines, ...wrap(`JOB ${input.uid}`, columns), "", "\x1Bd\x03\x1DV\x00");
+  return lines.join("\n");
+}
+
+function renderCompleteOrderFromRecord(order: any, uid: string, paper: string, pointName: string) {
+  return renderCompleteOrderReceipt({
+    uid,
+    paper,
+    pointName,
+    businessName: order.Conta.nomeFantasia || order.Conta.nome,
+    businessAddress: order.Conta.endereco,
+    businessPhone: order.Conta.telefone,
+    orderCode: order.codigo,
+    origin: order.origem,
+    tableName: order.Mesa?.nome,
+    customerName: order.clienteNomeSnapshot,
+    customerPhone: order.clienteTelefone,
+    customerEmail: order.clienteEmail,
+    deliveryAddress: order.enderecoSnapshotJson,
+    paymentMethod: order.pagamentoMetodoSnapshot,
+    paymentStatus: order.pagamentoStatus,
+    subtotal: order.subtotal,
+    deliveryFee: order.frete,
+    discount: order.desconto,
+    total: order.total,
+    orderNote: order.observacao,
+    createdAt: order.createdAt,
+    items: order.itens.map((item: any) => ({
+      quantity: item.quantidade,
+      name: item.nomeSnapshot,
+      unitPrice: item.precoUnitarioSnapshot,
+      subtotal: item.subtotalSnapshot,
+      size: item.tamanhoSnapshot,
+      selections: item.selecoesSnapshotJson,
+      note: item.observacao,
+    })),
+  });
 }
 
 export function renderProductionTicket(input: {
@@ -87,13 +328,26 @@ async function buildJobContent(tx: any, ticketId: number, fullOrder: boolean, ui
     where: { id: ticketId },
     include: {
       Ponto: true,
-      Pedido: { include: { Mesa: true, itens: true } },
+      Pedido: {
+        include: {
+          Mesa: true,
+          itens: true,
+          Conta: { select: { nome: true, nomeFantasia: true, endereco: true, telefone: true } },
+        },
+      },
       itens: { include: { PedidoItem: true } },
     },
   });
   const source = fullOrder
     ? ticket.Pedido.itens.map((item: any) => ({ PedidoItem: item, quantidade: item.quantidade }))
     : ticket.itens;
+  if (fullOrder) {
+    const order = ticket.Pedido;
+    return {
+      ticket,
+      content: renderCompleteOrderFromRecord(order, uid, paper, ticket.Ponto.nome),
+    };
+  }
   return {
     ticket,
     content: renderProductionTicket({
@@ -169,6 +423,7 @@ export async function enqueueTicketPrintJobs(
       data: {
         uid,
         contaId,
+        pedidoId: ticket.pedidoId,
         pontoId: ticket.pontoId,
         ticketId: ticket.id,
         estacaoId: destination.estacaoId,
@@ -177,6 +432,53 @@ export async function enqueueTicketPrintJobs(
         conteudo: content,
         papel: destination.papel,
         vias: destination.vias,
+      },
+    }));
+  }
+  return jobs;
+}
+
+/** Enfileira um comprovante completo diretamente, sem depender de ponto ou ticket KDS. */
+export async function enqueueOrderPrintJobs(
+  tx: any,
+  contaId: number,
+  pedidoId: number,
+  stationIds: number[],
+  manualKey: string,
+) {
+  const order = await tx.restaurantePedido.findFirst({
+    where: { id: pedidoId, contaId },
+    include: {
+      Mesa: true,
+      itens: true,
+      Conta: { select: { nome: true, nomeFantasia: true, endereco: true, telefone: true } },
+    },
+  });
+  if (!order || order.status === "RECEBIDO" || order.status === "CANCELADO") return [];
+  const stations = await tx.restauranteEstacaoImpressao.findMany({
+    where: { contaId, id: { in: [...new Set(stationIds)] }, ativa: true },
+    select: { id: true, papelReportado: true },
+  });
+  const jobs = [];
+  for (const station of stations) {
+    const dedupeKey = `${manualKey}:destino:${station.id}`;
+    const existing = await tx.restauranteTrabalhoImpressao.findUnique({ where: { dedupeKey } });
+    if (existing) {
+      jobs.push(existing);
+      continue;
+    }
+    const uid = randomUUID();
+    const paper = station.papelReportado === "58mm" ? "58mm" : "80mm";
+    jobs.push(await tx.restauranteTrabalhoImpressao.create({
+      data: {
+        uid,
+        contaId,
+        pedidoId: order.id,
+        estacaoId: station.id,
+        dedupeKey,
+        conteudo: renderCompleteOrderFromRecord(order, uid, paper, "Pedidos"),
+        papel: paper,
+        vias: 1,
       },
     }));
   }

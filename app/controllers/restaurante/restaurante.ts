@@ -972,7 +972,11 @@ export async function transitionOrder(req: Request, res: Response) {
           data: { version: { increment: 1 } },
         });
         await tx.restauranteTrabalhoImpressao.updateMany({
-          where: { contaId, status: "PENDENTE", Ticket: { pedidoId: order.id } },
+          where: {
+            contaId,
+            status: "PENDENTE",
+            OR: [{ pedidoId: order.id }, { Ticket: { is: { pedidoId: order.id } } }],
+          },
           data: { status: "CANCELADO" },
         });
         // A recompensa é reservada no momento da criação para impedir que o

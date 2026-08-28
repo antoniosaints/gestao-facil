@@ -46,6 +46,23 @@ test("cria um ticket em cada ponto ativo associado a categoria", async () => {
   assert.deepEqual(createdPoints, [51, 52]);
 });
 
+test("nao cria tickets nem imprime enquanto o pedido ainda esta recebido", async () => {
+  const tx = {
+    restauranteTicketProducao: {
+      count: async () => 0,
+      create: async () => assert.fail("pedido recebido nao deve gerar ticket"),
+    },
+    restaurantePedido: {
+      findFirst: async () => ({ status: "RECEBIDO", itens: [] }),
+    },
+    produto: { findMany: async () => assert.fail("nao deve calcular rotas antes da confirmacao") },
+    restauranteCatalogoItem: { findMany: async () => assert.fail("nao deve consultar o cardapio") },
+    restauranteRoteamentoProducao: { findMany: async () => assert.fail("nao deve consultar rotas") },
+  };
+
+  assert.equal(await dispatchOrderToProduction(tx, 1, 11), false);
+});
+
 test("considera preparo quando qualquer ponto iniciou", () => {
   assert.equal(deriveOrderProductionState(["PREPARANDO", "PENDENTE"]), "PREPARANDO");
   assert.equal(deriveOrderProductionState(["PRONTO", "PENDENTE"]), "PREPARANDO");

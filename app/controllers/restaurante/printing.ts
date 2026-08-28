@@ -7,6 +7,7 @@ import { contaHasActiveModule } from "../../services/contas/storeModulesService"
 import {
   acknowledgeStationPrintJob,
   claimStationPrintJobs,
+  enqueueOrderPrintJobs,
   enqueueTicketPrintJobs,
   hashPrintStationToken,
 } from "../../services/restaurante/printing";
@@ -223,6 +224,7 @@ export async function listPrintJobs(req: Request, res: Response) {
       Estacao: { select: { id: true, nome: true, impressoraNome: true } },
       Ponto: { select: { id: true, nome: true } },
       Ticket: { select: { Pedido: { select: { codigo: true } } } },
+      Pedido: { select: { codigo: true } },
     },
   });
   return ok(req, res, jobs);
@@ -247,7 +249,12 @@ export async function reprintOrder(req: Request, res: Response) {
     include: { tickets: { select: { id: true } } },
   });
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido não encontrado.");
-  if (!order.tickets.length) return fail(req, res, 422, "order_without_production_ticket", "Este pedido não possui ticket de produção para imprimir.");
+  if (order.status === "RECEBIDO") {
+    return fail(req, res, 422, "order_not_confirmed", "O pedido só pode ser impresso depois de confirmado.");
+  }
+  if (order.status === "CANCELADO") {
+    return fail(req, res, 422, "order_cancelled", "Pedido cancelado não pode ser impresso.");
+  }
 
   const stationIds = [...new Set(parsed.data.estacaoIds)];
   const stations = await prisma.restauranteEstacaoImpressao.findMany({
@@ -261,10 +268,21 @@ export async function reprintOrder(req: Request, res: Response) {
     for (const ticket of order.tickets) {
       created.push(...await enqueueTicketPrintJobs(tx, contaId, ticket.id, `${manualKey}:ticket:${ticket.id}`, stationIds));
     }
+    if (!order.tickets.length) {
+      created.push(...await enqueueOrderPrintJobs(tx, contaId, order.id, stationIds, manualKey));
+    }
     return created;
   });
   if (!jobs.length) {
-    return fail(req, res, 422, "print_destination_not_configured", "Os conectores selecionados não são destinos configurados para os pontos deste pedido.");
+    return fail(
+      req,
+      res,
+      422,
+      "print_destination_not_configured",
+      order.tickets.length
+        ? "Os conectores selecionados não são destinos configurados para os pontos deste pedido."
+        : "Nenhum conector ativo foi selecionado para imprimir este pedido.",
+    );
   }
   sendRestaurantUpdate(contaId, "impressao", { trabalhoIds: jobs.map((job) => job.id), pedidoId: order.id });
   return ok(req, res, jobs, 201);

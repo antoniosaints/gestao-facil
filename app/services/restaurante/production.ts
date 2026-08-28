@@ -33,6 +33,10 @@ export async function dispatchOrderToProduction(
     include: { itens: true },
   });
   if (!order) throw new Error("Pedido de restaurante nao encontrado.");
+  // Pedidos Pix permanecem em RECEBIDO enquanto o pagamento está pendente.
+  // A criação dos tickets (e, portanto, a impressão automática) só pode
+  // começar depois que a confirmação do pagamento alterar o status.
+  if (order.status === "RECEBIDO") return false;
 
   const productIds = [...new Set(order.itens.map((item: any) => item.produtoId).filter((id: unknown): id is number => Number.isInteger(id) && Number(id) > 0))];
   const products = await tx.produto.findMany({

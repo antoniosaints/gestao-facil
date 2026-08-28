@@ -182,7 +182,7 @@ export async function applyRestaurantPaymentEvent(input: {
           where: { id: order.id },
           data: {
             pagamentoStatus: "PAGO",
-            ...(order.status === "RECEBIDO" ? { status: "CONFIRMADO" } : {}),
+            ...(order.status === "RECEBIDO" ? { status: "CONFIRMADO", confirmadoAt: new Date() } : {}),
             version: { increment: 1 },
           },
         });
