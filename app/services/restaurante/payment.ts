@@ -15,6 +15,14 @@ import { CommerceError } from "../loja/commerceError";
 
 export type RestauranteOnlinePaymentMethod = "PIX";
 export const RESTAURANT_PIX_EXPIRATION_MS = 5 * 60 * 1000;
+export const MERCADO_PAGO_PIX_EXPIRATION_MS = 30 * 60 * 1000;
+
+export function restaurantPixDeadlines(now = new Date()) {
+  return {
+    customerExpiresAt: new Date(now.getTime() + RESTAURANT_PIX_EXPIRATION_MS),
+    gatewayExpiresAt: new Date(now.getTime() + MERCADO_PAGO_PIX_EXPIRATION_MS),
+  };
+}
 
 export class RestaurantPaymentCancellationError extends Error {
   constructor(public code: "payment_already_paid" | "payment_cancellation_failed", message: string) {
@@ -68,9 +76,10 @@ export async function createRestaurantOnlinePayment(args: {
     origin: { type: "restaurante-pedido" as const, id: args.order.id },
   };
   const returnUrl = trackingUrl(args.slug, args.trackingToken);
-  // O QR Code do cardápio permanece válido por tempo suficiente para o cliente
-  // concluir a transferência, sem deixar uma cobrança pendente por horas.
-  const pixExpiresAt = new Date(Date.now() + RESTAURANT_PIX_EXPIRATION_MS);
+  // O Mercado Pago exige no mínimo 30 minutos para o vencimento do Pix. Para o
+  // cliente, porém, o pedido reserva uma janela de 5 minutos; após esse prazo o
+  // worker consulta o gateway e cancela a cobrança se ela ainda estiver pendente.
+  const { customerExpiresAt, gatewayExpiresAt } = restaurantPixDeadlines();
   let gatewayReference: string;
   let externalLink: string | null;
   let pixCopiaCola: string | null = null;
@@ -88,7 +97,7 @@ export async function createRestaurantOnlinePayment(args: {
       description: `Pedido ${args.order.codigo}`.slice(0, 120),
       payment_method_id: "pix",
       installments: 1,
-      date_of_expiration: pixExpiresAt.toISOString(),
+      date_of_expiration: gatewayExpiresAt.toISOString(),
       callback_url: returnUrl,
       notification_url: buildMercadoPagoOperationalWebhookUrl(env.BASE_URL, reference),
     },
@@ -117,9 +126,9 @@ export async function createRestaurantOnlinePayment(args: {
         pixCopiaCola,
         valor: args.order.total,
         gateway: "mercadopago",
-        dataVencimento: payment.date_of_expiration
-          ? new Date(payment.date_of_expiration)
-          : pixExpiresAt,
+        // Prazo comercial exibido ao cliente e usado pelo worker de expiração.
+        // O vencimento técnico enviado ao gateway permanece em 30 minutos.
+        dataVencimento: customerExpiresAt,
         status: "PENDENTE",
         observacao: `Pedido restaurante ${args.order.codigo}`,
       },
@@ -173,18 +182,17 @@ export async function cancelRestaurantPendingPixPayment(args: { contaId: number;
  * um QR Code válido para um pedido já cancelado.
  */
 export async function expireRestaurantPendingPixOrders(now = new Date()) {
-  const cutoff = new Date(now.getTime() - RESTAURANT_PIX_EXPIRATION_MS);
   const candidates = await prisma.restaurantePedido.findMany({
     where: {
       status: "RECEBIDO",
       pagamentoStatus: "PENDENTE",
       pagamentoMetodoSnapshot: "PIX",
-      createdAt: { lte: cutoff },
       Cobrancas: {
         some: {
           gateway: "mercadopago",
           status: "PENDENTE",
           pixCopiaCola: { not: null },
+          dataVencimento: { lte: now },
         },
       },
     },
@@ -231,7 +239,6 @@ export async function expireRestaurantPendingPixOrders(now = new Date()) {
           status: "RECEBIDO",
           pagamentoStatus: "PENDENTE",
           pagamentoMetodoSnapshot: "PIX",
-          createdAt: { lte: cutoff },
         },
         data: {
           status: "CANCELADO",

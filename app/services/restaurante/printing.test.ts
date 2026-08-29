@@ -40,6 +40,7 @@ function completeReceipt(paper: "58mm" | "80mm") {
     businessName: "Restaurante Sabor da Casa",
     businessAddress: "Rua Central, 150 - Centro",
     businessPhone: "(11) 99999-9999",
+    systemUrl: "https://gestaofacil.userp.com.br/",
     orderCode: "R-2048",
     origin: "DELIVERY",
     customerName: "Maria Aparecida de Oliveira",
@@ -81,12 +82,22 @@ test("gera o modelo completo com cliente, endereco, valores e pagamento", () => 
   assert.match(output, /CLIENTE/);
   assert.match(output, /Maria Aparecida de Oliveira/);
   assert.match(output, /ENDERECO DE ENTREGA/);
-  assert.match(output, /Avenida das Palmeiras/);
+  assert.match(output, /Endereco: Avenida das Palmeiras/);
+  assert.match(output, /Numero: 1234/);
+  assert.match(output, /Complemento: Apartamento 52, bloco B/);
+  assert.match(output, /Bairro: Jardim Primavera/);
+  assert.match(output, /Cidade: Sao Paulo/);
+  assert.match(output, /UF: SP/);
+  assert.match(output, /CEP: 01234-567/);
+  assert.match(output, /Referencia: Proximo ao mercado/);
   assert.match(output, /PAGAMENTO/);
   assert.match(output, /\* COBRAR DO CLIENTE \*/);
   assert.match(output, /Subtotal:\s+R\$ 42,50/);
   assert.match(output, /Taxa de entrega:\s+R\$ 7,00/);
   assert.match(output, /TOTAL:\s+R\$ 47,00/);
+  assert.match(output, /gestaofacil\.userp\.com\.br/);
+  assert.doesNotMatch(output, /https?:\/\//);
+  assert.doesNotMatch(output, /gestaofacil\.userp\.com\.br\//);
 });
 
 test("mantem todas as linhas de texto dentro das larguras de 58mm e 80mm", () => {

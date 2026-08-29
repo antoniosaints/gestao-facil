@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { env } from "../../utils/dotenv";
 
 export function hashPrintStationToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -127,15 +128,26 @@ function formatAddress(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
   const address = value as Record<string, unknown>;
   const text = (key: string) => typeof address[key] === "string" ? clean(address[key]).trim() : "";
-  const street = [text("logradouro"), text("numero")].filter(Boolean).join(", ");
-  const city = [text("cidade"), text("uf")].filter(Boolean).join(" - ");
   return [
-    street,
-    text("complemento"),
-    [text("bairro"), city].filter(Boolean).join(" - "),
+    text("logradouro") ? `Endereco: ${text("logradouro")}` : "",
+    text("numero") ? `Numero: ${text("numero")}` : "",
+    text("complemento") ? `Complemento: ${text("complemento")}` : "",
+    text("bairro") ? `Bairro: ${text("bairro")}` : "",
+    text("cidade") ? `Cidade: ${text("cidade")}` : "",
+    text("uf") ? `UF: ${text("uf")}` : "",
     text("cep") ? `CEP: ${text("cep")}` : "",
     text("referencia") ? `Referencia: ${text("referencia")}` : "",
   ].filter(Boolean);
+}
+
+function normalizeSystemUrl(value: string) {
+  const normalized = value.trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(normalized);
+    return `${url.host}${url.pathname}`.replace(/\/+$/, "");
+  } catch {
+    return normalized.replace(/^https?:\/\//i, "");
+  }
 }
 
 type CompleteOrderReceiptInput = {
@@ -145,6 +157,7 @@ type CompleteOrderReceiptInput = {
   businessName: string;
   businessAddress?: string | null;
   businessPhone?: string | null;
+  systemUrl: string;
   orderCode: string;
   origin: string;
   tableName?: string | null;
@@ -242,7 +255,15 @@ export function renderCompleteOrderReceipt(input: CompleteOrderReceiptInput) {
   totalLines[totalLines.length - 1] += "\x1BE\x00";
   const footerLines = wrap(`PEDIDO ${input.orderCode}`, columns);
   footerLines[0] = `\x1Ba\x01${footerLines[0]}`;
-  lines.push(...totalLines, divider, ...footerLines, ...wrap(`JOB ${input.uid}`, columns), "", "\x1Bd\x03\x1DV\x00");
+  lines.push(
+    ...totalLines,
+    divider,
+    ...footerLines,
+    ...wrap(normalizeSystemUrl(input.systemUrl), columns),
+    ...wrap(`JOB ${input.uid}`, columns),
+    "",
+    "\x1Bd\x03\x1DV\x00",
+  );
   return lines.join("\n");
 }
 
@@ -254,6 +275,7 @@ function renderCompleteOrderFromRecord(order: any, uid: string, paper: string, p
     businessName: order.Conta.nomeFantasia || order.Conta.nome,
     businessAddress: order.Conta.endereco,
     businessPhone: order.Conta.telefone,
+    systemUrl: env.BASE_URL_FRONTEND,
     orderCode: order.codigo,
     origin: order.origem,
     tableName: order.Mesa?.nome,
