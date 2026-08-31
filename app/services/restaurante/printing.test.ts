@@ -56,8 +56,9 @@ function completeReceipt(paper: "58mm" | "80mm") {
       cep: "01234-567",
       referencia: "Proximo ao mercado municipal",
     },
-    paymentMethod: "NA_ENTREGA",
+    paymentMethod: "DINHEIRO",
     paymentStatus: "NA_ENTREGA",
+    changeFor: "100.00",
     subtotal: "42.50",
     deliveryFee: "7.00",
     discount: "2.50",
@@ -91,6 +92,9 @@ test("gera o modelo completo com cliente, endereco, valores e pagamento", () => 
   assert.match(output, /CEP: 01234-567/);
   assert.match(output, /Referencia: Proximo ao mercado/);
   assert.match(output, /PAGAMENTO/);
+  assert.match(output, /Forma: Dinheiro/);
+  assert.match(output, /Troco para: R\$ 100,00/);
+  assert.match(output, /Levar troco: R\$ 53,00/);
   assert.match(output, /\* COBRAR DO CLIENTE \*/);
   assert.match(output, /Subtotal:\s+R\$ 42,50/);
   assert.match(output, /Taxa de entrega:\s+R\$ 7,00/);

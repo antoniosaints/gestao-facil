@@ -167,6 +167,7 @@ type CompleteOrderReceiptInput = {
   deliveryAddress?: unknown;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
+  changeFor?: unknown;
   subtotal: unknown;
   deliveryFee: unknown;
   discount: unknown;
@@ -239,6 +240,12 @@ export function renderCompleteOrderReceipt(input: CompleteOrderReceiptInput) {
   lines.push(divider, sectionTitle("Pagamento", columns));
   lines.push(...wrap(`Forma: ${formatPaymentMethod(input.paymentMethod)}`, columns));
   lines.push(...wrap(`Situacao: ${formatPaymentStatus(input.paymentStatus)}`, columns));
+  const changeFor = Number(input.changeFor);
+  if (input.paymentMethod === "DINHEIRO" && Number.isFinite(changeFor) && changeFor > 0) {
+    const change = Math.max(0, changeFor - Number(input.total));
+    lines.push(...wrap(`Troco para: ${formatMoney(changeFor)}`, columns));
+    lines.push(...wrap(`Levar troco: ${formatMoney(change)}`, columns));
+  }
   if (input.paymentStatus === "NA_ENTREGA") {
     const chargeLines = wrap("* COBRAR DO CLIENTE *", columns);
     chargeLines[0] = `\x1Ba\x01\x1BE\x01${chargeLines[0]}`;
@@ -285,6 +292,7 @@ function renderCompleteOrderFromRecord(order: any, uid: string, paper: string, p
     deliveryAddress: order.enderecoSnapshotJson,
     paymentMethod: order.pagamentoMetodoSnapshot,
     paymentStatus: order.pagamentoStatus,
+    changeFor: order.trocoParaSnapshot,
     subtotal: order.subtotal,
     deliveryFee: order.frete,
     discount: order.desconto,

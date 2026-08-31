@@ -198,8 +198,19 @@ const pedidoSchema = checkoutPreviewSchema.extend({
     email: z.string().trim().email().max(190).nullable().optional(),
   }),
   observacao: z.string().trim().max(2000).optional(),
-  pagamento: z.enum(["NA_ENTREGA", "PIX"]).default("NA_ENTREGA"),
+  // NA_ENTREGA continua aceito para não invalidar checkouts iniciados antes
+  // desta melhoria. Novos pedidos do cardápio escolhem a forma específica.
+  pagamento: z.enum(["NA_ENTREGA", "DINHEIRO", "CREDITO", "DEBITO", "PIX"]).default("NA_ENTREGA"),
+  trocoPara: z.coerce.number().positive().max(999999.99).nullable().optional(),
+}).superRefine((data, context) => {
+  if (data.trocoPara != null && data.pagamento !== "DINHEIRO") {
+    context.addIssue({ code: "custom", path: ["trocoPara"], message: "Troco só pode ser informado para pagamento em dinheiro." });
+  }
 });
+
+function isPaymentOnDelivery(payment: string) {
+  return ["NA_ENTREGA", "DINHEIRO", "CREDITO", "DEBITO"].includes(payment);
+}
 
 const mesaSchema = z.object({
   nome: z.string().trim().min(1).max(80),
@@ -1199,10 +1210,10 @@ export async function createPublicOrder(req: Request, res: Response) {
   const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
   // Um token de outro restaurante nunca é associado ao pedido deste tenant.
   const restauranteClienteId = restaurantCustomer?.contaId === config.contaId ? restaurantCustomer.id : null;
-  if (parsed.data.pagamento === "NA_ENTREGA" && !config.pagamentoNaEntregaAtivo) {
+  if (isPaymentOnDelivery(parsed.data.pagamento) && !config.pagamentoNaEntregaAtivo) {
     return fail(req, res, 422, "payment_method_unavailable", "O pagamento na retirada ou entrega esta indisponivel.");
   }
-  if (parsed.data.pagamento !== "NA_ENTREGA" && !config.pagamentoOnlineAtivo) {
+  if (!isPaymentOnDelivery(parsed.data.pagamento) && !config.pagamentoOnlineAtivo) {
     return fail(req, res, 422, "payment_method_unavailable", "O pagamento online esta indisponivel.");
   }
 
@@ -1225,6 +1236,10 @@ export async function createPublicOrder(req: Request, res: Response) {
   if (fidelityDiscount.greaterThan(0)) {
     quote.total = new Decimal(quote.total).minus(fidelityDiscount).toFixed(2);
     (quote as any).desconto = fidelityDiscount.toFixed(2);
+  }
+  const trocoPara = parsed.data.trocoPara == null ? null : new Decimal(parsed.data.trocoPara).toDecimalPlaces(2);
+  if (trocoPara && trocoPara.lessThan(new Decimal(quote.total))) {
+    return fail(req, res, 422, "invalid_change_amount", "O valor informado para troco deve ser igual ou maior que o total do pedido.");
   }
 
   const keyHash = hash(key);
@@ -1263,7 +1278,7 @@ export async function createPublicOrder(req: Request, res: Response) {
     });
   };
   const finalizePayment = async (payload: any) => {
-    if (parsed.data.pagamento === "NA_ENTREGA" || payload.paymentAction) return payload;
+    if (isPaymentOnDelivery(parsed.data.pagamento) || payload.paymentAction) return payload;
     try {
       const paymentAction = await createRestaurantOnlinePayment({
         order: payload.pedido,
@@ -1307,8 +1322,9 @@ export async function createPublicOrder(req: Request, res: Response) {
           contaId: config.contaId,
           codigo,
           origem: parsed.data.origem,
-          pagamentoStatus: parsed.data.pagamento === "NA_ENTREGA" ? "NA_ENTREGA" : "PENDENTE",
+          pagamentoStatus: isPaymentOnDelivery(parsed.data.pagamento) ? "NA_ENTREGA" : "PENDENTE",
           pagamentoMetodoSnapshot: parsed.data.pagamento,
+          trocoParaSnapshot: trocoPara,
           entregaStatus: parsed.data.origem === "DELIVERY" ? "AGUARDANDO_DESPACHO" : "NAO_APLICAVEL",
           restauranteClienteId,
           clienteNomeSnapshot: parsed.data.cliente.nome,
@@ -1398,6 +1414,8 @@ export async function publicTracking(req: Request, res: Response) {
       status: true,
       producaoStatus: true,
       pagamentoStatus: true,
+      pagamentoMetodoSnapshot: true,
+      trocoParaSnapshot: true,
       entregaStatus: true,
       subtotal: true,
       frete: true,

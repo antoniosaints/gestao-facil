@@ -1836,6 +1836,7 @@ model RestaurantePedido {
   enderecoSnapshotJson      Json?
   zonaEntregaSnapshotJson   Json?
   pagamentoMetodoSnapshot   String?                           @db.VarChar(30)
+  trocoParaSnapshot         Decimal?                          @db.Decimal(10, 2)
   subtotal                  Decimal                           @db.Decimal(10, 2)
   frete                     Decimal                           @default(0) @db.Decimal(10, 2)
   desconto                  Decimal                           @default(0) @db.Decimal(10, 2)

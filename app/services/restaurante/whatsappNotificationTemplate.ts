@@ -51,6 +51,9 @@ export function formatRestaurantOrderItems(items: RestaurantMessageItem[]) {
 export function restaurantPaymentMethodLabel(method?: string | null) {
   const labels: Record<string, string> = {
     PIX: "📱 Pix",
+    DINHEIRO: "💵 Dinheiro na entrega",
+    CREDITO: "💳 Cartão de crédito na entrega",
+    DEBITO: "💳 Cartão de débito na entrega",
     NA_ENTREGA: "💵 Pagamento na entrega",
     MESA: "🍽️ Pagamento na mesa",
   };
