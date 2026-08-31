@@ -827,6 +827,44 @@ export const updateLancamentoBasico = async (
   }
 };
 
+/** Alterna a natureza financeira sem recriar o lançamento nem suas parcelas. */
+export const converterTipoLancamento = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: "Informe um lançamento válido." });
+    }
+
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: { id, contaId: customData.contaId },
+      select: { id: true, tipo: true },
+    });
+    if (!lancamento) {
+      return res.status(404).json({ message: "Lançamento não encontrado." });
+    }
+
+    const tipo = lancamento.tipo === "RECEITA" ? "DESPESA" : "RECEITA";
+    const atualizado = await prisma.lancamentoFinanceiro.update({
+      where: { id: lancamento.id },
+      data: {
+        tipo,
+        // Notificações de vencimento ao cliente são próprias de receitas.
+        ...(tipo === "DESPESA" ? { notificarClienteVencimento: false } : {}),
+      },
+      select: { id: true, tipo: true },
+    });
+
+    sendFinanceiroUpdated(customData.contaId, { reason: "lancamento-tipo-convertido" });
+    return ResponseHandler(res, "Lançamento convertido com sucesso.", atualizado);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const atualizarLancamentosEmMassa = async (
   req: Request,
   res: Response

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
-import { adicionarParcela, atualizarLancamentosEmMassa, criarLancamento, deletarLancamento, deletarMultiplasParcelas, deletarParcela, estornarMultiplasParcelas, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
+import { adicionarParcela, atualizarLancamentosEmMassa, converterTipoLancamento, criarLancamento, deletarLancamento, deletarMultiplasParcelas, deletarParcela, estornarMultiplasParcelas, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
@@ -66,6 +66,7 @@ routerLancamentos.post("/parcelas/:id/estornar", authenticateJWT, estornarParcel
 routerLancamentos.post("/parcelas/:id/atualizar", authenticateJWT, updateParcela);
 routerLancamentos.delete("/parcelas/:id", authenticateJWT, deletarParcela);
 routerLancamentos.post("/:id/atualizar-basico", authenticateJWT, updateLancamentoBasico);
+routerLancamentos.post("/:id/converter-tipo", authenticateJWT, converterTipoLancamento);
 routerLancamentos.post("/:id/parcelas", authenticateJWT, adicionarParcela);
 routerLancamentos.post("/parcelas/cliente", authenticateJWT, listarParcelas);
 routerLancamentos.post("/parcelas/:id/recibo", authenticateJWT, gerarReciboPdf);
