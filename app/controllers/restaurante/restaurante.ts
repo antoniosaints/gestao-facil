@@ -29,6 +29,7 @@ import { downscaleImage } from "../../services/uploads/imageProcessingService";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { gerarSkuUnico } from "../../services/produtos/sku";
 import { reservarNumeroPedido } from "../../services/restaurante/orderNumber";
+import { normalizeRestaurantPhone } from "../../services/restaurante/customerAuth";
 
 const localizacaoSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
@@ -1209,7 +1210,22 @@ export async function createPublicOrder(req: Request, res: Response) {
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
   const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
   // Um token de outro restaurante nunca é associado ao pedido deste tenant.
-  const restauranteClienteId = restaurantCustomer?.contaId === config.contaId ? restaurantCustomer.id : null;
+  let restauranteClienteId = restaurantCustomer?.contaId === config.contaId ? restaurantCustomer.id : null;
+  // Sem sessão, o telefone informado identifica a conta já cadastrada neste
+  // restaurante. Isso mantém o histórico e a fidelidade reunidos quando o
+  // cliente fizer login posteriormente, sem afetar o vínculo autenticado.
+  if (!restauranteClienteId) {
+    const customerByPhone = await prisma.restauranteCliente.findUnique({
+      where: {
+        contaId_telefoneNormalizado: {
+          contaId: config.contaId,
+          telefoneNormalizado: normalizeRestaurantPhone(parsed.data.cliente.telefone),
+        },
+      },
+      select: { id: true },
+    });
+    restauranteClienteId = customerByPhone?.id || null;
+  }
   if (isPaymentOnDelivery(parsed.data.pagamento) && !config.pagamentoNaEntregaAtivo) {
     return fail(req, res, 422, "payment_method_unavailable", "O pagamento na retirada ou entrega esta indisponivel.");
   }
