@@ -15,7 +15,7 @@ import {
   type EscopoAtualizacaoParcela,
 } from "../../services/financeiro/lancamentoService";
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
-import { assertFutureSettlementAllowed } from "../../services/financeiro/financeiroPolicyService";
+import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
 import {
   processarPosPagamentoRecorrencia,
@@ -692,6 +692,9 @@ export const updateLancamentoBasico = async (
     }
 
     const descricao = typeof req.body?.descricao === "string" ? req.body.descricao.trim() : "";
+    const dataLancamento = req.body?.dataLancamento
+      ? startOfDay(new Date(req.body.dataLancamento))
+      : null;
     const categoriaId = Number(req.body?.categoriaId);
     const contasFinanceiroId = Number(req.body?.contasFinanceiroId);
     const clienteId = req.body?.clienteId === null || req.body?.clienteId === undefined || req.body?.clienteId === ""
@@ -712,6 +715,10 @@ export const updateLancamentoBasico = async (
 
     if (!descricao) {
       return res.status(400).json({ message: "Informe a descrição do lançamento." });
+    }
+
+    if (!dataLancamento || Number.isNaN(dataLancamento.getTime())) {
+      return res.status(400).json({ message: "Informe uma data válida para o lançamento." });
     }
 
     if (!categoriaId || Number.isNaN(categoriaId)) {
@@ -745,6 +752,8 @@ export const updateLancamentoBasico = async (
     if (!lancamento) {
       return res.status(404).json({ message: "Lançamento não encontrado." });
     }
+
+    await assertLancamentoDateAllowed(customData.contaId, dataLancamento);
 
     const [categoria, contaFinanceira, cliente] = await Promise.all([
       prisma.categoriaFinanceiro.findFirst({
@@ -791,6 +800,7 @@ export const updateLancamentoBasico = async (
         },
         data: {
           descricao,
+          dataLancamento,
           categoriaId,
           contasFinanceiroId,
           clienteId,

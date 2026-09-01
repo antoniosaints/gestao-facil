@@ -113,7 +113,9 @@ export const tableFinanceiro = async (
     prisma.lancamentoFinanceiro.findMany({
       where,
       include: {
-        parcelas: true,
+        parcelas: {
+          orderBy: [{ vencimento: 'asc' }, { numero: 'asc' }, { id: 'asc' }],
+        },
         recorrencia: true,
         categoria: true,
         cliente: true,
