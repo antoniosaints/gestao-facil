@@ -71,12 +71,14 @@ function serializeGroupedMap(map: Map<string, Decimal>) {
 async function buildDrePayload(contaId: number, inicio: Date, fim: Date): Promise<DREPayload> {
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ignorado: false,
       vencimento: {
         gte: inicio,
         lte: fim,
       },
       lancamento: {
         contaId,
+        ignorado: false,
       },
     },
     select: {
@@ -875,9 +877,11 @@ export const getParcelasAtrasadas = async (
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
       pago: false,
+      ignorado: false,
       vencimento: { lt: hoje },
       lancamento: {
         contaId: customData.contaId,
+        ignorado: false,
       },
     },
     include: {
@@ -914,17 +918,19 @@ export const getResumoPorCliente = async (
     where: { contaId: customData.contaId },
     include: {
       LancamentoFinanceiro: {
+        where: { ignorado: false },
         select: {
           tipo: true,
           parcelas: {
             where: periodo
               ? {
+                  ignorado: false,
                   vencimento: {
                     gte: periodo.inicio,
                     lte: periodo.fim,
                   },
                 }
-              : undefined,
+              : { ignorado: false },
             select: {
               valor: true,
             },
@@ -986,12 +992,14 @@ export const getMediaMensalLancamentos = async (
 
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ignorado: false,
       vencimento: {
         gte: meses[0].inicio,
         lte: meses[meses.length - 1].fim,
       },
       lancamento: {
         contaId: customData.contaId,
+        ignorado: false,
       },
     },
     select: {
@@ -1045,6 +1053,7 @@ export const getLancamentosPorConta = async (
     where: { contaId },
     include: {
       ParcelaFinanceiro: {
+        where: { ignorado: false, lancamento: { ignorado: false } },
         include: { lancamento: true },
       },
     },
@@ -1096,6 +1105,7 @@ export const getLancamentosPorStatus = async (
 
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ignorado: false,
       ...(periodo
         ? {
             vencimento: {
@@ -1106,6 +1116,7 @@ export const getLancamentosPorStatus = async (
         : {}),
       lancamento: {
         contaId: customData.contaId,
+        ignorado: false,
       },
     },
     select: {
@@ -1135,6 +1146,7 @@ export const getLancamentosPorPagamento = async (
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
       pago: true,
+      ignorado: false,
       ...(periodo
         ? {
             dataPagamento: {
@@ -1145,6 +1157,7 @@ export const getLancamentosPorPagamento = async (
         : {}),
       lancamento: {
         contaId: customData.contaId,
+        ignorado: false,
       },
     },
     select: {
@@ -1187,16 +1200,18 @@ export const getLancamentosPorCategoria = async (
     where: { contaId },
     include: {
       lancamentos: {
+        where: { ignorado: false },
         include: {
           parcelas: {
             where: periodo
               ? {
+                  ignorado: false,
                   vencimento: {
                     gte: periodo.inicio,
                     lte: periodo.fim,
                   },
                 }
-              : undefined,
+              : { ignorado: false },
           },
         },
         select: {
@@ -1244,6 +1259,7 @@ export const getLancamentosTotaisGerais = async (
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
       pago: true,
+      ignorado: false,
       ...(periodo
         ? {
             dataPagamento: {
@@ -1254,6 +1270,7 @@ export const getLancamentosTotaisGerais = async (
         : {}),
       lancamento: {
         contaId,
+        ignorado: false,
       },
     },
     select: {

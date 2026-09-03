@@ -5,6 +5,7 @@ import { Prisma } from '../../../generated'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
 import { isAccountOverdue } from '../../routers/web'
 import { parseFinanceiroFilters } from './queryFilters'
+import { atualizarStatusLancamentos } from './hooks'
 
 function resolveSortField(value: unknown) {
   const sortBy = typeof value === 'string' ? value : 'dataLancamento'
@@ -99,6 +100,10 @@ export const tableFinanceiro = async (
       message: 'Conta inativa ou bloqueada, verifique seu plano',
     })
   }
+
+  // A listagem é a referência visual do ciclo financeiro. Sincronizamos antes
+  // de consultar para não manter como pendente uma parcela já efetivada.
+  await atualizarStatusLancamentos(customData.contaId)
 
   const page = parseInt(req.query.page as string) || 1
   const pageSize = clampPageSize(req.query.pageSize)

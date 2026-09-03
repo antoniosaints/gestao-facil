@@ -85,14 +85,15 @@ function buildListWhere(contaId: number, params: InadimplenciaListParams, hoje: 
 
   const parcelasFilter =
     params.status === "ATRASADOS"
-      ? { some: { pago: false, vencimento: { lt: hoje } } }
+      ? { some: { pago: false, ignorado: false, vencimento: { lt: hoje } } }
       : params.status === "A_VENCER"
-        ? { some: { pago: false }, none: { pago: false, vencimento: { lt: hoje } } }
-        : { some: { pago: false } };
+        ? { some: { pago: false, ignorado: false }, none: { pago: false, ignorado: false, vencimento: { lt: hoje } } }
+        : { some: { pago: false, ignorado: false } };
 
   return {
     contaId,
     tipo: "RECEITA" as const,
+    ignorado: false,
     clienteId: params.clienteId ? params.clienteId : { not: null },
     parcelas: parcelasFilter,
     ...(search
@@ -200,7 +201,7 @@ export async function listInadimplencia(contaId: number, params: InadimplenciaLi
         },
         lembreteCliente: { select: CONFIG_SELECT },
         parcelas: {
-          where: { pago: false },
+          where: { pago: false, ignorado: false },
           select: { id: true, numero: true, valor: true, vencimento: true },
           orderBy: { vencimento: "asc" },
         },
@@ -265,31 +266,31 @@ export async function saveInadimplenciaConfig(
 
 export async function getInadimplenciaResumo(contaId: number) {
   const hoje = startOfDay(new Date());
-  const baseLancamento = { contaId, tipo: "RECEITA" as const, clienteId: { not: null } };
+  const baseLancamento = { contaId, tipo: "RECEITA" as const, ignorado: false, clienteId: { not: null } };
 
   const [aReceber, atrasado, inadimplentes, comOverrideAtivo, comConfigCliente, comLegado] =
     await Promise.all([
       prisma.parcelaFinanceiro.aggregate({
-        where: { pago: false, lancamento: baseLancamento },
+        where: { pago: false, ignorado: false, lancamento: baseLancamento },
         _sum: { valor: true },
       }),
       prisma.parcelaFinanceiro.aggregate({
-        where: { pago: false, vencimento: { lt: hoje }, lancamento: baseLancamento },
+        where: { pago: false, ignorado: false, vencimento: { lt: hoje }, lancamento: baseLancamento },
         _sum: { valor: true },
       }),
       prisma.lancamentoFinanceiro.findMany({
-        where: { ...baseLancamento, parcelas: { some: { pago: false, vencimento: { lt: hoje } } } },
+        where: { ...baseLancamento, parcelas: { some: { pago: false, ignorado: false, vencimento: { lt: hoje } } } },
         select: { clienteId: true },
         distinct: ["clienteId"],
       }),
       // Lembrete ativo resolvido (precedência override → cliente → legado), sem dupla contagem:
       prisma.lancamentoFinanceiro.count({
-        where: { ...baseLancamento, parcelas: { some: { pago: false } }, lembreteCliente: { ativo: true } },
+        where: { ...baseLancamento, parcelas: { some: { pago: false, ignorado: false } }, lembreteCliente: { ativo: true } },
       }),
       prisma.lancamentoFinanceiro.count({
         where: {
           ...baseLancamento,
-          parcelas: { some: { pago: false } },
+          parcelas: { some: { pago: false, ignorado: false } },
           lembreteCliente: { is: null },
           cliente: { LembreteConfig: { ativo: true } },
         },
@@ -297,7 +298,7 @@ export async function getInadimplenciaResumo(contaId: number) {
       prisma.lancamentoFinanceiro.count({
         where: {
           ...baseLancamento,
-          parcelas: { some: { pago: false } },
+          parcelas: { some: { pago: false, ignorado: false } },
           lembreteCliente: { is: null },
           cliente: { LembreteConfig: { is: null } },
           notificarClienteVencimento: true,

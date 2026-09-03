@@ -107,6 +107,7 @@ export async function gerarParcelasRecorrentes(
     select: {
       id: true,
       formaPagamento: true,
+      ignorado: true,
       contasFinanceiroId: true,
       parcelas: {
         select: { id: true, numero: true, pago: true, vencimento: true },
@@ -157,6 +158,7 @@ export async function gerarParcelasRecorrentes(
       valor: recorrencia.valorParcela,
       vencimento: cursor as Date,
       pago: false,
+      ignorado: lancamento.ignorado,
       formaPagamento: lancamento.formaPagamento,
       lancamentoId,
       contaFinanceira: lancamento.contasFinanceiroId,

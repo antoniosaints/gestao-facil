@@ -52,6 +52,7 @@ export type LancamentoFinanceiroPayload = {
   modoValorParcelamento?: ModoValorParcelamento
   notificarVencimento?: boolean
   notificarClienteVencimento?: boolean
+  ignorado?: boolean
   /// Só no modo RECORRENTE: configuração das ocorrências seguintes.
   recorrencia?: RecorrenciaConfigPayload
 }
@@ -388,6 +389,7 @@ export async function criarLancamentoFinanceiro(
       categoriaId: Number(categoriaId),
       contaId,
       recorrente,
+      ignorado: Boolean(payloadComConta.ignorado),
       contasFinanceiroId: Number(contasFinanceiroId) || null,
       dataLancamento: startOfDay(new Date(dataLancamento)),
     },
@@ -401,6 +403,7 @@ export async function criarLancamentoFinanceiro(
         valor: valorEntradaDecimal,
         vencimento: startOfDay(new Date(dataEntrada)),
         pago: true,
+        ignorado: Boolean(payloadComConta.ignorado),
         valorPago: valorEntradaDecimal,
         dataPagamento: startOfDay(new Date(dataEntrada)),
         formaPagamento: formaPagamento as any,
@@ -425,6 +428,7 @@ export async function criarLancamentoFinanceiro(
           numero: index + 1,
           valor: valorParcela,
           pago: hasEfetivadoTotal,
+          ignorado: Boolean(payloadComConta.ignorado),
           valorPago: hasEfetivadoTotal ? valorParcela : null,
           formaPagamento: hasEfetivadoTotal ? formaPagamento as any : null,
           dataPagamento: hasEfetivadoTotal ? vencimento : null,

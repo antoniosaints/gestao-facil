@@ -91,8 +91,10 @@ export function buildParcelaFinanceiroWhere(
   filters: Pick<FinanceiroQueryFilters, "contaFinanceiraId" | "categoriaId" | "clienteId" | "tipo" | "search"> & { origem?: FinanceiroOrigemFiltro }
 ): Prisma.ParcelaFinanceiroWhereInput {
   const where: Prisma.ParcelaFinanceiroWhereInput = {
+    ignorado: false,
     lancamento: {
       contaId,
+      ignorado: false,
     },
   };
 

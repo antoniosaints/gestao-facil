@@ -75,9 +75,11 @@ async function getCandidates(today: Date): Promise<Candidate[]> {
     prisma.parcelaFinanceiro.findMany({
       where: {
         pago: false,
+        ignorado: false,
         OR: dateRanges.map((range) => ({ vencimento: range })),
         lancamento: {
           notificarVencimento: true,
+          ignorado: false,
         },
       },
       select: {

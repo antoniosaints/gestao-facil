@@ -22,6 +22,7 @@ export const graficoByCategoria = async (
     include: {
       lancamentos: {
         where: {
+          ignorado: false,
           dataLancamento: {
             gte: new Date(inicio as string),
             lte: new Date(fim as string),
@@ -29,7 +30,7 @@ export const graficoByCategoria = async (
         },
         select: {
           tipo: true,
-          parcelas: true,
+          parcelas: { where: { ignorado: false } },
         },
       },
     },
@@ -95,13 +96,14 @@ export const graficoByContaFinanceira = async (
     include: {
       lancamentos: {
         where: {
+          ignorado: false,
           dataLancamento: {
             gte: new Date(inicio as string),
             lte: new Date(fim as string),
           },
         },
         include: {
-          parcelas: true,
+          parcelas: { where: { ignorado: false } },
         },
         select: {
           tipo: true,
@@ -175,13 +177,14 @@ export const graficoByStatus = async (
   const lancamentos = await prisma.lancamentoFinanceiro.findMany({
     where: {
       contaId,
+      ignorado: false,
       dataLancamento: {
         gte: new Date(inicio as string),
         lte: new Date(fim as string),
       },
     },
     include: {
-      parcelas: true,
+      parcelas: { where: { ignorado: false } },
     },
   });
 
@@ -259,10 +262,12 @@ export const graficoDespesasPorCategoria = async (
       lancamentos: {
         where: {
           tipo: "DESPESA",
+          ignorado: false,
           dataLancamento: { gte: inicio, lte: fim },
         },
         select: {
           parcelas: {
+            where: { ignorado: false },
             select: { valor: true },
           },
         },
@@ -352,8 +357,10 @@ export const graficoSaldoMensal = async (
         lte: endOfMonth(fimPeriodo),
       },
       pago: true,
+      ignorado: false,
       lancamento: {
         contaId: customData.contaId,
+        ignorado: false,
       },
     },
     select: {
@@ -430,10 +437,11 @@ export const graficoReceitaDespesaMensal = async (
     const lancamentos = await prisma.lancamentoFinanceiro.findMany({
       where: {
         contaId: customData.contaId,
+        ignorado: false,
         dataLancamento: { gte: mes.inicio, lte: mes.fim },
       },
       include: {
-        parcelas: true,
+        parcelas: { where: { ignorado: false } },
       },
     });
 

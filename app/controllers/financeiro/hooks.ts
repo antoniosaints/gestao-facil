@@ -15,6 +15,8 @@ export const atualizarStatusLancamentos = async (idConta: number) => {
   });
 
   for (const lancamento of lancamentos) {
+    // Ignorar exclui valores de relatórios, mas não muda o ciclo operacional da
+    // parcela: uma parcela efetivada precisa manter o lançamento como pago.
     const novoStatus = resolveLancamentoStatusFromParcelas(lancamento.parcelas, hoje) as StatusPagamentoFinanceiro;
     const totalParcelas = sumParcelasFinanceiras(lancamento.parcelas);
 

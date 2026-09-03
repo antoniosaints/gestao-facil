@@ -14,12 +14,14 @@ export async function calcularSaldosAtuaisContas(
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
       pago: true,
+      ignorado: false,
       dataPagamento: {
         not: null,
         lte: referencia,
       },
       lancamento: {
         contaId,
+        ignorado: false,
       },
       OR: [
         { contaFinanceira: { in: contaFinanceiraIds } },

@@ -147,10 +147,12 @@ async function calcularMetaFinanceiro(db: DbClient, meta: MetaLike, inicio: Date
   const lancamento = {
     contaId: meta.contaId,
     tipo,
+    ignorado: false,
     ...(categoriaIds.length ? { categoriaId: { in: categoriaIds } } : {}),
   };
   const where = {
     pago: true,
+    ignorado: false,
     dataPagamento: { gte: inicio, lte: fim },
     lancamento,
   };
@@ -160,7 +162,7 @@ async function calcularMetaFinanceiro(db: DbClient, meta: MetaLike, inicio: Date
       return new Decimal(await db.lancamentoFinanceiro.count({
         where: {
           ...lancamento,
-          parcelas: { some: { pago: true, dataPagamento: { gte: inicio, lte: fim } } },
+          parcelas: { some: { pago: true, ignorado: false, dataPagamento: { gte: inicio, lte: fim } } },
         },
       }));
     }

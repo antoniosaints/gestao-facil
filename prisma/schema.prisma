@@ -2979,6 +2979,7 @@ model LancamentoFinanceiro {
   formaPagamento             MetodoPagamento
   status                     StatusPagamentoFinanceiro
   recorrente                 Boolean                    @default(false)
+  ignorado                   Boolean                    @default(false)
   notificarVencimento        Boolean                    @default(false)
   notificarClienteVencimento Boolean                    @default(false)
   origemSistema              OrigemLancamentoFinanceiro @default(MANUAL)
@@ -3019,6 +3020,7 @@ model ParcelaFinanceiro {
   valor                Decimal
   vencimento           DateTime
   pago                 Boolean                @default(false)
+  ignorado             Boolean                @default(false)
   valorPago            Decimal?
   formaPagamento       MetodoPagamento?
   dataPagamento        DateTime?

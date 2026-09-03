@@ -167,9 +167,11 @@ async function fetchPendingParcelas(today: Date) {
   return prisma.parcelaFinanceiro.findMany({
     where: {
       pago: false,
+      ignorado: false,
       vencimento: { gte: windowStart, lt: windowEnd },
       lancamento: {
         tipo: "RECEITA",
+        ignorado: false,
         clienteId: { not: null },
         OR: [
           { notificarClienteVencimento: true },
@@ -197,7 +199,7 @@ async function fetchPendingParcelas(today: Date) {
             },
           },
           parcelas: {
-            where: { pago: false },
+            where: { pago: false, ignorado: false },
             select: { valor: true },
           },
         },

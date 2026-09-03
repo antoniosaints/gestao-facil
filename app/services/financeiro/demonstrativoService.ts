@@ -41,6 +41,7 @@ async function carregarParcelas(
 ): Promise<ParcelaDemonstrativo[]> {
   const registros = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ignorado: false,
       ...(filtros.contaFinanceiraId ? { contaFinanceira: filtros.contaFinanceiraId } : {}),
       OR: [
         { vencimento: { gte: janelaInicio, lte: janelaFim } },
@@ -48,6 +49,7 @@ async function carregarParcelas(
       ],
       lancamento: {
         contaId,
+        ignorado: false,
         ...(filtros.categoriaId ? { categoriaId: filtros.categoriaId } : {}),
         ...(filtros.clienteId ? { clienteId: filtros.clienteId } : {}),
       },

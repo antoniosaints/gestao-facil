@@ -185,6 +185,7 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
       select: {
         id: true,
         contasFinanceiroId: true,
+        ignorado: true,
         vendaId: true,
         parcelas: {
           select: { numero: true },
@@ -218,6 +219,7 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
         valor,
         vencimento,
         pago: false,
+        ignorado: lancamento.ignorado,
         formaPagamento: formaPagamento as any,
         lancamentoId,
         contaFinanceira: contaFinanceiraId,
@@ -837,6 +839,74 @@ export const updateLancamentoBasico = async (
   }
 };
 
+export const atualizarIgnoradoLancamento = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const lancamentoId = Number(req.params.id);
+    const ignorado = Boolean(req.body?.ignorado);
+
+    if (!Number.isInteger(lancamentoId) || lancamentoId <= 0) {
+      return res.status(400).json({ message: "Informe um lançamento válido." });
+    }
+
+    const lancamento = await prisma.lancamentoFinanceiro.findFirst({
+      where: { id: lancamentoId, contaId: customData.contaId },
+      select: { id: true, vendaId: true },
+    });
+
+    if (!lancamento) {
+      return res.status(404).json({ message: "Lançamento não encontrado." });
+    }
+
+    const parcelasAtualizadas = await prisma.$transaction(async (tx) => {
+      await tx.lancamentoFinanceiro.update({ where: { id: lancamentoId }, data: { ignorado } });
+      // A ação do lançamento é uma decisão global: propaga tanto ao ignorar
+      // quanto ao reativar, restaurando imediatamente os valores nos painéis.
+      const resultado = await tx.parcelaFinanceiro.updateMany({
+        where: { lancamentoId },
+        data: { ignorado },
+      });
+      return resultado.count;
+    });
+
+    await atualizarStatusLancamentos(customData.contaId);
+    const vendasAtualizadas = await syncVendasStatusByLancamentosFinanceiros(prisma, customData.contaId, [lancamentoId]);
+    if (vendasAtualizadas.length) {
+      sendVendasUpdateTable(customData.contaId, { reason: "financeiro-ignorado", vendaIds: vendasAtualizadas });
+    }
+    sendFinanceiroUpdated(customData.contaId, { reason: "lancamento-ignorado", lancamentoId, ignorado });
+
+    return ResponseHandler(res, ignorado ? "Lançamento ignorado nos cálculos." : "Lançamento reativado nos cálculos.", {
+      lancamentoId,
+      ignorado,
+      parcelasAtualizadas,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const atualizarIgnoradoParcela = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const parcelaId = Number(req.params.id);
+    const ignorado = Boolean(req.body?.ignorado);
+
+    const parcela = await prisma.parcelaFinanceiro.findFirst({
+      where: { id: parcelaId, lancamento: { contaId: customData.contaId } },
+      select: { id: true, lancamentoId: true },
+    });
+    if (!parcela) return res.status(404).json({ message: "Parcela não encontrada." });
+
+    await prisma.parcelaFinanceiro.update({ where: { id: parcelaId }, data: { ignorado } });
+    await atualizarStatusLancamentos(customData.contaId);
+    sendFinanceiroUpdated(customData.contaId, { reason: "parcela-ignorada", parcelaId, lancamentoId: parcela.lancamentoId, ignorado });
+    return ResponseHandler(res, ignorado ? "Parcela ignorada nos cálculos." : "Parcela reativada nos cálculos.", { parcelaId, ignorado });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 /** Alterna a natureza financeira sem recriar o lançamento nem suas parcelas. */
 export const converterTipoLancamento = async (
   req: Request,
@@ -1244,6 +1314,39 @@ function parseIdsDoLote(valor: unknown) {
   if (!Array.isArray(valor)) return [];
   return [...new Set(valor.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0))];
 }
+
+export const atualizarIgnoradoMultiplasParcelas = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const customData = getCustomRequest(req).customData;
+    const ids = parseIdsDoLote(req.body?.parcelas);
+    const ignorado = Boolean(req.body?.ignorado);
+
+    if (!ids.length) {
+      return res.status(400).json({ message: "Selecione ao menos uma parcela." });
+    }
+
+    const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
+    if (!parcelas.length) return res.status(404).json({ message: "Nenhuma parcela encontrada." });
+
+    const resultado = await prisma.parcelaFinanceiro.updateMany({
+      where: { id: { in: parcelas.map((parcela) => parcela.id) } },
+      data: { ignorado },
+    });
+
+    const lancamentoIds = [...new Set(parcelas.map((parcela) => parcela.lancamentoId))];
+    await propagarAtualizacaoParcelas(customData.contaId, lancamentoIds, {
+      reason: ignorado ? "parcelas-ignoradas-em-lote" : "parcelas-reativadas-em-lote",
+      total: parcelas.length,
+    });
+
+    return ResponseHandler(res, ignorado ? "Parcelas ignoradas nos cálculos." : "Parcelas reativadas nos cálculos.", {
+      atualizadas: resultado.count,
+      ignorado,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
 
 /**
  * Propaga status, vendas e sockets após uma operação em lote de parcelas.

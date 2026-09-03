@@ -102,9 +102,11 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
         // 4. Financeiro
         const parcelasFinanceiras = await prisma.parcelaFinanceiro.findMany({
             where: {
+                ignorado: false,
                 lancamento: {
                     clienteId: clienteId,
                     contaId: contaId,
+                    ignorado: false,
                 }
             },
             select: {

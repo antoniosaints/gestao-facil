@@ -14,6 +14,7 @@ import { assertTransferAllowed } from "../../services/financeiro/financeiroPolic
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { deleteStoredFile } from "../../services/uploads/fileStorageService";
 import { calcularSaldosAtuaisContas } from "../../services/financeiro/saldoContaFinanceiraService";
+import { clampPageSize, parsePage, sanitizeOrder } from "../../utils/pagination";
 
 const AJUSTE_SALDO_CATEGORIA = "Ajuste de saldo da conta";
 const TRANSFERENCIA_ENTRE_CONTAS_CATEGORIA = "Transferência entre contas";
@@ -328,6 +329,41 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
             },
         }));
 
+        // A tabela do modal reaproveita exatamente a mesma consulta dos cards,
+        // evitando divergência entre o resumo e as movimentações exibidas.
+        if (req.query.tabela === "true") {
+            const page = parsePage(req.query.page);
+            const pageSize = clampPageSize(req.query.pageSize);
+            const sortBy = typeof req.query.sortBy === "string" ? req.query.sortBy : "vencimento";
+            const direction = sanitizeOrder(req.query.order, "desc") === "asc" ? 1 : -1;
+            const valueForSort = (item: typeof movimentacoes[number]) => {
+                switch (sortBy) {
+                    case "descricao": return item.lancamento.descricao;
+                    case "tipo": return item.lancamento.tipo;
+                    case "status": return item.status;
+                    case "dataPagamento": return item.dataPagamento ? new Date(item.dataPagamento).getTime() : 0;
+                    case "pago": return item.pago ? 1 : 0;
+                    case "valor": return item.pago && item.valorPago !== null ? item.valorPago : item.valor;
+                    case "vencimento": return new Date(item.vencimento).getTime();
+                    default: return item.id;
+                }
+            };
+            movimentacoes.sort((a, b) => {
+                const va = valueForSort(a);
+                const vb = valueForSort(b);
+                if (typeof va === "string" && typeof vb === "string") return va.localeCompare(vb, "pt-BR") * direction;
+                return (Number(va) - Number(vb)) * direction;
+            });
+
+            return res.json({
+                data: movimentacoes.slice((page - 1) * pageSize, page * pageSize),
+                page,
+                pageSize,
+                total: movimentacoes.length,
+                totalPages: Math.max(1, Math.ceil(movimentacoes.length / pageSize)),
+            });
+        }
+
         return res.json({
             data: {
                 conta: {
@@ -362,6 +398,121 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
         handleError(res, error);
     }
 }
+
+/** Listagem paginada para o DataTable do modal de detalhes da conta. */
+export const tableMovimentacoesContaFinanceira = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { contaId } = getCustomRequest(req).customData;
+        const contaFinanceiraId = Number(req.params.id);
+        if (!Number.isInteger(contaFinanceiraId) || contaFinanceiraId <= 0) {
+            return res.status(400).json({ message: "Informe uma conta financeira válida." });
+        }
+
+        const conta = await prisma.contasFinanceiro.findFirst({
+            where: { id: contaFinanceiraId, contaId },
+            select: { id: true },
+        });
+        if (!conta) return res.status(404).json({ message: "Conta financeira não encontrada." });
+
+        const filters = parseFinanceiroFilters(req, { defaultRange: "current-month" });
+        const where = buildParcelaFinanceiroWhere(contaId, {
+            ...filters,
+            contaFinanceiraId,
+        }) as Prisma.ParcelaFinanceiroWhereInput;
+
+        if (filters.inicio || filters.fim) {
+            where.vencimento = {
+                ...(filters.inicio ? { gte: filters.inicio } : {}),
+                ...(filters.fim ? { lte: filters.fim } : {}),
+            };
+        }
+
+        const parcelas = await prisma.parcelaFinanceiro.findMany({
+            where,
+            select: {
+                id: true,
+                numero: true,
+                valor: true,
+                valorPago: true,
+                pago: true,
+                vencimento: true,
+                dataPagamento: true,
+                formaPagamento: true,
+                lancamento: {
+                    select: {
+                        id: true,
+                        Uid: true,
+                        descricao: true,
+                        tipo: true,
+                        formaPagamento: true,
+                        categoria: { select: { id: true, nome: true } },
+                        cliente: { select: { id: true, nome: true } },
+                    },
+                },
+            },
+            orderBy: [{ vencimento: "desc" }, { id: "desc" }],
+        });
+
+        const hoje = new Date();
+        const movimentacoes = parcelas
+            .filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje))
+            .map((parcela) => ({
+                id: parcela.id,
+                numero: parcela.numero,
+                valor: decimalToNumber(parcela.valor),
+                valorPago: parcela.pago && parcela.valorPago !== null ? decimalToNumber(parcela.valorPago) : null,
+                pago: parcela.pago,
+                status: getParcelaStatus(parcela, hoje),
+                vencimento: parcela.vencimento,
+                dataPagamento: parcela.dataPagamento,
+                formaPagamento: parcela.formaPagamento || parcela.lancamento.formaPagamento || null,
+                lancamento: {
+                    id: parcela.lancamento.id,
+                    Uid: parcela.lancamento.Uid,
+                    descricao: parcela.lancamento.descricao,
+                    tipo: parcela.lancamento.tipo,
+                    categoria: parcela.lancamento.categoria,
+                    cliente: parcela.lancamento.cliente,
+                },
+            }));
+
+        const sortBy = typeof req.query.sortBy === "string" ? req.query.sortBy : "vencimento";
+        const direction = sanitizeOrder(req.query.order, "desc") === "asc" ? 1 : -1;
+        const valueForSort = (item: typeof movimentacoes[number]) => {
+            switch (sortBy) {
+                case "descricao": return item.lancamento.descricao;
+                case "tipo": return item.lancamento.tipo;
+                case "status": return item.status;
+                case "dataPagamento": return item.dataPagamento ? new Date(item.dataPagamento).getTime() : 0;
+                case "pago": return item.pago ? 1 : 0;
+                case "valor": return item.pago && item.valorPago !== null ? item.valorPago : item.valor;
+                case "vencimento": return new Date(item.vencimento).getTime();
+                default: return item.id;
+            }
+        };
+
+        movimentacoes.sort((a, b) => {
+            const va = valueForSort(a);
+            const vb = valueForSort(b);
+            if (typeof va === "string" && typeof vb === "string") return va.localeCompare(vb, "pt-BR") * direction;
+            return (Number(va) - Number(vb)) * direction;
+        });
+
+        const page = parsePage(req.query.page);
+        const pageSize = clampPageSize(req.query.pageSize);
+        const total = movimentacoes.length;
+
+        return res.json({
+            data: movimentacoes.slice((page - 1) * pageSize, page * pageSize),
+            page,
+            pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        });
+    } catch (error) {
+        handleError(res, error);
+    }
+};
 
 function normalizeTransferMode(mode: unknown): "GERAR_FINANCEIRO" | "MOVER_LANCAMENTOS" {
     return mode === "MOVER_LANCAMENTOS" ? "MOVER_LANCAMENTOS" : "GERAR_FINANCEIRO";
