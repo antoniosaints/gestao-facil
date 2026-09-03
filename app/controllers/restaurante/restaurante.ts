@@ -30,6 +30,7 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { gerarSkuUnico } from "../../services/produtos/sku";
 import { reservarNumeroPedido } from "../../services/restaurante/orderNumber";
 import { normalizeRestaurantPhone } from "../../services/restaurante/customerAuth";
+import { findOpenRestaurantCash, RestaurantCashClosedError, requireOpenRestaurantCash } from "./caixa";
 
 const localizacaoSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
@@ -1046,11 +1047,14 @@ export async function transitionOrder(req: Request, res: Response) {
 
 export async function getOnlineOrderingStatus(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
-  const config = await prisma.restauranteConfig.findUnique({
+  const [config, caixa] = await Promise.all([
+    prisma.restauranteConfig.findUnique({
     where: { contaId },
     select: { aceitarPedidosOnline: true },
-  });
-  return ok(req, res, { aceitarPedidosOnline: config?.aceitarPedidosOnline ?? true });
+    }),
+    findOpenRestaurantCash(contaId),
+  ]);
+  return ok(req, res, { aceitarPedidosOnline: Boolean(config?.aceitarPedidosOnline && caixa) });
 }
 
 const onlineOrderingStatusSchema = z.object({ aceitarPedidosOnline: z.boolean() });
@@ -1059,6 +1063,9 @@ export async function saveOnlineOrderingStatus(req: Request, res: Response) {
   const parsed = onlineOrderingStatusSchema.safeParse(req.body);
   if (!parsed.success) return validationFailure(req, res, parsed.error);
   const { contaId } = getCustomRequest(req).customData;
+  if (parsed.data.aceitarPedidosOnline && !(await findOpenRestaurantCash(contaId))) {
+    return fail(req, res, 422, "restaurant_cash_closed", "Abra o caixa do Restaurante antes de abrir os pedidos online.");
+  }
   const config = await prisma.restauranteConfig.upsert({
     where: { contaId },
     // Este controle é independente das configurações gerais; assim, pausar ou
@@ -1134,7 +1141,10 @@ export async function publicMenu(req: Request, res: Response) {
     item.Produto.status === "ATIVO"
     && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
   ));
-  const atendimento = restaurantOnlineOrderingOpen(config);
+  const caixaAberto = await findOpenRestaurantCash(config.contaId);
+  const atendimento = caixaAberto
+    ? restaurantOnlineOrderingOpen(config)
+    : { aberto: false, mensagem: "Restaurante fechado no momento.", configurado: true };
   const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
   const customer = restaurantCustomer?.contaId === config.contaId
     ? await prisma.restauranteCliente.findFirst({ where: { id: restaurantCustomer.id, contaId: config.contaId }, select: { telefone: true } })
@@ -1208,6 +1218,8 @@ export async function createPublicOrder(req: Request, res: Response) {
   if (!parsed.success) return validationFailure(req, res, parsed.error);
   const config = await publicConfig(req.params.slug);
   if (!config) return fail(req, res, 404, "restaurant_not_found", "Cardapio indisponivel.");
+  const caixa = await findOpenRestaurantCash(config.contaId);
+  if (!caixa) return fail(req, res, 422, "restaurant_cash_closed", "O Restaurante está com o caixa fechado no momento.");
   const restaurantCustomer = (req as any).restaurantCustomer as { id: number; contaId: number } | null | undefined;
   // Um token de outro restaurante nunca é associado ao pedido deste tenant.
   let restauranteClienteId = restaurantCustomer?.contaId === config.contaId ? restaurantCustomer.id : null;
@@ -1336,6 +1348,7 @@ export async function createPublicOrder(req: Request, res: Response) {
       const order = await tx.restaurantePedido.create({
         data: {
           contaId: config.contaId,
+          restauranteCaixaId: caixa.id,
           codigo,
           origem: parsed.data.origem,
           pagamentoStatus: isPaymentOnDelivery(parsed.data.pagamento) ? "NA_ENTREGA" : "PENDENTE",
@@ -1719,6 +1732,15 @@ export async function createTableOrder(req: Request, res: Response) {
   const parsed = pedidoInternoSchema.safeParse(req.body);
   if (!parsed.success) return validationFailure(req, res, parsed.error);
   const { contaId, userId } = getCustomRequest(req).customData;
+  let caixa: { id: number };
+  try {
+    caixa = await requireOpenRestaurantCash(contaId);
+  } catch (error) {
+    if (error instanceof RestaurantCashClosedError) {
+      return fail(req, res, 422, error.code, error.message);
+    }
+    throw error;
+  }
   const sessionId = Number(req.params.id);
   const session = await prisma.restauranteSessaoMesa.findFirst({
     where: { id: sessionId, contaId, status: "ABERTA" },
@@ -1752,6 +1774,7 @@ export async function createTableOrder(req: Request, res: Response) {
       const created = await tx.restaurantePedido.create({
         data: {
           contaId,
+          restauranteCaixaId: caixa.id,
           codigo,
           origem: "MESA",
           status: "CONFIRMADO",
@@ -1829,6 +1852,15 @@ export async function createManualOrder(req: Request, res: Response) {
   const parsed = pedidoManualSchema.safeParse(req.body);
   if (!parsed.success) return validationFailure(req, res, parsed.error);
   const { contaId } = getCustomRequest(req).customData;
+  let caixa: { id: number };
+  try {
+    caixa = await requireOpenRestaurantCash(contaId);
+  } catch (error) {
+    if (error instanceof RestaurantCashClosedError) {
+      return fail(req, res, 422, error.code, error.message);
+    }
+    throw error;
+  }
   const config = await prisma.restauranteConfig.findUnique({ where: { contaId } });
   if (!config) return fail(req, res, 422, "restaurant_not_configured", "Configure o restaurante antes de lançar pedidos.");
   const customer = parsed.data.clienteId
@@ -1860,6 +1892,7 @@ export async function createManualOrder(req: Request, res: Response) {
       const created = await tx.restaurantePedido.create({
         data: {
           contaId,
+          restauranteCaixaId: caixa.id,
           codigo,
           origem: "RETIRADA",
           status: "CONFIRMADO",

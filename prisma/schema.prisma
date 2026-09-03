@@ -275,6 +275,8 @@ model Contas {
   metas                            Meta[]
   PdvPonto                         PdvPonto[]
   CaixaSessao                      CaixaSessao[]
+  RestauranteCaixas                RestauranteCaixaSessao[]
+  RestauranteCaixaMovimentos       RestauranteCaixaMovimento[]
   InformativoContas                InformativoConta[]
   InformativoLeituras              InformativoLeitura[]
   RelatosBug                       RelatoBug[]
@@ -1070,6 +1072,9 @@ model Usuarios {
   caixasFechados                  CaixaSessao[]                     @relation("CaixaFechadoPor")
   caixaOperadores                 CaixaOperador[]
   caixaMovimentos                 CaixaMovimento[]
+  restauranteCaixasAbertos        RestauranteCaixaSessao[]          @relation("RestauranteCaixaAbertoPor")
+  restauranteCaixasFechados       RestauranteCaixaSessao[]          @relation("RestauranteCaixaFechadoPor")
+  restauranteCaixaMovimentos      RestauranteCaixaMovimento[]
   InformativosCriados             InformativoSistema[]              @relation("InformativoCriador")
   InformativoLeituras             InformativoLeitura[]
   RelatosBugCriados               RelatoBug[]                       @relation("RelatoBugAutor")
@@ -1821,6 +1826,8 @@ model RestaurantePedido {
   producaoStatus            RestauranteProducaoStatus         @default(PENDENTE)
   pagamentoStatus           RestaurantePagamentoStatus        @default(PENDENTE)
   entregaStatus             RestauranteEntregaStatus          @default(NAO_APLICAVEL)
+  restauranteCaixaId        Int?
+  Caixa                     RestauranteCaixaSessao?           @relation(fields: [restauranteCaixaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   mesaId                    Int?
   Mesa                      RestauranteMesa?                  @relation(fields: [mesaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   comandaOperacaoId         Int?
@@ -1867,8 +1874,57 @@ model RestaurantePedido {
   @@unique([contaId, codigo])
   @@index([contaId, status, createdAt])
   @@index([contaId, producaoStatus, createdAt])
+  @@index([restauranteCaixaId])
   @@index([contaId, restauranteClienteId, createdAt], map: "RestaurantePedido_contaId_restauranteClienteId_createdAt_idx")
   @@index([sessaoMesaId, createdAt])
+}
+
+/// Caixa operacional exclusivo do Restaurante. Ele não compartilha sessões,
+/// valores ou relatórios com o PDV do módulo de Vendas.
+model RestauranteCaixaSessao {
+  id                   Int                       @id @default(autoincrement())
+  contaId              Int
+  Conta                Contas                    @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  codigo               String                    @unique @db.VarChar(30)
+  status               CaixaStatus               @default(ABERTO)
+  abertoPorId          Int
+  abertoPor            Usuarios                  @relation("RestauranteCaixaAbertoPor", fields: [abertoPorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fechadoPorId         Int?
+  fechadoPor           Usuarios?                 @relation("RestauranteCaixaFechadoPor", fields: [fechadoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  abertoEm             DateTime                  @default(now())
+  fechadoEm            DateTime?
+  saldoInicial         Decimal                   @default(0) @db.Decimal(10, 2)
+  saldoEsperado        Decimal                   @default(0) @db.Decimal(10, 2)
+  saldoContado         Decimal?                  @db.Decimal(10, 2)
+  diferenca            Decimal?                  @db.Decimal(10, 2)
+  fechamentoMetodos    Json?
+  observacaoAbertura   String?                   @db.Text
+  observacaoFechamento String?                   @db.Text
+  pedidos              RestaurantePedido[]
+  movimentos           RestauranteCaixaMovimento[]
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@index([contaId, status, abertoEm])
+  @@index([abertoPorId, status])
+}
+
+model RestauranteCaixaMovimento {
+  id               Int                    @id @default(autoincrement())
+  contaId          Int
+  Conta            Contas                 @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  caixaId          Int
+  Caixa            RestauranteCaixaSessao @relation(fields: [caixaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  usuarioId        Int
+  Usuario          Usuarios               @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipo             CaixaMovimentoTipo
+  metodoPagamento  String?                @db.VarChar(30)
+  valor            Decimal                @db.Decimal(10, 2)
+  descricao        String?                @db.Text
+  createdAt        DateTime               @default(now())
+
+  @@index([contaId, caixaId, tipo])
+  @@index([usuarioId])
 }
 
 /// Outbox durável das notificações ao cliente. O pedido só é marcado como notificado
