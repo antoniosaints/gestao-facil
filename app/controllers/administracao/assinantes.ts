@@ -461,6 +461,7 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
           valor: true,
           valorBasePlano: true,
           creditoIndicacao: true,
+          vip: true,
           codigoIndicacao: true,
           indicadoPorContaId: true,
           data: true,
@@ -544,6 +545,7 @@ export const tableAssinantesAdmin = async (req: Request, res: Response): Promise
         protegidaPorSuperAdmin: contaProtegidaPorSuperAdmin.has(conta.id),
         diasParaVencer,
         statusAssinatura: diasParaVencer < 0 ? "VENCIDA" : diasParaVencer === 0 ? "VENCE_HOJE" : "EM_DIA",
+        vipPagante: conta.vip,
         linkPagamentoPendente: conta.FaturasContas[0]?.urlPagamento || null,
       };
     });
@@ -569,6 +571,7 @@ const manageAssinanteSchema = z.object({
   telefone: z.string().trim().optional().nullable(),
   documento: z.string().trim().optional().nullable(),
   valorBasePlano: z.coerce.number().min(0, "Mensalidade inválida.").optional(),
+  vip: z.coerce.boolean().optional(),
   iaLimiteTokensMensal: z.coerce.number().int().nonnegative("Limite de IA inválido.").nullable().optional(),
 });
 
@@ -632,6 +635,7 @@ export const manageAssinanteAdmin = async (req: Request, res: Response): Promise
     if (body.email !== undefined) updateData.email = body.email;
     if (body.telefone !== undefined) updateData.telefone = body.telefone || null;
     if (body.documento !== undefined) updateData.documento = body.documento || null;
+    if (body.vip !== undefined) updateData.vip = body.vip;
 
     const valorBaseMudou =
       body.valorBasePlano !== undefined &&

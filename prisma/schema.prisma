@@ -220,6 +220,7 @@ model Contas {
   indicados                        Contas[]                           @relation("IndicacaoConta")
   indicacaoRecompensada            Boolean                            @default(false)
   creditoIndicacao                 Decimal                            @default(0) @db.Decimal(10, 2)
+  vip                              Boolean                            @default(false)
   indicacoesFeitas                 IndicacaoRecompensa[]              @relation("IndicadorRecompensa")
   indicacoesRecebidas              IndicacaoRecompensa[]              @relation("IndicadoRecompensa")
   createdAt                        DateTime                           @default(now())
