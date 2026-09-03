@@ -10,7 +10,7 @@ import { currentRestaurantAccess, listRestaurantUserRoles, saveRestaurantUserRol
 import { deleteFidelityProgram, fidelityOptions, getFidelityProgram, saveFidelityProgram } from "../../controllers/restaurante/loyalty";
 import { acceptDelivery, directDelivery, driverContext, driverDeliveryHistory, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
 import { restaurantDashboard } from "../../controllers/restaurante/dashboard";
-import { abrirRestaurantCash, fecharRestaurantCash, movimentarRestaurantCash, restaurantCashContext } from "../../controllers/restaurante/caixa";
+import { abrirRestaurantCash, fecharRestaurantCash, movimentarRestaurantCash, restaurantCashContext, restaurantCashReport } from "../../controllers/restaurante/caixa";
 import { requireRestauranteEntregador } from "../../middlewares/restauranteEntregador";
 
 export const routerRestaurante = Router();
@@ -44,6 +44,7 @@ routerRestaurante.post("/entregador/entregas/:pedidoId/localizacao", requireRest
 routerRestaurante.get("/acesso", requireRestauranteModule(), use(currentRestaurantAccess));
 routerRestaurante.get("/pedidos-online", requireRestauranteModule(), use(getOnlineOrderingStatus));
 routerRestaurante.put("/pedidos-online", requireRestauranteAccess("CONFIGURACOES_GERENCIAR"), use(saveOnlineOrderingStatus));
+routerRestaurante.get("/caixa", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(restaurantCashReport));
 routerRestaurante.get("/caixa/contexto", requireRestauranteAccess("PEDIDOS_OPERAR"), use(restaurantCashContext));
 routerRestaurante.post("/caixa/abrir", requireRestauranteAccess("PEDIDOS_OPERAR"), use(abrirRestaurantCash));
 routerRestaurante.post("/caixa/movimentos", requireRestauranteAccess("PEDIDOS_OPERAR"), use(movimentarRestaurantCash));

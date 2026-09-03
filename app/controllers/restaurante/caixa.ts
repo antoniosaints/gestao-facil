@@ -32,6 +32,14 @@ const fecharSchema = z.object({
     .optional(),
 });
 
+const relatorioQuerySchema = z.object({
+  inicio: z.string().datetime().optional(),
+  fim: z.string().datetime().optional(),
+  status: z.enum(["ABERTO", "FECHADO", "CANCELADO"]).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
 const cashInclude = {
   abertoPor: { select: { id: true, nome: true } },
   fechadoPor: { select: { id: true, nome: true } },
@@ -132,6 +140,55 @@ export async function restaurantCashContext(req: Request, res: Response) {
     include: cashInclude,
   });
   return success(res, serialize(caixa));
+}
+
+export async function restaurantCashReport(req: Request, res: Response) {
+  const parsed = relatorioQuerySchema.safeParse(req.query);
+  if (!parsed.success) return error(res, 422, "validation_error", "Informe filtros válidos para os caixas.");
+  const { contaId } = getCustomRequest(req).customData;
+  const inicio = parsed.data.inicio ? new Date(parsed.data.inicio) : undefined;
+  const fim = parsed.data.fim ? new Date(parsed.data.fim) : undefined;
+  if ((inicio && Number.isNaN(inicio.getTime())) || (fim && Number.isNaN(fim.getTime())) || (inicio && fim && inicio > fim)) {
+    return error(res, 422, "invalid_period", "Informe um período válido.");
+  }
+  const where = {
+    contaId,
+    ...(parsed.data.status ? { status: parsed.data.status } : {}),
+    ...(inicio || fim ? { abertoEm: { ...(inicio ? { gte: inicio } : {}), ...(fim ? { lte: fim } : {}) } } : {}),
+  } as const;
+  const caixas = await prisma.restauranteCaixaSessao.findMany({
+    where,
+    orderBy: { abertoEm: "desc" },
+    include: cashInclude,
+  });
+  const dados = caixas.map(serialize);
+  const total = dados.length;
+  const totalPages = Math.max(1, Math.ceil(total / parsed.data.limit));
+  const page = Math.min(parsed.data.page, totalPages);
+  const caixasPagina = dados.slice((page - 1) * parsed.data.limit, page * parsed.data.limit);
+  const resumo = dados.reduce(
+    (acc, item) => {
+      const caixa = item!.caixa;
+      acc.caixas += 1;
+      acc.pedidos += item!.resumo.pedidos;
+      acc.totalPedidos += item!.resumo.totalPedidos;
+      acc.totalReforcos += item!.resumo.totalReforcos;
+      acc.totalSangrias += item!.resumo.totalSangrias;
+      acc.diferenca += Number(caixa.diferenca || 0);
+      return acc;
+    },
+    { caixas: 0, pedidos: 0, totalPedidos: 0, totalReforcos: 0, totalSangrias: 0, diferenca: 0 },
+  );
+  return success(res, {
+    caixas: caixasPagina,
+    resumo,
+    pagination: {
+      page,
+      limit: parsed.data.limit,
+      total,
+      totalPages,
+    },
+  });
 }
 
 export async function abrirRestaurantCash(req: Request, res: Response) {
