@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
 import { prisma } from '../../utils/prisma'
 import { Prisma } from '../../../generated'
-import { parseFinanceiroFilters } from './queryFilters'
+import { applyIgnoredParcelaFilter, parseFinanceiroFilters } from './queryFilters'
 
 function buildLancamentoWhere(
   contaId: number,
@@ -21,6 +21,8 @@ function buildLancamentoWhere(
   if (filters.origem && filters.origem !== 'TODOS') {
     where.origemSistema = filters.origem
   }
+
+  applyIgnoredParcelaFilter(where, filters.ignorado)
 
   if (filters.contaFinanceiraId) {
     where.contasFinanceiroId = filters.contaFinanceiraId

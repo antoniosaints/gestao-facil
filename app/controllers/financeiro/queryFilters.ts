@@ -5,6 +5,7 @@ import type { Prisma } from "../../../generated";
 export type FinanceiroStatusFiltro = "TODOS" | "PAGO" | "PENDENTE" | "ATRASADO";
 export type FinanceiroTipoFiltro = "TODOS" | "RECEITA" | "DESPESA";
 export type FinanceiroOrigemFiltro = "TODOS" | "ASSINATURA_PAGAR";
+export type FinanceiroIgnoradoFiltro = "TODOS" | "COM_PARCELA_IGNORADA" | "SEM_PARCELA_IGNORADA";
 
 export type FinanceiroQueryFilters = {
   contaFinanceiraId?: number;
@@ -13,6 +14,7 @@ export type FinanceiroQueryFilters = {
   tipo: FinanceiroTipoFiltro;
   status: FinanceiroStatusFiltro;
   origem: FinanceiroOrigemFiltro;
+  ignorado: FinanceiroIgnoradoFiltro;
   search?: string;
   inicio?: Date;
   fim?: Date;
@@ -47,6 +49,11 @@ function parseOrigem(value: unknown): FinanceiroOrigemFiltro {
   return "TODOS";
 }
 
+function parseIgnorado(value: unknown): FinanceiroIgnoradoFiltro {
+  if (value === "COM_PARCELA_IGNORADA" || value === "SEM_PARCELA_IGNORADA") return value;
+  return "TODOS";
+}
+
 function parseDateValue(value: unknown): Date | undefined {
   if (typeof value !== "string" || !value.trim()) return undefined;
 
@@ -72,6 +79,7 @@ export function parseFinanceiroFilters(
     tipo: parseTipo(req.query.tipo),
     status: parseStatus(req.query.status),
     origem: parseOrigem(req.query.origem),
+    ignorado: parseIgnorado(req.query.ignorado),
     search: parseOptionalString(req.query.search),
     inicio: inicio
       ? startOfDay(inicio)
@@ -88,13 +96,14 @@ export function parseFinanceiroFilters(
 
 export function buildParcelaFinanceiroWhere(
   contaId: number,
-  filters: Pick<FinanceiroQueryFilters, "contaFinanceiraId" | "categoriaId" | "clienteId" | "tipo" | "search"> & { origem?: FinanceiroOrigemFiltro }
+  filters: Pick<FinanceiroQueryFilters, "contaFinanceiraId" | "categoriaId" | "clienteId" | "tipo" | "search"> & { origem?: FinanceiroOrigemFiltro },
+  options?: { incluirIgnoradas?: boolean },
 ): Prisma.ParcelaFinanceiroWhereInput {
   const where: Prisma.ParcelaFinanceiroWhereInput = {
-    ignorado: false,
+    ...(options?.incluirIgnoradas ? {} : { ignorado: false }),
     lancamento: {
       contaId,
-      ignorado: false,
+      ...(options?.incluirIgnoradas ? {} : { ignorado: false }),
     },
   };
 
@@ -135,6 +144,29 @@ export function buildParcelaFinanceiroWhere(
       { categoria: { nome: { contains: filters.search } } },
       { cliente: { nome: { contains: filters.search } } },
     ];
+  }
+
+  return where;
+}
+
+/** Mantém itens ignorados visíveis sem permitir que alterem saldos e totais. */
+export function isParcelaConsideradaNoResumo(parcela: {
+  ignorado?: boolean | null;
+  lancamento?: { ignorado?: boolean | null } | null;
+}) {
+  return !parcela.ignorado && !parcela.lancamento?.ignorado;
+}
+
+export function applyIgnoredParcelaFilter(
+  where: Prisma.LancamentoFinanceiroWhereInput,
+  filtro: FinanceiroIgnoradoFiltro,
+): Prisma.LancamentoFinanceiroWhereInput {
+  if (filtro === "COM_PARCELA_IGNORADA") {
+    where.parcelas = { some: { ignorado: true } };
+  }
+
+  if (filtro === "SEM_PARCELA_IGNORADA") {
+    where.parcelas = { none: { ignorado: true } };
   }
 
   return where;

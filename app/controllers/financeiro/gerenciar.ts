@@ -14,7 +14,7 @@ import {
   filtrarParcelasPorEscopo,
   type EscopoAtualizacaoParcela,
 } from "../../services/financeiro/lancamentoService";
-import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
+import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, isParcelaConsideradaNoResumo, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
 import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
 import {
@@ -345,12 +345,13 @@ export const getLancamentosMensal = async (
     );
 
     const parcelas = await prisma.parcelaFinanceiro.findMany({
-      where: buildParcelaFinanceiroWhere(customData.contaId, filters),
+      where: buildParcelaFinanceiroWhere(customData.contaId, filters, { incluirIgnoradas: true }),
       select: {
         id: true,
         numero: true,
         valor: true,
         pago: true,
+        ignorado: true,
         vencimento: true,
         dataPagamento: true,
         contaFinanceira: true,
@@ -371,6 +372,7 @@ export const getLancamentosMensal = async (
           select: {
             id: true,
             Uid: true,
+            ignorado: true,
             contasFinanceiroId: true,
             descricao: true,
             tipo: true,
@@ -399,12 +401,13 @@ export const getLancamentosMensal = async (
 
     const parcelasSaldo = saldoCompleto && filters.tipo !== "TODOS"
       ? await prisma.parcelaFinanceiro.findMany({
-        where: buildParcelaFinanceiroWhere(customData.contaId, filtersSaldo),
+        where: buildParcelaFinanceiroWhere(customData.contaId, filtersSaldo, { incluirIgnoradas: true }),
         select: {
           id: true,
           numero: true,
           valor: true,
           pago: true,
+          ignorado: true,
           vencimento: true,
           dataPagamento: true,
           contaFinanceira: true,
@@ -423,9 +426,10 @@ export const getLancamentosMensal = async (
           },
           lancamento: {
             select: {
-              id: true,
-              Uid: true,
-              descricao: true,
+            id: true,
+            Uid: true,
+            ignorado: true,
+            descricao: true,
               tipo: true,
               categoria: {
                 select: {
@@ -449,16 +453,21 @@ export const getLancamentosMensal = async (
     const hoje = startOfDay(new Date());
     const parcelasFiltradas = parcelas.filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje));
     const parcelasFiltradasSaldo = parcelasSaldo.filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje));
+    const parcelasParaResumo = parcelasFiltradas.filter(isParcelaConsideradaNoResumo);
+    const parcelasParaResumoSaldo = parcelasFiltradasSaldo.filter(isParcelaConsideradaNoResumo);
 
     const parcelasDoMes = parcelasFiltradas.filter(
       (parcela) => parcela.vencimento >= inicio && parcela.vencimento <= fim
     );
+    const parcelasDoMesParaResumo = parcelasParaResumo.filter(
+      (parcela) => parcela.vencimento >= inicio && parcela.vencimento <= fim
+    );
 
-    const saldoRealizadoInicial = saldoInicialTotal + parcelasFiltradasSaldo
+    const saldoRealizadoInicial = saldoInicialTotal + parcelasParaResumoSaldo
       .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento < inicio)
       .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
 
-    const saldoPrevistoInicial = saldoInicialTotal + parcelasFiltradasSaldo
+    const saldoPrevistoInicial = saldoInicialTotal + parcelasParaResumoSaldo
       .filter((parcela) => parcela.vencimento < inicio)
       .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
 
@@ -480,13 +489,14 @@ export const getLancamentosMensal = async (
 
       const valor = decimalToNumber(parcela.valor);
       const status = getParcelaStatus(parcela, hoje);
+      const consideradaNoResumo = isParcelaConsideradaNoResumo(parcela);
 
-      if (parcela.lancamento.tipo === "RECEITA") {
+      if (consideradaNoResumo && parcela.lancamento.tipo === "RECEITA") {
         acc[dia].entradasPrevistas += valor;
         if (parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim) {
           acc[dia].entradasRealizadas += valor;
         }
-      } else {
+      } else if (consideradaNoResumo) {
         acc[dia].saidasPrevistas += valor;
         if (parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim) {
           acc[dia].saidasRealizadas += valor;
@@ -512,6 +522,7 @@ export const getLancamentosMensal = async (
         dataPagamento: parcela.dataPagamento,
         formaPagamento: parcela.formaPagamento,
         cobrancaLink: parcela.CobrancasFinanceiras[0]?.externalLink || null,
+        ignorado: !consideradaNoResumo,
       });
 
       return acc;
@@ -542,6 +553,7 @@ export const getLancamentosMensal = async (
         dataPagamento: Date | null;
         formaPagamento: string | null;
         cobrancaLink: string | null;
+        ignorado: boolean;
       }>;
     }>);
 
@@ -552,19 +564,19 @@ export const getLancamentosMensal = async (
         const fimDia = new Date(inicioDia);
         fimDia.setHours(23, 59, 59, 999);
 
-        dia.entradasRealizadas = parcelasFiltradasSaldo
+        dia.entradasRealizadas = parcelasParaResumoSaldo
           .filter((parcela) => parcela.lancamento.tipo === "RECEITA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicioDia && parcela.dataPagamento <= fimDia)
           .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-        dia.saidasRealizadas = parcelasFiltradasSaldo
+        dia.saidasRealizadas = parcelasParaResumoSaldo
           .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicioDia && parcela.dataPagamento <= fimDia)
           .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-        const saldoRealizado = saldoRealizadoInicial + parcelasFiltradasSaldo
+        const saldoRealizado = saldoRealizadoInicial + parcelasParaResumoSaldo
           .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fimDia)
           .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
 
-        const saldoPrevisto = saldoPrevistoInicial + parcelasFiltradasSaldo
+        const saldoPrevisto = saldoPrevistoInicial + parcelasParaResumoSaldo
           .filter((parcela) => parcela.vencimento >= inicio && parcela.vencimento <= fimDia)
           .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
 
@@ -580,27 +592,27 @@ export const getLancamentosMensal = async (
         };
       });
 
-    const receitasPrevistas = parcelasDoMes
+    const receitasPrevistas = parcelasDoMesParaResumo
       .filter((parcela) => parcela.lancamento.tipo === "RECEITA")
       .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-    const despesasPrevistas = parcelasDoMes
+    const despesasPrevistas = parcelasDoMesParaResumo
       .filter((parcela) => parcela.lancamento.tipo === "DESPESA")
       .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-    const receitasRealizadas = parcelasFiltradas
+    const receitasRealizadas = parcelasParaResumo
       .filter((parcela) => parcela.lancamento.tipo === "RECEITA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim)
       .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-    const despesasRealizadas = parcelasFiltradas
+    const despesasRealizadas = parcelasParaResumo
       .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim)
       .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-    const pendenteReceber = parcelasDoMes
+    const pendenteReceber = parcelasDoMesParaResumo
       .filter((parcela) => parcela.lancamento.tipo === "RECEITA" && !parcela.pago)
       .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
-    const pendentePagar = parcelasDoMes
+    const pendentePagar = parcelasDoMesParaResumo
       .filter((parcela) => parcela.lancamento.tipo === "DESPESA" && !parcela.pago)
       .reduce((acc, parcela) => acc + decimalToNumber(parcela.valor), 0);
 
@@ -609,11 +621,11 @@ export const getLancamentosMensal = async (
         ? hoje
         : fim;
 
-    const saldoRealizadoReferencia = saldoRealizadoInicial + parcelasFiltradasSaldo
+    const saldoRealizadoReferencia = saldoRealizadoInicial + parcelasParaResumoSaldo
       .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= referenciaSaldo)
       .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
 
-    const saldoPrevistoReferencia = saldoPrevistoInicial + parcelasFiltradasSaldo
+    const saldoPrevistoReferencia = saldoPrevistoInicial + parcelasParaResumoSaldo
       .filter((parcela) => parcela.vencimento >= inicio && parcela.vencimento <= referenciaSaldo)
       .reduce((acc, parcela) => acc + (parcela.lancamento.tipo === "RECEITA" ? decimalToNumber(parcela.valor) : -decimalToNumber(parcela.valor)), 0);
 

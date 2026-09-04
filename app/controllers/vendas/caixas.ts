@@ -46,6 +46,7 @@ import { createComboVendaSaidas } from "../../services/combos/comboService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { createFiscalIntentForSale } from "../../services/notasFiscais/fiscalSaleService";
 import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
+import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -1061,13 +1062,27 @@ function buildCaixaResumo(caixa: any) {
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 10);
 
+  // `Vendas.valor` já é o valor líquido. Mantemos bruto e descontos explícitos
+  // para o gestor conseguir conciliar o que foi concedido no turno sem alterar
+  // o cálculo operacional da gaveta, que continua sendo feito no saldo esperado.
+  const totalVendido = caixa.vendas.reduce(
+    (acc: number, venda: any) => acc + decimalToNumber(venda.valor),
+    0
+  );
+  const totalDescontos = caixa.vendas.reduce(
+    (acc: number, venda: any) => acc + decimalToNumber(venda.desconto),
+    0
+  );
+
   return {
     caixa: formatCaixa({ ...caixa, movimentos: movimentosReportaveis }),
     resumo: {
-      totalVendido: caixa.vendas.reduce(
-        (acc: number, venda: any) => acc + decimalToNumber(venda.valor),
-        0
-      ),
+      totalVendido,
+      totalDescontos,
+      totalBruto: totalVendido + totalDescontos,
+      // Resultado do turno antes do fundo de troco: vendas líquidas, reforços
+      // e sangrias. Não deve ser confundido com o valor esperado na gaveta.
+      resultadoGeral: totalVendido + movimentos.totalReforcos - movimentos.totalSangrias,
       totalVendas: caixa.vendas.length,
       porMetodo,
       ...movimentos,
@@ -1100,12 +1115,20 @@ function getPaymentMethodLabel(method?: string | null) {
       return "Dinheiro";
     case "CARTAO":
       return "Cartão";
+    case "CREDITO":
+      return "Cartão de crédito";
+    case "DEBITO":
+      return "Cartão de débito";
     case "CREDIARIO":
       return "Crediário";
     case "PIX":
       return "PIX";
     case "BOLETO":
       return "Boleto";
+    case "CHEQUE":
+      return "Cheque";
+    case "GATEWAY":
+      return "Gateway";
     default:
       return method || "-";
   }
@@ -1146,6 +1169,49 @@ function drawPdfKeyValue(
     .fontSize(10)
     .fillColor("#111827")
     .text(value, x, y + 12, { width });
+}
+
+function drawPdfMetricCard(
+  doc: PDFKit.PDFDocument,
+  options: { x: number; y: number; width: number; title: string; value: string; subtitle: string; color?: string }
+) {
+  const height = 64;
+  doc
+    .roundedRect(options.x, options.y, options.width, height, 6)
+    .fillAndStroke("#ffffff", "#e5e7eb");
+  doc.rect(options.x, options.y, 4, height).fill(options.color || "#0f766e");
+  doc
+    .font("Roboto")
+    .fontSize(8)
+    .fillColor("#6b7280")
+    .text(options.title, options.x + 14, options.y + 11, { width: options.width - 24 });
+  doc
+    .font("Roboto-Bold")
+    .fontSize(13)
+    .fillColor("#111827")
+    .text(options.value, options.x + 14, options.y + 25, { width: options.width - 24 });
+  doc
+    .font("Roboto")
+    .fontSize(7.5)
+    .fillColor("#6b7280")
+    .text(options.subtitle, options.x + 14, options.y + 46, { width: options.width - 24, ellipsis: true });
+}
+
+function drawPdfFooter(doc: PDFKit.PDFDocument, empresa: string) {
+  const range = doc.bufferedPageRange();
+  for (let page = range.start; page < range.start + range.count; page += 1) {
+    doc.switchToPage(page);
+    const y = doc.page.height - 28;
+    doc
+      .font("Roboto")
+      .fontSize(7)
+      .fillColor("#9ca3af")
+      .text(empresa, doc.page.margins.left, y, { width: 230 });
+    doc.text(`Página ${page + 1} de ${range.count}`, doc.page.width - doc.page.margins.right - 110, y, {
+      width: 110,
+      align: "right",
+    });
+  }
 }
 
 function drawPdfTableHeader(
@@ -1203,46 +1269,51 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
       throw new Error("Informe o caixa.");
     }
 
-    const caixa = await prisma.caixaSessao.findFirstOrThrow({
-      where: {
-        id: caixaId,
-        contaId: customData.contaId,
-      },
-      include: {
-        pdv: true,
-        abertoPor: {
-          select: {
-            id: true,
-            nome: true,
-          },
+    const [conta, caixa] = await Promise.all([
+      prisma.contas.findUniqueOrThrow({
+        where: { id: customData.contaId },
+      }),
+      prisma.caixaSessao.findFirstOrThrow({
+        where: {
+          id: caixaId,
+          contaId: customData.contaId,
         },
-        fechadoPor: {
-          select: {
-            id: true,
-            nome: true,
+        include: {
+          pdv: true,
+          abertoPor: {
+            select: {
+              id: true,
+              nome: true,
+            },
           },
-        },
-        movimentos: {
-          orderBy: {
-            createdAt: "asc",
+          fechadoPor: {
+            select: {
+              id: true,
+              nome: true,
+            },
           },
-        },
-        vendas: {
-          include: {
-            PagamentoVendas: true,
-            ItensVendas: {
-              include: {
-                produto: true,
-                servico: true,
+          movimentos: {
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
+          vendas: {
+            include: {
+              PagamentoVendas: true,
+              ItensVendas: {
+                include: {
+                  produto: true,
+                  servico: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+    ]);
 
     const dados = buildCaixaResumo(caixa);
-    const doc = new PDFDocument({ size: "A4", margin: 42 });
+    const doc = new PDFDocument({ size: "A4", margin: 42, bufferPages: true });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -1254,19 +1325,32 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
     doc.registerFont("Roboto", "./public/fonts/Roboto-Regular.ttf");
     doc.registerFont("Roboto-Bold", "./public/fonts/Roboto-Bold.ttf");
 
+    const logoSource = await resolveRenderableImageSource(conta.profile);
+    doc.image(logoSource, 42, 34, { fit: [58, 58] });
     doc
       .font("Roboto-Bold")
-      .fontSize(18)
+      .fontSize(20)
       .fillColor("#111827")
-      .text("Relatório de Caixa PDV");
+      .text(conta.nomeFantasia || conta.nome, 114, 36, { width: 300 });
+    doc
+      .font("Roboto")
+      .fontSize(10)
+      .fillColor("#6b7280")
+      .text(conta.nome, 114, 61, { width: 300 })
+      .text(conta.documento || "Documento não informado", 114, 75, { width: 300 });
+
+    doc
+      .font("Roboto-Bold")
+      .fontSize(16)
+      .fillColor("#111827")
+      .text("Relatório de caixa", 42, 116);
     doc
       .font("Roboto")
       .fontSize(9)
       .fillColor("#6b7280")
-      .text(`Gerado em ${formatPdfDate(new Date())}`);
+      .text(`Caixa ${caixa.codigo} · Emitido em ${formatPdfDate(new Date())}`, 42, 138);
 
-    doc.moveDown(1);
-    const startY = doc.y;
+    const startY = 164;
     const colWidth = 165;
     drawPdfKeyValue(doc, "Caixa", caixa.codigo, 42, startY, colWidth);
     drawPdfKeyValue(doc, "Status", caixa.status, 220, startY, colWidth);
@@ -1278,15 +1362,15 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
 
     drawPdfSectionTitle(doc, "Resumo financeiro");
     const metricY = doc.y;
-    drawPdfKeyValue(doc, "Total vendido", formatCurrency(dados.resumo.totalVendido), 42, metricY, colWidth);
-    drawPdfKeyValue(doc, "Total de vendas", String(dados.resumo.totalVendas), 220, metricY, colWidth);
-    drawPdfKeyValue(doc, "Saldo inicial", formatCurrency(dados.resumo.saldoInicial), 398, metricY, 150);
-    drawPdfKeyValue(doc, "Saldo esperado", formatCurrency(dados.resumo.saldoEsperado), 42, metricY + 42, colWidth);
-    drawPdfKeyValue(doc, "Saldo contado", dados.resumo.saldoContado === null ? "-" : formatCurrency(dados.resumo.saldoContado || 0), 220, metricY + 42, colWidth);
-    drawPdfKeyValue(doc, "Diferença", formatCurrency(dados.resumo.diferenca || 0), 398, metricY + 42, 150);
-    drawPdfKeyValue(doc, "Sangrias", formatCurrency(dados.resumo.totalSangrias), 42, metricY + 84, colWidth);
-    drawPdfKeyValue(doc, "Reforços", formatCurrency(dados.resumo.totalReforcos), 220, metricY + 84, colWidth);
-    doc.y = metricY + 126;
+    const cardGap = 12;
+    const cardWidth = (doc.page.width - doc.page.margins.left - doc.page.margins.right - cardGap) / 2;
+    drawPdfMetricCard(doc, { x: 42, y: metricY, width: cardWidth, title: "Vendas brutas", value: formatCurrency(dados.resumo.totalBruto), subtitle: "Antes dos descontos" });
+    drawPdfMetricCard(doc, { x: 42 + cardWidth + cardGap, y: metricY, width: cardWidth, title: "Descontos aplicados", value: `- ${formatCurrency(dados.resumo.totalDescontos)}`, subtitle: "Concedidos nas vendas", color: "#e11d48" });
+    drawPdfMetricCard(doc, { x: 42, y: metricY + 76, width: cardWidth, title: "Vendas líquidas", value: formatCurrency(dados.resumo.totalVendido), subtitle: `${dados.resumo.totalVendas} venda(s) registrada(s)`, color: "#15803d" });
+    drawPdfMetricCard(doc, { x: 42 + cardWidth + cardGap, y: metricY + 76, width: cardWidth, title: "Resultado geral", value: formatCurrency(dados.resumo.resultadoGeral), subtitle: "Vendas + reforços − sangrias", color: "#2563eb" });
+    drawPdfMetricCard(doc, { x: 42, y: metricY + 152, width: cardWidth, title: "Reforços e sangrias", value: formatCurrency(dados.resumo.totalReforcos - dados.resumo.totalSangrias), subtitle: `+ ${formatCurrency(dados.resumo.totalReforcos)}  ·  - ${formatCurrency(dados.resumo.totalSangrias)}`, color: "#ca8a04" });
+    drawPdfMetricCard(doc, { x: 42 + cardWidth + cardGap, y: metricY + 152, width: cardWidth, title: "Conferência da gaveta", value: dados.resumo.saldoContado === null ? "Pendente" : formatCurrency(dados.resumo.diferenca || 0), subtitle: dados.resumo.saldoContado === null ? `Esperado: ${formatCurrency(dados.resumo.saldoEsperado)}` : `Esperado ${formatCurrency(dados.resumo.saldoEsperado)} · contado ${formatCurrency(dados.resumo.saldoContado)}`, color: "#7c3aed" });
+    doc.y = metricY + 228;
 
     drawPdfSectionTitle(doc, "Totais por método de pagamento");
     const metodoColumns = [
@@ -1361,6 +1445,7 @@ export async function gerarCaixaPdf(req: Request, res: Response) {
       });
     }
 
+    drawPdfFooter(doc, conta.nomeFantasia || conta.nome);
     doc.end();
   } catch (error) {
     handleError(res, error);
@@ -1489,6 +1574,9 @@ export async function relatorioCaixa(req: Request, res: Response) {
     const resumo = detalhados.reduce(
       (acc, item) => {
         acc.totalVendido += item.resumo.totalVendido;
+        acc.totalDescontos += item.resumo.totalDescontos;
+        acc.totalBruto += item.resumo.totalBruto;
+        acc.resultadoGeral += item.resumo.resultadoGeral;
         acc.totalVendas += item.resumo.totalVendas;
         acc.totalSangrias += item.resumo.totalSangrias;
         acc.totalReforcos += item.resumo.totalReforcos;
@@ -1514,6 +1602,9 @@ export async function relatorioCaixa(req: Request, res: Response) {
       },
       {
         totalVendido: 0,
+        totalDescontos: 0,
+        totalBruto: 0,
+        resultadoGeral: 0,
         totalVendas: 0,
         totalSangrias: 0,
         totalReforcos: 0,
@@ -1528,6 +1619,9 @@ export async function relatorioCaixa(req: Request, res: Response) {
       periodo: { inicio, fim },
       resumo: {
         totalVendido: resumo.totalVendido,
+        totalDescontos: resumo.totalDescontos,
+        totalBruto: resumo.totalBruto,
+        resultadoGeral: resumo.resultadoGeral,
         totalVendas: resumo.totalVendas,
         totalSangrias: resumo.totalSangrias,
         totalReforcos: resumo.totalReforcos,

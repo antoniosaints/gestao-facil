@@ -4,7 +4,7 @@ import { prisma } from '../../utils/prisma'
 import { Prisma } from '../../../generated'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
 import { isAccountOverdue } from '../../routers/web'
-import { parseFinanceiroFilters } from './queryFilters'
+import { applyIgnoredParcelaFilter, parseFinanceiroFilters } from './queryFilters'
 import { atualizarStatusLancamentos } from './hooks'
 
 function resolveSortField(value: unknown) {
@@ -55,6 +55,11 @@ function buildLancamentoWhere(
   if (filters.origem && filters.origem !== 'TODOS') {
     where.origemSistema = filters.origem
   }
+
+  // O estado de ignorado é operacionalmente definido nas parcelas. Assim, um
+  // lançamento entra no filtro assim que qualquer uma de suas parcelas tiver
+  // sido ignorada, mesmo que as demais ainda estejam ativas.
+  applyIgnoredParcelaFilter(where, filters.ignorado)
 
   if (filters.contaFinanceiraId) {
     where.contasFinanceiroId = filters.contaFinanceiraId
