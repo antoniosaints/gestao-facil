@@ -4,7 +4,7 @@ import { prisma } from '../../utils/prisma'
 import { Prisma } from '../../../generated'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
 import { isAccountOverdue } from '../../routers/web'
-import { applyIgnoredParcelaFilter, parseFinanceiroFilters } from './queryFilters'
+import { applyIgnoredParcelaFilter, applyTotalParcelasFilter, parseFinanceiroFilters } from './queryFilters'
 import { atualizarStatusLancamentos } from './hooks'
 
 function resolveSortField(value: unknown) {
@@ -116,7 +116,11 @@ export const tableFinanceiro = async (
   const sortBy = resolveSortField(req.query.sortBy)
   const order = resolveSortOrder(req.query.order)
 
-  const where = buildLancamentoWhere(customData.contaId, filters)
+  const where = await applyTotalParcelasFilter(
+    buildLancamentoWhere(customData.contaId, filters),
+    customData.contaId,
+    filters,
+  )
 
   const [total, data] = await Promise.all([
     prisma.lancamentoFinanceiro.count({ where }),

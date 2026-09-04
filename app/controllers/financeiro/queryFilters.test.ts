@@ -6,6 +6,7 @@ import {
   applyIgnoredParcelaFilter,
   buildParcelaFinanceiroWhere,
   isParcelaConsideradaNoResumo,
+  matchesTotalParcelasFilter,
   parseFinanceiroFilters,
 } from "./queryFilters";
 
@@ -36,4 +37,15 @@ test("permite listar parcelas ignoradas sem incluí-las nos resumos", () => {
   assert.equal(isParcelaConsideradaNoResumo({ ignorado: true }), false);
   assert.equal(isParcelaConsideradaNoResumo({ lancamento: { ignorado: true } }), false);
   assert.equal(isParcelaConsideradaNoResumo({ ignorado: false, lancamento: { ignorado: false } }), true);
+});
+
+test("interpreta o intervalo de valor e compara o total das parcelas", () => {
+  const filters = parseFinanceiroFilters({
+    query: { valorMinimo: "1.250,50", valorMaximo: "2000" },
+  } as unknown as Request);
+
+  assert.equal(filters.valorMinimo, 1250.5);
+  assert.equal(filters.valorMaximo, 2000);
+  assert.equal(matchesTotalParcelasFilter(1250.5, filters.valorMinimo, filters.valorMaximo), true);
+  assert.equal(matchesTotalParcelasFilter(2000.01, filters.valorMinimo, filters.valorMaximo), false);
 });

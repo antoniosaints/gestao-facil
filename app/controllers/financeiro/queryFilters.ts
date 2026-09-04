@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import type { Prisma } from "../../../generated";
+import { prisma } from "../../utils/prisma";
 
 export type FinanceiroStatusFiltro = "TODOS" | "PAGO" | "PENDENTE" | "ATRASADO";
 export type FinanceiroTipoFiltro = "TODOS" | "RECEITA" | "DESPESA";
@@ -18,6 +19,8 @@ export type FinanceiroQueryFilters = {
   search?: string;
   inicio?: Date;
   fim?: Date;
+  valorMinimo?: number;
+  valorMaximo?: number;
 };
 
 function parseOptionalNumber(value: unknown): number | undefined {
@@ -32,6 +35,18 @@ function parseOptionalString(value: unknown): string | undefined {
 
   const normalized = value.trim();
   return normalized.length ? normalized : undefined;
+}
+
+function parseOptionalAmount(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+
+  const rawValue = String(value).trim().replace(/\s/g, "");
+  const normalized = rawValue.includes(",") && rawValue.includes(".")
+    ? rawValue.replace(/\./g, "").replace(",", ".")
+    : rawValue.replace(",", ".");
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function parseTipo(value: unknown): FinanceiroTipoFiltro {
@@ -81,6 +96,8 @@ export function parseFinanceiroFilters(
     origem: parseOrigem(req.query.origem),
     ignorado: parseIgnorado(req.query.ignorado),
     search: parseOptionalString(req.query.search),
+    valorMinimo: parseOptionalAmount(req.query.valorMinimo),
+    valorMaximo: parseOptionalAmount(req.query.valorMaximo),
     inicio: inicio
       ? startOfDay(inicio)
       : currentMonthRange
@@ -168,6 +185,49 @@ export function applyIgnoredParcelaFilter(
   if (filtro === "SEM_PARCELA_IGNORADA") {
     where.parcelas = { none: { ignorado: true } };
   }
+
+  return where;
+}
+
+export function matchesTotalParcelasFilter(
+  total: number,
+  valorMinimo?: number,
+  valorMaximo?: number,
+) {
+  return (valorMinimo === undefined || total >= valorMinimo)
+    && (valorMaximo === undefined || total <= valorMaximo);
+}
+
+/**
+ * O total exibido de um lançamento é formado pelas parcelas. O filtro também
+ * usa essa soma, em vez de depender do campo denormalizado `valorTotal`.
+ */
+export async function applyTotalParcelasFilter(
+  where: Prisma.LancamentoFinanceiroWhereInput,
+  contaId: number,
+  filters: Pick<FinanceiroQueryFilters, "valorMinimo" | "valorMaximo">,
+): Promise<Prisma.LancamentoFinanceiroWhereInput> {
+  if (filters.valorMinimo === undefined && filters.valorMaximo === undefined) {
+    return where;
+  }
+
+  const totaisPorLancamento = await prisma.parcelaFinanceiro.groupBy({
+    by: ["lancamentoId"],
+    where: { lancamento: { contaId } },
+    _sum: { valor: true },
+  });
+  const lancamentoIds = totaisPorLancamento
+    .filter((item) => matchesTotalParcelasFilter(
+      decimalToNumber(item._sum.valor),
+      filters.valorMinimo,
+      filters.valorMaximo,
+    ))
+    .map((item) => item.lancamentoId);
+
+  where.AND = [
+    ...(where.AND ? Array.isArray(where.AND) ? where.AND : [where.AND] : []),
+    { id: { in: lancamentoIds } },
+  ];
 
   return where;
 }

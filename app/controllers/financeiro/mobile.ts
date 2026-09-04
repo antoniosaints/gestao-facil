@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { getCustomRequest } from '../../helpers/getCustomRequest'
 import { prisma } from '../../utils/prisma'
 import { Prisma } from '../../../generated'
-import { applyIgnoredParcelaFilter, parseFinanceiroFilters } from './queryFilters'
+import { applyIgnoredParcelaFilter, applyTotalParcelasFilter, parseFinanceiroFilters } from './queryFilters'
 
 function buildLancamentoWhere(
   contaId: number,
@@ -63,7 +63,11 @@ export const ListagemMobileLancamentos = async (req: Request, res: Response): Pr
 
   try {
     const filters = parseFinanceiroFilters(req)
-    const where = buildLancamentoWhere(customData.contaId, filters)
+    const where = await applyTotalParcelasFilter(
+      buildLancamentoWhere(customData.contaId, filters),
+      customData.contaId,
+      filters,
+    )
 
     const take = Number(limit)
     const skip = (Number(page) - 1) * take
