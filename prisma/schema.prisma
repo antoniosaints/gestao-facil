@@ -1339,6 +1339,7 @@ enum RestauranteEntregaStatus {
   EM_ROTA
   ENTREGUE
   FALHOU
+  CANCELADA
 }
 
 enum RestauranteTipoGrupoOpcao {
@@ -1996,6 +1997,7 @@ model RestauranteEntrega {
   emRotaAt     DateTime?
   entregueAt   DateTime?
   falhouAt     DateTime?
+  canceladaAt  DateTime?
   observacao   String?                         @db.Text
   createdAt    DateTime                        @default(now())
   updatedAt    DateTime                        @updatedAt

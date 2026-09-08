@@ -8,7 +8,7 @@ import { requireRestauranteAccess, requireRestauranteModule } from "../../middle
 import { listPrintJobs, listPrintRules, listPrintStations, regeneratePrintStationToken, reprintOrder, reprintProductionTicket, savePrintRule, savePrintStation, stationAckJob, stationClaimJobs, stationHeartbeat } from "../../controllers/restaurante/printing";
 import { currentRestaurantAccess, listRestaurantUserRoles, saveRestaurantUserRoles } from "../../controllers/restaurante/access";
 import { deleteFidelityProgram, fidelityOptions, getFidelityProgram, saveFidelityProgram } from "../../controllers/restaurante/loyalty";
-import { acceptDelivery, deliveryHistory, directDelivery, driverContext, driverDeliveryHistory, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
+import { acceptDelivery, cancelDelivery, deliveryHistory, directDelivery, driverContext, driverDeliveryHistory, listDeliveryDispatch, offerDelivery, publishDriverLocation, updateDeliveryStatus, updateDriverAvailability } from "../../controllers/restaurante/delivery";
 import { restaurantDashboard } from "../../controllers/restaurante/dashboard";
 import { abrirRestaurantCash, fecharRestaurantCash, movimentarRestaurantCash, restaurantCashContext, restaurantCashReport } from "../../controllers/restaurante/caixa";
 import { requireRestauranteEntregador } from "../../middlewares/restauranteEntregador";
@@ -102,6 +102,7 @@ routerRestaurante.get("/painel", requireRestauranteAccess("PEDIDOS_VISUALIZAR"),
 routerRestaurante.post("/pedidos/:id/transicao", requireRestauranteAccess("PEDIDOS_OPERAR"), use(transitionOrder));
 routerRestaurante.post("/pedidos/:id/imprimir", requireRestauranteAccess("IMPRESSAO_VISUALIZAR"), use(reprintOrder));
 routerRestaurante.get("/entregas/despacho", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(listDeliveryDispatch));
+routerRestaurante.post("/entregas/:pedidoId/cancelar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(cancelDelivery));
 routerRestaurante.get("/entregas/historico", requireRestauranteAccess("PEDIDOS_VISUALIZAR"), use(deliveryHistory));
 routerRestaurante.post("/entregas/:pedidoId/ofertar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(offerDelivery));
 routerRestaurante.post("/entregas/:pedidoId/direcionar", requireRestauranteAccess("PEDIDOS_OPERAR"), use(directDelivery));

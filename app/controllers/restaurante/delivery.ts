@@ -16,6 +16,7 @@ const locationSchema = z.object({
 const statusSchema = z.object({ status: z.enum(["RETIRADA", "EM_ROTA", "ENTREGUE", "FALHOU"]) });
 const directSchema = z.object({ entregadorId: z.coerce.number().int().positive() });
 const deliveryHistoryStatusSchema = z.enum(["TODAS", "ENTREGUE", "FALHOU"]);
+const cancellableDeliveryStatuses = ["AGUARDANDO_DESPACHO", "OFERTADA", "ATRIBUIDA", "RETIRADA", "EM_ROTA"] as const;
 
 function requestId(req: Request) { return String(req.headers["x-request-id"] || randomUUID()); }
 function ok(req: Request, res: Response, data: unknown, status = 200, meta?: unknown) {
@@ -36,17 +37,33 @@ export async function driverContext(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const driver = req.restauranteEntregador!;
   const [company, offers, active] = await Promise.all([
-    prisma.contas.findUnique({ where: { id: contaId }, select: { nome: true, nomeFantasia: true, profile: true, endereco: true, telefone: true } }),
+    prisma.contas.findUnique({
+      where: { id: contaId },
+      select: {
+        nome: true,
+        nomeFantasia: true,
+        profile: true,
+        endereco: true,
+        telefone: true,
+        ParametrosConta: { select: { temaPersonalizado: true }, take: 1 },
+      },
+    }),
     prisma.restaurantePedido.findMany({
-      where: { contaId, origem: "DELIVERY", entregaStatus: "OFERTADA", Entrega: { is: { entregadorId: null } } },
+      where: { contaId, origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] }, entregaStatus: "OFERTADA", Entrega: { is: { entregadorId: null } } },
       orderBy: { createdAt: "asc" }, take: 20, include: deliveryOrderInclude,
     }),
     prisma.restaurantePedido.findFirst({
-      where: { contaId, origem: "DELIVERY", entregaStatus: { in: ["ATRIBUIDA", "RETIRADA", "EM_ROTA"] }, Entrega: { is: { entregadorId: driver.id } } },
+      where: { contaId, origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] }, entregaStatus: { in: ["ATRIBUIDA", "RETIRADA", "EM_ROTA"] }, Entrega: { is: { entregadorId: driver.id } } },
       orderBy: { updatedAt: "desc" }, include: deliveryOrderInclude,
     }),
   ]);
-  return ok(req, res, { driver, empresa: company, ofertas: offers, entregaAtiva: active });
+  const empresa = company
+    ? (() => {
+        const { ParametrosConta, ...companyData } = company;
+        return { ...companyData, temaPersonalizado: ParametrosConta[0]?.temaPersonalizado ?? null };
+      })()
+    : null;
+  return ok(req, res, { driver, empresa, ofertas: offers, entregaAtiva: active });
 }
 
 /** Histórico pessoal do entregador autenticado. Nunca aceita ID de entregador pelo cliente. */
@@ -58,7 +75,7 @@ export async function driverDeliveryHistory(req: Request, res: Response) {
   const where = {
     contaId,
     origem: "DELIVERY" as const,
-    entregaStatus: { in: ["ENTREGUE", "FALHOU"] as ("ENTREGUE" | "FALHOU")[] },
+    entregaStatus: { in: ["ENTREGUE", "FALHOU", "CANCELADA"] as ("ENTREGUE" | "FALHOU" | "CANCELADA")[] },
     Entrega: { is: { entregadorId: driver.id } },
   };
   const [items, total] = await Promise.all([
@@ -89,11 +106,11 @@ export async function acceptDelivery(req: Request, res: Response) {
 
   const accepted = await prisma.$transaction(async (tx) => {
     const claimed = await tx.restauranteEntrega.updateMany({
-      where: { pedidoId, contaId, entregadorId: null, Pedido: { entregaStatus: "OFERTADA", origem: "DELIVERY" } },
+      where: { pedidoId, contaId, entregadorId: null, Pedido: { entregaStatus: "OFERTADA", origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] } } },
       data: { entregadorId: driver.id, atribuidaAt: new Date() },
     });
     if (!claimed.count) return null;
-    await tx.restaurantePedido.updateMany({ where: { id: pedidoId, contaId, entregaStatus: "OFERTADA" }, data: { entregaStatus: "ATRIBUIDA", version: { increment: 1 } } });
+    await tx.restaurantePedido.updateMany({ where: { id: pedidoId, contaId, status: { notIn: ["CANCELADO", "CONCLUIDO"] }, entregaStatus: "OFERTADA" }, data: { entregaStatus: "ATRIBUIDA", version: { increment: 1 } } });
     return tx.restaurantePedido.findFirst({ where: { id: pedidoId, contaId }, include: deliveryOrderInclude });
   });
   if (!accepted) return fail(req, res, 409, "delivery_unavailable", "Esta entrega ja foi aceita por outro entregador.");
@@ -102,13 +119,44 @@ export async function acceptDelivery(req: Request, res: Response) {
   return ok(req, res, accepted);
 }
 
+/** Encerra entregas ainda abertas de um pedido que já foi cancelado. */
+export async function cancelDelivery(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const pedidoId = Number(req.params.pedidoId);
+  if (!Number.isInteger(pedidoId) || pedidoId <= 0) return fail(req, res, 422, "invalid_order", "Pedido invalido.");
+
+  const now = new Date();
+  const cancelled = await prisma.$transaction(async (tx) => {
+    const changed = await tx.restaurantePedido.updateMany({
+      where: {
+        id: pedidoId,
+        contaId,
+        origem: "DELIVERY",
+        status: "CANCELADO",
+        entregaStatus: { in: [...cancellableDeliveryStatuses] },
+      },
+      data: { entregaStatus: "CANCELADA", version: { increment: 1 } },
+    });
+    if (!changed.count) return null;
+    await tx.restauranteEntrega.updateMany({
+      where: { pedidoId, contaId },
+      data: { canceladaAt: now },
+    });
+    return tx.restaurantePedido.findFirst({ where: { id: pedidoId, contaId }, include: deliveryOrderInclude });
+  });
+  if (!cancelled) return fail(req, res, 409, "delivery_not_cancellable", "Esta entrega não está aberta para cancelamento.");
+  sendRestaurantUpdate(contaId, "pedido", { pedidoId });
+  sendRestaurantPublicOrderUpdate(pedidoId, { pedidoId });
+  return ok(req, res, cancelled);
+}
+
 export async function updateDeliveryStatus(req: Request, res: Response) {
   const parsed = statusSchema.safeParse(req.body);
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Status de entrega invalido.", parsed.error.flatten());
   const { contaId } = getCustomRequest(req).customData;
   const driver = req.restauranteEntregador!;
   const pedidoId = Number(req.params.pedidoId);
-  const order = await prisma.restaurantePedido.findFirst({ where: { id: pedidoId, contaId }, include: { Entrega: true } });
+  const order = await prisma.restaurantePedido.findFirst({ where: { id: pedidoId, contaId, status: { notIn: ["CANCELADO", "CONCLUIDO"] } }, include: { Entrega: true } });
   if (!order || !isDeliveryOrder(order) || order.Entrega?.entregadorId !== driver.id) return fail(req, res, 404, "delivery_not_found", "Entrega nao encontrada para este entregador.");
   const allowed: Record<string, string[]> = { ATRIBUIDA: ["RETIRADA", "FALHOU"], RETIRADA: ["EM_ROTA", "FALHOU"], EM_ROTA: ["ENTREGUE", "FALHOU"] };
   if (!allowed[order.entregaStatus]?.includes(parsed.data.status)) return fail(req, res, 422, "invalid_delivery_transition", "Esta transicao de entrega nao e permitida.");
@@ -151,7 +199,7 @@ export async function publishDriverLocation(req: Request, res: Response) {
   const driver = req.restauranteEntregador!;
   const pedidoId = Number(req.params.pedidoId);
   const order = await prisma.restaurantePedido.findFirst({
-    where: { id: pedidoId, contaId, origem: "DELIVERY", entregaStatus: "EM_ROTA" },
+    where: { id: pedidoId, contaId, origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] }, entregaStatus: "EM_ROTA" },
     include: { Entrega: { include: { Entregador: { include: { Usuario: { select: { nome: true } } } } } } },
   });
   if (!order || order.Entrega?.entregadorId !== driver.id) return fail(req, res, 409, "location_not_allowed", "A localizacao so pode ser enviada durante a rota ativa.");
@@ -175,7 +223,7 @@ export async function publishDriverLocation(req: Request, res: Response) {
 export async function listDeliveryDispatch(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const [orders, drivers] = await Promise.all([
-    prisma.restaurantePedido.findMany({ where: { contaId, origem: "DELIVERY", entregaStatus: { in: ["AGUARDANDO_DESPACHO", "OFERTADA", "ATRIBUIDA", "RETIRADA", "EM_ROTA"] } }, orderBy: { createdAt: "desc" }, take: 100, include: deliveryOrderInclude }),
+    prisma.restaurantePedido.findMany({ where: { contaId, origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] }, entregaStatus: { in: ["AGUARDANDO_DESPACHO", "OFERTADA", "ATRIBUIDA", "RETIRADA", "EM_ROTA"] } }, orderBy: { createdAt: "desc" }, take: 100, include: deliveryOrderInclude }),
     prisma.restauranteEntregador.findMany({
       where: { contaId, ativo: true },
       include: { Usuario: { select: { id: true, nome: true, telefone: true } } },
@@ -328,7 +376,7 @@ export async function deliveryHistory(req: Request, res: Response) {
 export async function offerDelivery(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const pedidoId = Number(req.params.pedidoId);
-  const order = await prisma.restaurantePedido.findFirst({ where: { id: pedidoId, contaId, origem: "DELIVERY" } });
+  const order = await prisma.restaurantePedido.findFirst({ where: { id: pedidoId, contaId, origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] } } });
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido delivery nao encontrado.");
   if (order.entregaStatus !== "AGUARDANDO_DESPACHO") return fail(req, res, 422, "delivery_not_dispatchable", "Este pedido nao esta aguardando despacho.");
   const now = new Date();
@@ -348,7 +396,7 @@ export async function directDelivery(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const pedidoId = Number(req.params.pedidoId);
   const [order, driver] = await Promise.all([
-    prisma.restaurantePedido.findFirst({ where: { id: pedidoId, contaId, origem: "DELIVERY" } }),
+    prisma.restaurantePedido.findFirst({ where: { id: pedidoId, contaId, origem: "DELIVERY", status: { notIn: ["CANCELADO", "CONCLUIDO"] } } }),
     prisma.restauranteEntregador.findFirst({ where: { id: parsed.data.entregadorId, contaId, ativo: true } }),
   ]);
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido delivery nao encontrado.");

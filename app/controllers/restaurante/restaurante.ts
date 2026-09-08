@@ -272,6 +272,7 @@ const transitions: Record<string, string[]> = {
   CONCLUIDO: [],
   CANCELADO: [],
 };
+const cancellableDeliveryStatuses = new Set(["AGUARDANDO_DESPACHO", "OFERTADA", "ATRIBUIDA", "RETIRADA", "EM_ROTA"]);
 
 function hash(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -1004,12 +1005,19 @@ export async function transitionOrder(req: Request, res: Response) {
   const data: any = cancellation && !cancellation.cancelOrder
     ? { pagamentoStatus: cancellation.nextPaymentStatus, version: { increment: 1 } }
     : { status: nextStatus, version: { increment: 1 } };
+  const shouldCancelDelivery = Boolean(
+    nextStatus === "CANCELADO" &&
+      cancellation?.cancelOrder &&
+      order.origem === "DELIVERY" &&
+      cancellableDeliveryStatuses.has(order.entregaStatus),
+  );
   if (cancelledChargeId) data.pagamentoStatus = "FALHOU";
   if (nextStatus === "CONFIRMADO") data.confirmadoAt = new Date();
   if (nextStatus === "EM_PREPARO") { data.producaoStatus = "PREPARANDO"; data.emPreparoAt = new Date(); }
   if (nextStatus === "PRONTO") { data.producaoStatus = "PRONTO"; data.prontoAt = new Date(); }
   if (nextStatus === "CONCLUIDO") data.concluidoAt = new Date();
   if (nextStatus === "CANCELADO" && cancellation?.cancelOrder) data.canceladoAt = new Date();
+  if (shouldCancelDelivery) data.entregaStatus = "CANCELADA";
   let updated: any;
   let fidelityProgress: any = null;
   try {
@@ -1037,6 +1045,12 @@ export async function transitionOrder(req: Request, res: Response) {
         // mesmo saldo seja usado em dois pedidos abertos. Só a devolvemos
         // quando o cancelamento realmente encerra o pedido.
         await restoreReservedFidelityRewards(tx, contaId, order.clienteTelefone, order.fidelidadeRecompensasJson);
+      }
+      if (shouldCancelDelivery) {
+        await tx.restauranteEntrega.updateMany({
+          where: { pedidoId: order.id, contaId },
+          data: { canceladaAt: new Date() },
+        });
       }
       if (nextStatus === "CANCELADO" && cancellation?.returnStock) await returnRestaurantOrderStock(tx, contaId, order.id);
       if (cancelledChargeId) {
