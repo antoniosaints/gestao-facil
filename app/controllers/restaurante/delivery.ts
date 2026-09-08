@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { sendRestaurantDeliveryUpdate, sendRestaurantPublicOrderUpdate, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { enqueueRestaurantOrderWhatsApp } from "../../services/restaurante/whatsappNotifications";
+import { applyCompletedOrderFidelity } from "../../services/restaurante/loyalty";
 import { prisma } from "../../utils/prisma";
 
 const availabilitySchema = z.object({ disponivel: z.boolean() });
@@ -14,6 +15,7 @@ const locationSchema = z.object({
 });
 const statusSchema = z.object({ status: z.enum(["RETIRADA", "EM_ROTA", "ENTREGUE", "FALHOU"]) });
 const directSchema = z.object({ entregadorId: z.coerce.number().int().positive() });
+const deliveryHistoryStatusSchema = z.enum(["TODAS", "ENTREGUE", "FALHOU"]);
 
 function requestId(req: Request) { return String(req.headers["x-request-id"] || randomUUID()); }
 function ok(req: Request, res: Response, data: unknown, status = 200, meta?: unknown) {
@@ -56,7 +58,7 @@ export async function driverDeliveryHistory(req: Request, res: Response) {
   const where = {
     contaId,
     origem: "DELIVERY" as const,
-    entregaStatus: { in: ["ENTREGUE", "FALHOU"] },
+    entregaStatus: { in: ["ENTREGUE", "FALHOU"] as ("ENTREGUE" | "FALHOU")[] },
     Entrega: { is: { entregadorId: driver.id } },
   };
   const [items, total] = await Promise.all([
@@ -123,10 +125,15 @@ export async function updateDeliveryStatus(req: Request, res: Response) {
         entregaStatus: order.entregaStatus,
         ...(parsed.data.status === "RETIRADA" ? { status: "PRONTO" } : {}),
       },
-      data: { entregaStatus: parsed.data.status, version: { increment: 1 } },
+      data: {
+        entregaStatus: parsed.data.status,
+        version: { increment: 1 },
+        ...(parsed.data.status === "ENTREGUE" ? { status: "CONCLUIDO", concluidoAt: now } : {}),
+      },
     });
     if (!changed.count) return null;
     await tx.restauranteEntrega.update({ where: { id: order.Entrega!.id }, data: { [timeField]: now } });
+    if (parsed.data.status === "ENTREGUE") await applyCompletedOrderFidelity(tx, contaId, order.id);
     return tx.restaurantePedido.findFirst({ where: { id: order.id, contaId }, include: deliveryOrderInclude });
   });
   if (!updated) return fail(req, res, 409, "delivery_transition_conflict", "O pedido foi atualizado. Atualize a tela antes de confirmar a retirada.");
@@ -176,6 +183,146 @@ export async function listDeliveryDispatch(req: Request, res: Response) {
     }),
   ]);
   return ok(req, res, { pedidos: orders, entregadores: drivers });
+}
+
+function deliveryHistoryPeriod(req: Request) {
+  const now = new Date();
+  const fallbackStart = new Date(now);
+  fallbackStart.setDate(fallbackStart.getDate() - 29);
+  fallbackStart.setHours(0, 0, 0, 0);
+  const inicio = typeof req.query.inicio === "string" ? new Date(req.query.inicio) : fallbackStart;
+  const fim = typeof req.query.fim === "string" ? new Date(req.query.fim) : now;
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) || inicio > fim) return null;
+  if (fim.getTime() - inicio.getTime() > 366 * 24 * 60 * 60 * 1000) return null;
+  return { inicio, fim };
+}
+
+function average(values: Array<number | null>) {
+  const valid = values.filter((value): value is number => value !== null);
+  return valid.length ? Math.round((valid.reduce((total, value) => total + value, 0) / valid.length) * 10) / 10 : null;
+}
+
+function deliveryMinutes(start?: Date | null, end?: Date | null) {
+  if (!start || !end) return null;
+  const minutes = (end.getTime() - start.getTime()) / 60_000;
+  return minutes >= 0 ? minutes : null;
+}
+
+/** Histórico administrativo de entregas finalizadas, com resumo por entregador. */
+export async function deliveryHistory(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const period = deliveryHistoryPeriod(req);
+  if (!period) return fail(req, res, 422, "invalid_period", "Informe um período de até 366 dias.");
+  const statusParsed = deliveryHistoryStatusSchema.safeParse(req.query.situacao || "ENTREGUE");
+  if (!statusParsed.success) return fail(req, res, 422, "invalid_delivery_status", "Situação de entrega inválida.");
+  const driverIdRaw = typeof req.query.entregadorId === "string" ? Number(req.query.entregadorId) : null;
+  if (driverIdRaw !== null && (!Number.isInteger(driverIdRaw) || driverIdRaw <= 0))
+    return fail(req, res, 422, "invalid_driver", "Entregador inválido.");
+  if (driverIdRaw !== null) {
+    const driver = await prisma.restauranteEntregador.findFirst({ where: { id: driverIdRaw, contaId } });
+    if (!driver) return fail(req, res, 422, "driver_not_found", "Entregador não encontrado.");
+  }
+
+  const terminalFilters: Record<z.infer<typeof deliveryHistoryStatusSchema>, any[]> = {
+    ENTREGUE: [{ entregueAt: { gte: period.inicio, lte: period.fim }, Pedido: { origem: "DELIVERY", entregaStatus: "ENTREGUE" } }],
+    FALHOU: [{ falhouAt: { gte: period.inicio, lte: period.fim }, Pedido: { origem: "DELIVERY", entregaStatus: "FALHOU" } }],
+    TODAS: [
+      { entregueAt: { gte: period.inicio, lte: period.fim }, Pedido: { origem: "DELIVERY", entregaStatus: "ENTREGUE" } },
+      { falhouAt: { gte: period.inicio, lte: period.fim }, Pedido: { origem: "DELIVERY", entregaStatus: "FALHOU" } },
+    ],
+  };
+  const where: any = {
+    contaId,
+    ...(driverIdRaw !== null ? { entregadorId: driverIdRaw } : {}),
+    OR: terminalFilters[statusParsed.data],
+  };
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const include = {
+    Entregador: { include: { Usuario: { select: { nome: true } } } },
+    Pedido: {
+      select: {
+        id: true, codigo: true, clienteNomeSnapshot: true, total: true, status: true, entregaStatus: true, createdAt: true, concluidoAt: true,
+      },
+    },
+  } as const;
+  const [entries, allEntries, total, drivers] = await Promise.all([
+    prisma.restauranteEntrega.findMany({ where, include, skip: (page - 1) * limit, take: limit, orderBy: { updatedAt: "desc" } }),
+    prisma.restauranteEntrega.findMany({ where, include, orderBy: { updatedAt: "desc" } }),
+    prisma.restauranteEntrega.count({ where }),
+    prisma.restauranteEntregador.findMany({
+      where: { contaId },
+      select: { id: true, ativo: true, Usuario: { select: { nome: true } } },
+      orderBy: { Usuario: { nome: "asc" } },
+    }),
+  ]);
+
+  type DriverSummary = { id: number; nome: string; entregas: number; falhas: number; valor: number; tempos: Array<number | null> };
+  const byDriver = new Map<number, DriverSummary>();
+  let deliveries = 0;
+  let failures = 0;
+  let totalValue = 0;
+  for (const entry of allEntries) {
+    const driverId = entry.entregadorId || 0;
+    const driver: DriverSummary = byDriver.get(driverId) || {
+      id: driverId,
+      nome: entry.Entregador?.Usuario.nome || "Sem entregador",
+      entregas: 0,
+      falhas: 0,
+      valor: 0,
+      tempos: [],
+    };
+    if (entry.Pedido.entregaStatus === "ENTREGUE") {
+      const value = Number(entry.Pedido.total);
+      deliveries += 1;
+      totalValue += value;
+      driver.entregas += 1;
+      driver.valor += value;
+      driver.tempos.push(deliveryMinutes(entry.emRotaAt, entry.entregueAt));
+    } else {
+      failures += 1;
+      driver.falhas += 1;
+    }
+    byDriver.set(driverId, driver);
+  }
+  const driverSummary = [...byDriver.values()]
+    .map(({ tempos, ...driver }) => ({
+      ...driver,
+      valor: Math.round(driver.valor * 100) / 100,
+      ticketMedio: driver.entregas ? Math.round((driver.valor / driver.entregas) * 100) / 100 : 0,
+      tempoMedioEntregaMinutos: average(tempos),
+    }))
+    .sort((first, second) => second.entregas - first.entregas || second.valor - first.valor);
+  const deliveryTimes = allEntries
+    .filter((entry) => entry.Pedido.entregaStatus === "ENTREGUE")
+    .map((entry) => deliveryMinutes(entry.emRotaAt, entry.entregueAt));
+
+  return ok(req, res, {
+    periodo: { inicio: period.inicio.toISOString(), fim: period.fim.toISOString() },
+    resumo: {
+      entregas: deliveries,
+      falhas: failures,
+      valor: Math.round(totalValue * 100) / 100,
+      ticketMedio: deliveries ? Math.round((totalValue / deliveries) * 100) / 100 : 0,
+      tempoMedioEntregaMinutos: average(deliveryTimes),
+    },
+    entregadores: driverSummary,
+    pedidos: entries.map((entry) => ({
+      pedidoId: entry.Pedido.id,
+      codigo: entry.Pedido.codigo,
+      clienteNome: entry.Pedido.clienteNomeSnapshot,
+      total: entry.Pedido.total,
+      status: entry.Pedido.status,
+      entregaStatus: entry.Pedido.entregaStatus,
+      criadoEm: entry.Pedido.createdAt,
+      finalizadoEm: entry.entregueAt || entry.falhouAt,
+      entregador: entry.Entregador ? { id: entry.Entregador.id, nome: entry.Entregador.Usuario.nome } : null,
+      retiradaEm: entry.retiradaAt,
+      emRotaEm: entry.emRotaAt,
+    })),
+    filtros: { entregadores: drivers.map((driver) => ({ id: driver.id, nome: driver.Usuario.nome, ativo: driver.ativo })) },
+    meta: { page, pages: Math.ceil(total / limit), total },
+  });
 }
 
 export async function offerDelivery(req: Request, res: Response) {

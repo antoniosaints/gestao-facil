@@ -933,6 +933,24 @@ export async function listOrders(req: Request, res: Response) {
   return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit), localizacaoEmpresa: config?.localizacaoJson || null });
 }
 
+export async function getOrder(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
+
+  const order = await prisma.restaurantePedido.findFirst({
+    where: { id, contaId },
+    include: {
+      itens: true,
+      Mesa: true,
+      tickets: { select: { id: true, pontoId: true } },
+      Entrega: { include: { Entregador: { include: { Usuario: { select: { nome: true } } } } } },
+    },
+  });
+  if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
+  return ok(req, res, order);
+}
+
 export async function transitionOrder(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const nextStatus = String(req.body?.status || "");
@@ -1028,7 +1046,10 @@ export async function transitionOrder(req: Request, res: Response) {
         });
       }
       if (nextStatus === "CONCLUIDO") fidelityProgress = await applyCompletedOrderFidelity(tx, contaId, order.id);
-      return tx.restaurantePedido.findUnique({ where: { id: order.id }, include: { itens: true, Mesa: true, tickets: { select: { id: true } } } });
+      return tx.restaurantePedido.findUnique({
+        where: { id: order.id },
+        include: { itens: true, Mesa: true, tickets: { select: { id: true, pontoId: true } } },
+      });
     });
   } catch (error) {
     if (error instanceof CommerceError || error instanceof RestauranteEstoqueError) {
