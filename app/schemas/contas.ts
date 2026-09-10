@@ -215,6 +215,7 @@ export const updateParametrosContaSchema = z.object(
         radius: z.string().max(12).optional().nullable(),
         fonte: z.string().max(40).optional().nullable(),
         tamanhoFonte: z.enum(["100%", "112.5%", "125%", "137.5%"]).optional().nullable(),
+        bordaBadgeCell: z.boolean().optional().nullable(),
       })
       .optional()
       .nullable(),
