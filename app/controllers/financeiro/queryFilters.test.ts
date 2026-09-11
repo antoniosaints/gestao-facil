@@ -27,6 +27,26 @@ test("filtra lançamentos sem nenhuma parcela ignorada", () => {
   });
 });
 
+test("aceita lançamentos parcialmente pagos no filtro de status", () => {
+  const filters = parseFinanceiroFilters({
+    query: { status: "PARCIAL" },
+  } as unknown as Request);
+
+  assert.equal(filters.status, "PARCIAL");
+});
+
+test("interpreta os filtros de lançamentos parcelados e recorrentes", () => {
+  const parcelados = parseFinanceiroFilters({
+    query: { modalidade: "PARCELADOS" },
+  } as unknown as Request);
+  const recorrentes = parseFinanceiroFilters({
+    query: { modalidade: "RECORRENTES" },
+  } as unknown as Request);
+
+  assert.equal(parcelados.modalidade, "PARCELADOS");
+  assert.equal(recorrentes.modalidade, "RECORRENTES");
+});
+
 test("permite listar parcelas ignoradas sem incluí-las nos resumos", () => {
   const where = buildParcelaFinanceiroWhere(12, {
     tipo: "TODOS",

@@ -3,10 +3,11 @@ import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import type { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 
-export type FinanceiroStatusFiltro = "TODOS" | "PAGO" | "PENDENTE" | "ATRASADO";
+export type FinanceiroStatusFiltro = "TODOS" | "PAGO" | "PENDENTE" | "ATRASADO" | "PARCIAL";
 export type FinanceiroTipoFiltro = "TODOS" | "RECEITA" | "DESPESA";
 export type FinanceiroOrigemFiltro = "TODOS" | "ASSINATURA_PAGAR";
 export type FinanceiroIgnoradoFiltro = "TODOS" | "COM_PARCELA_IGNORADA" | "SEM_PARCELA_IGNORADA";
+export type FinanceiroModalidadeFiltro = "TODOS" | "PARCELADOS" | "RECORRENTES";
 
 export type FinanceiroQueryFilters = {
   contaFinanceiraId?: number;
@@ -16,6 +17,7 @@ export type FinanceiroQueryFilters = {
   status: FinanceiroStatusFiltro;
   origem: FinanceiroOrigemFiltro;
   ignorado: FinanceiroIgnoradoFiltro;
+  modalidade: FinanceiroModalidadeFiltro;
   search?: string;
   inicio?: Date;
   fim?: Date;
@@ -55,7 +57,7 @@ function parseTipo(value: unknown): FinanceiroTipoFiltro {
 }
 
 function parseStatus(value: unknown): FinanceiroStatusFiltro {
-  if (value === "PAGO" || value === "PENDENTE" || value === "ATRASADO") return value;
+  if (value === "PAGO" || value === "PENDENTE" || value === "ATRASADO" || value === "PARCIAL") return value;
   return "TODOS";
 }
 
@@ -66,6 +68,11 @@ function parseOrigem(value: unknown): FinanceiroOrigemFiltro {
 
 function parseIgnorado(value: unknown): FinanceiroIgnoradoFiltro {
   if (value === "COM_PARCELA_IGNORADA" || value === "SEM_PARCELA_IGNORADA") return value;
+  return "TODOS";
+}
+
+function parseModalidade(value: unknown): FinanceiroModalidadeFiltro {
+  if (value === "PARCELADOS" || value === "RECORRENTES") return value;
   return "TODOS";
 }
 
@@ -95,6 +102,7 @@ export function parseFinanceiroFilters(
     status: parseStatus(req.query.status),
     origem: parseOrigem(req.query.origem),
     ignorado: parseIgnorado(req.query.ignorado),
+    modalidade: parseModalidade(req.query.modalidade),
     search: parseOptionalString(req.query.search),
     valorMinimo: parseOptionalAmount(req.query.valorMinimo),
     valorMaximo: parseOptionalAmount(req.query.valorMaximo),

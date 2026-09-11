@@ -22,6 +22,15 @@ function buildLancamentoWhere(
     where.origemSistema = filters.origem
   }
 
+  if (filters.modalidade === 'PARCELADOS') {
+    where.recorrente = true
+    where.recorrencia = { is: null }
+  }
+
+  if (filters.modalidade === 'RECORRENTES') {
+    where.recorrencia = { isNot: null }
+  }
+
   applyIgnoredParcelaFilter(where, filters.ignorado)
 
   if (filters.contaFinanceiraId) {

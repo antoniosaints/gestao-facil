@@ -56,6 +56,15 @@ function buildLancamentoWhere(
     where.origemSistema = filters.origem
   }
 
+  if (filters.modalidade === 'PARCELADOS') {
+    where.recorrente = true
+    where.recorrencia = { is: null }
+  }
+
+  if (filters.modalidade === 'RECORRENTES') {
+    where.recorrencia = { isNot: null }
+  }
+
   // O estado de ignorado é operacionalmente definido nas parcelas. Assim, um
   // lançamento entra no filtro assim que qualquer uma de suas parcelas tiver
   // sido ignorada, mesmo que as demais ainda estejam ativas.

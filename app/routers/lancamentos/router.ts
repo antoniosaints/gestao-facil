@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import { adicionarParcela, atualizarIgnoradoLancamento, atualizarIgnoradoMultiplasParcelas, atualizarIgnoradoParcela, atualizarLancamentosEmMassa, converterTipoLancamento, criarLancamento, deletarLancamento, deletarMultiplasParcelas, deletarParcela, estornarMultiplasParcelas, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
+import { gerarCobrancaLancamentoPdf } from "../../controllers/financeiro/cobrancaPdf";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
 import { graficoByCategoria, graficoByContaFinanceira, graficoByStatus, graficoDespesasPorCategoria, graficoReceitaDespesaMensal, graficoSaldoMensal } from "../../controllers/financeiro/graficos";
 import { getDRELancamentos, getDRELancamentosPDF, getDRELancamentosPDFV2, getLancamentosPorCategoria, getLancamentosPorConta, getLancamentosPorPagamento, getLancamentosPorStatus, getLancamentosTotaisGerais, getMediaMensalLancamentos, getParcelasAtrasadas, getResumoPorCliente } from "../../controllers/financeiro/relatorios";
@@ -107,6 +108,7 @@ routerLancamentos.post("/:id/recorrencia/status", authenticateJWT, atualizarStat
 routerLancamentos.post("/:id/recorrencia/gerar", authenticateJWT, gerarProximaOcorrenciaRecorrencia);
 routerLancamentos.post("/:id/notificacao-vencimento", authenticateJWT, updateLancamentoNotificacaoVencimento);
 routerLancamentos.post("/:id/notificacao-cliente-vencimento", authenticateJWT, updateLancamentoNotificacaoClienteVencimento);
+routerLancamentos.post("/:id/cobranca-pdf", authenticateJWT, gerarCobrancaLancamentoPdf);
 routerLancamentos.get("/:id", authenticateJWT, getLacamento);
 routerLancamentos.delete("/:id", authenticateJWT, deletarLancamento);
 // graficos
