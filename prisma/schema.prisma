@@ -215,6 +215,7 @@ model Contas {
   asaasSubscriptionId              String?
   dicasNovidades                   Boolean?                           @default(false)
   codigoIndicacao                  String?                            @unique
+  dashboardLayoutPadrao            Json?
   indicadoPorContaId               Int?
   indicadoPorConta                 Contas?                            @relation("IndicacaoConta", fields: [indicadoPorContaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   indicados                        Contas[]                           @relation("IndicacaoConta")
@@ -1059,6 +1060,7 @@ model Usuarios {
   endereco                        String?
   status                          Status                            @default(ATIVO)
   ultimoLoginEm                   DateTime?
+  dashboardLayout                 Json?
   createdAt                       DateTime                          @default(now())
   updatedAt                       DateTime                          @updatedAt
   Subscription                    Subscription[]

@@ -3,6 +3,7 @@ import { checkAuth, login, renewToken, verify, verificarSenha } from "../control
 import { encerrarAcessoSuporte } from "../controllers/administracao/suporte";
 import { authenticateJWT } from "../middlewares/auth";
 import { resumoDashboard } from "../controllers/dashboard/resumo";
+import { getDashboardLayout, saveDashboardLayout, saveDefaultDashboardLayout } from "../controllers/dashboard/layout";
 import { webhookAsaasCheck } from "../controllers/asaas/webhook";
 import { webhookAbacatePay } from "../controllers/abacatepay/webhook";
 import { webhookMercadoPago, webhookMercadoPagoCobrancas } from "../controllers/mercadopago/webhook";
@@ -29,6 +30,9 @@ routerDefault.post("/api/login", authLimiter, login);
 routerDefault.post("/api/auth/recuperar-senha", authLimiter, recuperarSenha);
 routerDefault.post("/api/auth/redefinir-senha", authLimiter, redefinirSenha);
 routerDefault.get("/api/dashboard/resumo", authenticateJWT, resumoDashboard);
+routerDefault.get("/api/dashboard/layout", authenticateJWT, getDashboardLayout);
+routerDefault.put("/api/dashboard/layout", authenticateJWT, saveDashboardLayout);
+routerDefault.put("/api/dashboard/layout/default", authenticateJWT, saveDefaultDashboardLayout);
 routerDefault.get("/api/site/config", getPublicSiteConfig);
 
 routerDefault.get("/api/auth/check", authenticateJWT, checkAuth);
