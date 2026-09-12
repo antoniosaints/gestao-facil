@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { env } from "../../utils/dotenv";
+import { getRestaurantCashOrderNumber } from "./cashOrderNumber";
 
 export function hashPrintStationToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -375,7 +376,7 @@ async function buildJobContent(tx: any, ticketId: number, fullOrder: boolean, ui
     const order = ticket.Pedido;
     return {
       ticket,
-      content: renderCompleteOrderFromRecord(order, uid, paper, ticket.Ponto.nome),
+      content: renderCompleteOrderFromRecord({ ...order, codigo: await getRestaurantCashOrderNumber(tx, order) }, uid, paper, ticket.Ponto.nome),
     };
   }
   return {
@@ -384,7 +385,7 @@ async function buildJobContent(tx: any, ticketId: number, fullOrder: boolean, ui
       uid,
       paper,
       pointName: ticket.Ponto.nome,
-      orderCode: ticket.Pedido.codigo,
+      orderCode: await getRestaurantCashOrderNumber(tx, ticket.Pedido),
       origin: ticket.Pedido.origem,
       tableName: ticket.Pedido.Mesa?.nome,
       orderNote: ticket.Pedido.observacao,

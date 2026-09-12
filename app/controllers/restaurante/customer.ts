@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CommerceError } from "../../services/loja/commerceError";
 import { loginRestaurantCustomer, normalizeRestaurantPhone, registerRestaurantCustomer } from "../../services/restaurante/customerAuth";
 import { prisma } from "../../utils/prisma";
+import { withRestaurantCashOrderNumber } from "../../services/restaurante/cashOrderNumber";
 
 const password = z.string().min(8, "A senha deve ter pelo menos 8 caracteres").max(100).regex(/[A-Za-z]/, "A senha deve conter letra").regex(/\d/, "A senha deve conter número");
 const phone = z.string().trim().min(8).max(32).refine((value) => normalizeRestaurantPhone(value).length >= 10, "Informe um telefone válido");
@@ -56,14 +57,14 @@ export async function getRestaurantAccount(req: Request, res: Response) {
         pedidos: {
           orderBy: { createdAt: "desc" }, take: 50,
           select: {
-            codigo: true, origem: true, status: true, producaoStatus: true, pagamentoStatus: true, entregaStatus: true,
+            id: true, restauranteCaixaId: true, codigo: true, origem: true, status: true, producaoStatus: true, pagamentoStatus: true, entregaStatus: true,
             subtotal: true, frete: true, total: true, createdAt: true, updatedAt: true, concluidoAt: true, canceladoAt: true,
             itens: { orderBy: { id: "asc" }, select: { nomeSnapshot: true, quantidade: true, subtotalSnapshot: true, selecoesSnapshotJson: true } },
           },
         },
       },
     });
-    return res.json({ data: customer });
+    return res.json({ data: customer ? { ...customer, pedidos: await withRestaurantCashOrderNumber(prisma, customer.pedidos) } : customer });
   } catch (error) { return fail(res, error); }
 }
 

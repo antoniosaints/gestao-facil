@@ -11,6 +11,7 @@ import {
   enqueueTicketPrintJobs,
   hashPrintStationToken,
 } from "../../services/restaurante/printing";
+import { withRestaurantCashOrderNumber } from "../../services/restaurante/cashOrderNumber";
 import { prisma } from "../../utils/prisma";
 
 const stationSchema = z.object({
@@ -223,11 +224,18 @@ export async function listPrintJobs(req: Request, res: Response) {
     include: {
       Estacao: { select: { id: true, nome: true, impressoraNome: true } },
       Ponto: { select: { id: true, nome: true } },
-      Ticket: { select: { Pedido: { select: { codigo: true } } } },
-      Pedido: { select: { codigo: true } },
+      Ticket: { select: { Pedido: { select: { id: true, restauranteCaixaId: true, codigo: true } } } },
+      Pedido: { select: { id: true, restauranteCaixaId: true, codigo: true } },
     },
   });
-  return ok(req, res, jobs);
+  const pedidos = jobs.flatMap((job) => [job.Ticket?.Pedido, job.Pedido].filter(Boolean)) as Array<{ id: number; restauranteCaixaId: number | null; codigo: string }>;
+  const visuais = await withRestaurantCashOrderNumber(prisma, pedidos);
+  const codigoPorPedido = new Map(visuais.map((pedido) => [pedido.id, pedido.codigo]));
+  return ok(req, res, jobs.map((job) => ({
+    ...job,
+    Ticket: job.Ticket ? { ...job.Ticket, Pedido: { ...job.Ticket.Pedido, codigo: codigoPorPedido.get(job.Ticket.Pedido.id) || job.Ticket.Pedido.codigo } } : null,
+    Pedido: job.Pedido ? { ...job.Pedido, codigo: codigoPorPedido.get(job.Pedido.id) || job.Pedido.codigo } : null,
+  })));
 }
 
 export async function reprintProductionTicket(req: Request, res: Response) {

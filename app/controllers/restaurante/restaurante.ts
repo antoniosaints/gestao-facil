@@ -28,7 +28,7 @@ import { buildScopedUploadKey, deleteStoredFile, uploadPublicFile } from "../../
 import { downscaleImage } from "../../services/uploads/imageProcessingService";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { gerarSkuUnico } from "../../services/produtos/sku";
-import { reservarNumeroPedido } from "../../services/restaurante/orderNumber";
+import { withRestaurantCashOrderNumber } from "../../services/restaurante/cashOrderNumber";
 import { normalizeRestaurantPhone } from "../../services/restaurante/customerAuth";
 import { findOpenRestaurantCash, RestaurantCashClosedError, requireOpenRestaurantCash } from "./caixa";
 
@@ -278,7 +278,8 @@ function hash(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function createTableOrderCode() {
+// Identificador técnico único. O número que o cliente vê é calculado pelo caixa aberto.
+function createInternalOrderCode() {
   return `M${Date.now().toString(36).slice(-7).toUpperCase()}${randomBytes(2).toString("hex").toUpperCase()}`;
 }
 
@@ -305,7 +306,7 @@ async function reconcileSettledTableOrders(contaId: number) {
           producaoStatus: "ENTREGUE",
           concluidoAt: now,
           version: { increment: 1 },
-          ...( /^\d+$/.test(order.codigo) ? { codigo: createTableOrderCode() } : {}),
+          ...( /^\d+$/.test(order.codigo) ? { codigo: createInternalOrderCode() } : {}),
         },
       });
     }
@@ -931,7 +932,7 @@ export async function listOrders(req: Request, res: Response) {
     prisma.restaurantePedido.count({ where }),
     prisma.restauranteConfig.findUnique({ where: { contaId }, select: { localizacaoJson: true } }),
   ]);
-  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit), localizacaoEmpresa: config?.localizacaoJson || null });
+  return ok(req, res, await withRestaurantCashOrderNumber(prisma, items), 200, { page, limit, total, pages: Math.ceil(total / limit), localizacaoEmpresa: config?.localizacaoJson || null });
 }
 
 export async function getOrder(req: Request, res: Response) {
@@ -949,7 +950,7 @@ export async function getOrder(req: Request, res: Response) {
     },
   });
   if (!order) return fail(req, res, 404, "order_not_found", "Pedido nao encontrado.");
-  return ok(req, res, order);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [order]))[0]);
 }
 
 export async function transitionOrder(req: Request, res: Response) {
@@ -1077,7 +1078,7 @@ export async function transitionOrder(req: Request, res: Response) {
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
   notifyRestaurantOrderWhatsApp(order.id, restaurantWhatsAppEventsForOrder(updated));
   if (fidelityProgress) notifyRestaurantOrderWhatsApp(order.id, ["FIDELIDADE"]);
-  return ok(req, res, updated, cancellation?.httpStatus || 200);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [updated]))[0], cancellation?.httpStatus || 200);
 }
 
 export async function getOnlineOrderingStatus(req: Request, res: Response) {
@@ -1379,7 +1380,7 @@ export async function createPublicOrder(req: Request, res: Response) {
   let createdOrder = false;
   try {
     response = await prisma.$transaction(async (tx) => {
-      const codigo = await reservarNumeroPedido(tx, config.contaId);
+      const codigo = createInternalOrderCode();
       const order = await tx.restaurantePedido.create({
         data: {
           contaId: config.contaId,
@@ -1463,7 +1464,8 @@ export async function createPublicOrder(req: Request, res: Response) {
     } catch { /* O pedido não depende de Socket.IO. */ }
   }
   notifyRestaurantOrderWhatsApp(response.pedido.id, ["PEDIDO_FEITO"]);
-  return ok(req, res, response, 201);
+  const pedidoVisual = (await withRestaurantCashOrderNumber(prisma, [response.pedido]))[0];
+  return ok(req, res, { ...response, pedido: pedidoVisual }, 201);
 }
 
 export async function publicTracking(req: Request, res: Response) {
@@ -1474,6 +1476,7 @@ export async function publicTracking(req: Request, res: Response) {
       id: true,
       contaId: true,
       codigo: true,
+      restauranteCaixaId: true,
       origem: true,
       status: true,
       producaoStatus: true,
@@ -1556,7 +1559,8 @@ export async function publicTracking(req: Request, res: Response) {
     ? await restaurantPaymentAction(charge)
     : null;
   const podeCancelar = canCustomerCancelRestaurantOrder(order);
-  const { contaId: _contaId, tickets: _tickets, Entrega: _entrega, Cobrancas: _charges, ...publicOrder } = order;
+  const pedidoVisual = (await withRestaurantCashOrderNumber(prisma, [order]))[0];
+  const { contaId: _contaId, tickets: _tickets, Entrega: _entrega, Cobrancas: _charges, ...publicOrder } = pedidoVisual;
   return ok(req, res, { ...publicOrder, cardapioSlug: location?.slug || null, paymentAction, timeline, tempoMedioEsperaMinutos, tempoMedioBase: durations.length ? "historico" : "estimativa", acompanhamentoEntrega, podeCancelar });
 }
 
@@ -1805,7 +1809,7 @@ export async function createTableOrder(req: Request, res: Response) {
   let order: any;
   try {
     order = await prisma.$transaction(async (tx) => {
-      const codigo = createTableOrderCode();
+      const codigo = createInternalOrderCode();
       const created = await tx.restaurantePedido.create({
         data: {
           contaId,
@@ -1876,7 +1880,7 @@ export async function createTableOrder(req: Request, res: Response) {
   notifyRestaurant(contaId, "mesas", { mesaId: session.mesaId });
   notifyRestaurant(contaId, "kds", { pedidoId: order.id });
   notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
-  return ok(req, res, order, 201);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [order]))[0], 201);
 }
 
 /**
@@ -1923,7 +1927,7 @@ export async function createManualOrder(req: Request, res: Response) {
 
   try {
     const order = await prisma.$transaction(async (tx) => {
-      const codigo = await reservarNumeroPedido(tx, contaId);
+      const codigo = createInternalOrderCode();
       const created = await tx.restaurantePedido.create({
         data: {
           contaId,
@@ -1967,7 +1971,7 @@ export async function createManualOrder(req: Request, res: Response) {
     notifyRestaurant(contaId, "pedido", { pedidoId: order.id, reason: "manual-created" });
     notifyRestaurant(contaId, "kds", { pedidoId: order.id });
     notifyRestaurant(contaId, "impressao", { pedidoId: order.id });
-    return ok(req, res, order, 201);
+    return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [order]))[0], 201);
   } catch (error) {
     if (error instanceof ProductionRoutingMissingError) {
       return fail(req, res, 422, "production_route_missing", error.message);
@@ -2015,7 +2019,7 @@ export async function updateOrderCustomer(req: Request, res: Response) {
   if (!updated) return fail(req, res, 409, "version_conflict", "O pedido foi alterado em outra sessão. Atualize a tela antes de salvar.");
   notifyRestaurant(contaId, "pedido", { pedidoId: updated.id, reason: "customer-updated" });
   notifyRestaurant(contaId, "kds", { pedidoId: updated.id, reason: "customer-updated" });
-  return ok(req, res, updated);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [updated]))[0]);
 }
 
 export async function updateOrderItems(req: Request, res: Response) {
@@ -2114,7 +2118,7 @@ export async function updateOrderItems(req: Request, res: Response) {
     notifyRestaurant(contaId, "pedido", { pedidoId: updated.id, reason: "items-updated" });
     notifyRestaurant(contaId, "kds", { pedidoId: updated.id, reason: "items-updated" });
     notifyRestaurant(contaId, "impressao", { pedidoId: updated.id, reason: "items-updated" });
-    return ok(req, res, updated);
+    return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [updated]))[0]);
   } catch (error) {
     if (error instanceof ProductionRoutingMissingError) {
       return fail(req, res, 422, "production_route_missing", error.message);
@@ -2198,6 +2202,7 @@ export async function listKdsTickets(req: Request, res: Response) {
         select: {
           id: true,
           codigo: true,
+          restauranteCaixaId: true,
           origem: true,
           status: true,
           producaoStatus: true,
@@ -2223,7 +2228,9 @@ export async function listKdsTickets(req: Request, res: Response) {
       itens: { include: { PedidoItem: true } },
     },
   });
-  return ok(req, res, tickets);
+  const pedidosVisuais = await withRestaurantCashOrderNumber(prisma, tickets.map((ticket) => ticket.Pedido));
+  const pedidoPorId = new Map(pedidosVisuais.map((pedido) => [pedido.id, pedido]));
+  return ok(req, res, tickets.map((ticket) => ({ ...ticket, Pedido: pedidoPorId.get(ticket.Pedido.id) || ticket.Pedido })));
 }
 
 export async function transitionKdsTicket(req: Request, res: Response) {
@@ -2256,6 +2263,7 @@ export async function transitionKdsTicket(req: Request, res: Response) {
           select: {
             id: true,
             codigo: true,
+            restauranteCaixaId: true,
             origem: true,
             status: true,
             producaoStatus: true,
@@ -2286,5 +2294,6 @@ export async function transitionKdsTicket(req: Request, res: Response) {
   notifyRestaurant(contaId, "kds", { ticketId: ticket.id, pedidoId: ticket.pedidoId });
   notifyRestaurant(contaId, "pedido", { pedidoId: ticket.pedidoId });
   notifyRestaurantOrderWhatsApp(ticket.pedidoId, restaurantWhatsAppEventsForOrder(updated.Pedido));
-  return ok(req, res, updated);
+  const pedidoVisual = (await withRestaurantCashOrderNumber(prisma, [updated.Pedido]))[0];
+  return ok(req, res, { ...updated, Pedido: pedidoVisual });
 }

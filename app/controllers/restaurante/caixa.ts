@@ -13,7 +13,7 @@ const abrirSchema = z.object({
 const movimentoSchema = z.object({
   tipo: z.enum(["SANGRIA", "REFORCO"]),
   valor: z.coerce.number().positive().max(999999.99),
-  descricao: z.string().trim().max(2000).optional(),
+  descricao: z.string().trim().min(2, "Informe o motivo da movimentação.").max(2000),
 });
 
 const fecharSchema = z.object({
@@ -68,6 +68,13 @@ function number(value: Decimal | number | string | null | undefined) {
 
 function serialize(caixa: any) {
   if (!caixa) return null;
+  // `codigo` é um identificador interno. Para o caixa, a numeração é sempre recalculada
+  // pela ordem de criação dentro do próprio turno, sem gravar nenhuma sequência no pedido.
+  const numeroPedidoPorId = new Map(
+    [...caixa.pedidos]
+      .sort((a: any, b: any) => a.id - b.id)
+      .map((pedido: any, index: number) => [pedido.id, index + 1]),
+  );
   const pedidosValidos = caixa.pedidos.filter((pedido: any) => pedido.status !== "CANCELADO");
   const porMetodo = pedidosValidos.reduce((total: Record<string, number>, pedido: any) => {
     const metodo = String(pedido.pagamentoMetodoSnapshot || "NAO_INFORMADO");
@@ -97,7 +104,12 @@ function serialize(caixa: any) {
       saldoContado: caixa.saldoContado == null ? null : number(caixa.saldoContado),
       diferenca: caixa.diferenca == null ? null : number(caixa.diferenca),
       movimentos,
-      pedidos: caixa.pedidos.map((pedido: any) => ({ ...pedido, total: number(pedido.total) })),
+      pedidos: caixa.pedidos.map((pedido: any) => ({
+        ...pedido,
+        numeroPedido: numeroPedidoPorId.get(pedido.id),
+        codigo: String(numeroPedidoPorId.get(pedido.id) || pedido.id),
+        total: number(pedido.total),
+      })),
     },
     resumo,
   };
@@ -230,7 +242,7 @@ export async function abrirRestaurantCash(req: Request, res: Response) {
 
 export async function movimentarRestaurantCash(req: Request, res: Response) {
   const parsed = movimentoSchema.safeParse(req.body);
-  if (!parsed.success) return error(res, 422, "validation_error", "Informe uma sangria ou reforço válido.");
+  if (!parsed.success) return error(res, 422, "validation_error", "Informe valor e motivo da sangria ou reforço.");
   const { contaId, userId } = getCustomRequest(req).customData;
   const atual = await findOpenRestaurantCash(contaId);
   if (!atual) return error(res, 422, "restaurant_cash_closed", "Abra o caixa antes de registrar uma movimentação.");
@@ -252,7 +264,7 @@ export async function movimentarRestaurantCash(req: Request, res: Response) {
           usuarioId: userId,
           tipo: parsed.data.tipo,
           valor,
-          descricao: parsed.data.descricao || null,
+          descricao: parsed.data.descricao,
         },
       });
       return tx.restauranteCaixaSessao.findUniqueOrThrow({ where: { id: atual.id }, include: cashInclude });

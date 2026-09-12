@@ -5,6 +5,7 @@ import { contaHasActiveModule } from "../contas/storeModulesService";
 import { prisma } from "../../utils/prisma";
 import type { WhatsAppRestaurantMessageJobData } from "../notifications/whatsappNotificationQueueService";
 import { buildRestaurantWhatsAppTemplateValues, renderRestaurantWhatsAppTemplate } from "./whatsappNotificationTemplate";
+import { getRestaurantCashOrderNumber } from "./cashOrderNumber";
 
 export const RESTAURANT_WHATSAPP_EVENTS = [
   "PEDIDO_FEITO",
@@ -185,8 +186,10 @@ export async function enqueueRestaurantOrderWhatsApp(orderId: number, event: Res
       fidelityMessage = messages.join(" ");
     }
     const paymentUrl = order.Cobrancas[0]?.externalLink || null;
+    const numeroPedido = await getRestaurantCashOrderNumber(prisma, order);
     let message = renderRestaurantWhatsAppTemplate(definition.mensagem, buildRestaurantWhatsAppTemplateValues({
       ...order,
+      codigo: numeroPedido,
       empresa: order.Conta.nomeFantasia || order.Conta.nome,
       fidelidade: fidelityMessage,
       urlPagamento: paymentUrl,

@@ -5,6 +5,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { sendRestaurantDeliveryUpdate, sendRestaurantPublicOrderUpdate, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 import { enqueueRestaurantOrderWhatsApp } from "../../services/restaurante/whatsappNotifications";
 import { applyCompletedOrderFidelity } from "../../services/restaurante/loyalty";
+import { withRestaurantCashOrderNumber } from "../../services/restaurante/cashOrderNumber";
 import { prisma } from "../../utils/prisma";
 
 const availabilitySchema = z.object({ disponivel: z.boolean() });
@@ -63,7 +64,11 @@ export async function driverContext(req: Request, res: Response) {
         return { ...companyData, temaPersonalizado: ParametrosConta[0]?.temaPersonalizado ?? null };
       })()
     : null;
-  return ok(req, res, { driver, empresa, ofertas: offers, entregaAtiva: active });
+  const [ofertas, entregaAtiva] = await Promise.all([
+    withRestaurantCashOrderNumber(prisma, offers),
+    active ? withRestaurantCashOrderNumber(prisma, [active]).then(([pedido]) => pedido) : Promise.resolve(null),
+  ]);
+  return ok(req, res, { driver, empresa, ofertas, entregaAtiva });
 }
 
 /** Histórico pessoal do entregador autenticado. Nunca aceita ID de entregador pelo cliente. */
@@ -88,7 +93,7 @@ export async function driverDeliveryHistory(req: Request, res: Response) {
     }),
     prisma.restaurantePedido.count({ where }),
   ]);
-  return ok(req, res, items, 200, { page, limit, total, pages: Math.ceil(total / limit) });
+  return ok(req, res, await withRestaurantCashOrderNumber(prisma, items), 200, { page, limit, total, pages: Math.ceil(total / limit) });
 }
 
 export async function updateDriverAvailability(req: Request, res: Response) {
@@ -116,7 +121,7 @@ export async function acceptDelivery(req: Request, res: Response) {
   if (!accepted) return fail(req, res, 409, "delivery_unavailable", "Esta entrega ja foi aceita por outro entregador.");
   sendRestaurantUpdate(contaId, "pedido", { pedidoId });
   sendRestaurantPublicOrderUpdate(pedidoId, { pedidoId });
-  return ok(req, res, accepted);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [accepted]))[0]);
 }
 
 /** Encerra entregas ainda abertas de um pedido que já foi cancelado. */
@@ -147,7 +152,7 @@ export async function cancelDelivery(req: Request, res: Response) {
   if (!cancelled) return fail(req, res, 409, "delivery_not_cancellable", "Esta entrega não está aberta para cancelamento.");
   sendRestaurantUpdate(contaId, "pedido", { pedidoId });
   sendRestaurantPublicOrderUpdate(pedidoId, { pedidoId });
-  return ok(req, res, cancelled);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [cancelled]))[0]);
 }
 
 export async function updateDeliveryStatus(req: Request, res: Response) {
@@ -189,7 +194,7 @@ export async function updateDeliveryStatus(req: Request, res: Response) {
   sendRestaurantPublicOrderUpdate(pedidoId, { pedidoId });
   if (parsed.data.status === "EM_ROTA") void enqueueRestaurantOrderWhatsApp(pedidoId, "SAIU_ENTREGA");
   if (parsed.data.status === "ENTREGUE") void enqueueRestaurantOrderWhatsApp(pedidoId, "ENTREGUE");
-  return ok(req, res, updated);
+  return ok(req, res, (await withRestaurantCashOrderNumber(prisma, [updated]))[0]);
 }
 
 export async function publishDriverLocation(req: Request, res: Response) {
@@ -230,7 +235,7 @@ export async function listDeliveryDispatch(req: Request, res: Response) {
       orderBy: { Usuario: { nome: "asc" } },
     }),
   ]);
-  return ok(req, res, { pedidos: orders, entregadores: drivers });
+  return ok(req, res, { pedidos: await withRestaurantCashOrderNumber(prisma, orders), entregadores: drivers });
 }
 
 function deliveryHistoryPeriod(req: Request) {
@@ -290,7 +295,7 @@ export async function deliveryHistory(req: Request, res: Response) {
     Entregador: { include: { Usuario: { select: { nome: true } } } },
     Pedido: {
       select: {
-        id: true, codigo: true, clienteNomeSnapshot: true, total: true, status: true, entregaStatus: true, createdAt: true, concluidoAt: true,
+        id: true, restauranteCaixaId: true, codigo: true, clienteNomeSnapshot: true, total: true, status: true, entregaStatus: true, createdAt: true, concluidoAt: true,
       },
     },
   } as const;
@@ -345,6 +350,8 @@ export async function deliveryHistory(req: Request, res: Response) {
     .filter((entry) => entry.Pedido.entregaStatus === "ENTREGUE")
     .map((entry) => deliveryMinutes(entry.emRotaAt, entry.entregueAt));
 
+  const pedidosVisuais = await withRestaurantCashOrderNumber(prisma, entries.map((entry) => entry.Pedido));
+  const codigoPorPedido = new Map(pedidosVisuais.map((pedido) => [pedido.id, pedido.codigo]));
   return ok(req, res, {
     periodo: { inicio: period.inicio.toISOString(), fim: period.fim.toISOString() },
     resumo: {
@@ -357,7 +364,7 @@ export async function deliveryHistory(req: Request, res: Response) {
     entregadores: driverSummary,
     pedidos: entries.map((entry) => ({
       pedidoId: entry.Pedido.id,
-      codigo: entry.Pedido.codigo,
+      codigo: codigoPorPedido.get(entry.Pedido.id) || entry.Pedido.codigo,
       clienteNome: entry.Pedido.clienteNomeSnapshot,
       total: entry.Pedido.total,
       status: entry.Pedido.status,

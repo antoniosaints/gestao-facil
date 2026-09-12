@@ -6,7 +6,7 @@ import { contaHasActiveModule } from "../contas/storeModulesService";
 import { calculatePublicCheckout, CheckoutError } from "../../controllers/restaurante/restaurante";
 import { createRestaurantOnlinePayment, cancelRestaurantPendingPixPayment } from "../restaurante/payment";
 import { availableFidelityRewards, currentFidelityForPhone } from "../restaurante/loyalty";
-import { reservarNumeroPedido } from "../restaurante/orderNumber";
+import { withRestaurantCashOrderNumber } from "../restaurante/cashOrderNumber";
 import { enqueueRestaurantOrderWhatsApp } from "../restaurante/whatsappNotifications";
 import { sendRestaurantPublicOrderUpdate, sendRestaurantPublicSale, sendRestaurantUpdate } from "../../hooks/restaurante/socket";
 
@@ -23,6 +23,7 @@ const assistantOrderSchema = z.object({
 });
 
 function hash(value: string) { return createHash("sha256").update(value).digest("hex"); }
+function createInternalOrderCode() { return `M${Date.now().toString(36).slice(-7).toUpperCase()}${randomBytes(2).toString("hex").toUpperCase()}`; }
 
 export type RestaurantAssistantContext = { prompt: string; open: boolean } | null;
 
@@ -59,6 +60,12 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
   const input = assistantOrderSchema.parse(params.draft);
   const config = await prisma.restauranteConfig.findFirst({ where: { contaId: params.contaId, ativo: true } });
   if (!config) throw new Error("O cardápio do restaurante está indisponível.");
+  const caixa = await prisma.restauranteCaixaSessao.findFirst({
+    where: { contaId: params.contaId, status: "ABERTO" },
+    orderBy: { abertoEm: "desc" },
+    select: { id: true },
+  });
+  if (!caixa) throw new Error("Abra o caixa do Restaurante antes de registrar pedidos.");
   if (input.pagamento === "NA_ENTREGA" && !config.pagamentoNaEntregaAtivo) throw new Error("O pagamento na retirada ou entrega está indisponível.");
   if (input.pagamento === "PIX" && !config.pagamentoOnlineAtivo) throw new Error("O pagamento por Pix está indisponível.");
   let quote: Awaited<ReturnType<typeof calculatePublicCheckout>>;
@@ -82,9 +89,9 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
   if (!response) {
     const trackingToken = randomBytes(32).toString("base64url");
     response = await prisma.$transaction(async (tx) => {
-      const codigo = await reservarNumeroPedido(tx, params.contaId);
+      const codigo = createInternalOrderCode();
       const pedido = await tx.restaurantePedido.create({ data: {
-        contaId: params.contaId, codigo, origem: input.origem, pagamentoStatus: input.pagamento === "PIX" ? "PENDENTE" : "NA_ENTREGA", pagamentoMetodoSnapshot: input.pagamento,
+        contaId: params.contaId, restauranteCaixaId: caixa.id, codigo, origem: input.origem, pagamentoStatus: input.pagamento === "PIX" ? "PENDENTE" : "NA_ENTREGA", pagamentoMetodoSnapshot: input.pagamento,
         entregaStatus: input.origem === "DELIVERY" ? "AGUARDANDO_DESPACHO" : "NAO_APLICAVEL", clienteNomeSnapshot: input.cliente.nome, clienteTelefone: input.cliente.telefone, clienteEmail: input.cliente.email,
         enderecoSnapshotJson: input.endereco as any, zonaEntregaSnapshotJson: quote.zone as any, subtotal: quote.subtotal, frete: quote.frete, desconto: (quote as any).desconto || 0, total: quote.total, observacao: input.observacao, trackingTokenHash: hash(trackingToken), fidelidadeRecompensasJson: fidelityRewards.map((reward) => reward.program.id) as any,
         itens: { create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({ catalogoItemId: item.id, produtoId: item.produtoId, quantidade: requested.quantidade, nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardápio", precoUnitarioSnapshot: unit, subtotalSnapshot: line, tamanhoSnapshot: requested.tamanho, selecoesSnapshotJson: selections as any, regraPrecoSnapshot: item.regraPrecoSabores, observacao: requested.observacao })) },
@@ -129,5 +136,5 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
     const first = response.pedido.itens[0]; if (first?.nomeSnapshot) sendRestaurantPublicSale(config.slug, { cliente: input.cliente.nome.split(/\s+/)[0] || "Cliente", produto: first.nomeSnapshot });
     void enqueueRestaurantOrderWhatsApp(response.pedido.id, "PEDIDO_FEITO");
   }
-  return response;
+  return { ...response, pedido: (await withRestaurantCashOrderNumber(prisma, [response.pedido]))[0] };
 }
