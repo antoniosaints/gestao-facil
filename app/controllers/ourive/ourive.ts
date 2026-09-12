@@ -63,9 +63,12 @@ async function settleOuriveRevenue(
   });
 }
 const stockUnitsForMaterial = (
-  _unidade: "QUANTIDADE" | "PESO",
+  unidade: "QUANTIDADE" | "PESO",
   medida: Decimal.Value,
-) => new Decimal(medida).toDecimalPlaces(0).toNumber();
+) =>
+  new Decimal(medida)
+    .toDecimalPlaces(unidade === "PESO" ? 3 : 0)
+    .toNumber();
 const measureFromStockUnits = (
   _unidade: "QUANTIDADE" | "PESO",
   quantidade: Decimal.Value,
@@ -123,6 +126,7 @@ const orderSchema = z.object({
   observacoes: z.string().max(5000).optional(),
   prazoPrevisto: z.coerce.date().optional(),
   valorMaoObra: z.coerce.number().nonnegative().max(99_999_999).optional(),
+  responsavelIds: z.array(z.coerce.number().int().positive()).max(100).default([]),
   pecas: z
     .array(
       z.object({
@@ -142,7 +146,23 @@ const orderSchema = z.object({
           .default([]),
       }),
     )
-    .min(1),
+    .default([]),
+}).superRefine((data, context) => {
+  if (data.tipo === "ENCOMENDA" && !data.pecas.length)
+    context.addIssue({
+      code: z.ZodIssueCode.too_small,
+      minimum: 1,
+      inclusive: true,
+      type: "array",
+      path: ["pecas"],
+      message: "Inclua ao menos um item da encomenda.",
+    });
+  if (data.tipo === "CONSERTO" && data.valorMaoObra === undefined)
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["valorMaoObra"],
+      message: "Informe o valor da mão de obra do serviço.",
+    });
 });
 const presetSchema = z.object({
   tipo: z.enum(["PECA", "METAL", "ETAPA"]),
@@ -244,14 +264,18 @@ async function canAccessOrder(custom: ReturnType<typeof own>, orderId: number) {
     where: { usuarioId: custom.userId },
     select: { etapaId: true },
   });
-  return Boolean(
-    await db.ouriveEtapa.findFirst({
+  const [stage, directAssignment] = await Promise.all([
+    db.ouriveEtapa.findFirst({
       where: {
         id: { in: assignments.map((item: any) => item.etapaId) },
         ordemOuriveId: orderId,
       },
     }),
-  );
+    db.ouriveOrdemResponsavel.findFirst({
+      where: { ordemOuriveId: orderId, usuarioId: custom.userId },
+    }),
+  ]);
+  return Boolean(stage || directAssignment);
 }
 async function event(
   tx: any,
@@ -292,6 +316,7 @@ async function orderDetails(contaId: number, id: number) {
     comissoes,
     movimentacoes,
     necessidadesCompra,
+    responsaveisDiretos,
   ] = await Promise.all([
     prisma.ordensServico.findFirst({
       where: { id: order.ordemServicoId, contaId },
@@ -334,6 +359,7 @@ async function orderDetails(contaId: number, id: number) {
       where: { ordemOuriveId: id },
       orderBy: { createdAt: "desc" },
     }),
+    db.ouriveOrdemResponsavel.findMany({ where: { ordemOuriveId: id } }),
   ]);
   const pieceIds = pecas.map((piece: any) => piece.id);
   const stageIds = etapas.map((stage: any) => stage.id);
@@ -362,6 +388,7 @@ async function orderDetails(contaId: number, id: number) {
           ...new Set([
             ...assignees.map((a: any) => a.usuarioId),
             ...comissoes.map((c: any) => c.usuarioId),
+            ...responsaveisDiretos.map((item: any) => item.usuarioId),
           ]),
         ],
       },
@@ -382,6 +409,10 @@ async function orderDetails(contaId: number, id: number) {
         .filter((a: any) => a.etapaId === stage.id)
         .map((a: any) => a.usuarioId),
     })),
+    responsavelIds: responsaveisDiretos.map((item: any) => item.usuarioId),
+    responsaveis: responsaveisDiretos.map((item: any) =>
+      users.find((user) => user.id === item.usuarioId),
+    ).filter(Boolean),
     materiais: materiais.map((material: any) => ({
       ...material,
       produto: products.find((product) => product.id === material.produtoId),
@@ -491,9 +522,13 @@ async function financialCalculationForOrder(contaId: number, order: any) {
     percentualOurives:
       order.percentualOurivesAplicado ?? config.percentualOurives,
   });
-  const [assignments, products, extraCostEvents] = await Promise.all([
+  const [assignments, directAssignments, products, extraCostEvents] = await Promise.all([
     db.ouriveEtapaResponsavel.findMany({
       where: { etapaId: { in: stages.map((stage: any) => stage.id) } },
+      select: { usuarioId: true },
+    }),
+    db.ouriveOrdemResponsavel.findMany({
+      where: { ordemOuriveId: order.id },
       select: { usuarioId: true },
     }),
     prisma.produto.findMany({
@@ -583,7 +618,10 @@ async function financialCalculationForOrder(contaId: number, order: any) {
     config,
     memoria,
     responsavelIds: [
-      ...new Set(assignments.map((item: any) => Number(item.usuarioId))),
+      ...new Set([
+        ...assignments.map((item: any) => Number(item.usuarioId)),
+        ...directAssignments.map((item: any) => Number(item.usuarioId)),
+      ]),
     ],
     detalhamento: {
       valorCobrado: money(budget.valorFinal).toFixed(2),
@@ -858,6 +896,25 @@ export async function createOrder(req: Request, res: Response) {
       "invalid_client",
       "Cliente nao pertence a esta conta.",
     );
+  const responsavelIds = [...new Set(parsed.data.responsavelIds.map(Number))];
+  if (responsavelIds.length) {
+    const validOurives = await db.ouriveUsuarioPapel.findMany({
+      where: {
+        contaId: custom.contaId,
+        papel: "OURIVE",
+        usuarioId: { in: responsavelIds },
+      },
+      select: { usuarioId: true },
+    });
+    if (validOurives.length !== responsavelIds.length)
+      return fail(
+        req,
+        res,
+        422,
+        "invalid_ourive_responsible",
+        "Um ou mais responsáveis selecionados não são ourives desta conta.",
+      );
+  }
   const result = await prisma.$transaction(async (tx) => {
     const base = await tx.ordensServico.create({
       data: {
@@ -876,12 +933,43 @@ export async function createOrder(req: Request, res: Response) {
         contaId: custom.contaId,
         ordemServicoId: base.id,
         tipo: parsed.data.tipo,
+        // Serviços já têm solicitação e mão de obra definidos no recebimento;
+        // portanto seguem direto para a conferência, sem uma produção fictícia.
+        status: parsed.data.tipo === "CONSERTO" ? "REVISAO" : "RECEBIDA",
         codigoRastreio: `OUR-${base.id}-${randomBytes(3).toString("hex").toUpperCase()}`,
         observacoes: parsed.data.observacoes,
         prazoPrevisto: parsed.data.prazoPrevisto,
         valorMaoObra: money(parsed.data.valorMaoObra),
       },
     });
+    if (parsed.data.tipo === "CONSERTO") {
+      const value = money(parsed.data.valorMaoObra);
+      await (tx as any).ouriveOrcamento.create({
+        data: {
+          ordemOuriveId: ourive.id,
+          versao: 1,
+          servicos: [
+            { descricao: parsed.data.descricao, quantidade: 1, valor: value.toFixed(2) },
+          ],
+          desconto: 0,
+          prazoPrevisto: parsed.data.prazoPrevisto,
+          custoEstimado: 0,
+          valorFinal: value,
+          enviadoEm: new Date(),
+          aprovadoEm: new Date(),
+          aprovacaoOrigem: "SERVICO_DIRETO",
+          aprovacaoObservacao: "Serviço rápido aprovado no recebimento.",
+        },
+      });
+      if (responsavelIds.length)
+        await (tx as any).ouriveOrdemResponsavel.createMany({
+          data: responsavelIds.map((usuarioId) => ({
+            ordemOuriveId: ourive.id,
+            usuarioId,
+          })),
+          skipDuplicates: true,
+        });
+    }
     for (const [index, piece] of parsed.data.pecas.entries()) {
       const saved = await (tx as any).ourivePeca.create({
         data: {
@@ -906,11 +994,13 @@ export async function createOrder(req: Request, res: Response) {
       "RECEBIMENTO",
       parsed.data.tipo === "ENCOMENDA"
         ? "Encomenda registrada."
-        : "Peça(s) recebida(s) sob custodia.",
+        : "Serviço registrado e enviado diretamente para revisão.",
       custom.userId,
       {
         tipo: parsed.data.tipo,
         valorMaoObra: money(parsed.data.valorMaoObra).toFixed(2),
+        responsavelIds,
+        statusNovo: parsed.data.tipo === "CONSERTO" ? "REVISAO" : "RECEBIDA",
       },
     );
     return ourive;
@@ -939,16 +1029,27 @@ export async function listOrders(req: Request, res: Response) {
     !access.capabilities.includes("CONFIGURAR") &&
     access.papeis.includes("OURIVE")
   ) {
-    const ownStages = await db.ouriveEtapaResponsavel.findMany({
-      where: { usuarioId: custom.userId },
-      select: { etapaId: true },
-    });
+    const [ownStages, directAssignments] = await Promise.all([
+      db.ouriveEtapaResponsavel.findMany({
+        where: { usuarioId: custom.userId },
+        select: { etapaId: true },
+      }),
+      db.ouriveOrdemResponsavel.findMany({
+        where: { usuarioId: custom.userId },
+        select: { ordemOuriveId: true },
+      }),
+    ]);
     const stages = await db.ouriveEtapa.findMany({
       where: { id: { in: ownStages.map((item: any) => item.etapaId) } },
       select: { ordemOuriveId: true },
     });
     where.id = {
-      in: [...new Set(stages.map((item: any) => item.ordemOuriveId))],
+      in: [
+        ...new Set([
+          ...stages.map((item: any) => item.ordemOuriveId),
+          ...directAssignments.map((item: any) => item.ordemOuriveId),
+        ]),
+      ],
     };
   }
   const search = String(req.query.search || "").trim();
@@ -1248,6 +1349,46 @@ export async function updateOrderFinancial(req: Request, res: Response) {
         novo: money(parsed.data.valorMaoObra).toFixed(2),
       },
     );
+    // O orçamento de serviço rápido é o espelho financeiro do valor informado
+    // no recebimento; atualize-o junto para receita e repasse não divergirem.
+    if (order.tipo === "CONSERTO") {
+      const directBudget = await (tx as any).ouriveOrcamento.findFirst({
+        where: {
+          ordemOuriveId: order.id,
+          aprovacaoOrigem: "SERVICO_DIRETO",
+          invalidoEm: null,
+        },
+        orderBy: { versao: "desc" },
+      });
+      if (directBudget) {
+        const servicos = Array.isArray(directBudget.servicos)
+          ? directBudget.servicos
+          : [];
+        await (tx as any).ouriveOrcamento.update({
+          where: { id: directBudget.id },
+          data: {
+            servicos: servicos.length
+              ? servicos.map((service: any, index: number) =>
+                  index === 0
+                    ? {
+                        ...service,
+                        quantidade: 1,
+                        valor: money(parsed.data.valorMaoObra).toFixed(2),
+                      }
+                    : service,
+                )
+              : [
+                  {
+                    descricao: "Serviço rápido",
+                    quantidade: 1,
+                    valor: money(parsed.data.valorMaoObra).toFixed(2),
+                  },
+                ],
+            valorFinal: money(parsed.data.valorMaoObra),
+          },
+        });
+      }
+    }
   });
   return ok(req, res, { ordemId: order.id });
 }
@@ -1584,21 +1725,6 @@ export async function saveBudget(req: Request, res: Response) {
       422,
       "invalid_material_measurement",
       "Materiais por quantidade devem usar números inteiros.",
-    );
-  if (
-    parsed.data.materiais.some(
-      (material) =>
-        !material.fornecidoPeloCliente &&
-        material.unidade === "PESO" &&
-        !Number.isInteger(material.quantidade),
-    )
-  )
-    return fail(
-      req,
-      res,
-      422,
-      "invalid_store_weight",
-      "O estoque atual trabalha em gramas inteiras; informe o peso da loja em gramas inteiras.",
     );
   const companyProductIds = [
     ...new Set(
@@ -2790,7 +2916,7 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
       "A quantidade comprada não cobre a necessidade da OS.",
     );
   if (
-    ["QUANTIDADE", "PESO"].includes(need.unidade) &&
+    need.unidade === "QUANTIDADE" &&
     !Number.isInteger(parsed.data.quantidadeComprada)
   )
     return fail(
@@ -2798,7 +2924,7 @@ export async function fulfillPurchaseNeed(req: Request, res: Response) {
       res,
       422,
       "invalid_material_measurement",
-      "O estoque atual trabalha com unidades inteiras; informe uma quantidade inteira.",
+      "Materiais por quantidade devem usar números inteiros.",
     );
   const order = await orderForAccount(custom.contaId, need.ordemOuriveId);
   if (!order)
@@ -3024,13 +3150,13 @@ export async function consolidateLeftover(req: Request, res: Response) {
     );
   const measure = new Decimal(parsed.data.medidaReal).toDecimalPlaces(3);
   const stockQuantity = stockUnitsForMaterial(leftover.unidade, measure);
-  if (!measure.eq(stockQuantity))
+  if (leftover.unidade === "QUANTIDADE" && !measure.eq(stockQuantity))
     return fail(
       req,
       res,
       422,
       "invalid_stock_measure",
-      "O estoque atual trabalha em gramas ou unidades inteiras.",
+      "Materiais por quantidade devem usar números inteiros.",
     );
   const order = await orderForAccount(custom.contaId, leftover.ordemOuriveId);
   if (!order)
@@ -3148,7 +3274,7 @@ export async function finalizeMaterial(req: Request, res: Response) {
     parsed.data.medidaPerdaReal,
   ).toDecimalPlaces(3);
   if (
-    !material.fornecidoPeloCliente &&
+    material.unidade === "QUANTIDADE" &&
     [medidaUtilizada, medidaSobra, medidaQuebra, medidaPerdaReal].some(
       (medida) => !medida.isInteger(),
     )

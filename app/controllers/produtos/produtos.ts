@@ -74,7 +74,10 @@ function buildProdutoBaseResponse(
     issAliquota: base.issAliquota,
     variantes: base.variantes,
     totalVariantes: base.variantes.length,
-    estoqueTotal: base.variantes.reduce((acc, item) => acc + item.estoque, 0),
+    estoqueTotal: base.variantes.reduce(
+      (acc, item) => acc + Number(item.estoque || 0),
+      0,
+    ),
     variantePadraoId: variantePadrao?.id ?? null,
     imagem: variantePadrao?.imagem ?? null,
     mostrarNoCatalogo: variantePadrao?.mostrarNoCatalogo ?? true,
@@ -778,8 +781,8 @@ export const getResumoProduto = async (
 
     let totalGasto = new Decimal(0);
     let totalGanho = new Decimal(0);
-    let totalEntradas = 0;
-    let totalSaidas = 0;
+    let totalEntradas = new Decimal(0);
+    let totalSaidas = new Decimal(0);
     const valorProduto = produto.variantes.reduce(
       (acc, item) => acc.plus(new Decimal(item.preco).times(item.estoque)),
       new Decimal(0)
@@ -792,21 +795,21 @@ export const getResumoProduto = async (
 
       if (mov.tipo === "ENTRADA") {
         totalGasto = totalGasto.plus(quantidade.times(custo).minus(desconto));
-        totalEntradas += mov.quantidade;
+        totalEntradas = totalEntradas.plus(quantidade);
       } else if (mov.tipo === "SAIDA") {
         totalGanho = totalGanho.plus(custo.times(quantidade).minus(desconto));
-        totalSaidas += mov.quantidade;
+        totalSaidas = totalSaidas.plus(quantidade);
       }
     }
 
     const ticketMedio =
-      totalSaidas > 0 ? totalGanho.div(totalSaidas) : new Decimal(0);
+      totalSaidas.gt(0) ? totalGanho.div(totalSaidas) : new Decimal(0);
     const estoqueAtual = produto.variantes.reduce(
-      (acc, item) => acc + item.estoque,
-      0
+      (acc, item) => acc + Number(item.estoque || 0),
+      0,
     );
     const custoMedio =
-      totalEntradas > 0 ? totalGasto.div(totalEntradas) : new Decimal(0);
+      totalEntradas.gt(0) ? totalGasto.div(totalEntradas) : new Decimal(0);
     const margemLucro =
       custoMedio.gt(0) && ticketMedio.gt(0)
         ? ticketMedio.minus(custoMedio).div(ticketMedio).times(100)
@@ -817,8 +820,8 @@ export const getResumoProduto = async (
       totalGasto: totalGasto.toFixed(2),
       lucroLiquido: totalGanho.minus(totalGasto).toFixed(2),
       ticketMedio: ticketMedio.toFixed(2),
-      totalEntradas,
-      totalSaidas,
+      totalEntradas: totalEntradas.toDecimalPlaces(3).toNumber(),
+      totalSaidas: totalSaidas.toDecimalPlaces(3).toNumber(),
       estoqueAtual,
       custoMedio: custoMedio.toFixed(2),
       valorEstoque: valorProduto.toFixed(2),
@@ -1547,8 +1550,8 @@ export const getResumoProdutoVariante = async (
 
     let totalGasto = new Decimal(0);
     let totalGanho = new Decimal(0);
-    let totalEntradas = 0;
-    let totalSaidas = 0;
+    let totalEntradas = new Decimal(0);
+    let totalSaidas = new Decimal(0);
 
     for (const mov of movimentacoes) {
       const quantidade = new Decimal(mov.quantidade);
@@ -1557,17 +1560,17 @@ export const getResumoProdutoVariante = async (
 
       if (mov.tipo === "ENTRADA") {
         totalGasto = totalGasto.plus(quantidade.times(custo).minus(desconto));
-        totalEntradas += mov.quantidade;
+        totalEntradas = totalEntradas.plus(quantidade);
       } else if (mov.tipo === "SAIDA") {
         totalGanho = totalGanho.plus(custo.times(quantidade).minus(desconto));
-        totalSaidas += mov.quantidade;
+        totalSaidas = totalSaidas.plus(quantidade);
       }
     }
 
     const ticketMedio =
-      totalSaidas > 0 ? totalGanho.div(totalSaidas) : new Decimal(0);
+      totalSaidas.gt(0) ? totalGanho.div(totalSaidas) : new Decimal(0);
     const custoMedio =
-      totalEntradas > 0 ? totalGasto.div(totalEntradas) : new Decimal(0);
+      totalEntradas.gt(0) ? totalGasto.div(totalEntradas) : new Decimal(0);
     const valorEstoque = new Decimal(variante.preco).times(variante.estoque);
     const margemLucro =
       custoMedio.gt(0) && ticketMedio.gt(0)
@@ -1579,8 +1582,8 @@ export const getResumoProdutoVariante = async (
       totalGasto: totalGasto.toFixed(2),
       lucroLiquido: totalGanho.minus(totalGasto).toFixed(2),
       ticketMedio: ticketMedio.toFixed(2),
-      totalEntradas,
-      totalSaidas,
+      totalEntradas: totalEntradas.toDecimalPlaces(3).toNumber(),
+      totalSaidas: totalSaidas.toDecimalPlaces(3).toNumber(),
       estoqueAtual: variante.estoque,
       custoMedio: custoMedio.toFixed(2),
       valorEstoque: valorEstoque.toFixed(2),

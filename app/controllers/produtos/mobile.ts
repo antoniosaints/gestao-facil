@@ -47,7 +47,10 @@ function mapBaseRow(base: any) {
     status: base.status,
     categoriaId: base.categoriaId,
     categoria: base.Categoria?.nome ?? null,
-    estoqueTotal: base.variantes.reduce((acc: number, item: any) => acc + item.estoque, 0),
+    estoqueTotal: base.variantes.reduce(
+      (acc: number, item: any) => acc + Number(item.estoque || 0),
+      0,
+    ),
     totalVariantes: base.variantes.length,
     preco: variantePadrao?.preco ?? 0,
     codigo: variantePadrao?.codigo ?? null,

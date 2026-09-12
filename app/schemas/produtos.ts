@@ -181,7 +181,10 @@ const fornecedorField = z.preprocess((value) => {
 
 export const ReposicaoEstoqueSchema = z.object({
   produtoId: parseInteger("produtoId", true, 1),
-  quantidade: parseInteger("quantidade", true, 1),
+  quantidade: parseDecimal("quantidade", true).refine(
+    (value) => value > 0,
+    "quantidade deve ser maior que zero",
+  ),
   custo: parseDecimal("custo", true),
   desconto: parseDecimal("desconto").nullable().optional(),
   frete: parseDecimal("frete").nullable().optional(),
@@ -202,7 +205,10 @@ export const ReposicaoLoteSchema = z.object({
     .array(
       z.object({
         produtoId: parseInteger("produtoId", true, 1),
-        quantidade: parseInteger("quantidade", true, 1),
+        quantidade: parseDecimal("quantidade", true).refine(
+          (value) => value > 0,
+          "quantidade deve ser maior que zero",
+        ),
         custo: parseDecimal("custo", true),
       })
     )

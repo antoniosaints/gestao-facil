@@ -7,6 +7,15 @@ import Decimal from "decimal.js";
 
 dayjs.locale("pt-br");
 
+// As quantidades de estoque podem ter miligramas. Nunca some Decimal com `+`:
+// isso concatena texto ou expõe imprecisão binária (ex.: 1.900000000000001).
+const quantityNumber = (value: unknown) =>
+  new Decimal(value?.toString?.() ?? value ?? 0).toDecimalPlaces(3).toNumber();
+const addQuantity = (current: unknown, value: unknown) =>
+  quantityNumber(new Decimal(current?.toString?.() ?? current ?? 0).plus(value?.toString?.() ?? value ?? 0));
+const moneyNumber = (value: Decimal.Value) =>
+  new Decimal(value).toDecimalPlaces(2).toNumber();
+
 function getPeriodo(req: Request) {
   const { inicio, fim } = req.query;
   const start = inicio ? dayjs(inicio as string) : dayjs().startOf("month");
@@ -74,8 +83,10 @@ export async function getReposicaoMensal(req: Request, res: Response) {
   const agrupado = movimentacoes.reduce((acc, mov) => {
     const mes = dayjs(mov.data).format("MM/YYYY");
     acc[mes] = acc[mes] || { qtd: 0, custo: 0 };
-    acc[mes].qtd += mov.quantidade;
-    acc[mes].custo += Number(mov.custo) * mov.quantidade;
+    acc[mes].qtd = addQuantity(acc[mes].qtd, mov.quantidade);
+    acc[mes].custo = moneyNumber(
+      new Decimal(acc[mes].custo).plus(new Decimal(mov.custo).times(mov.quantidade)),
+    );
     return acc;
   }, {} as Record<string, { qtd: number; custo: number }>);
 
@@ -134,7 +145,7 @@ export async function getProdutosMaisRepostos(req: Request, res: Response) {
       getNomeProduto(produtos.find((p) => p.id === r.produtoId)) ??
       "Desconhecido"
   );
-  const data = result.map((r) => r._sum.quantidade || 0);
+  const data = result.map((r) => quantityNumber(r._sum.quantidade));
 
   res.json({
     labels,
@@ -415,8 +426,10 @@ export async function getFluxoEstoqueMensal(req: Request, res: Response) {
   const agrupado = movimentacoes.reduce((acc, mov) => {
     const mes = dayjs(mov.data).format("MM/YYYY");
     acc[mes] = acc[mes] || { entrada: 0, saida: 0 };
-    if (mov.tipo === "ENTRADA") acc[mes].entrada += mov.quantidade;
-    if (mov.tipo === "SAIDA") acc[mes].saida += mov.quantidade;
+    if (mov.tipo === "ENTRADA")
+      acc[mes].entrada = addQuantity(acc[mes].entrada, mov.quantidade);
+    if (mov.tipo === "SAIDA")
+      acc[mes].saida = addQuantity(acc[mes].saida, mov.quantidade);
     return acc;
   }, {} as Record<string, { entrada: number; saida: number }>);
 
@@ -780,7 +793,7 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
       prisma.produtoCategoria.count({ where: { contaId } }),
     ]);
 
-    const num = (value: unknown) => Number(value || 0);
+    const num = (value: unknown) => quantityNumber(value);
     const pad = (value: number) => String(value).padStart(2, "0");
     const delta = (atual: number, anterior: number) =>
       anterior > 0 ? ((atual - anterior) / anterior) * 100 : atual > 0 ? 100 : 0;
@@ -819,7 +832,10 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     const produtosNoPdv = produtos.filter(
       (p) => (p.mostrarNoPdv === true || p.mostrarNoPdv === null) && !p.materiaPrima
     ).length;
-    const valorEstoque = produtos.reduce((sum, p) => sum + custoItem(p) * p.estoque, 0);
+    const valorEstoque = produtos.reduce(
+      (sum, p) => moneyNumber(new Decimal(sum).plus(new Decimal(custoItem(p)).times(p.estoque))),
+      0,
+    );
 
     // Saúde do estoque
     const saude = { saudavel: 0, baixo: 0, semEstoque: 0, semControle: 0 };
@@ -833,7 +849,11 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     // Estoque crítico (acionável)
     const estoqueCritico = controlados
       .filter((p) => p.estoque <= p.minimo)
-      .map((p) => ({ nome: getNomeProduto(p), estoque: p.estoque, minimo: p.minimo }))
+      .map((p) => ({
+        nome: getNomeProduto(p),
+        estoque: quantityNumber(p.estoque),
+        minimo: quantityNumber(p.minimo),
+      }))
       .sort((a, b) => a.estoque - b.estoque)
       .slice(0, 8);
 
@@ -880,7 +900,7 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     const reposMap = new Map<string, number>();
     for (const r of reposicoes) {
       const nome = getNomeProduto(r.Produto ?? undefined);
-      reposMap.set(nome, (reposMap.get(nome) || 0) + num(r.quantidade));
+      reposMap.set(nome, addQuantity(reposMap.get(nome) || 0, r.quantidade));
     }
     const maisRepostos = [...reposMap.entries()]
       .sort((a, b) => b[1] - a[1])

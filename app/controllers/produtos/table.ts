@@ -91,7 +91,12 @@ function mapBaseRow(base: any) {
     categoriaId: base.categoriaId,
     categoria: base.Categoria?.nome ?? null,
     totalVariantes: base.variantes.length,
-    estoqueTotal: base.variantes.reduce((acc: number, item: any) => acc + item.estoque, 0),
+    // Estoque passou a aceitar frações (ex.: gramas). Decimal concatenaria ao
+    // somar com `+` e geraria valores como "0104" na tabela de produtos base.
+    estoqueTotal: base.variantes.reduce(
+      (acc: number, item: any) => acc + Number(item.estoque || 0),
+      0,
+    ),
     imagem: variantePadrao?.imagem ?? null,
     mostrarNoCatalogo: variantePadrao?.mostrarNoCatalogo ?? true,
     preco: variantePadrao?.preco ?? 0,

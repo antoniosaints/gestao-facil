@@ -3,10 +3,15 @@ import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { handleError } from "../../utils/handleError";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import Decimal from "decimal.js";
 
 const ALLOWED_SORT = new Set(["id", "data", "quantidade", "custo"]);
 const TIPOS = new Set(["ENTRADA", "SAIDA", "DESCARTE", "TRANSFERENCIA"]);
 const STATUSES = new Set(["PENDENTE", "CONCLUIDO", "CANCELADO"]);
+const quantity = (value: unknown) =>
+  new Decimal(value?.toString?.() ?? value ?? 0).toDecimalPlaces(3);
+const quantityNumber = (value: unknown) => quantity(value).toNumber();
+const moneyNumber = (value: Decimal) => value.toDecimalPlaces(2).toNumber();
 
 /** Monta o filtro Prisma a partir dos parâmetros de auditoria da tela. */
 function buildMovimentacoesWhere(
@@ -101,7 +106,7 @@ export async function tableMovimentacoes(req: Request, res: Response): Promise<a
       status: mov.status,
       data: mov.data,
       notaFiscal: mov.notaFiscal,
-      quantidade: mov.quantidade,
+      quantidade: quantityNumber(mov.quantidade),
       custo: mov.custo,
       frete: mov.frete,
       desconto: mov.desconto,
@@ -114,7 +119,7 @@ export async function tableMovimentacoes(req: Request, res: Response): Promise<a
         : mov.ordemId
           ? `OS #${mov.ordemId}`
           : "Manual",
-      valorTotal: Number(mov.custo) * mov.quantidade,
+      valorTotal: moneyNumber(new Decimal(mov.custo).times(mov.quantidade)),
     }));
 
     return res.status(200).json({
@@ -148,20 +153,20 @@ export async function resumoMovimentacoes(req: Request, res: Response): Promise<
       TRANSFERENCIA: base(),
     };
 
-    let valorTotal = 0;
+    let valorTotal = new Decimal(0);
     for (const mov of movimentacoes) {
-      const valor = Number(mov.custo) * mov.quantidade;
+      const valor = new Decimal(mov.custo).times(mov.quantidade);
       const bucket = porTipo[mov.tipo] ?? base();
-      bucket.quantidade += mov.quantidade;
-      bucket.valor += valor;
+      bucket.quantidade = quantityNumber(quantity(bucket.quantidade).plus(mov.quantidade));
+      bucket.valor = moneyNumber(new Decimal(bucket.valor).plus(valor));
       bucket.registros += 1;
       porTipo[mov.tipo] = bucket;
-      valorTotal += valor;
+      valorTotal = valorTotal.plus(valor);
     }
 
     return res.status(200).json({
       totalRegistros: movimentacoes.length,
-      valorTotal,
+      valorTotal: moneyNumber(valorTotal),
       porTipo,
     });
   } catch (error) {
