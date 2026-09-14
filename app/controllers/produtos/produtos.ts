@@ -1539,6 +1539,7 @@ export const getResumoProdutoVariante = async (
       valorReposicoes: kpis.valorReposicoes,
       faturamentoTotal: kpis.faturamento,
       lucroLiquidoTotal: kpis.lucroLiquido,
+      markup: kpis.markup,
       vendas: kpis.vendas,
       valorVendas: kpis.valorVendas,
     });
