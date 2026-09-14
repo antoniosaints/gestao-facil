@@ -4,6 +4,7 @@ import "dayjs/locale/pt-br";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import Decimal from "decimal.js";
+import { calcularResumoEstoque } from "./analytics";
 
 dayjs.locale("pt-br");
 
@@ -728,6 +729,7 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
       itens,
       itensAnterior,
       reposicoes,
+      reposicoesHistorico,
       produtos,
       produtosBase,
       totalProdutosBase,
@@ -735,15 +737,29 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
       totalCategorias,
     ] = await Promise.all([
       prisma.vendas.findMany({
-        where: { contaId, status: "FATURADO", data: { gte: start, lte: end } },
+        where: {
+          contaId,
+          data: { gte: start, lte: end },
+          OR: [{ faturado: true }, { status: { in: ["FATURADO", "FINALIZADO"] } }],
+        },
         select: { valor: true, data: true },
       }),
       prisma.vendas.findMany({
-        where: { contaId, status: "FATURADO", data: { gte: prevStart, lte: prevEnd } },
+        where: {
+          contaId,
+          data: { gte: prevStart, lte: prevEnd },
+          OR: [{ faturado: true }, { status: { in: ["FATURADO", "FINALIZADO"] } }],
+        },
         select: { valor: true },
       }),
       prisma.itensVendas.findMany({
-        where: { venda: { contaId, status: "FATURADO", data: { gte: start, lte: end } } },
+        where: {
+          venda: {
+            contaId,
+            data: { gte: start, lte: end },
+            OR: [{ faturado: true }, { status: { in: ["FATURADO", "FINALIZADO"] } }],
+          },
+        },
         select: {
           produtoId: true,
           itemName: true,
@@ -755,8 +771,15 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
         },
       }),
       prisma.itensVendas.findMany({
-        where: { venda: { contaId, status: "FATURADO", data: { gte: prevStart, lte: prevEnd } } },
+        where: {
+          venda: {
+            contaId,
+            data: { gte: prevStart, lte: prevEnd },
+            OR: [{ faturado: true }, { status: { in: ["FATURADO", "FINALIZADO"] } }],
+          },
+        },
         select: {
+          produtoId: true,
           quantidade: true,
           valor: true,
           produto: { select: { precoCompra: true, custoMedioProducao: true } },
@@ -765,14 +788,30 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
       prisma.movimentacoesEstoque.findMany({
         where: { contaId, tipo: "ENTRADA", status: "CONCLUIDO", data: { gte: start, lte: end } },
         select: {
+          produtoId: true,
+          tipo: true,
           custo: true,
           quantidade: true,
+          frete: true,
+          desconto: true,
           Produto: { select: { nome: true, nomeVariante: true } },
+        },
+      }),
+      prisma.movimentacoesEstoque.findMany({
+        where: { contaId, tipo: "ENTRADA", status: "CONCLUIDO" },
+        select: {
+          produtoId: true,
+          tipo: true,
+          custo: true,
+          quantidade: true,
+          frete: true,
+          desconto: true,
         },
       }),
       prisma.produto.findMany({
         where: { contaId },
         select: {
+          id: true,
           nome: true,
           nomeVariante: true,
           estoque: true,
@@ -797,8 +836,9 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     const pad = (value: number) => String(value).padStart(2, "0");
     const delta = (atual: number, anterior: number) =>
       anterior > 0 ? ((atual - anterior) / anterior) * 100 : atual > 0 ? 100 : 0;
-    const custoItem = (produto?: { precoCompra?: unknown; custoMedioProducao?: unknown } | null) =>
-      num(produto?.custoMedioProducao ?? produto?.precoCompra ?? 0);
+    const resumoEstoque = calcularResumoEstoque(produtos, reposicoesHistorico);
+    const custoItem = (produtoId: number | null, produto?: { precoCompra?: unknown } | null) =>
+      num(resumoEstoque.custoPorVariante.get(Number(produtoId)) ?? produto?.precoCompra ?? 0);
 
     // KPIs de receita/lucro no período e no anterior
     const receitaAtual = vendas.reduce((sum, v) => sum + num(v.valor), 0);
@@ -809,18 +849,18 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     const ticketAnterior = qtdVendasAnterior ? receitaAnterior / qtdVendasAnterior : 0;
 
     const lucroAtual = itens.reduce(
-      (sum, it) => sum + (num(it.valor) - custoItem(it.produto)) * num(it.quantidade),
+      (sum, it) => sum + (num(it.valor) - custoItem(it.produtoId, it.produto)) * num(it.quantidade),
       0
     );
     const lucroAnterior = itensAnterior.reduce(
-      (sum, it) => sum + (num(it.valor) - custoItem(it.produto)) * num(it.quantidade),
+      (sum, it) => sum + (num(it.valor) - custoItem(it.produtoId ?? null, it.produto)) * num(it.quantidade),
       0
     );
     const itensVendidosAtual = itens.reduce((sum, it) => sum + num(it.quantidade), 0);
     const itensVendidosAnterior = itensAnterior.reduce((sum, it) => sum + num(it.quantidade), 0);
 
     const custoReposicoes = reposicoes.reduce(
-      (sum, r) => sum + num(r.custo) * num(r.quantidade),
+      (sum, r) => sum + num(r.custo) * num(r.quantidade) + num(r.frete) - num(r.desconto),
       0
     );
 
@@ -832,10 +872,7 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     const produtosNoPdv = produtos.filter(
       (p) => (p.mostrarNoPdv === true || p.mostrarNoPdv === null) && !p.materiaPrima
     ).length;
-    const valorEstoque = produtos.reduce(
-      (sum, p) => moneyNumber(new Decimal(sum).plus(new Decimal(custoItem(p)).times(p.estoque))),
-      0,
-    );
+    const valorEstoque = moneyNumber(resumoEstoque.valorEstoque);
 
     // Saúde do estoque
     const saude = { saudavel: 0, baixo: 0, semEstoque: 0, semControle: 0 };
@@ -883,7 +920,7 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
       const qtd = num(it.quantidade);
       atual.valor += num(it.valor) * qtd;
       atual.quantidade += qtd;
-      atual.lucro += (num(it.valor) - custoItem(it.produto)) * qtd;
+      atual.lucro += (num(it.valor) - custoItem(it.produtoId, it.produto)) * qtd;
       produtoMap.set(key, atual);
     }
     const produtosArr = [...produtoMap.values()];

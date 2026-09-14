@@ -31,6 +31,7 @@ import {
 import { downscaleImage } from "../../services/uploads/imageProcessingService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { listPublicCombos } from "../../services/combos/comboService";
+import { calcularResumoEstoque } from "./analytics";
 
 const produtoVarianteSchema = ProdutoSchema.partial({ nome: true }).extend({
   produtoBaseId: z.number({
@@ -762,9 +763,10 @@ export const getResumoProduto = async (
 
     const produto = await prisma.produtoBase.findFirst({
       where: { id, contaId: customData.contaId },
-      include: {
+      select: {
+        id: true,
         variantes: {
-          select: { id: true, preco: true, estoque: true },
+          select: { id: true, precoCompra: true, estoque: true },
         },
       },
     });
@@ -776,56 +778,29 @@ export const getResumoProduto = async (
     const idsVariantes = produto.variantes.map((item) => item.id);
 
     const movimentacoes = await prisma.movimentacoesEstoque.findMany({
-      where: { produtoId: { in: idsVariantes }, contaId: customData.contaId },
+      where: {
+        produtoId: { in: idsVariantes },
+        contaId: customData.contaId,
+        status: "CONCLUIDO",
+      },
+      select: {
+        produtoId: true,
+        tipo: true,
+        quantidade: true,
+        custo: true,
+        frete: true,
+        desconto: true,
+      },
     });
-
-    let totalGasto = new Decimal(0);
-    let totalGanho = new Decimal(0);
-    let totalEntradas = new Decimal(0);
-    let totalSaidas = new Decimal(0);
-    const valorProduto = produto.variantes.reduce(
-      (acc, item) => acc.plus(new Decimal(item.preco).times(item.estoque)),
-      new Decimal(0)
-    );
-
-    for (const mov of movimentacoes) {
-      const quantidade = new Decimal(mov.quantidade);
-      const custo = new Decimal(mov.custo);
-      const desconto = new Decimal(mov.desconto || 0);
-
-      if (mov.tipo === "ENTRADA") {
-        totalGasto = totalGasto.plus(quantidade.times(custo).minus(desconto));
-        totalEntradas = totalEntradas.plus(quantidade);
-      } else if (mov.tipo === "SAIDA") {
-        totalGanho = totalGanho.plus(custo.times(quantidade).minus(desconto));
-        totalSaidas = totalSaidas.plus(quantidade);
-      }
-    }
-
-    const ticketMedio =
-      totalSaidas.gt(0) ? totalGanho.div(totalSaidas) : new Decimal(0);
-    const estoqueAtual = produto.variantes.reduce(
-      (acc, item) => acc + Number(item.estoque || 0),
-      0,
-    );
-    const custoMedio =
-      totalEntradas.gt(0) ? totalGasto.div(totalEntradas) : new Decimal(0);
-    const margemLucro =
-      custoMedio.gt(0) && ticketMedio.gt(0)
-        ? ticketMedio.minus(custoMedio).div(ticketMedio).times(100)
-        : new Decimal(0);
+    const resumo = calcularResumoEstoque(produto.variantes, movimentacoes);
 
     return res.json({
       produtoId: id,
-      totalGasto: totalGasto.toFixed(2),
-      lucroLiquido: totalGanho.minus(totalGasto).toFixed(2),
-      ticketMedio: ticketMedio.toFixed(2),
-      totalEntradas: totalEntradas.toDecimalPlaces(3).toNumber(),
-      totalSaidas: totalSaidas.toDecimalPlaces(3).toNumber(),
-      estoqueAtual,
-      custoMedio: custoMedio.toFixed(2),
-      valorEstoque: valorProduto.toFixed(2),
-      margemLucro: margemLucro.toFixed(2) + "%",
+      totalEntradas: resumo.totalEntradas.toDecimalPlaces(3).toNumber(),
+      totalSaidas: resumo.totalSaidas.toDecimalPlaces(3).toNumber(),
+      estoqueAtual: resumo.estoqueAtual.toDecimalPlaces(3).toNumber(),
+      valorEstoque: resumo.valorEstoque.toDecimalPlaces(2).toNumber(),
+      totalReposicoes: resumo.totalReposicoes,
     });
   } catch (error) {
     handleError(res, error);
@@ -1532,7 +1507,7 @@ export const getResumoProdutoVariante = async (
       },
       select: {
         id: true,
-        preco: true,
+        precoCompra: true,
         estoque: true,
       },
     });
@@ -1545,49 +1520,26 @@ export const getResumoProdutoVariante = async (
       where: {
         produtoId: variante.id,
         contaId: customData.contaId,
+        status: "CONCLUIDO",
+      },
+      select: {
+        produtoId: true,
+        tipo: true,
+        quantidade: true,
+        custo: true,
+        frete: true,
+        desconto: true,
       },
     });
-
-    let totalGasto = new Decimal(0);
-    let totalGanho = new Decimal(0);
-    let totalEntradas = new Decimal(0);
-    let totalSaidas = new Decimal(0);
-
-    for (const mov of movimentacoes) {
-      const quantidade = new Decimal(mov.quantidade);
-      const custo = new Decimal(mov.custo);
-      const desconto = new Decimal(mov.desconto || 0);
-
-      if (mov.tipo === "ENTRADA") {
-        totalGasto = totalGasto.plus(quantidade.times(custo).minus(desconto));
-        totalEntradas = totalEntradas.plus(quantidade);
-      } else if (mov.tipo === "SAIDA") {
-        totalGanho = totalGanho.plus(custo.times(quantidade).minus(desconto));
-        totalSaidas = totalSaidas.plus(quantidade);
-      }
-    }
-
-    const ticketMedio =
-      totalSaidas.gt(0) ? totalGanho.div(totalSaidas) : new Decimal(0);
-    const custoMedio =
-      totalEntradas.gt(0) ? totalGasto.div(totalEntradas) : new Decimal(0);
-    const valorEstoque = new Decimal(variante.preco).times(variante.estoque);
-    const margemLucro =
-      custoMedio.gt(0) && ticketMedio.gt(0)
-        ? ticketMedio.minus(custoMedio).div(ticketMedio).times(100)
-        : new Decimal(0);
+    const resumo = calcularResumoEstoque([variante], movimentacoes);
 
     return ResponseHandler(res, "Resumo encontrado", {
       produtoId: variante.id,
-      totalGasto: totalGasto.toFixed(2),
-      lucroLiquido: totalGanho.minus(totalGasto).toFixed(2),
-      ticketMedio: ticketMedio.toFixed(2),
-      totalEntradas: totalEntradas.toDecimalPlaces(3).toNumber(),
-      totalSaidas: totalSaidas.toDecimalPlaces(3).toNumber(),
-      estoqueAtual: variante.estoque,
-      custoMedio: custoMedio.toFixed(2),
-      valorEstoque: valorEstoque.toFixed(2),
-      margemLucro: margemLucro.toFixed(2) + "%",
+      totalEntradas: resumo.totalEntradas.toDecimalPlaces(3).toNumber(),
+      totalSaidas: resumo.totalSaidas.toDecimalPlaces(3).toNumber(),
+      estoqueAtual: resumo.estoqueAtual.toDecimalPlaces(3).toNumber(),
+      valorEstoque: resumo.valorEstoque.toDecimalPlaces(2).toNumber(),
+      totalReposicoes: resumo.totalReposicoes,
     });
   } catch (error) {
     handleError(res, error);

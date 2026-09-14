@@ -61,6 +61,10 @@ import {
   getSaudeEstoqueProdutos,
   getTicketMedio,
 } from "../../controllers/produtos/graficos";
+import {
+  exportProdutoAnalyticsPdf,
+  getProdutoAnalytics,
+} from "../../controllers/produtos/analytics";
 
 const routerProdutos = Router();
 const upload = multer({ dest: "uploads/" });
@@ -105,6 +109,8 @@ routerProdutos.get(
 routerProdutos.get("/variantes/:id", authenticateJWT, getProdutoVariante);
 routerProdutos.get("/:id/variantes", authenticateJWT, getVariantesProduto);
 routerProdutos.get("/:produtoId/resumo", authenticateJWT, getResumoProduto);
+routerProdutos.get("/:produtoId/analytics/pdf", authenticateJWT, exportProdutoAnalyticsPdf);
+routerProdutos.get("/:produtoId/analytics", authenticateJWT, getProdutoAnalytics);
 routerProdutos.get("/:id/etiquetas", authenticateJWT, gerarEtiquetasProduto);
 
 // rota genérica deve vir por último

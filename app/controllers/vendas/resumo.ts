@@ -7,6 +7,16 @@ import { Prisma } from "../../../generated";
 import Decimal from "decimal.js";
 import { somarPagamentosPorMetodo } from "../../services/vendas/pagamentoCompostoService";
 
+const vendaReconhecida = (venda: { faturado: boolean; status: string }) =>
+  venda.faturado || ["FATURADO", "FINALIZADO"].includes(venda.status);
+
+const filtroVendasReconhecidas: Prisma.VendasWhereInput = {
+  OR: [
+    { faturado: true },
+    { status: { in: ["FATURADO", "FINALIZADO"] } },
+  ],
+};
+
 export class ResumoVendasController {
   static async getResumo(req: Request, res: Response): Promise<any> {
     try {
@@ -41,13 +51,14 @@ export class ResumoVendasController {
         return total.add(venda.valor);
       }, new Decimal(0));
 
-      const totalFaturado = vendas.filter((venda) => venda.faturado === true).length;
-      const totalValorFaturado = vendas.filter((venda) => venda.faturado === true).reduce((total, venda) => {
+      const vendasReconhecidas = vendas.filter(vendaReconhecida);
+      const totalFaturado = vendasReconhecidas.length;
+      const totalValorFaturado = vendasReconhecidas.reduce((total, venda) => {
         return total.add(venda.valor);
       }, new Decimal(0));
 
-      const totalAberto = vendas.filter((venda) => ["PENDENTE", "FINALIZADO", "ANDAMENTO"].includes(venda.status)).length;
-      const totalValorAberto = vendas.filter((venda) => ["PENDENTE", "FINALIZADO", "ANDAMENTO"].includes(venda.status)).reduce((total, venda) => {
+      const totalAberto = vendas.filter((venda) => ["PENDENTE", "ANDAMENTO"].includes(venda.status)).length;
+      const totalValorAberto = vendas.filter((venda) => ["PENDENTE", "ANDAMENTO"].includes(venda.status)).reduce((total, venda) => {
         return total.add(venda.valor);
       }, new Decimal(0));
 
@@ -117,7 +128,7 @@ export class ResumoVendasController {
         prisma.vendas.findMany({
           where: {
             contaId: customData.contaId,
-            faturado: true,
+            ...filtroVendasReconhecidas,
             data: { gte: prevStart, lte: prevEnd },
           },
           select: { valor: true },
@@ -126,7 +137,7 @@ export class ResumoVendasController {
           where: {
             venda: {
               contaId: customData.contaId,
-              faturado: true,
+              ...filtroVendasReconhecidas,
               data: { gte: start, lte: end },
             },
           },
@@ -145,19 +156,17 @@ export class ResumoVendasController {
       const delta = (atual: number, anterior: number) =>
         anterior > 0 ? ((atual - anterior) / anterior) * 100 : atual > 0 ? 100 : 0;
 
-      const faturadas = vendas.filter((venda) => venda.faturado);
-      const faturamentoAtual = faturadas.reduce((sum, venda) => sum + num(venda.valor), 0);
-      const qtdFaturadas = faturadas.length;
-      const ticketAtual = qtdFaturadas ? faturamentoAtual / qtdFaturadas : 0;
+      const vendasReconhecidas = vendas.filter(vendaReconhecida);
+      const faturamentoAtual = vendasReconhecidas.reduce((sum, venda) => sum + num(venda.valor), 0);
+      const qtdReconhecidas = vendasReconhecidas.length;
+      const ticketAtual = qtdReconhecidas ? faturamentoAtual / qtdReconhecidas : 0;
       const descontosAtual = vendas.reduce((sum, venda) => sum + num(venda.desconto), 0);
 
       const faturamentoAnterior = vendasAnterior.reduce((sum, venda) => sum + num(venda.valor), 0);
       const qtdAnterior = vendasAnterior.length;
       const ticketAnterior = qtdAnterior ? faturamentoAnterior / qtdAnterior : 0;
 
-      const emAbertoList = vendas.filter((venda) =>
-        ["PENDENTE", "FINALIZADO", "ANDAMENTO"].includes(venda.status)
-      );
+      const emAbertoList = vendas.filter((venda) => ["PENDENTE", "ANDAMENTO"].includes(venda.status));
       const orcamentoList = vendas.filter((venda) => venda.status === "ORCAMENTO");
 
       // Curva de faturamento: por dia (períodos <= 92 dias) ou por mês.
@@ -171,7 +180,7 @@ export class ResumoVendasController {
           serieBuckets.set(`${pad(dia.getDate())}/${pad(dia.getMonth() + 1)}`, 0);
         }
       }
-      for (const venda of faturadas) {
+      for (const venda of vendasReconhecidas) {
         const dia = new Date(venda.data);
         const key = usarDia
           ? `${pad(dia.getDate())}/${pad(dia.getMonth() + 1)}`
@@ -209,7 +218,7 @@ export class ResumoVendasController {
         .slice(0, 8);
 
       const clienteMap = new Map<string, { nome: string; valor: number; qtd: number }>();
-      for (const venda of faturadas) {
+      for (const venda of vendasReconhecidas) {
         const nome = venda.cliente?.nome || "Sem cliente";
         const key = venda.clienteId ? `c:${venda.clienteId}` : "sem";
         const atual = clienteMap.get(key) || { nome, valor: 0, qtd: 0 };
@@ -222,7 +231,7 @@ export class ResumoVendasController {
         .slice(0, 6);
 
       const vendedorMap = new Map<string, { nome: string; valor: number; qtd: number }>();
-      for (const venda of faturadas) {
+      for (const venda of vendasReconhecidas) {
         if (!venda.vendedorId) continue;
         const nome = venda.vendedor?.nome || "Vendedor";
         const key = `v:${venda.vendedorId}`;
@@ -237,12 +246,12 @@ export class ResumoVendasController {
 
       const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
       const semanaData = [0, 0, 0, 0, 0, 0, 0];
-      for (const venda of faturadas) {
+      for (const venda of vendasReconhecidas) {
         semanaData[new Date(venda.data).getDay()] += num(venda.valor);
       }
 
       const horaData = Array.from({ length: 24 }, () => 0);
-      for (const venda of faturadas) {
+      for (const venda of vendasReconhecidas) {
         horaData[new Date(venda.data).getHours()] += num(venda.valor);
       }
 
@@ -259,9 +268,9 @@ export class ResumoVendasController {
             delta: delta(faturamentoAtual, faturamentoAnterior),
           },
           vendas: {
-            atual: qtdFaturadas,
+            atual: qtdReconhecidas,
             anterior: qtdAnterior,
-            delta: delta(qtdFaturadas, qtdAnterior),
+            delta: delta(qtdReconhecidas, qtdAnterior),
           },
           ticketMedio: {
             atual: ticketAtual,
