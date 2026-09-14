@@ -17,7 +17,10 @@ type AnalyticsParams = {
   contaId: number;
   produtoId: number;
   ano?: number;
+  mes?: number;
   varianteId?: number;
+  /** Uso interno no resumo da variante: agrega todo o histórico, sem alterar a API de analytics. */
+  periodoCompleto?: boolean;
 };
 
 class AnalyticsRequestError extends Error {
@@ -130,11 +133,16 @@ export async function buildProdutoAnalytics({
   contaId,
   produtoId,
   ano: requestedYear,
+  mes: requestedMonth,
   varianteId: requestedVarianteId,
+  periodoCompleto = false,
 }: AnalyticsParams) {
     const ano = Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100
       ? requestedYear!
       : dayjs().year();
+    const mes = Number.isInteger(requestedMonth) && requestedMonth! >= 1 && requestedMonth! <= 12
+      ? requestedMonth!
+      : undefined;
 
     if (!Number.isInteger(produtoId) || produtoId <= 0) {
       throw new AnalyticsRequestError("Produto inválido", 400);
@@ -167,6 +175,10 @@ export async function buildProdutoAnalytics({
     const inicioAno = dayjs(`${ano}-01-01`).startOf("day").toDate();
     const fimAno = dayjs(`${ano}-12-31`).endOf("day").toDate();
 
+    const filtroDePeriodo = periodoCompleto
+      ? {}
+      : { data: { gte: inicioAno, lte: fimAno } };
+
     const [reposicoes, saidas, datasSaidas, moduloOuriveAtivo] = await Promise.all([
       prisma.movimentacoesEstoque.findMany({
         where: {
@@ -183,7 +195,7 @@ export async function buildProdutoAnalytics({
           produtoId: { in: varianteIds },
           tipo: "SAIDA",
           status: "CONCLUIDO",
-          data: { gte: inicioAno, lte: fimAno },
+          ...filtroDePeriodo,
         },
         select: {
           id: true,
@@ -310,11 +322,13 @@ export async function buildProdutoAnalytics({
       vendasIds: new Set<number>(),
       ordensServicoIds: new Set<number>(),
       ordensOuriveIds: new Set<number>(),
+      documentosReconhecidos: new Set<string>(),
       unidadesVendas: new Decimal(0),
       unidadesOrdensServico: new Decimal(0),
       unidadesOrdensOurive: new Decimal(0),
       unidadesOutrasSaidas: new Decimal(0),
       faturamento: new Decimal(0),
+      valorVendas: new Decimal(0),
       custo: new Decimal(0),
     }));
 
@@ -338,7 +352,12 @@ export async function buildProdutoAnalytics({
         receitaSaida = vendaReconhecida.get(saida.vendaId) && receita && receita.quantidade.gt(0)
           ? receita.receita.times(qtd).div(receita.quantidade)
           : new Decimal(0);
-        if (vendaReconhecida.get(saida.vendaId)) documentosReconhecidos.add(`VENDA:${saida.vendaId}`);
+        if (vendaReconhecida.get(saida.vendaId)) {
+          const documento = `VENDA:${saida.vendaId}`;
+          documentosReconhecidos.add(documento);
+          mes.documentosReconhecidos.add(documento);
+          mes.valorVendas = mes.valorVendas.plus(receitaSaida);
+        }
         mes.vendasIds.add(saida.vendaId);
         mes.unidadesVendas = mes.unidadesVendas.plus(qtd);
         vendasComSaida.add(saida.vendaId);
@@ -351,7 +370,11 @@ export async function buildProdutoAnalytics({
           receitaSaida = ordemOurive.faturadaEm && pesoTotal.gt(0)
             ? valorOrcamento.times(pesoSaida).div(pesoTotal)
             : new Decimal(0);
-          if (ordemOurive.faturadaEm) documentosReconhecidos.add(`OURIVE:${ordemOurive.id}`);
+          if (ordemOurive.faturadaEm) {
+            const documento = `OURIVE:${ordemOurive.id}`;
+            documentosReconhecidos.add(documento);
+            mes.documentosReconhecidos.add(documento);
+          }
           mes.ordensOuriveIds.add(ordemOurive.id);
           mes.unidadesOrdensOurive = mes.unidadesOrdensOurive.plus(qtd);
           ordensOuriveComSaida.add(ordemOurive.id);
@@ -360,7 +383,11 @@ export async function buildProdutoAnalytics({
           receitaSaida = ordemReconhecida.get(saida.ordemId) && receita && receita.quantidade.gt(0)
             ? receita.receita.times(qtd).div(receita.quantidade)
             : new Decimal(0);
-          if (ordemReconhecida.get(saida.ordemId)) documentosReconhecidos.add(`OS:${saida.ordemId}`);
+          if (ordemReconhecida.get(saida.ordemId)) {
+            const documento = `OS:${saida.ordemId}`;
+            documentosReconhecidos.add(documento);
+            mes.documentosReconhecidos.add(documento);
+          }
           mes.ordensServicoIds.add(saida.ordemId);
           mes.unidadesOrdensServico = mes.unidadesOrdensServico.plus(qtd);
           ordensServicoComSaida.add(saida.ordemId);
@@ -381,9 +408,30 @@ export async function buildProdutoAnalytics({
     const estoqueAtual = resumoEstoque.estoqueAtual;
     const anosDisponiveis = [...new Set([dayjs().year(), ano, ...datasSaidas.map((saida) => dayjs(saida.data).year())])]
       .sort((a, b) => b - a);
+    const mesesParaKpi = mes ? [meses[mes - 1]] : meses;
+    const faturamentoFiltrado = mesesParaKpi.reduce((total, item) => total.plus(item.faturamento), new Decimal(0));
+    const custoFiltrado = mesesParaKpi.reduce((total, item) => total.plus(item.custo), new Decimal(0));
+    const unidadesFiltradas = mesesParaKpi.reduce(
+      (total, item) => total.plus(item.unidadesVendas).plus(item.unidadesOrdensServico).plus(item.unidadesOrdensOurive).plus(item.unidadesOutrasSaidas),
+      new Decimal(0),
+    );
+    const outrasSaidasFiltradas = mesesParaKpi.reduce(
+      (total, item) => total.plus(item.unidadesOutrasSaidas),
+      new Decimal(0),
+    );
+    const vendasFiltradas = new Set(mesesParaKpi.flatMap((item) => [...item.vendasIds]));
+    const ordensServicoFiltradas = new Set(mesesParaKpi.flatMap((item) => [...item.ordensServicoIds]));
+    const ordensOuriveFiltradas = new Set(mesesParaKpi.flatMap((item) => [...item.ordensOuriveIds]));
+    const documentosFiltrados = new Set(mesesParaKpi.flatMap((item) => [...item.documentosReconhecidos]));
+    const valorVendasFiltrado = mesesParaKpi.reduce(
+      (total, item) => total.plus(item.valorVendas),
+      new Decimal(0),
+    );
+    const lucroFiltrado = faturamentoFiltrado.minus(custoFiltrado);
 
     return {
       ano,
+      mes: mes ?? null,
       moduloOuriveAtivo,
       produto: {
         id: produto.id,
@@ -397,20 +445,23 @@ export async function buildProdutoAnalytics({
       },
       anosDisponiveis,
       kpis: {
-        faturamento: money(faturamento),
-        lucroLiquido: money(lucroLiquido),
-        markup: custoDasSaidas.gt(0) ? money(lucroLiquido.div(custoDasSaidas).times(100)) : 0,
-        vendas: vendasComSaida.size,
-        ordensServico: ordensServicoComSaida.size,
-        ...(moduloOuriveAtivo ? { ordensOurive: ordensOuriveComSaida.size } : {}),
-        unidadesSaidas: quantity(unidadesSaidas),
-        unidadesOutrasSaidas: quantity(unidadesOutrasSaidas),
-        ticketMedio: documentosReconhecidos.size ? money(faturamento.div(documentosReconhecidos.size)) : 0,
-        custoMedioAplicado: unidadesSaidas.gt(0) ? money(custoDasSaidas.div(unidadesSaidas)) : 0,
+        faturamento: money(faturamentoFiltrado),
+        lucroLiquido: money(lucroFiltrado),
+        markup: custoFiltrado.gt(0) ? money(lucroFiltrado.div(custoFiltrado).times(100)) : 0,
+        vendas: vendasFiltradas.size,
+        ordensServico: ordensServicoFiltradas.size,
+        ...(moduloOuriveAtivo ? { ordensOurive: ordensOuriveFiltradas.size } : {}),
+        unidadesSaidas: quantity(unidadesFiltradas),
+        unidadesOutrasSaidas: quantity(outrasSaidasFiltradas),
+        ticketMedio: documentosFiltrados.size ? money(faturamentoFiltrado.div(documentosFiltrados.size)) : 0,
+        custoMedioAplicado: unidadesFiltradas.gt(0) ? money(custoFiltrado.div(unidadesFiltradas)) : 0,
         custoMedioReposicao: totalQuantidadeReposta.gt(0)
           ? money(custoTotalReposicoes.div(totalQuantidadeReposta))
           : 0,
         totalReposicoes,
+        valorReposicoes: money(custoTotalReposicoes),
+        valorVendas: money(valorVendasFiltrado),
+        totalEntradas: quantity(resumoEstoque.totalEntradas),
         estoqueAtual: quantity(estoqueAtual),
         valorEstoque: money(valorEstoque),
       },
@@ -439,6 +490,8 @@ export async function buildProdutoAnalytics({
 function getAnalyticsParams(req: Request): AnalyticsParams {
   const produtoId = Number(req.params.produtoId);
   const ano = Number(req.query.ano);
+  const rawMes = req.query.mes;
+  const mes = rawMes === undefined || rawMes === "" ? undefined : Number(rawMes);
   const rawVarianteId = req.query.varianteId;
   const varianteId = rawVarianteId === undefined || rawVarianteId === ""
     ? undefined
@@ -450,11 +503,15 @@ function getAnalyticsParams(req: Request): AnalyticsParams {
   if (varianteId !== undefined && (!Number.isInteger(varianteId) || varianteId <= 0)) {
     throw new AnalyticsRequestError("Variante inválida", 400);
   }
+  if (mes !== undefined && (!Number.isInteger(mes) || mes < 1 || mes > 12)) {
+    throw new AnalyticsRequestError("Mês inválido", 400);
+  }
 
   return {
     contaId: getCustomRequest(req).customData.contaId,
     produtoId,
     ano,
+    mes,
     varianteId,
   };
 }
@@ -476,6 +533,9 @@ export async function exportProdutoAnalyticsPdf(req: Request, res: Response): Pr
     const scope = analytics.produto.variante
       ? `Variante: ${analytics.produto.variante.nome}`
       : "Todas as variantes";
+    const periodo = analytics.mes
+      ? `${dayjs().month(analytics.mes - 1).format("MMMM")} de ${analytics.ano}`
+      : `Ano ${analytics.ano}`;
     const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
 
     res.setHeader("Content-Type", "application/pdf");
@@ -495,7 +555,7 @@ export async function exportProdutoAnalyticsPdf(req: Request, res: Response): Pr
     doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(19).text("Analytics do produto");
     doc.fillColor("#475569").font("Helvetica").fontSize(10)
       .text(analytics.produto.nome, { continued: false })
-      .text(`${scope} - Ano ${analytics.ano}`)
+      .text(`${scope} - ${periodo}`)
       .text(`Emitido em ${dayjs().format("DD/MM/YYYY HH:mm")}`);
 
     const metricsY = 130;
@@ -506,7 +566,7 @@ export async function exportProdutoAnalyticsPdf(req: Request, res: Response): Pr
     drawMetric(216, metricsY + 70, "Custo médio aplicado", formatCurrency(analytics.kpis.custoMedioAplicado));
     drawMetric(392, metricsY + 70, "Valor em estoque", formatCurrency(analytics.kpis.valorEstoque));
 
-    doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(13).text("Resultado mensal", 40, 288);
+    doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(13).text("Resultado mensal do ano", 40, 288);
     const columns = analytics.moduloOuriveAtivo
       ? [40, 93, 168, 243, 324, 404, 477]
       : [40, 110, 205, 300, 395, 485];

@@ -31,7 +31,7 @@ import {
 import { downscaleImage } from "../../services/uploads/imageProcessingService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { listPublicCombos } from "../../services/combos/comboService";
-import { calcularResumoEstoque } from "./analytics";
+import { buildProdutoAnalytics, calcularResumoEstoque } from "./analytics";
 
 const produtoVarianteSchema = ProdutoSchema.partial({ nome: true }).extend({
   produtoBaseId: z.number({
@@ -1507,6 +1507,7 @@ export const getResumoProdutoVariante = async (
       },
       select: {
         id: true,
+        produtoBaseId: true,
         precoCompra: true,
         estoque: true,
       },
@@ -1516,30 +1517,30 @@ export const getResumoProdutoVariante = async (
       return ResponseHandler(res, "Variante não encontrada", null, 404);
     }
 
-    const movimentacoes = await prisma.movimentacoesEstoque.findMany({
-      where: {
-        produtoId: variante.id,
-        contaId: customData.contaId,
-        status: "CONCLUIDO",
-      },
-      select: {
-        produtoId: true,
-        tipo: true,
-        quantidade: true,
-        custo: true,
-        frete: true,
-        desconto: true,
-      },
+    if (!variante.produtoBaseId) {
+      return ResponseHandler(res, "Produto base da variante não encontrado", null, 404);
+    }
+
+    const analytics = await buildProdutoAnalytics({
+      contaId: customData.contaId,
+      produtoId: variante.produtoBaseId,
+      varianteId: variante.id,
+      periodoCompleto: true,
     });
-    const resumo = calcularResumoEstoque([variante], movimentacoes);
+    const { kpis } = analytics;
 
     return ResponseHandler(res, "Resumo encontrado", {
       produtoId: variante.id,
-      totalEntradas: resumo.totalEntradas.toDecimalPlaces(3).toNumber(),
-      totalSaidas: resumo.totalSaidas.toDecimalPlaces(3).toNumber(),
-      estoqueAtual: resumo.estoqueAtual.toDecimalPlaces(3).toNumber(),
-      valorEstoque: resumo.valorEstoque.toDecimalPlaces(2).toNumber(),
-      totalReposicoes: resumo.totalReposicoes,
+      totalEntradas: kpis.totalEntradas,
+      totalSaidas: kpis.unidadesSaidas,
+      estoqueAtual: kpis.estoqueAtual,
+      valorEstoque: kpis.valorEstoque,
+      totalReposicoes: kpis.totalReposicoes,
+      valorReposicoes: kpis.valorReposicoes,
+      faturamentoTotal: kpis.faturamento,
+      lucroLiquidoTotal: kpis.lucroLiquido,
+      vendas: kpis.vendas,
+      valorVendas: kpis.valorVendas,
     });
   } catch (error) {
     handleError(res, error);
