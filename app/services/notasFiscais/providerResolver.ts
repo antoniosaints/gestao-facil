@@ -1,7 +1,7 @@
 import { D2TI_SAO_MATEUS } from "./d2tiSaoMateus";
 
-export type NfseProviderMode = "NACIONAL" | "LEGADO_D2TI";
-export type NfseProviderId = "NACIONAL" | "D2TI_CTA_SAO_MATEUS_MA";
+export type NfseProviderMode = "GERANET" | "LEGADO_D2TI";
+export type NfseProviderId = "GERANET_NFSE" | "D2TI_CTA_SAO_MATEUS_MA";
 
 type FiscalProviderConfig = {
   codigoMunicipioIbge?: string | null;
@@ -12,7 +12,9 @@ type FiscalProviderConfig = {
 export function selectedNfseMode(config: FiscalProviderConfig): NfseProviderMode {
   // Compatibilidade para registros anteriores à migration.
   if (config.modoEmissaoNfse === "LEGADO_D2TI" || config.provedorNfse === D2TI_SAO_MATEUS.provedor) return "LEGADO_D2TI";
-  return "NACIONAL";
+  // NACIONAL era o rascunho DPS interno. Os registros existentes passam a
+  // emitir pela Geranet sem alterar notas já persistidas.
+  return "GERANET";
 }
 
 export function resolveNfseProvider(config: FiscalProviderConfig): { mode: NfseProviderMode; provider: NfseProviderId } {
@@ -23,7 +25,7 @@ export function resolveNfseProvider(config: FiscalProviderConfig): { mode: NfseP
     }
     return { mode, provider: D2TI_SAO_MATEUS.provedor };
   }
-  return { mode, provider: "NACIONAL" };
+  return { mode, provider: "GERANET_NFSE" };
 }
 
 export function isLegacyD2tiSaoMateus(config: FiscalProviderConfig) {

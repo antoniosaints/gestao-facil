@@ -3,10 +3,10 @@ import test from "node:test";
 import { D2TI_SAO_MATEUS } from "./d2tiSaoMateus";
 import { resolveNfseProvider, selectedNfseMode } from "./providerResolver";
 
-test("São Mateus pode optar pelo Emissor Nacional", () => {
+test("configurações NACIONAL anteriores passam a usar a Geranet", () => {
   const config = { codigoMunicipioIbge: D2TI_SAO_MATEUS.codigoIbge, modoEmissaoNfse: "NACIONAL" };
-  assert.equal(selectedNfseMode(config), "NACIONAL");
-  assert.deepEqual(resolveNfseProvider(config), { mode: "NACIONAL", provider: "NACIONAL" });
+  assert.equal(selectedNfseMode(config), "GERANET");
+  assert.deepEqual(resolveNfseProvider(config), { mode: "GERANET", provider: "GERANET_NFSE" });
 });
 
 test("o legado D2TI exige São Mateus do Maranhão", () => {

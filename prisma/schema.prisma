@@ -1221,6 +1221,12 @@ model Produto {
   aliquotaPis              Decimal?                   @db.Decimal(5, 2)
   aliquotaCofins           Decimal?                   @db.Decimal(5, 2)
   codigoProduto            String?
+  ean                      String?                    @db.VarChar(14)
+  tipoItem                 String?                    @default("00") @db.VarChar(2)
+  icmsCsosn                String?                    @db.VarChar(3)
+  icmsCst                  String?                    @db.VarChar(3)
+  pisCst                   String?                    @db.VarChar(2)
+  cofinsCst                String?                    @db.VarChar(2)
   issAliquota              Decimal?                   @db.Decimal(5, 2)
   controlaEstoque          Boolean?                   @default(false)
   producaoLocal            Boolean?                   @default(false)
@@ -2134,6 +2140,12 @@ model ProdutoBase {
   aliquotaPis    Decimal?           @db.Decimal(5, 2)
   aliquotaCofins Decimal?           @db.Decimal(5, 2)
   codigoProduto  String?
+  ean            String?            @db.VarChar(14)
+  tipoItem       String?            @default("00") @db.VarChar(2)
+  icmsCsosn      String?            @db.VarChar(3)
+  icmsCst        String?            @db.VarChar(3)
+  pisCst         String?            @db.VarChar(2)
+  cofinsCst      String?            @db.VarChar(2)
   issAliquota    Decimal?           @db.Decimal(5, 2)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -2306,6 +2318,27 @@ model NotaFiscalConfiguracao {
   proximoNumeroNfce            Int       @default(1)
   nfceCscId                    String?   @db.VarChar(32)
   nfceCscTokenCifrado          String?   @db.Text
+  nfseCodigoServicoNacional    String?   @db.VarChar(16)
+  nfseCodigoTributacaoMunicipio String?  @db.VarChar(32)
+  nfseCodigoCnae               String?   @db.VarChar(16)
+  nfseDataOpcaoSimples         DateTime?
+  nfseRegimeApuracaoSn         String?   @default("1") @db.VarChar(1)
+  nfseIssRetido                String?   @default("2") @db.VarChar(1)
+  nfseResponsavelRetencao      String?   @default("4") @db.VarChar(1)
+  nfseNaturezaOperacao         String?   @default("1") @db.VarChar(1)
+  nfseIncentivadorCultural     String?   @default("2") @db.VarChar(1)
+  nfseExigibilidadeIss         String?   @default("1") @db.VarChar(1)
+  nfeNaturezaOperacao          String?   @default("Venda de mercadoria") @db.VarChar(120)
+  nfeTipoAtividade             String?   @default("1") @db.VarChar(1)
+  nfeIndicadorPresenca         String?   @default("1") @db.VarChar(1)
+  nfeIndicativoIntermediador   String?   @default("0") @db.VarChar(1)
+  nfeFrete                     String?   @default("9") @db.VarChar(1)
+  responsavelTecnicoCnpj       String?   @db.VarChar(14)
+  responsavelTecnicoContato    String?   @db.VarChar(120)
+  responsavelTecnicoEmail      String?   @db.VarChar(191)
+  responsavelTecnicoTelefone   String?   @db.VarChar(20)
+  responsavelTecnicoCsrtId     String?   @db.VarChar(10)
+  responsavelTecnicoCsrtCifrado String?  @db.Text
   plugNotasEmpresaId           String?   @db.VarChar(191)
   plugNotasEmpresaAtualizadaEm DateTime?
   codigoServicoPadrao          String?   @db.VarChar(32)

@@ -71,6 +71,9 @@ const envSchema = z
     // Credencial da conta integradora TecnoSpeed PlugNotas. Nunca chega ao navegador.
     PLUGNOTAS_API_KEY: optionalEnvString,
     PLUGNOTAS_WEBHOOK_SECRET: optionalEnvString,
+    // Credencial da conta integradora Geranet NFe. Nunca chega ao navegador.
+    GERANET_NFE_API_KEY: optionalEnvString,
+    GERANET_NFE_BASE_URL: optionalEnvUrl.default("https://nfe.geranet.net/api/v1"),
     // O webservice legado D2TI de São Mateus do Maranhão publica somente HTTP.
     // Produção fica bloqueada por padrão para não enviar o token municipal em texto claro.
     FISCAL_ALLOW_INSECURE_D2TI_HTTP: z.enum(["true", "false"]).default("false"),

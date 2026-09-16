@@ -3,11 +3,13 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
-import { createFiscalIntentForSale } from "../../services/notasFiscais/fiscalSaleService";
+import { createFiscalIntentForSale, getGeranetCredentials } from "../../services/notasFiscais/fiscalSaleService";
 import { fiscalStatusFromProvider } from "../../services/notasFiscais/fiscalProviderPolicy";
 import { downloadPlugNotas, requestPlugNotasCancellation } from "../../services/notasFiscais/plugNotas";
 import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
+import { cancelGeranetNfe, cancelGeranetNfse } from "../../services/notasFiscais/geranet";
+import { readFiscalArtifact } from "../../services/notasFiscais/fiscalArtifactStorage";
 
 const types = z.enum(["NFE", "NFCE", "NFSE"]);
 const fiscalSaleTypes = z.enum(["NFE", "NFCE"]);
@@ -90,12 +92,42 @@ export async function cancelFiscalDocument(req: Request, res: Response) {
   if (!id.success || !body.success) return fail(res, 422, "fiscal_cancel_invalid", "Informe uma justificativa de cancelamento com ao menos 15 caracteres.");
   const invoice = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId }, include: { Eventos: true } });
   if (!invoice) return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
-  if (invoice.status !== "AUTORIZADA" || !invoice.provedorId) return fail(res, 409, "fiscal_cancel_not_allowed", "Somente documento autorizado pode ser cancelado.");
+  // A Geranet identifica a nota pela chave e protocolo da SEFAZ; ela não
+  // devolve um id interno de documento como o provedor legado.
+  if (invoice.status !== "AUTORIZADA" || (!['GERANET_NFE', 'GERANET_NFSE'].includes(invoice.provedor || "") && !invoice.provedorId)) return fail(res, 409, "fiscal_cancel_not_allowed", "Somente documento autorizado pode ser cancelado.");
   const idempotencyKey = String(req.headers["idempotency-key"] || randomUUID());
   const duplicate = invoice.Eventos.find((event) => event.idempotencyKey === idempotencyKey);
   if (duplicate) return res.status(202).json({ data: { eventoId: duplicate.id, status: duplicate.status }, requestId: randomUUID() });
   const event = await prisma.notaFiscalEvento.create({ data: { notaFiscalId: invoice.id, tipo: "CANCELAMENTO", status: "PROCESSANDO", motivo: body.data.motivo, idempotencyKey } });
   try {
+    if (invoice.provedor === "GERANET_NFE") {
+      const issuer = invoice.emitenteSnapshotJson as any;
+      const address = issuer?.endereco || {};
+      const credentials = await getGeranetCredentials(invoice);
+      const response = await cancelGeranetNfe({ acao: "cancelar", modeloDocumento: "nfe", chave: invoice.chaveAcesso, protocolo: invoice.protocolo, justificativa: body.data.motivo, certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password, ambiente: invoice.ambiente === "PRODUCAO" ? "1" : "2", modelo: invoice.modelo, ufEmitente: address.uf });
+      if (response.situacao !== "sucesso") throw Object.assign(new Error(response.mensagem || "Cancelamento rejeitado pela Geranet."), { response: { data: response } });
+      await prisma.$transaction([
+        prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "CANCELADA", canceladaEm: new Date(), motivoCancelamento: body.data.motivo, erroMensagem: null } }),
+        prisma.notaFiscalEvento.update({ where: { id: event.id }, data: { status: "CONCLUIDO", processadoEm: new Date(), respostaJson: { ...response, xml: undefined, pdf: undefined } as any } }),
+      ]);
+      return res.status(200).json({ data: { eventoId: event.id, status: "CONCLUIDO" }, requestId: randomUUID() });
+    }
+    if (invoice.provedor === "GERANET_NFSE") {
+      if (!invoice.xmlPath) throw new Error("O XML autorizado é necessário para cancelar esta NFS-e.");
+      const prestador = invoice.emitenteSnapshotJson as any;
+      const credentials = await getGeranetCredentials(invoice);
+      const response = await cancelGeranetNfse({
+        acao: "cancelar", modeloDocumento: "nfse", certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password,
+        ambiente: invoice.ambiente === "PRODUCAO" ? "1" : "2", padraoNacional: "sim", xml: (await readFiscalArtifact(invoice.xmlPath)).toString("hex"),
+        codigoCancelamento: "2", motivoCancelamento: body.data.motivo, prestador,
+      });
+      if (response.situacao !== "sucesso") throw Object.assign(new Error(response.mensagem || "Cancelamento rejeitado pela Geranet."), { response: { data: response } });
+      await prisma.$transaction([
+        prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "CANCELADA", canceladaEm: new Date(), motivoCancelamento: body.data.motivo, erroMensagem: null } }),
+        prisma.notaFiscalEvento.update({ where: { id: event.id }, data: { status: "CONCLUIDO", processadoEm: new Date(), respostaJson: { ...response, xml: undefined, pdf: undefined } as any } }),
+      ]);
+      return res.status(200).json({ data: { eventoId: event.id, status: "CONCLUIDO" }, requestId: randomUUID() });
+    }
     const response = await requestPlugNotasCancellation(invoice.tipo as "NFE" | "NFCE" | "NFSE", invoice.provedorId, body.data.motivo);
     await prisma.notaFiscalEvento.update({ where: { id: event.id }, data: { respostaJson: response as any, protocolo: String(response?.data?.protocol || response?.protocolo || "") || null } });
     return res.status(202).json({ data: { eventoId: event.id, status: "PROCESSANDO" }, requestId: randomUUID() });
@@ -111,9 +143,17 @@ export async function downloadFiscalDocument(req: Request, res: Response) {
   const format = z.enum(["xml", "pdf"]).safeParse(req.params.format);
   if (!id.success || !format.success) return fail(res, 422, "fiscal_download_invalid", "Arquivo fiscal inválido.");
   const invoice = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId } });
-  if (!invoice?.provedorId) return fail(res, 409, "fiscal_file_unavailable", "O arquivo ainda não está disponível.");
+  if (!invoice || (!['GERANET_NFE', 'GERANET_NFSE'].includes(invoice.provedor || "") && !invoice.provedorId)) return fail(res, 409, "fiscal_file_unavailable", "O arquivo ainda não está disponível.");
   try {
-    const binary = await downloadPlugNotas(invoice.tipo as "NFE" | "NFCE" | "NFSE", invoice.provedorId, format.data);
+    if (invoice.provedor === "GERANET_NFE" || invoice.provedor === "GERANET_NFSE") {
+      const reference = format.data === "xml" ? invoice.xmlPath : invoice.pdfPath;
+      if (!reference) return fail(res, 409, "fiscal_file_unavailable", "O arquivo ainda não está disponível.");
+      const binary = await readFiscalArtifact(reference);
+      res.setHeader("Content-Disposition", `attachment; filename=${invoice.tipo}-${invoice.serie || 1}-${invoice.numero || invoice.id}.${format.data}`);
+      res.type(format.data === "xml" ? "application/xml" : "application/pdf");
+      return res.send(binary);
+    }
+    const binary = await downloadPlugNotas(invoice.tipo as "NFE" | "NFCE" | "NFSE", invoice.provedorId!, format.data);
     res.setHeader("Content-Disposition", `attachment; filename=${invoice.tipo}-${invoice.serie || 1}-${invoice.numero || invoice.id}.${format.data}`);
     res.type(format.data === "xml" ? "application/xml" : "application/pdf");
     return res.send(Buffer.from(binary));

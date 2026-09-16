@@ -2,7 +2,7 @@ import { Router, type RequestHandler } from "express";
 import multer, { MulterError } from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { requireNotasFiscaisAccess } from "../../middlewares/notasFiscaisAccess";
-import { createNfseRps, emitNfse, getFiscalConfig, getNationalMunicipalParameters, listMunicipios, listNfse, saveD2tiToken, saveFiscalConfig, uploadFiscalCertificate } from "../../controllers/notasFiscais/notasFiscais";
+import { createNfseRps, emitNfse, getFiscalConfig, getGeranetIntegrationStatus, getNationalMunicipalParameters, listMunicipios, listNfse, saveD2tiToken, saveFiscalConfig, uploadFiscalCertificate } from "../../controllers/notasFiscais/notasFiscais";
 import { cancelFiscalDocument, createSaleFiscalDocument, downloadFiscalDocument, getFiscalDocument, listFiscalDocuments, plugNotasWebhook, retryFiscalDocument } from "../../controllers/notasFiscais/documentos";
 
 export const routerNotasFiscais = Router();
@@ -22,6 +22,7 @@ routerNotasFiscais.post("/webhooks/plugnotas", use(plugNotasWebhook));
 routerNotasFiscais.use(authenticateJWT);
 routerNotasFiscais.get("/configuracao", requireNotasFiscaisAccess(4), use(getFiscalConfig));
 routerNotasFiscais.put("/configuracao", requireNotasFiscaisAccess(4), use(saveFiscalConfig));
+routerNotasFiscais.get("/homologacao/geranet", requireNotasFiscaisAccess(4), use(getGeranetIntegrationStatus));
 routerNotasFiscais.get("/municipios", requireNotasFiscaisAccess(4), use(listMunicipios));
 routerNotasFiscais.get("/parametros-municipais", requireNotasFiscaisAccess(4), use(getNationalMunicipalParameters));
 routerNotasFiscais.post("/certificado", requireNotasFiscaisAccess(4), (req, res, next) => {

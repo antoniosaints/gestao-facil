@@ -15,6 +15,10 @@ import { resolveNfseProvider, selectedNfseMode } from "../../services/notasFisca
 import { buildDpsDraft, consultarParametrosMunicipaisNacional, nationalEndpoints } from "../../services/notasFiscais/nacionalProvider";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
+import { getGeranetUser } from "../../services/notasFiscais/geranet";
+import { emitGeranetNfse, type GeranetResponse } from "../../services/notasFiscais/geranet";
+import { getGeranetCredentials } from "../../services/notasFiscais/fiscalSaleService";
+import { storeFiscalArtifact } from "../../services/notasFiscais/fiscalArtifactStorage";
 
 const text = (max = 191) => z.preprocess((value) => {
   const normalized = String(value ?? "").trim();
@@ -30,10 +34,26 @@ const configSchema = z.object({
   email: z.preprocess((value) => String(value ?? "").trim() || undefined, z.string().email().optional()),
   telefone: text(32), ambiente: z.enum(["HOMOLOGACAO", "PRODUCAO"]).default("HOMOLOGACAO"),
   nfseHabilitado: z.boolean().default(false), nfeHabilitado: z.boolean().default(false), nfceHabilitado: z.boolean().default(false),
-  modoEmissaoNfse: z.enum(["NACIONAL", "LEGADO_D2TI"]).default("NACIONAL"),
-  provedorNfse: text(40).default("NACIONAL"), serieRps: z.coerce.number().int().min(1).max(999).default(1),
+  modoEmissaoNfse: z.enum(["GERANET", "NACIONAL", "LEGADO_D2TI"]).default("GERANET"),
+  provedorNfse: text(40).default("GERANET_NFSE"), serieRps: z.coerce.number().int().min(1).max(999).default(1),
   serieNfe: z.coerce.number().int().min(1).max(999).default(1), serieNfce: z.coerce.number().int().min(1).max(999).default(1),
   nfceCscId: text(32), nfceCscToken: text(512),
+  nfseCodigoServicoNacional: text(16), nfseCodigoTributacaoMunicipio: text(32), nfseCodigoCnae: text(16),
+  nfseDataOpcaoSimples: z.preprocess((value) => value ? new Date(String(value)) : undefined, z.date().optional()),
+  nfseRegimeApuracaoSn: z.enum(["1", "2", "3"]).default("1"),
+  nfseIssRetido: z.enum(["1", "2", "3"]).default("2"),
+  nfseResponsavelRetencao: z.enum(["1", "2", "3", "4"]).default("4"),
+  nfseNaturezaOperacao: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]).default("1"),
+  nfseIncentivadorCultural: z.enum(["1", "2"]).default("2"),
+  nfseExigibilidadeIss: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]).default("1"),
+  nfeNaturezaOperacao: text(120).default("Venda de mercadoria"),
+  nfeTipoAtividade: z.enum(["1", "2", "3", "4", "5"]).default("1"),
+  nfeIndicadorPresenca: z.enum(["0", "1", "2", "3", "4", "5", "9"]).default("1"),
+  nfeIndicativoIntermediador: z.enum(["0", "1"]).default("0"),
+  nfeFrete: z.enum(["0", "1", "2", "3", "4", "9"]).default("9"),
+  responsavelTecnicoCnpj: text(14), responsavelTecnicoContato: text(120),
+  responsavelTecnicoEmail: z.preprocess((value) => String(value ?? "").trim() || undefined, z.string().email().optional()),
+  responsavelTecnicoTelefone: text(20), responsavelTecnicoCsrtId: text(10), responsavelTecnicoCsrt: text(512),
   codigoServicoPadrao: text(32), descricaoServicoPadrao: text(250), codigoAtividadePadrao: text(10), descricaoAtividadePadrao: text(250),
   tipoTributacaoPadrao: z.coerce.number().int().min(1).max(9).nullable().optional(), tipoRecolhimentoPadrao: z.coerce.number().int().min(1).max(9).nullable().optional(),
   notaIntermediadaPadrao: z.coerce.number().int().min(1).max(2).default(2), aliquotaIssPadrao: z.coerce.number().min(0).max(100).nullable().optional(),
@@ -87,8 +107,8 @@ function mapConfig(config: any, conta: any) {
     nfseHabilitado: Boolean(value.nfseHabilitado),
     nfeHabilitado: Boolean(value.nfeHabilitado),
     nfceHabilitado: Boolean(value.nfceHabilitado),
-    modoEmissaoNfse: d2ti ? "LEGADO_D2TI" : "NACIONAL",
-    provedorNfse: d2ti ? D2TI_SAO_MATEUS.provedor : (value.provedorNfse ?? "NACIONAL"),
+    modoEmissaoNfse: d2ti ? "LEGADO_D2TI" : "GERANET",
+    provedorNfse: d2ti ? D2TI_SAO_MATEUS.provedor : "GERANET_NFSE",
     serieRps: value.serieRps ?? 1,
     proximoNumeroRps: value.proximoNumeroRps ?? 1,
     serieNfe: value.serieNfe ?? 1,
@@ -96,6 +116,24 @@ function mapConfig(config: any, conta: any) {
     serieNfce: value.serieNfce ?? 1,
     proximoNumeroNfce: value.proximoNumeroNfce ?? 1,
     nfce: { cscId: value.nfceCscId ?? "", cscConfigurado: Boolean(value.nfceCscTokenCifrado) },
+    nfse: {
+      codigoServicoNacional: value.nfseCodigoServicoNacional ?? "", codigoTributacaoMunicipio: value.nfseCodigoTributacaoMunicipio ?? "", codigoCnae: value.nfseCodigoCnae ?? "",
+      dataOpcaoSimples: value.nfseDataOpcaoSimples ? new Date(value.nfseDataOpcaoSimples).toISOString().slice(0, 10) : "",
+      regimeApuracaoSn: value.nfseRegimeApuracaoSn ?? "1", issRetido: value.nfseIssRetido ?? "2", responsavelRetencao: value.nfseResponsavelRetencao ?? "4",
+      naturezaOperacao: value.nfseNaturezaOperacao ?? "1", incentivadorCultural: value.nfseIncentivadorCultural ?? "2", exigibilidadeIss: value.nfseExigibilidadeIss ?? "1",
+    },
+    nfe: {
+      naturezaOperacao: value.nfeNaturezaOperacao ?? "Venda de mercadoria",
+      tipoAtividade: value.nfeTipoAtividade ?? "1",
+      indicadorPresenca: value.nfeIndicadorPresenca ?? "1",
+      indicativoIntermediador: value.nfeIndicativoIntermediador ?? "0",
+      frete: value.nfeFrete ?? "9",
+    },
+    responsavelTecnico: {
+      cnpj: value.responsavelTecnicoCnpj ?? "", contato: value.responsavelTecnicoContato ?? "",
+      email: value.responsavelTecnicoEmail ?? "", telefone: value.responsavelTecnicoTelefone ?? "",
+      csrtId: value.responsavelTecnicoCsrtId ?? "", csrtConfigurado: Boolean(value.responsavelTecnicoCsrtCifrado),
+    },
     codigoServicoPadrao: value.codigoServicoPadrao ?? "",
     descricaoServicoPadrao: value.descricaoServicoPadrao ?? "",
     codigoAtividadePadrao: value.codigoAtividadePadrao ?? "",
@@ -116,9 +154,9 @@ function mapConfig(config: any, conta: any) {
     },
     emissaoNfsePronta: d2ti
       ? Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.tokenIntegracaoCifrado && value.codigoServicoPadrao && value.descricaoServicoPadrao && value.codigoAtividadePadrao && value.descricaoAtividadePadrao && value.tipoTributacaoPadrao && value.tipoRecolhimentoPadrao && value.aliquotaIssPadrao != null && hasFiscalCertificateEncryptionKey())
-      : Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
-    emissaoNfePronta: Boolean(value.nfeHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
-    emissaoNfcePronta: Boolean(value.nfceHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.certificadoReferencia && value.certificadoSenhaCifrada && value.nfceCscId && value.nfceCscTokenCifrado && hasFiscalCertificateEncryptionKey()),
+      : Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.codigoServicoPadrao && value.nfseCodigoTributacaoMunicipio && value.aliquotaIssPadrao != null && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey() && (![1, 4].includes(value.regimeTributario) || value.nfseDataOpcaoSimples)),
+    emissaoNfePronta: Boolean(value.nfeHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.regimeTributario >= 1 && value.nfeNaturezaOperacao && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
+    emissaoNfcePronta: Boolean(value.nfceHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.regimeTributario >= 1 && value.nfeNaturezaOperacao && value.certificadoReferencia && value.certificadoSenhaCifrada && value.nfceCscId && value.nfceCscTokenCifrado && hasFiscalCertificateEncryptionKey()),
   };
 }
 
@@ -140,7 +178,9 @@ export async function saveFiscalConfig(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const data = parsed.data;
   const nfceCscToken = data.nfceCscToken;
+  const responsavelTecnicoCsrt = data.responsavelTecnicoCsrt;
   delete (data as any).nfceCscToken;
+  delete (data as any).responsavelTecnicoCsrt;
   if (data.modoEmissaoNfse === "LEGADO_D2TI" && data.codigoMunicipioIbge !== D2TI_SAO_MATEUS.codigoIbge) {
     return fail(req, res, 422, "legacy_provider_unavailable", "O emissor legado D2TI está disponível somente para São Mateus do Maranhão - MA.");
   }
@@ -150,19 +190,33 @@ export async function saveFiscalConfig(req: Request, res: Response) {
     data.municipioNome = "São Mateus do Maranhão";
     data.uf = "MA";
   } else {
-    data.provedorNfse = "NACIONAL";
+    data.modoEmissaoNfse = "GERANET";
+    data.provedorNfse = "GERANET_NFSE";
     data.codigoMunicipioPrestador = "";
   }
   const config = await prisma.notaFiscalConfiguracao.upsert({
     where: { contaId },
-    create: { contaId, ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null, ...(nfceCscToken ? { nfceCscTokenCifrado: encryptFiscalSecret(nfceCscToken) } : {}) },
-    update: { ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null, ...(nfceCscToken ? { nfceCscTokenCifrado: encryptFiscalSecret(nfceCscToken) } : {}) },
+    create: { contaId, ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null, ...(nfceCscToken ? { nfceCscTokenCifrado: encryptFiscalSecret(nfceCscToken) } : {}), ...(responsavelTecnicoCsrt ? { responsavelTecnicoCsrtCifrado: encryptFiscalSecret(responsavelTecnicoCsrt) } : {}) },
+    update: { ...data, aliquotaIssPadrao: data.aliquotaIssPadrao ?? null, ...(nfceCscToken ? { nfceCscTokenCifrado: encryptFiscalSecret(nfceCscToken) } : {}), ...(responsavelTecnicoCsrt ? { responsavelTecnicoCsrtCifrado: encryptFiscalSecret(responsavelTecnicoCsrt) } : {}) },
   });
   const conta = await prisma.contas.findUniqueOrThrow({
     where: { id: contaId },
     select: { nome: true, nomeFantasia: true, documento: true, ie: true, im: true, regimeTributario: true, cep: true, endereco: true, email: true, telefone: true },
   });
   return res.json({ data: mapConfig(config, conta), requestId: requestId(req) });
+}
+
+/** Checagem sem segredo no navegador; o retorno da Geranet não é repassado. */
+export async function getGeranetIntegrationStatus(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId } });
+  const local = mapConfig(config, { nome: "", nomeFantasia: "", documento: "", ie: "", im: "", regimeTributario: 0, cep: "", endereco: "", email: "", telefone: "" });
+  try {
+    await getGeranetUser();
+    return res.json({ data: { apiKeyValida: true, certificadoConfigurado: local.certificado.configurado, nfsePronta: local.emissaoNfsePronta, nfePronta: local.emissaoNfePronta, nfcePronta: local.emissaoNfcePronta }, requestId: requestId(req) });
+  } catch (error: any) {
+    return res.status(503).json({ data: { apiKeyValida: false, certificadoConfigurado: local.certificado.configurado, nfsePronta: local.emissaoNfsePronta, nfePronta: local.emissaoNfePronta, nfcePronta: local.emissaoNfcePronta, motivo: error?.response?.status === 401 ? "API Key Geranet inválida." : "Geranet indisponível." }, requestId: requestId(req) });
+  }
 }
 
 export async function uploadFiscalCertificate(req: Request, res: Response) {
@@ -290,6 +344,8 @@ export async function createNfseRps(req: Request, res: Response) {
   const parsed = nfseSchema.safeParse(req.body);
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Revise os dados da NFS-e.", parsed.error.flatten());
   const { contaId } = getCustomRequest(req).customData;
+  const currentConfig = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { modoEmissaoNfse: true, provedorNfse: true } });
+  if (selectedNfseMode(currentConfig || {}) === "GERANET") return emitNfseGeranet(req, res);
   const input = parsed.data;
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -298,7 +354,7 @@ export async function createNfseRps(req: Request, res: Response) {
       tx.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId }, select: { id: true } }),
     ]);
     if (!cliente) throw new Error("Cliente não encontrado nesta conta.");
-    if (selectedNfseMode(config || {}) !== "NACIONAL") throw new Error("Selecione o Emissor Público Nacional para gerar uma DPS.");
+    if (selectedNfseMode(config || {}) !== "GERANET") throw new Error("Selecione a Geranet para gerar uma NFS-e.");
     if (!config?.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.certificadoReferencia || !config.certificadoSenhaCifrada) {
       throw new Error("Conclua a configuração fiscal, incluindo inscrição municipal, município e certificado A1, antes de gerar a NFS-e.");
     }
@@ -318,7 +374,7 @@ export async function createNfseRps(req: Request, res: Response) {
         codigoServico: input.codigoServico || config.codigoServicoPadrao || null,
         discriminacao: input.discriminacao,
         requisicaoJson: {
-          provider: "NACIONAL",
+          provider: "GERANET_NFSE",
           dps: buildDpsDraft({ codigoMunicipioIbge: config.codigoMunicipioIbge, documentoPrestador: config.documento, inscricaoMunicipal: config.inscricaoMunicipal, serie: config.serieRps, numero: rpsNumero, codigoServico: input.codigoServico || config.codigoServicoPadrao, discriminacao: input.discriminacao, valorTotal: input.valorTotal }),
         },
       },
@@ -331,8 +387,8 @@ export async function createNfseRps(req: Request, res: Response) {
 }
 
 // Mantém a rota estável e resolve o provider pela configuração salva da conta.
-// A D2TI continua sendo emitida de forma síncrona; no Nacional é criada a DPS
-// rastreável, que segue a numeração e o layout do Emissor Público Nacional.
+// A D2TI permanece somente para notas antigas do município; os novos envios
+// seguem pela Geranet em operação síncrona e idempotente.
 export async function emitNfse(req: Request, res: Response) {
   const { contaId } = getCustomRequest(req).customData;
   const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, modoEmissaoNfse: true, provedorNfse: true, nfseHabilitado: true } });
@@ -343,7 +399,7 @@ export async function emitNfse(req: Request, res: Response) {
   } catch (error: any) {
     return fail(req, res, 422, "provider_not_supported", error.message || "O provider selecionado não está disponível para este município.");
   }
-  return createNfseRps(req, res);
+  return emitNfseGeranet(req, res);
 }
 
 function onlyDigits(value: string | null | undefined) {
@@ -357,6 +413,120 @@ function splitPhone(value: string | null | undefined) {
 
 function fiscalInvoiceDto(invoice: any) {
   return { ...invoice, valorTotal: Number(invoice.valorTotal), Cliente: undefined, cliente: invoice.Cliente };
+}
+
+function decimalNfse(value: unknown) {
+  return Number(value || 0).toFixed(2);
+}
+
+function ymd(value?: Date | string | null) {
+  return value ? new Date(value).toISOString().slice(0, 10) : undefined;
+}
+
+function cleanGeranetResponse(response: GeranetResponse) {
+  const { xml: _xml, pdf: _pdf, ...safe } = response;
+  return safe;
+}
+
+function sameCity(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+async function geranetTomadorMunicipio(cliente: any) {
+  if (!cliente.cidade || !cliente.estado) throw new Error("O tomador precisa de cidade e UF para emitir a NFS-e.");
+  const municipalities = await consultarMunicipiosIbge(cliente.estado, cliente.cidade);
+  const municipality = municipalities.find((item) => sameCity(item.nome) === sameCity(cliente.cidade));
+  if (!municipality) throw new Error("Não foi possível identificar o código IBGE do município do tomador.");
+  return municipality.codigoIbge;
+}
+
+function geranetPrestador(config: any) {
+  return {
+    cnpj: onlyDigits(config.documento), inscricaoMunicipal: config.inscricaoMunicipal, razaoSocial: config.razaoSocial,
+    nomeFantasia: config.nomeFantasia || "", endereco: config.logradouro, numero: config.numero,
+    complemento: config.complemento || "", bairro: config.bairro, municipio: config.codigoMunicipioIbge,
+    nomeMunicipio: config.municipioNome, uf: config.uf, cep: onlyDigits(config.cep), telefone: splitPhone(config.telefone) || "", email: config.email || "",
+  };
+}
+
+export async function emitNfseGeranet(req: Request, res: Response) {
+  const parsed = nfseSchema.safeParse(req.body);
+  if (!parsed.success) return fail(req, res, 422, "validation_error", "Revise os dados da NFS-e.", parsed.error.flatten());
+  const idempotencyKey = String(req.headers["idempotency-key"] || "").trim();
+  if (idempotencyKey.length < 16 || idempotencyKey.length > 191) return fail(req, res, 400, "idempotency_key_required", "Envie uma chave de idempotência entre 16 e 191 caracteres para emitir a NFS-e.");
+  const { contaId } = getCustomRequest(req).customData;
+  const input = parsed.data;
+  const [config, cliente] = await Promise.all([
+    prisma.notaFiscalConfiguracao.findUnique({ where: { contaId } }),
+    prisma.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId }, select: { id: true, nome: true, documento: true, im: true, endereco: true, numero: true, bairro: true, complemento: true, cep: true, cidade: true, estado: true, email: true, telefone: true } }),
+  ]);
+  if (!cliente) return fail(req, res, 422, "tomador_not_found", "Tomador não encontrado nesta conta.");
+  if (!config || selectedNfseMode(config) !== "GERANET" || !config.nfseHabilitado) return fail(req, res, 422, "provider_not_supported", "Ative a NFS-e e selecione a Geranet nas configurações fiscais.");
+  const simplesNacional = [1, 4].includes(config.regimeTributario) ? "1" : "2";
+  const missingConfig = !config.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.municipioNome || !config.uf || !config.logradouro || !config.numero || !config.bairro || !config.cep || !config.codigoServicoPadrao || !config.nfseCodigoTributacaoMunicipio || config.aliquotaIssPadrao == null || !config.certificadoReferencia || !config.certificadoSenhaCifrada || (simplesNacional === "1" && !config.nfseDataOpcaoSimples);
+  if (missingConfig) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais, códigos de serviço Geranet, alíquota, A1 e data de opção do Simples quando aplicável.");
+  const missingTomador = !cliente.documento || !cliente.endereco || !cliente.numero || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado;
+  if (missingTomador) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, número, bairro, CEP, cidade e UF.");
+
+  let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
+  if (invoice) {
+    if (invoice.status === "EMISSAO_INCERTA") return fail(req, res, 409, "emission_uncertain", "A Geranet não confirmou esta tentativa. Consulte o portal antes de emitir novamente para evitar duplicidade.", { notaFiscalId: invoice.id });
+    if (invoice.status === "EMITINDO") return fail(req, res, 409, "emission_in_progress", "Esta NFS-e já está em processamento.", { notaFiscalId: invoice.id });
+    return res.json({ data: fiscalInvoiceDto(invoice), requestId: requestId(req) });
+  }
+
+  let codigoMunicipioTomador: string;
+  try {
+    codigoMunicipioTomador = await geranetTomadorMunicipio(cliente);
+  } catch (error: any) {
+    return fail(req, res, 422, "tomador_municipio_invalid", error?.message || "Não foi possível identificar o município do tomador.");
+  }
+  const codigoServico = input.codigoServico || config.codigoServicoPadrao;
+  const prestador = geranetPrestador(config);
+  try {
+    // A numeração do RPS nunca é reutilizada, inclusive em concorrência ou
+    // quando uma tentativa posterior é rejeitada pelo autorizador.
+    const reserved = await prisma.notaFiscalConfiguracao.update({ where: { contaId }, data: { proximoNumeroRps: { increment: 1 } }, select: { proximoNumeroRps: true } });
+    const rpsNumero = reserved.proximoNumeroRps - 1;
+    invoice = await prisma.notaFiscal.create({
+      data: {
+        contaId, tipo: "NFSE", clienteId: cliente.id, valorTotal: input.valorTotal, status: "EMITINDO", idempotencyKey, ambiente: config.ambiente,
+        provedor: "GERANET_NFSE", rpsNumero: String(rpsNumero), codigoServico, discriminacao: input.discriminacao,
+        emitenteSnapshotJson: prestador, destinatarioSnapshotJson: { ...cliente, codigoMunicipioIbge: codigoMunicipioTomador },
+        requisicaoJson: { provider: "GERANET_NFSE", serie: config.serieRps, numeroRps: rpsNumero, codigoServicoNacional: config.nfseCodigoServicoNacional, codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, codigoCnae: config.nfseCodigoCnae },
+      },
+      include: { Cliente: { select: { id: true, nome: true, documento: true } } },
+    });
+  } catch (error: any) {
+    if (error?.code !== "P2002") throw error;
+    const existing = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
+    if (!existing) throw error;
+    return res.json({ data: fiscalInvoiceDto(existing), requestId: requestId(req) });
+  }
+
+  try {
+    const credentials = await getGeranetCredentials(invoice);
+    const response = await emitGeranetNfse({
+      acao: "emitir", modeloDocumento: "nfse", nomeSistema: "Gestão Fácil", certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password,
+      padraoNacional: "sim", ambiente: config.ambiente === "PRODUCAO" ? "1" : "2", numeroLote: String(invoice.id), numeroRps: invoice.rpsNumero, serie: String(config.serieRps), simplesNacional,
+      ...(simplesNacional === "1" ? { dataOpcaoSimples: ymd(config.nfseDataOpcaoSimples), regimeApuracaoSN: config.nfseRegimeApuracaoSn || "1" } : {}),
+      tipo: "1", naturezaOperacao: config.nfseNaturezaOperacao || "1", incentivadorCultural: config.nfseIncentivadorCultural || "2", prestador,
+      tomador: { cpfCnpj: onlyDigits(cliente.documento), inscricaoMunicipal: cliente.im || "", razaoSocial: cliente.nome, endereco: cliente.endereco, numero: cliente.numero, complemento: cliente.complemento || "", bairro: cliente.bairro, municipio: codigoMunicipioTomador, nomeMunicipio: cliente.cidade, uf: cliente.estado.toUpperCase(), codigoPais: "1058", pais: "Brasil", cep: onlyDigits(cliente.cep), telefone: splitPhone(cliente.telefone) || "", email: cliente.email || "", substitutoTributario: "2" },
+      servico: { valor: decimalNfse(input.valorTotal), deducoes: "0.00", aliquotaPis: "0.00", aliquotaCofins: "0.00", inss: "0.00", ir: "0.00", csll: "0.00", issRetido: config.nfseIssRetido || "2", valorIssRetido: "0.00", outrasRetencoes: "0.00", descontoIncondicionado: "0.00", descontoCondicionado: "0.00", aliquota: decimalNfse(config.aliquotaIssPadrao), responsavelRetencao: config.nfseResponsavelRetencao || "4", itemListaServico: codigoServico, ...(config.nfseCodigoServicoNacional ? { codigoServicoNacional: config.nfseCodigoServicoNacional } : {}), codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, ...(config.nfseCodigoCnae ? { codigoCnae: config.nfseCodigoCnae } : {}), discriminacao: input.discriminacao, codigoMunicipio: config.codigoMunicipioIbge, municipioIncidencia: config.codigoMunicipioIbge, descricaoLocalidadeIncidencia: config.municipioNome, exigibilidadeISS: config.nfseExigibilidadeIss || "1", ...(simplesNacional === "1" ? { tributacao: { percentualTributosSimplesNacional: decimalNfse(config.aliquotaIssPadrao) } } : {}) },
+    });
+    const artifacts: Record<string, string> = {};
+    if (response.xml) artifacts.xmlPath = await storeFiscalArtifact({ contaId, notaFiscalId: invoice.id, format: "xml", bytes: Buffer.from(response.xml, "hex") });
+    if (response.pdf) artifacts.pdfPath = await storeFiscalArtifact({ contaId, notaFiscalId: invoice.id, format: "pdf", bytes: Buffer.from(response.pdf, "hex") });
+    const authorized = response.situacao === "sucesso" && (!response.cstat || String(response.cstat) === "100");
+    const updated = await prisma.notaFiscal.update({ where: { id: invoice.id }, data: authorized ? { status: "AUTORIZADA", numero: response.numero || null, chaveAcesso: response.chave || null, protocolo: response.protocolo || null, codigoVerificacao: (response as any).codigoVerificacao || null, respostaJson: cleanGeranetResponse(response) as any, erroMensagem: null, emitidaEm: new Date(), ...artifacts } : { status: "REJEITADA", respostaJson: cleanGeranetResponse(response) as any, erroMensagem: response.mensagem || "A Geranet rejeitou a NFS-e." }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
+    if (!authorized) return fail(req, res, 422, "nfse_rejeitada", response.mensagem || "A Geranet rejeitou a NFS-e.", { notaFiscalId: updated.id });
+    return res.status(201).json({ data: fiscalInvoiceDto(updated), requestId: requestId(req) });
+  } catch (error: any) {
+    const providerResponse = error?.response?.data as GeranetResponse | undefined;
+    const status = providerResponse ? "REJEITADA" : "EMISSAO_INCERTA";
+    await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status, respostaJson: providerResponse ? cleanGeranetResponse(providerResponse) as any : undefined, erroMensagem: providerResponse?.mensagem || (status === "EMISSAO_INCERTA" ? "A conexão falhou antes da confirmação; consulte a Geranet antes de tentar novamente." : "A Geranet rejeitou a NFS-e.") } });
+    return fail(req, res, providerResponse ? 422 : 502, providerResponse ? "nfse_rejeitada" : "municipal_service_unavailable", providerResponse?.mensagem || "Não foi possível confirmar a emissão na Geranet. A tentativa foi bloqueada para evitar duplicidade.", { notaFiscalId: invoice.id });
+  }
 }
 
 // A D2TI não usa identificador de RPS. Por isso cada tentativa recebe uma chave de idempotência
