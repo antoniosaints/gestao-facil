@@ -33,7 +33,7 @@ import {
   restoreComboVendaStock,
 } from "../../services/combos/comboService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
-import { createFiscalIntentForSale } from "../../services/notasFiscais/fiscalSaleService";
+import { createFiscalIntentForSale, validateFiscalSalePreflight } from "../../services/notasFiscais/fiscalSaleService";
 import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
 
 function buildProdutoItemName(produto: {
@@ -828,6 +828,10 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
           .map((item) => item.id)
       );
       return ResponseHandler(res, "Venda atualizada com sucesso", updated, 200);
+    }
+
+    if (data.tipoDocumentoFiscal !== "NENHUM") {
+      await validateFiscalSalePreflight(customData.contaId, data.itens);
     }
 
     const comboItems = data.itens.filter((item) => item.tipo === "COMBO");

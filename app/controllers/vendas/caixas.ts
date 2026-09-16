@@ -44,7 +44,7 @@ import { prisma } from "../../utils/prisma";
 import { ResponseHandler } from "../../utils/response";
 import { createComboVendaSaidas } from "../../services/combos/comboService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
-import { createFiscalIntentForSale } from "../../services/notasFiscais/fiscalSaleService";
+import { createFiscalIntentForSale, validateFiscalSalePreflight } from "../../services/notasFiscais/fiscalSaleService";
 import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
 
@@ -1662,6 +1662,9 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
     }
     if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
       return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
+    }
+    if (data.tipoDocumentoFiscal !== "NENHUM") {
+      await validateFiscalSalePreflight(customData.contaId, data.itens);
     }
     const desconto = decimalFrom(data.desconto);
     const valorRecebido = decimalFrom(data.valorRecebido);

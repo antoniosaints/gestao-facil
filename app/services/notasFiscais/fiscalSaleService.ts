@@ -12,8 +12,60 @@ import { readStoredFileBuffer } from "../uploads/fileStorageService";
 export type FiscalSaleType = "NFE" | "NFCE";
 const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
 const decimal = (value: unknown, places = 2) => Number(value || 0).toFixed(places);
-function fiscalError(message: string, code = "fiscal_preflight_failed") { return Object.assign(new Error(message), { code }); }
+type FiscalProductIssue = { produtoId: number | null; descricao: string; campos: string[] };
+type FiscalLine = { produto: any; descricao: string; campos?: string[] };
+function fiscalError(message: string, code = "fiscal_preflight_failed", details?: unknown) { return Object.assign(new Error(message), { code, status: 422, details }); }
 function cleanResponse(response: GeranetResponse) { const { xml: _xml, pdf: _pdf, ...safe } = response; return safe; }
+
+function collectFiscalProductIssues(lines: FiscalLine[], regimeTributario: number) {
+  const isSimple = regimeTributario === 1 || regimeTributario === 4;
+  const issues: FiscalProductIssue[] = [];
+  for (const { produto, descricao, campos: customCampos } of lines) {
+    const campos: string[] = [...(customCampos || [])];
+    if (campos.length) { issues.push({ produtoId: produto?.id ?? null, descricao, campos }); continue; }
+    if (!produto) campos.push("Produto indisponível");
+    else {
+      if (!digits(produto.ncm)) campos.push("NCM");
+      if (!digits(produto.cfop)) campos.push("CFOP");
+      if (produto.origem == null) campos.push("Origem da mercadoria");
+      if (isSimple ? !produto.icmsCsosn : !produto.icmsCst) campos.push(isSimple ? "CSOSN" : "CST de ICMS");
+      if (produto.icmsAliquotaSt != null && (produto.icmsModBcSt !== "4" || produto.icmsMva == null)) campos.push("ICMS-ST: informe modalidade 4 e MVA");
+    }
+    if (campos.length) issues.push({ produtoId: produto?.id ?? null, descricao, campos });
+  }
+  return issues;
+}
+
+function throwFiscalProductIssues(issues: FiscalProductIssue[]) {
+  if (issues.length) throw fiscalError("Há produtos com dados fiscais pendentes. Corrija o cadastro ou conclua a venda sem emitir agora.", "fiscal_product_data_incomplete", { itens: issues });
+}
+
+export async function validateFiscalSalePreflight(contaId: number, items: Array<{ id: number; tipo: string; nome?: string }>) {
+  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { regimeTributario: true } });
+  if (!config || config.regimeTributario < 1) throw fiscalError("Conclua a configuração do regime tributário antes de emitir pela venda.", "fiscal_config_incomplete");
+  const productIds = items.filter((item) => item.tipo === "PRODUTO").map((item) => item.id);
+  const comboIds = items.filter((item) => item.tipo === "COMBO").map((item) => item.id);
+  const [products, combos] = await Promise.all([
+    productIds.length ? prisma.produto.findMany({ where: { contaId, id: { in: productIds } } }) : Promise.resolve([]),
+    comboIds.length ? prisma.combo.findMany({ where: { contaId, id: { in: comboIds }, ativo: true }, include: { componentes: { include: { Produto: true, Servico: true } } } }) : Promise.resolve([]),
+  ]);
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  const combosById = new Map(combos.map((combo) => [combo.id, combo]));
+  const lines: FiscalLine[] = [];
+  for (const item of items) {
+    if (item.tipo === "PRODUTO") lines.push({ produto: productsById.get(item.id) || null, descricao: item.nome || productsById.get(item.id)?.nome || `Produto #${item.id}` });
+    if (item.tipo === "SERVICO") lines.push({ produto: null, descricao: item.nome || `Serviço #${item.id}`, campos: ["Serviço: emita NFS-e em vez de NF-e/NFC-e"] });
+    if (item.tipo === "COMBO") {
+      const combo = combosById.get(item.id);
+      if (!combo) lines.push({ produto: null, descricao: item.nome || `Combo #${item.id}` });
+      else for (const component of combo.componentes) {
+        if (component.tipo === "SERVICO") lines.push({ produto: null, descricao: `${combo.nome} › ${component.Servico?.nome || "Serviço"}`, campos: ["Serviço: emita NFS-e em vez de NF-e/NFC-e"] });
+        else lines.push({ produto: component.Produto, descricao: `${combo.nome} › ${component.Produto ? `${component.Produto.nome}${component.Produto.nomeVariante ? ` / ${component.Produto.nomeVariante}` : ""}` : "Produto"}` });
+      }
+    }
+  }
+  throwFiscalProductIssues(collectFiscalProductIssues(lines, config.regimeTributario));
+}
 
 async function reserveNumber(tx: Prisma.TransactionClient, contaId: number, type: FiscalSaleType) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -49,10 +101,7 @@ export async function createFiscalIntentForSale(tx: Prisma.TransactionClient, in
   const { config, serie, numero } = await reserveNumber(tx, input.contaId, input.tipo);
   const lines = [...sale.ItensVendas.map((item) => ({ produto: item.produto, descricao: item.itemName || item.produto?.nome || "Produto", quantidade: Number(item.quantidade), valor: Number(item.valor) })), ...sale.ComboSaidas.flatMap((combo) => combo.componentes.map((item) => ({ produto: item.Produto, descricao: item.nomeSnapshot, quantidade: Number(item.quantidadeTotal), valor: Number(item.valorUnitarioRateado) })) )];
   if (!lines.length) throw fiscalError("A venda não possui itens fiscais para emissão.");
-  const invalid = lines.find(({ produto }) => !produto || !digits(produto.ncm) || !digits(produto.cfop) || produto.origem == null || ((config.regimeTributario === 1 || config.regimeTributario === 4) ? !produto.icmsCsosn : !produto.icmsCst));
-  if (invalid) throw fiscalError("Há produto sem NCM, CFOP, origem ou tributação ICMS (CSOSN/CST). Corrija o cadastro antes de emitir.");
-  const unsupportedSt = lines.find(({ produto }) => produto?.icmsAliquotaSt != null && (produto.icmsModBcSt !== "4" || produto.icmsMva == null));
-  if (unsupportedSt) throw fiscalError("A integração Geranet só calcula ICMS-ST por MVA (modalidade 4). Para pauta, preço tabelado ou valor da operação, solicite o contrato fiscal correspondente antes de emitir.");
+  throwFiscalProductIssues(collectFiscalProductIssues(lines, config.regimeTributario));
   return tx.notaFiscal.create({ data: {
     contaId: input.contaId, vendaId: sale.id, tipo: input.tipo, modelo: input.tipo === "NFE" ? "55" : "65", serie, numero: String(numero), clienteId: sale.clienteId || null, valorTotal: sale.valor, status: "PENDENTE", ambiente: config.ambiente, provedor: "GERANET_NFE", idempotencyKey: input.idempotencyKey || `venda:${sale.id}:${input.tipo}:${randomUUID()}`,
     emitenteSnapshotJson: { documento: digits(config.documento), razaoSocial: config.razaoSocial, nomeFantasia: config.nomeFantasia, ie: config.inscricaoEstadual, regimeTributario: config.regimeTributario, municipio: config.municipioNome, endereco: { codigoMunicipioIbge: config.codigoMunicipioIbge, uf: config.uf, cep: config.cep, logradouro: config.logradouro, numero: config.numero, bairro: config.bairro, complemento: config.complemento }, email: config.email, telefone: config.telefone, naturezaOperacao: config.nfeNaturezaOperacao, tipoAtividade: config.nfeTipoAtividade, indicadorPresenca: config.nfeIndicadorPresenca, indicativoIntermediador: config.nfeIndicativoIntermediador, frete: config.nfeFrete, responsavelTecnico: { cnpj: config.responsavelTecnicoCnpj, contato: config.responsavelTecnicoContato, email: config.responsavelTecnicoEmail, fone: config.responsavelTecnicoTelefone, idCSRT: config.responsavelTecnicoCsrtId } },

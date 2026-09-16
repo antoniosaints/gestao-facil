@@ -14,6 +14,7 @@ import { readFiscalArtifact } from "../../services/notasFiscais/fiscalArtifactSt
 const types = z.enum(["NFE", "NFCE", "NFSE"]);
 const fiscalSaleTypes = z.enum(["NFE", "NFCE"]);
 const idSchema = z.coerce.number().int().positive();
+const batchSaleDocumentsSchema = z.object({ tipo: fiscalSaleTypes, vendaIds: z.array(z.coerce.number().int().positive()).min(1).max(50) });
 
 function fail(res: Response, status: number, code: string, message: string, details?: unknown) {
   return res.status(status).json({ error: { code, message, ...(details ? { details } : {}), requestId: randomUUID() } });
@@ -43,6 +44,34 @@ export async function listFiscalDocuments(req: Request, res: Response) {
   return res.json({ data: items.map(mapDocument), pagination: { page, limit, total, pages: Math.ceil(total / limit) }, requestId: randomUUID() });
 }
 
+export async function listUninvoicedSales(req: Request, res: Response) {
+  const custom = getCustomRequest(req).customData;
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  const where = { contaId: custom.contaId, status: "FATURADO" as const, NotaFiscals: { none: { status: { notIn: ["REJEITADA", "CANCELADA"] } } } };
+  const sales = await prisma.vendas.findMany({ where, orderBy: { data: "asc" }, take: limit, include: { cliente: { select: { id: true, nome: true, documento: true } } } });
+  return res.json({ data: sales.map((sale) => ({ id: sale.id, uid: sale.Uid, valorTotal: Number(sale.valor), data: sale.data, cliente: sale.cliente ? { id: sale.cliente.id, nome: sale.cliente.nome, documento: sale.cliente.documento } : null })), requestId: randomUUID() });
+}
+
+export async function createSaleFiscalDocumentsBatch(req: Request, res: Response) {
+  const custom = getCustomRequest(req).customData;
+  const body = batchSaleDocumentsSchema.safeParse(req.body);
+  if (!body.success) return fail(res, 422, "fiscal_batch_invalid", "Selecione de uma a 50 vendas e o tipo de documento.");
+  const result: { emitidas: Array<{ vendaId: number; notaFiscalId: number }>; pendencias: Array<{ vendaId: number; codigo: string; mensagem: string; detalhes?: unknown }> } = { emitidas: [], pendencias: [] };
+  for (const vendaId of [...new Set(body.data.vendaIds)]) {
+    try {
+      const sale = await prisma.vendas.findFirst({ where: { id: vendaId, contaId: custom.contaId }, select: { status: true } });
+      if (!sale) throw Object.assign(new Error("Venda não encontrada."), { code: "sale_not_found", status: 404 });
+      if (sale.status !== "FATURADO") throw Object.assign(new Error("A venda precisa estar faturada antes da emissão."), { code: "fiscal_sale_not_invoiced", status: 409 });
+      const invoice = await prisma.$transaction((tx) => createFiscalIntentForSale(tx, { contaId: custom.contaId, vendaId, tipo: body.data.tipo, idempotencyKey: `lote:${randomUUID()}:${vendaId}` }));
+      result.emitidas.push({ vendaId, notaFiscalId: invoice.id });
+    } catch (error: any) {
+      result.pendencias.push({ vendaId, codigo: error?.code || "fiscal_preflight_failed", mensagem: error?.message || "Não foi possível preparar a emissão.", detalhes: error?.details });
+    }
+  }
+  await Promise.all(result.emitidas.map(({ notaFiscalId }) => enqueueFiscalEmission(notaFiscalId)));
+  return res.status(202).json({ data: result, requestId: randomUUID() });
+}
+
 export async function getFiscalDocument(req: Request, res: Response) {
   const custom = getCustomRequest(req).customData;
   const id = idSchema.safeParse(req.params.id);
@@ -70,7 +99,7 @@ export async function createSaleFiscalDocument(req: Request, res: Response) {
     await enqueueFiscalEmission(invoice.id);
     return res.status(201).json({ data: mapDocument(invoice), requestId: randomUUID() });
   } catch (error: any) {
-    return fail(res, 422, error?.code || "fiscal_preflight_failed", error?.message || "Não foi possível preparar a emissão fiscal.");
+    return fail(res, 422, error?.code || "fiscal_preflight_failed", error?.message || "Não foi possível preparar a emissão fiscal.", error?.details);
   }
 }
 
