@@ -27,7 +27,7 @@ const text = (max = 191) => z.preprocess((value) => {
 
 const configSchema = z.object({
   razaoSocial: text(), nomeFantasia: text(), documento: text(32), inscricaoEstadual: text(64),
-  inscricaoMunicipal: text(64), regimeTributario: z.coerce.number().int().min(0).max(9).default(0),
+  inscricaoMunicipal: text(64), regimeTributario: z.coerce.number().int().min(0).max(4).default(0),
   codigoMunicipioIbge: text(10), codigoMunicipioPrestador: text(32), municipioNome: text(120),
   uf: z.preprocess((value) => String(value ?? "").trim().toUpperCase() || undefined, z.string().length(2).optional()),
   cep: text(16), logradouro: text(), numero: text(32), bairro: text(120), complemento: text(120),
@@ -46,6 +46,7 @@ const configSchema = z.object({
   nfseNaturezaOperacao: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]).default("1"),
   nfseIncentivadorCultural: z.enum(["1", "2"]).default("2"),
   nfseExigibilidadeIss: z.enum(["1", "2", "3", "4", "5", "6", "7", "8"]).default("1"),
+  nfseRegimeEspecialTributacao: text(2).default("1"),
   nfeNaturezaOperacao: text(120).default("Venda de mercadoria"),
   nfeTipoAtividade: z.enum(["1", "2", "3", "4", "5"]).default("1"),
   nfeIndicadorPresenca: z.enum(["0", "1", "2", "3", "4", "5", "9"]).default("1"),
@@ -121,6 +122,7 @@ function mapConfig(config: any, conta: any) {
       dataOpcaoSimples: value.nfseDataOpcaoSimples ? new Date(value.nfseDataOpcaoSimples).toISOString().slice(0, 10) : "",
       regimeApuracaoSn: value.nfseRegimeApuracaoSn ?? "1", issRetido: value.nfseIssRetido ?? "2", responsavelRetencao: value.nfseResponsavelRetencao ?? "4",
       naturezaOperacao: value.nfseNaturezaOperacao ?? "1", incentivadorCultural: value.nfseIncentivadorCultural ?? "2", exigibilidadeIss: value.nfseExigibilidadeIss ?? "1",
+      regimeEspecialTributacao: value.nfseRegimeEspecialTributacao ?? "1",
     },
     nfe: {
       naturezaOperacao: value.nfeNaturezaOperacao ?? "Venda de mercadoria",
@@ -510,7 +512,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
       acao: "emitir", modeloDocumento: "nfse", nomeSistema: "Gestão Fácil", certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password,
       padraoNacional: "sim", ambiente: config.ambiente === "PRODUCAO" ? "1" : "2", numeroLote: String(invoice.id), numeroRps: invoice.rpsNumero, serie: String(config.serieRps), simplesNacional,
       ...(simplesNacional === "1" ? { dataOpcaoSimples: ymd(config.nfseDataOpcaoSimples), regimeApuracaoSN: config.nfseRegimeApuracaoSn || "1" } : {}),
-      tipo: "1", naturezaOperacao: config.nfseNaturezaOperacao || "1", incentivadorCultural: config.nfseIncentivadorCultural || "2", prestador,
+      tipo: "1", naturezaOperacao: config.nfseNaturezaOperacao || "1", incentivadorCultural: config.nfseIncentivadorCultural || "2", regimeEspecialTributacao: config.nfseRegimeEspecialTributacao || "1", prestador,
       tomador: { cpfCnpj: onlyDigits(cliente.documento), inscricaoMunicipal: cliente.im || "", razaoSocial: cliente.nome, endereco: cliente.endereco, numero: cliente.numero, complemento: cliente.complemento || "", bairro: cliente.bairro, municipio: codigoMunicipioTomador, nomeMunicipio: cliente.cidade, uf: cliente.estado.toUpperCase(), codigoPais: "1058", pais: "Brasil", cep: onlyDigits(cliente.cep), telefone: splitPhone(cliente.telefone) || "", email: cliente.email || "", substitutoTributario: "2" },
       servico: { valor: decimalNfse(input.valorTotal), deducoes: "0.00", aliquotaPis: "0.00", aliquotaCofins: "0.00", inss: "0.00", ir: "0.00", csll: "0.00", issRetido: config.nfseIssRetido || "2", valorIssRetido: "0.00", outrasRetencoes: "0.00", descontoIncondicionado: "0.00", descontoCondicionado: "0.00", aliquota: decimalNfse(config.aliquotaIssPadrao), responsavelRetencao: config.nfseResponsavelRetencao || "4", itemListaServico: codigoServico, ...(config.nfseCodigoServicoNacional ? { codigoServicoNacional: config.nfseCodigoServicoNacional } : {}), codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, ...(config.nfseCodigoCnae ? { codigoCnae: config.nfseCodigoCnae } : {}), discriminacao: input.discriminacao, codigoMunicipio: config.codigoMunicipioIbge, municipioIncidencia: config.codigoMunicipioIbge, descricaoLocalidadeIncidencia: config.municipioNome, exigibilidadeISS: config.nfseExigibilidadeIss || "1", ...(simplesNacional === "1" ? { tributacao: { percentualTributosSimplesNacional: decimalNfse(config.aliquotaIssPadrao) } } : {}) },
     });
