@@ -24,6 +24,7 @@
 - `monitor`
 - `loja`
 - `restaurante`
+- `ourive`
 
 ## Padrão de rota
 - O router de domínio define paths e middlewares.
@@ -40,6 +41,7 @@
 - No domínio `lancamentos`, o router também concentra endpoints operacionais de parcelas, dashboards, cobrança, importação/exportação CSV do financeiro, edição rápida de metadados do lançamento, detalhe de contas financeiras, transferência entre contas, ajuste manual de saldo da conta e o subdomínio `assinaturas-pagar` com CRUD, geração manual de lançamento recorrente e listagens desktop/mobile.
 - No domínio `reservas`, `GET /api/reservas/painel` entrega a visão agregada por período para o dashboard autenticado, enquanto `GET /api/reservas` permanece responsável pela listagem operacional. Ambas as rotas usam a permissão `reservas:visualizar` e o tenant do JWT.
 - O domínio versionado `restaurante` fica em `/api/v1/restaurante`. As rotas públicas por slug expõem cardápio, prévia e criação idempotente; as rotas privadas de catálogo, zonas, `/mesas`, `/sessoes-mesa`, `/pontos-producao`, `/kds`, `/estacoes-impressao`, `/regras-impressao` e `/trabalhos-impressao` usam JWT e `requireRestauranteAccess` com uma capacidade explícita. `/acesso` expõe as capacidades efetivas e `/usuarios-papeis` é restrito a gestores. Heartbeat, claim e ack em `/estacao-impressao` usam um token opaco exclusivo da estação.
+- O domínio versionado `ourive` fica em `/api/v1/ourive`. A OS pode ser atualizada em `PATCH /ordens/:id`, o comprovante é exportado em `GET /ordens/:id/comprovante?formato=A4|CUPOM`, e a exclusão em `DELETE /ordens/:id` exige administrador e reverte o histórico de estoque quando ainda não há financeiro irreversível.
 - O router legado `/api/comandas` continua responsável pelas operações de comanda, mas agora exige `COMANDAS_OPERAR`; na interface ele é acessado em `/restaurante/comandas`.
 - No domínio `servicos`, `GET /api/servicos/ordens/dashboard/painel` concentra os KPIs, comparação com o período anterior, série diária, distribuição por status, rankings e fila operacional das ordens de serviço, sempre isolado pelo `contaId` autenticado.
 

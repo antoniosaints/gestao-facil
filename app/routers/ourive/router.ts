@@ -51,9 +51,11 @@ import {
   consolidateLeftover,
   reopenOrderFinancial,
   updateOrderFinancial,
+  updateOrder,
   updateOrderStatus,
   updateStage,
 } from "../../controllers/ourive/ourive";
+import { orderReceiptPdf } from "../../controllers/ourive/ourivePdf";
 
 const use = (handler: unknown) => handler as RequestHandler;
 export const routerOurive = Router();
@@ -66,16 +68,44 @@ routerOurive.post(
 
 routerOurive.use(authenticateJWT);
 routerOurive.get("/acesso", requireOuriveModule(), use(currentOuriveAccess));
-routerOurive.get("/predefinicoes", requireOuriveAccess("VISUALIZAR"), use(listPresets));
+routerOurive.get(
+  "/predefinicoes",
+  requireOuriveAccess("VISUALIZAR"),
+  use(listPresets),
+);
 routerOurive.post("/predefinicoes", requireOuriveModule(), use(createPreset));
 routerOurive.get("/painel", requireOuriveAccess("VISUALIZAR"), use(dashboard));
 routerOurive.get("/relatorios", requireOuriveAccess("RELATORIOS"), use(report));
-routerOurive.get("/repasses", requireOuriveAccess("PAGAMENTOS"), use(listOuriveTransfers));
-routerOurive.get("/pagamentos", requireOuriveAccess("PAGAMENTOS"), use(listOurivePayments));
-routerOurive.post("/pagamentos", requireOuriveAccess("PAGAMENTOS"), use(createOurivePayment));
-routerOurive.get("/pro-labore", requireOuriveAccess("PROLABORE"), use(listProLabore));
-routerOurive.post("/pro-labore", requireOuriveAccess("PROLABORE"), use(createProLabore));
-routerOurive.post("/pro-labore/:id/pagar", requireOuriveAccess("PROLABORE"), use(payProLabore));
+routerOurive.get(
+  "/repasses",
+  requireOuriveAccess("PAGAMENTOS"),
+  use(listOuriveTransfers),
+);
+routerOurive.get(
+  "/pagamentos",
+  requireOuriveAccess("PAGAMENTOS"),
+  use(listOurivePayments),
+);
+routerOurive.post(
+  "/pagamentos",
+  requireOuriveAccess("PAGAMENTOS"),
+  use(createOurivePayment),
+);
+routerOurive.get(
+  "/pro-labore",
+  requireOuriveAccess("PROLABORE"),
+  use(listProLabore),
+);
+routerOurive.post(
+  "/pro-labore",
+  requireOuriveAccess("PROLABORE"),
+  use(createProLabore),
+);
+routerOurive.post(
+  "/pro-labore/:id/pagar",
+  requireOuriveAccess("PROLABORE"),
+  use(payProLabore),
+);
 routerOurive.get(
   "/comissoes",
   requireOuriveAccess("VISUALIZAR"),
@@ -145,7 +175,11 @@ routerOurive.get(
   requireOuriveAccess("PRODUCAO"),
   use(listPurchaseNeeds),
 );
-routerOurive.get("/sobras", requireOuriveAccess("PRODUCAO"), use(listLeftovers));
+routerOurive.get(
+  "/sobras",
+  requireOuriveAccess("PRODUCAO"),
+  use(listLeftovers),
+);
 routerOurive.post("/ordens", requireOuriveAccess("RECEBER"), use(createOrder));
 routerOurive.delete(
   "/ordens/:id",
@@ -156,6 +190,16 @@ routerOurive.get(
   "/ordens/:id",
   requireOuriveAccess("VISUALIZAR"),
   use(getOrder),
+);
+routerOurive.patch(
+  "/ordens/:id",
+  requireOuriveAccess("RECEBER"),
+  use(updateOrder),
+);
+routerOurive.get(
+  "/ordens/:id/comprovante",
+  requireOuriveAccess("VISUALIZAR"),
+  use(orderReceiptPdf),
 );
 routerOurive.put(
   "/ordens/:id/orcamento",
