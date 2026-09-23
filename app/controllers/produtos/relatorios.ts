@@ -15,6 +15,17 @@ import { resolveRenderableImageSource } from "../../services/uploads/fileStorage
 import { ResponseHandler } from "../../utils/response";
 
 type ReportTargetType = "BASE" | "VARIANTE";
+type CatalogOrderBy = "codigo" | "nome";
+type CatalogModel = "detalhado" | "simples";
+type CatalogProduct = {
+  codigo?: string | null;
+  nome: string;
+  nomeVariante?: string | null;
+  preco: Decimal | number | string;
+  estoque: Decimal | number | string;
+  minimo: Decimal | number | string;
+  ProdutoBase?: { nome: string } | null;
+};
 type ReportMetric = {
   label: string;
   value: string;
@@ -62,6 +73,20 @@ async function getLogoPath(profile?: string | null) {
 
 function getVariantName(nomeVariante?: string | null) {
   return nomeVariante?.trim() || "Padrão";
+}
+
+function getCatalogDisplayName(product: CatalogProduct, model: CatalogModel) {
+  const baseName = product.ProdutoBase?.nome || product.nome;
+  const variantName = product.nomeVariante?.trim();
+  return model === "simples" && variantName ? `${baseName} ${variantName}` : baseName;
+}
+
+const catalogQuantityFormatter = new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 3,
+});
+
+function formatCatalogQuantity(value: Decimal | number | string) {
+  return catalogQuantityFormatter.format(Number(value));
 }
 
 function getCombinedProductName(params: {
@@ -191,7 +216,7 @@ function drawMetricGrid(doc: PDFKit.PDFDocument, metrics: ReportMetric[]) {
 
 function drawTableHeader(
   doc: PDFKit.PDFDocument,
-  columns: Array<{ label: string; x: number; width?: number }>
+  columns: Array<{ label: string; x: number; width?: number; align?: "right" }>
 ) {
   ensurePageSpace(doc, 24);
   const headerY = doc.y;
@@ -200,6 +225,7 @@ function drawTableHeader(
   columns.forEach((column) => {
     doc.text(column.label, column.x, headerY, {
       width: column.width,
+      align: column.align,
     });
   });
 
@@ -422,17 +448,10 @@ async function renderCatalogReport(
       documento?: string | null;
       profile?: string | null;
     };
-    products: Array<{
-      codigo?: string | null;
-      nome: string;
-      nomeVariante?: string | null;
-      preco: Decimal | number | string;
-      estoque: number;
-      ProdutoBase?: {
-        nome: string;
-      } | null;
-    }>;
+    products: CatalogProduct[];
     periodo: string;
+    orderBy: CatalogOrderBy;
+    model: CatalogModel;
   }
 ) {
   await drawHeader(doc, params.conta, {
@@ -441,6 +460,8 @@ async function renderCatalogReport(
       `E-mail: ${params.conta.email || "Não informado"}`,
       `Documento: ${params.conta.documento || "Não informado"}`,
       `Período do cadastro: ${params.periodo}`,
+      `Modelo: ${params.model === "simples" ? "Simples" : "Detalhado"}`,
+      `Ordenado por: ${params.orderBy === "codigo" ? "Código" : "Nome do produto"}`,
       `Emitido em: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`,
     ],
   });
@@ -463,47 +484,77 @@ async function renderCatalogReport(
     },
   ]);
 
-  drawTableHeader(doc, [
-    { label: "Código", x: 30, width: 60 },
-    { label: "Produto base", x: 95, width: 170 },
-    { label: "Variante", x: 270, width: 110 },
-    { label: "Preço", x: 385, width: 70 },
-    { label: "Qtd.", x: 460, width: 40 },
-    { label: "Total", x: 505, width: 70 },
-  ]);
+  const columns: Array<{ label: string; x: number; width: number; align?: "right" }> =
+    params.model === "simples"
+      ? [
+          { label: "Código", x: 30, width: 55 },
+          { label: "Produto", x: 90, width: 215 },
+          { label: "Preço", x: 310, width: 65, align: "right" },
+          { label: "Qtd.", x: 380, width: 35, align: "right" },
+          { label: "Mín.", x: 420, width: 40, align: "right" },
+          { label: "Total", x: 465, width: 110, align: "right" },
+        ]
+      : [
+          { label: "Código", x: 30, width: 50 },
+          { label: "Produto base", x: 85, width: 160 },
+          { label: "Variante", x: 250, width: 95 },
+          { label: "Preço", x: 350, width: 65, align: "right" },
+          { label: "Qtd.", x: 420, width: 35, align: "right" },
+          { label: "Mín.", x: 460, width: 35, align: "right" },
+          { label: "Total", x: 500, width: 75, align: "right" },
+        ];
+  drawTableHeader(doc, columns);
 
   params.products.forEach((product) => {
-    const lineHeight = 16;
-    ensurePageSpace(doc, lineHeight + 10);
+    const total = new Decimal(product.preco).times(product.estoque);
+    const values = params.model === "simples"
+      ? [
+          product.codigo || "-",
+          getCatalogDisplayName(product, params.model),
+          formatarValorMonetario(new Decimal(product.preco)),
+          formatCatalogQuantity(product.estoque),
+          formatCatalogQuantity(product.minimo),
+          formatarValorMonetario(total),
+        ]
+      : [
+          product.codigo || "-",
+          getCatalogDisplayName(product, params.model),
+          getVariantName(product.nomeVariante),
+          formatarValorMonetario(new Decimal(product.preco)),
+          formatCatalogQuantity(product.estoque),
+          formatCatalogQuantity(product.minimo),
+          formatarValorMonetario(total),
+        ];
+    const cells = columns.map((column, index) => ({
+      text: values[index],
+      x: column.x,
+      width: column.width,
+      align: column.align,
+    }));
 
-    if (doc.y === doc.page.margins.top) {
-      drawTableHeader(doc, [
-        { label: "Código", x: 30, width: 60 },
-        { label: "Produto base", x: 95, width: 170 },
-        { label: "Variante", x: 270, width: 110 },
-        { label: "Preço", x: 385, width: 70 },
-        { label: "Qtd.", x: 460, width: 40 },
-        { label: "Total", x: 505, width: 70 },
-      ]);
+    doc.font("Roboto").fontSize(8).fillColor("#111827");
+    const rowHeight = Math.max(
+      18,
+      ...cells.map((cell) => doc.heightOfString(cell.text, { width: cell.width, align: cell.align }) + 6)
+    );
+
+    if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      drawTableHeader(doc, columns);
     }
 
     const y = doc.y;
-    const total = new Decimal(product.preco).times(product.estoque);
-
-    doc.text(product.codigo || "-", 30, y, { width: 60 });
-    doc.text(product.ProdutoBase?.nome || product.nome, 95, y, { width: 170 });
-    doc.text(getVariantName(product.nomeVariante), 270, y, { width: 110 });
-    doc.text(formatarValorMonetario(new Decimal(product.preco)), 385, y, { width: 70, align: "right" });
-    doc.text(String(product.estoque), 460, y, { width: 40, align: "right" });
-    doc.text(formatarValorMonetario(total), 505, y, { width: 70, align: "right" });
+    cells.forEach((cell) => {
+      doc.text(cell.text, cell.x, y, { width: cell.width, align: cell.align });
+    });
 
     doc
-      .moveTo(30, y + 14)
-      .lineTo(575, y + 14)
+      .moveTo(30, y + rowHeight - 2)
+      .lineTo(575, y + rowHeight - 2)
       .strokeColor("#E5E7EB")
       .stroke();
 
-    doc.y = y + 18;
+    doc.y = y + rowHeight;
   });
 }
 
@@ -645,6 +696,15 @@ export const relatorioProdutos = async (
 
   const inicio = parseOptionalDate(query.inicio);
   const fim = parseOptionalDate(query.fim);
+  const orderBy = String(query.orderBy || "nome").toLowerCase();
+  const model = String(query.model || "detalhado").toLowerCase();
+
+  if (orderBy !== "codigo" && orderBy !== "nome") {
+    return ResponseHandler(res, "Ordenação inválida. Escolha código ou nome.", null, 400);
+  }
+  if (model !== "detalhado" && model !== "simples") {
+    return ResponseHandler(res, "Modelo inválido. Escolha detalhado ou simples.", null, 400);
+  }
 
   const produtos = await prisma.produto.findMany({
     where: {
@@ -668,15 +728,27 @@ export const relatorioProdutos = async (
         },
       },
     },
-    orderBy: [
-      {
-        ProdutoBase: {
-          createdAt: "desc",
-        },
-      },
-      { nome: "asc" },
-      { nomeVariante: "asc" },
-    ],
+  });
+
+  const collator = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
+  produtos.sort((a, b) => {
+    const nameA = getCatalogDisplayName(a, model);
+    const nameB = getCatalogDisplayName(b, model);
+    const codeA = a.codigo?.trim() || "";
+    const codeB = b.codigo?.trim() || "";
+
+    if (orderBy === "codigo") {
+      if (!codeA) return codeB ? 1 : collator.compare(nameA, nameB) || a.id - b.id;
+      if (!codeB) return -1;
+    }
+
+    const primary = orderBy === "codigo"
+      ? collator.compare(codeA, codeB)
+      : collator.compare(nameA, nameB);
+    return primary
+      || collator.compare(orderBy === "codigo" ? nameA : codeA, orderBy === "codigo" ? nameB : codeB)
+      || collator.compare(getVariantName(a.nomeVariante), getVariantName(b.nomeVariante))
+      || a.id - b.id;
   });
 
   const conta = await prisma.contas.findUnique({
@@ -704,7 +776,9 @@ export const relatorioProdutos = async (
       Creator: "Gestão Fácil - ERP",
       Keywords: "ERP, Produtos, Estoque",
       Title: "Relatório de catálogo e estoque",
-      Subject: "Relatório de catálogo e estoque por produto e variante",
+      Subject: model === "simples"
+        ? "Relatório de catálogo e estoque com produto e variante em uma coluna"
+        : "Relatório de catálogo e estoque por produto e variante",
       ModDate: new Date(),
     },
     pdfVersion: "1.4",
@@ -723,6 +797,8 @@ export const relatorioProdutos = async (
     conta,
     products: produtos,
     periodo: getPeriodLabel(inicio, fim, "Todos os cadastros"),
+    orderBy,
+    model,
   });
 
   doc.end();
