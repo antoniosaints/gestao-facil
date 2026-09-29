@@ -31,6 +31,7 @@
 - `GET /homologacao/geranet` valida somente o acesso à API Key; não transmite nota nem valida o certificado na SEFAZ ou prefeitura. `POST /homologacao/nfs-e/emitir` e `POST /homologacao/vendas/:vendaId/documentos` reutilizam os emissores existentes e exigem `ambiente = HOMOLOGACAO` salvo no servidor via `requireFiscalHomologacao`. O segundo aceita `tipo: NFE|NFCE` e uma venda faturada.
 - `GET /vendas/sem-documento` aceita `pageSize`, `page`, `search`, `sortBy` e `order` para a `DataTable` fiscal; sem `pageSize`, preserva a lista simples com `limit`. `GET /vendas/sem-documento/select2` atende à busca assíncrona da homologação com `search` ou `id`. Ambas usam o tenant do JWT.
 - `GET /vendas/:vendaId/cliente` informa o cliente vinculado e a validade do CPF/CNPJ; `PATCH /vendas/:vendaId/cliente` com `{ "clienteId": 123 }` vincula um cliente válido a uma venda faturada sem nota ativa, com permissão fiscal de escrita e isolamento por conta.
+- `GET /documentos` lista NFS-e, NF-e e NFC-e com filtros, busca, ordenação e paginação por `pageSize`; `GET /documentos/resumo` agrega os estados; `GET /documentos/painel` fornece indicadores, série diária, distribuição e pendências por período ao painel fiscal; `GET /documentos/:id` entrega itens e eventos. As rotas agregadas precedem a rota dinâmica `:id`. Downloads e reprocessamento usam as rotas fiscais já existentes.
 - O router de domínio define paths e middlewares.
 - `authenticateJWT` protege quase toda a API privada.
 - O router normalmente delega para controllers menores por caso de uso, por exemplo:

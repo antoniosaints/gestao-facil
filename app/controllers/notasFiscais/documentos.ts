@@ -10,11 +10,11 @@ import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { cancelGeranetNfe, cancelGeranetNfse } from "../../services/notasFiscais/geranet";
 import { readFiscalArtifact } from "../../services/notasFiscais/fiscalArtifactStorage";
-import type { Prisma } from "../../../generated";
+import { Prisma } from "../../../generated";
 import { validarCpfCnpj } from "../../helpers/formatters";
 import { fiscalRecipientStatus } from "../../services/notasFiscais/fiscalRecipientPolicy";
+import { fiscalReportFilters } from "../../services/notasFiscais/fiscalReportFilters";
 
-const types = z.enum(["NFE", "NFCE", "NFSE"]);
 const fiscalSaleTypes = z.enum(["NFE", "NFCE"]);
 const idSchema = z.coerce.number().int().positive();
 const batchSaleDocumentsSchema = z.object({ tipo: fiscalSaleTypes, vendaIds: z.array(z.coerce.number().int().positive()).min(1).max(50) });
@@ -24,10 +24,13 @@ function fail(res: Response, status: number, code: string, message: string, deta
 }
 
 function mapDocument(invoice: any) {
+  const providerFile = !["GERANET_NFE", "GERANET_NFSE"].includes(invoice.provedor || "") && Boolean(invoice.provedorId) && invoice.status === "AUTORIZADA";
   return {
-    id: invoice.id, vendaId: invoice.vendaId, tipo: invoice.tipo, modelo: invoice.modelo, status: invoice.status, serie: invoice.serie,
+    id: invoice.id, vendaId: invoice.vendaId, vendaUid: invoice.Venda?.Uid || null, tipo: invoice.tipo, modelo: invoice.modelo, status: invoice.status, serie: invoice.serie,
     numero: invoice.numero, chaveAcesso: invoice.chaveAcesso, protocolo: invoice.protocolo, ambiente: invoice.ambiente, valorTotal: Number(invoice.valorTotal),
-    erroMensagem: invoice.erroMensagem, criadoEm: invoice.criadoEm, emitidaEm: invoice.emitidaEm, canceladaEm: invoice.canceladaEm,
+    rpsNumero: invoice.rpsNumero, codigoServico: invoice.codigoServico, discriminacao: invoice.discriminacao, provedor: invoice.provedor,
+    xmlDisponivel: Boolean(invoice.xmlPath) || providerFile, pdfDisponivel: Boolean(invoice.pdfPath) || providerFile,
+    erroMensagem: invoice.erroMensagem, criadoEm: invoice.criadoEm, atualizadaEm: invoice.atualizadaEm, emitidaEm: invoice.emitidaEm, canceladaEm: invoice.canceladaEm,
     cliente: invoice.Cliente ? { id: invoice.Cliente.id, nome: invoice.Cliente.nome, documento: invoice.Cliente.documento } : null,
     eventos: invoice.Eventos?.map((event: any) => ({ id: event.id, tipo: event.tipo, status: event.status, motivo: event.motivo, createdAt: event.createdAt })) || [],
   };
@@ -35,16 +38,85 @@ function mapDocument(invoice: any) {
 
 export async function listFiscalDocuments(req: Request, res: Response) {
   const custom = getCustomRequest(req).customData;
-  const type = req.query.tipo ? types.safeParse(req.query.tipo) : null;
-  if (type && !type.success) return fail(res, 422, "fiscal_type_invalid", "Tipo de documento fiscal inválido.");
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-  const where = { contaId: custom.contaId, ...(type?.success ? { tipo: type.data } : {}) };
+  const filters = fiscalReportFilters(req.query);
+  if (filters.error) return fail(res, 422, "fiscal_report_filter_invalid", filters.error);
+  const requestedPage = Number(req.query.page);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const paginated = req.query.pageSize != null;
+  const limit = Math.min(100, Math.max(1, Number(paginated ? req.query.pageSize : req.query.limit) || 20));
+  const order = req.query.order === "asc" ? "asc" : "desc";
+  const sortBy = String(req.query.sortBy || "criadoEm");
+  const allowedSort = ["id", "tipo", "status", "numero", "valorTotal", "criadoEm", "atualizadaEm", "emitidaEm"];
+  const orderBy = { [allowedSort.includes(sortBy) && sortBy !== "id" ? sortBy : "criadoEm"]: sortBy === "id" ? "desc" : order } as Prisma.NotaFiscalOrderByWithRelationInput;
+  const where: Prisma.NotaFiscalWhereInput = { contaId: custom.contaId, ...filters.where };
   const [items, total] = await Promise.all([
-    prisma.notaFiscal.findMany({ where, include: { Cliente: { select: { id: true, nome: true, documento: true } }, Eventos: { orderBy: { createdAt: "desc" }, take: 3 } }, orderBy: { criadoEm: "desc" }, skip: (page - 1) * limit, take: limit }),
+    prisma.notaFiscal.findMany({ where, include: { Cliente: { select: { id: true, nome: true, documento: true } }, Venda: { select: { Uid: true } }, Eventos: { orderBy: { createdAt: "desc" }, take: 3 } }, orderBy: [orderBy, { id: "desc" }], skip: (page - 1) * limit, take: limit }),
     prisma.notaFiscal.count({ where }),
   ]);
-  return res.json({ data: items.map(mapDocument), pagination: { page, limit, total, pages: Math.ceil(total / limit) }, requestId: randomUUID() });
+  return res.json({ data: items.map(mapDocument), pagination: { page, limit, total, pages: Math.ceil(total / limit) }, ...(paginated ? { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) } : {}), requestId: randomUUID() });
+}
+
+export async function summarizeFiscalDocuments(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const filters = fiscalReportFilters(req.query);
+  if (filters.error) return fail(res, 422, "fiscal_report_filter_invalid", filters.error);
+  const { status: _status, ...withoutStatus } = filters.where;
+  const groups = await prisma.notaFiscal.groupBy({ by: ["status"], where: { contaId, ...withoutStatus }, _count: { _all: true }, _sum: { valorTotal: true } });
+  const counts = Object.fromEntries(groups.map((group) => [group.status, group._count._all]));
+  const total = groups.reduce((sum, group) => sum + group._count._all, 0);
+  const authorized = counts.AUTORIZADA || 0;
+  const homologated = counts.HOMOLOGADA || 0;
+  const rejected = (counts.REJEITADA || 0) + (counts.FALHA_REPROCESSAVEL || 0);
+  const uncertain = (counts.RESULTADO_INCERTO || 0) + (counts.EMISSAO_INCERTA || 0);
+  const canceled = counts.CANCELADA || 0;
+  return res.json({ data: { total, authorized, homologated, pending: total - authorized - homologated - rejected - uncertain - canceled, uncertain, rejected, canceled, authorizedValue: groups.filter((group) => group.status === "AUTORIZADA").reduce((sum, group) => sum + Number(group._sum.valorTotal || 0), 0), byStatus: counts }, requestId: randomUUID() });
+}
+
+export async function fiscalDashboard(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const inicio = String(req.query.inicio || "");
+  const fim = String(req.query.fim || "");
+  const filters = fiscalReportFilters({ inicio, fim });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio) || !/^\d{4}-\d{2}-\d{2}$/.test(fim) || filters.error) {
+    return fail(res, 422, "fiscal_dashboard_period_invalid", filters.error || "Informe as datas inicial e final do painel.");
+  }
+  const from = new Date(`${inicio}T00:00:00-03:00`);
+  const to = new Date(`${fim}T00:00:00-03:00`);
+  to.setUTCDate(to.getUTCDate() + 1);
+  const days = Math.round((to.getTime() - from.getTime()) / 86_400_000);
+  if (days > 366) return fail(res, 422, "fiscal_dashboard_period_too_long", "Selecione um período de até 366 dias.");
+  const previousFrom = new Date(from.getTime() - days * 86_400_000);
+  const baseWhere: Prisma.NotaFiscalWhereInput = { contaId, criadoEm: { gte: from, lt: to } };
+  const [groups, previous, seriesRows, attention] = await Promise.all([
+    prisma.notaFiscal.groupBy({ by: ["tipo", "status"], where: baseWhere, _count: { _all: true }, _sum: { valorTotal: true } }),
+    prisma.notaFiscal.groupBy({ by: ["status"], where: { contaId, criadoEm: { gte: previousFrom, lt: from } }, _count: { _all: true }, _sum: { valorTotal: true } }),
+    prisma.$queryRaw<Array<{ data: string; total: bigint; autorizadas: bigint }>>(Prisma.sql`
+      SELECT DATE_FORMAT(DATE_SUB(criadoEm, INTERVAL 3 HOUR), '%Y-%m-%d') AS data, COUNT(*) AS total,
+        SUM(CASE WHEN status = 'AUTORIZADA' THEN 1 ELSE 0 END) AS autorizadas
+      FROM NotaFiscal WHERE contaId = ${contaId} AND criadoEm >= ${from} AND criadoEm < ${to}
+      GROUP BY DATE_FORMAT(DATE_SUB(criadoEm, INTERVAL 3 HOUR), '%Y-%m-%d') ORDER BY data
+    `),
+    prisma.notaFiscal.findMany({ where: { ...baseWhere, status: { in: ["PENDENTE", "PRONTA_PARA_EMISSAO", "EMITINDO", "EM_PROCESSAMENTO", "FALHA_REPROCESSAVEL", "REJEITADA", "RESULTADO_INCERTO", "EMISSAO_INCERTA"] } }, select: { id: true, tipo: true, status: true, criadoEm: true, erroMensagem: true, Cliente: { select: { nome: true } } }, orderBy: { criadoEm: "asc" }, take: 6 }),
+  ]);
+  const total = groups.reduce((sum, group) => sum + group._count._all, 0);
+  const authorized = groups.filter((group) => group.status === "AUTORIZADA").reduce((sum, group) => sum + group._count._all, 0);
+  const authorizedValue = groups.filter((group) => group.status === "AUTORIZADA").reduce((sum, group) => sum + Number(group._sum.valorTotal || 0), 0);
+  const previousTotal = previous.reduce((sum, group) => sum + group._count._all, 0);
+  const previousAuthorized = previous.filter((group) => group.status === "AUTORIZADA").reduce((sum, group) => sum + group._count._all, 0);
+  const previousValue = previous.filter((group) => group.status === "AUTORIZADA").reduce((sum, group) => sum + Number(group._sum.valorTotal || 0), 0);
+  const byStatus = Object.fromEntries(groups.reduce((map, group) => map.set(group.status, (map.get(group.status) || 0) + group._count._all), new Map<string, number>()));
+  const byType = Object.fromEntries(groups.reduce((map, group) => map.set(group.tipo, (map.get(group.tipo) || 0) + group._count._all), new Map<string, number>()));
+  const series = new Map(seriesRows.map((row) => [row.data, { total: Number(row.total), autorizadas: Number(row.autorizadas) }]));
+  const daySeries = Array.from({ length: days }, (_, index) => {
+    const date = new Date(from.getTime() + index * 86_400_000).toISOString().slice(0, 10);
+    return { data: date, total: series.get(date)?.total || 0, autorizadas: series.get(date)?.autorizadas || 0 };
+  });
+  return res.json({ data: {
+    kpis: { total, authorized, authorizedValue, approvalRate: total ? Math.round(authorized / total * 1000) / 10 : 0,
+      previous: { total: previousTotal, authorized: previousAuthorized, authorizedValue: previousValue } },
+    byStatus, byType, series: daySeries,
+    attention: attention.map((item) => ({ id: item.id, tipo: item.tipo, status: item.status, criadoEm: item.criadoEm, erroMensagem: item.erroMensagem, cliente: item.Cliente?.nome || "Consumidor final" })),
+  }, requestId: randomUUID() });
 }
 
 function uninvoicedSalesWhere(contaId: number, search = ""): Prisma.VendasWhereInput {
@@ -156,7 +228,7 @@ export async function getFiscalDocument(req: Request, res: Response) {
   const custom = getCustomRequest(req).customData;
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return fail(res, 422, "fiscal_document_invalid", "Documento fiscal inválido.");
-  const item = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId }, include: { Cliente: { select: { id: true, nome: true, documento: true } }, Itens: true, Eventos: { orderBy: { createdAt: "desc" } } } });
+  const item = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId }, include: { Cliente: { select: { id: true, nome: true, documento: true } }, Venda: { select: { Uid: true } }, Itens: true, Eventos: { orderBy: { createdAt: "desc" } } } });
   if (!item) return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
   return res.json({ data: { ...mapDocument(item), itens: item.Itens.map((line) => ({ ...line, quantidade: Number(line.quantidade), valorUnitario: Number(line.valorUnitario), valorTotal: Number(line.valorTotal) })) }, requestId: randomUUID() });
 }
@@ -189,7 +261,7 @@ export async function retryFiscalDocument(req: Request, res: Response) {
   if (!id.success) return fail(res, 422, "fiscal_document_invalid", "Documento fiscal inválido.");
   const invoice = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId } });
   if (!invoice) return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
-  if (!["PENDENTE", "FALHA_REPROCESSAVEL"].includes(invoice.status)) return fail(res, 409, "fiscal_retry_not_allowed", "Este documento não pode ser reenviado no estado atual.");
+  if (!["NFE", "NFCE"].includes(invoice.tipo) || !["PENDENTE", "FALHA_REPROCESSAVEL"].includes(invoice.status)) return fail(res, 409, "fiscal_retry_not_allowed", "Somente NF-e ou NFC-e pendente ou com falha reprocessável pode ser reenviada.");
   await enqueueFiscalEmission(invoice.id);
   return res.status(202).json({ data: mapDocument(invoice), requestId: randomUUID() });
 }

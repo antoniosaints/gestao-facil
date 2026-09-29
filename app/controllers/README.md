@@ -21,6 +21,7 @@
 - consulta Prisma direto ou usa utilitários/serviços;
 - responde com `ResponseHandler`, `res.json` ou `handleError`.
 - O controller `servicos/resumo_os.ts` também fornece o painel agregado por período. Ordens canceladas não entram em valor, quantidade, ticket ou rankings; o total líquido considera itens multiplicados pela quantidade e subtrai o desconto da OS sem permitir resultado negativo.
+- `notasFiscais/documentos.ts` entrega o relatório operacional e o painel fiscal agregado por período. O painel agrupa por status e tipo, calcula a série diária no banco e limita a fila de atenção a seis notas da conta autenticada.
 
 ## Importante
 - No domínio `whatsapp`, os controllers validam permissão por nível, deixam o token bruto restrito ao backend e delegam a orquestração pesada ao service de WhatsApp para manter idempotência, isolamento por conta, prévia/sincronização de webhooks da W-API e emissão de Socket.IO.

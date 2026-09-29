@@ -4,7 +4,7 @@ import { authenticateJWT } from "../../middlewares/auth";
 import { requireNotasFiscaisAccess } from "../../middlewares/notasFiscaisAccess";
 import { requireFiscalHomologacao } from "../../middlewares/fiscalHomologacao";
 import { createNfseRps, emitNfse, getFiscalConfig, getGeranetIntegrationStatus, getNationalMunicipalParameters, listMunicipios, listNfse, saveD2tiToken, saveFiscalConfig, uploadFiscalCertificate } from "../../controllers/notasFiscais/notasFiscais";
-import { cancelFiscalDocument, createSaleFiscalDocument, createSaleFiscalDocumentsBatch, downloadFiscalDocument, getFiscalDocument, getFiscalSaleCustomer, linkFiscalSaleCustomer, listFiscalDocuments, listUninvoicedSales, plugNotasWebhook, retryFiscalDocument, selectUninvoicedSales } from "../../controllers/notasFiscais/documentos";
+import { cancelFiscalDocument, createSaleFiscalDocument, createSaleFiscalDocumentsBatch, downloadFiscalDocument, fiscalDashboard, getFiscalDocument, getFiscalSaleCustomer, linkFiscalSaleCustomer, listFiscalDocuments, listUninvoicedSales, plugNotasWebhook, retryFiscalDocument, selectUninvoicedSales, summarizeFiscalDocuments } from "../../controllers/notasFiscais/documentos";
 
 export const routerNotasFiscais = Router();
 const use = (handler: unknown) => handler as RequestHandler;
@@ -42,6 +42,8 @@ routerNotasFiscais.get("/nfs-e", requireNotasFiscaisAccess(3), use(listNfse));
 routerNotasFiscais.post("/nfs-e/rps", requireNotasFiscaisAccess(4), use(createNfseRps));
 routerNotasFiscais.post("/nfs-e/emitir", requireNotasFiscaisAccess(4), use(emitNfse));
 routerNotasFiscais.get("/documentos", requireNotasFiscaisAccess(3), use(listFiscalDocuments));
+routerNotasFiscais.get("/documentos/resumo", requireNotasFiscaisAccess(3), use(summarizeFiscalDocuments));
+routerNotasFiscais.get("/documentos/painel", requireNotasFiscaisAccess(3), use(fiscalDashboard));
 routerNotasFiscais.get("/documentos/:id", requireNotasFiscaisAccess(3), use(getFiscalDocument));
 routerNotasFiscais.get("/vendas/sem-documento", requireNotasFiscaisAccess(3), use(listUninvoicedSales));
 routerNotasFiscais.get("/vendas/sem-documento/select2", requireNotasFiscaisAccess(3), use(selectUninvoicedSales));
