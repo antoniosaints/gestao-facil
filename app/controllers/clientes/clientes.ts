@@ -6,6 +6,7 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { ClientesFornecedores } from "../../../generated";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import { validarCpfCnpj } from "../../helpers/formatters";
 
 export const getCliente = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -20,7 +21,7 @@ export const getCliente = async (req: Request, res: Response): Promise<any> => {
         if (!cliente) {
             return ResponseHandler(res, "Cliente nao encontrado", null, 404);
         }
-        ResponseHandler(res, "Cliente encontrado", cliente);
+        ResponseHandler(res, "Cliente encontrado", { ...cliente, documentoValido: cliente.documento ? validarCpfCnpj(cliente.documento) : false });
     } catch (err: any) {
         handleError(res, err);
     }
@@ -49,6 +50,14 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
         if (!data || !data?.nome) {
             return ResponseHandler(res, "Dados nao informados", null, 400);
         }
+        const documento = String(data.documento || "").replace(/\D/g, "");
+        if (documento && !validarCpfCnpj(documento)) {
+            return ResponseHandler(res, "Informe um CPF ou CNPJ válido para o cliente.", null, 422);
+        }
+        const cep = String(data.cep || "").replace(/\D/g, "");
+        if (cep && cep.length !== 8) {
+            return ResponseHandler(res, "Informe um CEP com 8 dígitos.", null, 422);
+        }
         if (data.id) {
             const cliente = await prisma.clientesFornecedores.update({
                 where: {
@@ -57,12 +66,14 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                 },
                 data: {
                     nome: data.nome,
-                    cep: data.cep,
+                    cep,
+                    bairro: data.bairro,
+                    numero: data.numero,
                     cidade: data.cidade,
                     estado: data.estado,
                     whastapp: data.whastapp,
                     email: data.email,
-                    documento: data.documento,
+                    documento,
                     endereco: data.endereco,
                     telefone: data.telefone,
                     status: data.status,
@@ -75,13 +86,15 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
             const cliente = await prisma.clientesFornecedores.create({
                 data: {
                     nome: data.nome,
-                    cep: data.cep,
+                    cep,
+                    bairro: data.bairro,
+                    numero: data.numero,
                     cidade: data.cidade,
                     contaId: customData.contaId,
                     estado: data.estado,
                     email: data.email,
                     whastapp: data.whastapp,
-                    documento: data.documento,
+                    documento,
                     endereco: data.endereco,
                     telefone: data.telefone,
                     status: data.status,

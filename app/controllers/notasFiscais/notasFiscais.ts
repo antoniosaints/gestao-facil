@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { validarCpfCnpj } from "../../helpers/formatters";
 import { buildScopedUploadKey, deleteStoredFile, uploadPublicFile } from "../../services/uploads/fileStorageService";
 import { consultarMunicipiosIbge } from "../../services/notasFiscais/municipios";
 import {
@@ -149,6 +150,7 @@ function mapConfig(config: any, conta: any) {
       nome: value.certificadoNome ?? null,
       atualizadoEm: value.certificadoAtualizadoEm ?? null,
     },
+    criptografiaFiscalDisponivel: hasFiscalCertificateEncryptionKey(),
     integracao: {
       tipo: d2ti ? "TOKEN_D2TI" : "CERTIFICADO_A1",
       configurada: d2ti ? Boolean(value.tokenIntegracaoCifrado && hasFiscalCertificateEncryptionKey()) : Boolean(value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
@@ -181,6 +183,9 @@ export async function saveFiscalConfig(req: Request, res: Response) {
   const data = parsed.data;
   const nfceCscToken = data.nfceCscToken;
   const responsavelTecnicoCsrt = data.responsavelTecnicoCsrt;
+  if ((nfceCscToken || responsavelTecnicoCsrt) && !hasFiscalCertificateEncryptionKey()) {
+    return fail(req, res, 503, "credential_encryption_unavailable", "A criptografia fiscal do servidor não está configurada. Peça ao administrador para configurar FISCAL_CERTIFICATE_ENC_KEY e reiniciar a API.");
+  }
   delete (data as any).nfceCscToken;
   delete (data as any).responsavelTecnicoCsrt;
   if (data.modoEmissaoNfse === "LEGADO_D2TI" && data.codigoMunicipioIbge !== D2TI_SAO_MATEUS.codigoIbge) {
@@ -215,16 +220,16 @@ export async function getGeranetIntegrationStatus(req: Request, res: Response) {
   const local = mapConfig(config, { nome: "", nomeFantasia: "", documento: "", ie: "", im: "", regimeTributario: 0, cep: "", endereco: "", email: "", telefone: "" });
   try {
     await getGeranetUser();
-    return res.json({ data: { apiKeyValida: true, certificadoConfigurado: local.certificado.configurado, nfsePronta: local.emissaoNfsePronta, nfePronta: local.emissaoNfePronta, nfcePronta: local.emissaoNfcePronta }, requestId: requestId(req) });
+    return res.json({ data: { apiKeyValida: true, certificadoConfigurado: local.certificado.configurado && local.criptografiaFiscalDisponivel, nfsePronta: local.emissaoNfsePronta, nfePronta: local.emissaoNfePronta, nfcePronta: local.emissaoNfcePronta }, requestId: requestId(req) });
   } catch (error: any) {
-    return res.status(503).json({ data: { apiKeyValida: false, certificadoConfigurado: local.certificado.configurado, nfsePronta: local.emissaoNfsePronta, nfePronta: local.emissaoNfePronta, nfcePronta: local.emissaoNfcePronta, motivo: error?.response?.status === 401 ? "API Key Geranet inválida." : "Geranet indisponível." }, requestId: requestId(req) });
+    return res.status(503).json({ data: { apiKeyValida: false, certificadoConfigurado: local.certificado.configurado && local.criptografiaFiscalDisponivel, nfsePronta: local.emissaoNfsePronta, nfePronta: local.emissaoNfePronta, nfcePronta: local.emissaoNfcePronta, motivo: error?.response?.status === 401 ? "API Key Geranet inválida." : "Geranet indisponível." }, requestId: requestId(req) });
   }
 }
 
 export async function uploadFiscalCertificate(req: Request, res: Response) {
   if (!req.file) return fail(req, res, 400, "certificate_missing", "Envie um certificado A1 (.pfx ou .p12).");
   if (!hasFiscalCertificateEncryptionKey()) {
-    return fail(req, res, 503, "certificate_encryption_unavailable", "A criptografia fiscal ainda não está configurada neste ambiente.");
+    return fail(req, res, 503, "certificate_encryption_unavailable", "A criptografia fiscal do servidor não está configurada. Peça ao administrador para configurar FISCAL_CERTIFICATE_ENC_KEY e reiniciar a API.");
   }
   const senha = String(req.body?.senha ?? "");
   if (senha.length < 1 || senha.length > 512) return fail(req, res, 422, "validation_error", "Informe a senha do certificado.");
@@ -276,7 +281,7 @@ export async function saveD2tiToken(req: Request, res: Response) {
     return fail(req, res, 422, "validation_error", "Informe o token D2TI de 32 caracteres gerado no portal da prefeitura.");
   }
   if (!hasFiscalCertificateEncryptionKey()) {
-    return fail(req, res, 503, "credential_encryption_unavailable", "A criptografia fiscal ainda não está configurada neste ambiente.");
+    return fail(req, res, 503, "credential_encryption_unavailable", "A criptografia fiscal do servidor não está configurada. Peça ao administrador para configurar FISCAL_CERTIFICATE_ENC_KEY e reiniciar a API.");
   }
   const { contaId } = getCustomRequest(req).customData;
   const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, modoEmissaoNfse: true, provedorNfse: true } });
@@ -460,7 +465,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
   const input = parsed.data;
   const [config, cliente] = await Promise.all([
     prisma.notaFiscalConfiguracao.findUnique({ where: { contaId } }),
-    prisma.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId }, select: { id: true, nome: true, documento: true, im: true, endereco: true, numero: true, bairro: true, complemento: true, cep: true, cidade: true, estado: true, email: true, telefone: true } }),
+    prisma.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId }, select: { id: true, nome: true, documento: true, im: true, endereco: true, numero: true, bairro: true, cep: true, cidade: true, estado: true, email: true, telefone: true } }),
   ]);
   if (!cliente) return fail(req, res, 422, "tomador_not_found", "Tomador não encontrado nesta conta.");
   if (!config || selectedNfseMode(config) !== "GERANET" || !config.nfseHabilitado) return fail(req, res, 422, "provider_not_supported", "Ative a NFS-e e selecione a Geranet nas configurações fiscais.");
@@ -469,6 +474,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
   if (missingConfig) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais, códigos de serviço Geranet, alíquota, A1 e data de opção do Simples quando aplicável.");
   const missingTomador = !cliente.documento || !cliente.endereco || !cliente.numero || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado;
   if (missingTomador) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, número, bairro, CEP, cidade e UF.");
+  if (!validarCpfCnpj(cliente.documento!)) return fail(req, res, 422, "tomador_document_invalid", "O CPF/CNPJ do tomador é inválido. Corrija o cadastro do cliente antes de emitir.");
 
   let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
   if (invoice) {
@@ -513,7 +519,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
       padraoNacional: "sim", ambiente: config.ambiente === "PRODUCAO" ? "1" : "2", numeroLote: String(invoice.id), numeroRps: invoice.rpsNumero, serie: String(config.serieRps), simplesNacional,
       ...(simplesNacional === "1" ? { dataOpcaoSimples: ymd(config.nfseDataOpcaoSimples), regimeApuracaoSN: config.nfseRegimeApuracaoSn || "1" } : {}),
       tipo: "1", naturezaOperacao: config.nfseNaturezaOperacao || "1", incentivadorCultural: config.nfseIncentivadorCultural || "2", regimeEspecialTributacao: config.nfseRegimeEspecialTributacao || "1", prestador,
-      tomador: { cpfCnpj: onlyDigits(cliente.documento), inscricaoMunicipal: cliente.im || "", razaoSocial: cliente.nome, endereco: cliente.endereco, numero: cliente.numero, complemento: cliente.complemento || "", bairro: cliente.bairro, municipio: codigoMunicipioTomador, nomeMunicipio: cliente.cidade, uf: cliente.estado.toUpperCase(), codigoPais: "1058", pais: "Brasil", cep: onlyDigits(cliente.cep), telefone: splitPhone(cliente.telefone) || "", email: cliente.email || "", substitutoTributario: "2" },
+      tomador: { cpfCnpj: onlyDigits(cliente.documento), inscricaoMunicipal: cliente.im || "", razaoSocial: cliente.nome, endereco: cliente.endereco, numero: cliente.numero, complemento: "", bairro: cliente.bairro, municipio: codigoMunicipioTomador, nomeMunicipio: cliente.cidade, uf: String(cliente.estado).toUpperCase(), codigoPais: "1058", pais: "Brasil", cep: onlyDigits(cliente.cep), telefone: splitPhone(cliente.telefone) || "", email: cliente.email || "", substitutoTributario: "2" },
       servico: { valor: decimalNfse(input.valorTotal), deducoes: "0.00", aliquotaPis: "0.00", aliquotaCofins: "0.00", inss: "0.00", ir: "0.00", csll: "0.00", issRetido: config.nfseIssRetido || "2", valorIssRetido: "0.00", outrasRetencoes: "0.00", descontoIncondicionado: "0.00", descontoCondicionado: "0.00", aliquota: decimalNfse(config.aliquotaIssPadrao), responsavelRetencao: config.nfseResponsavelRetencao || "4", itemListaServico: codigoServico, ...(config.nfseCodigoServicoNacional ? { codigoServicoNacional: config.nfseCodigoServicoNacional } : {}), codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, ...(config.nfseCodigoCnae ? { codigoCnae: config.nfseCodigoCnae } : {}), discriminacao: input.discriminacao, codigoMunicipio: config.codigoMunicipioIbge, municipioIncidencia: config.codigoMunicipioIbge, descricaoLocalidadeIncidencia: config.municipioNome, exigibilidadeISS: config.nfseExigibilidadeIss || "1", ...(simplesNacional === "1" ? { tributacao: { percentualTributosSimplesNacional: decimalNfse(config.aliquotaIssPadrao) } } : {}) },
     });
     const artifacts: Record<string, string> = {};
@@ -556,6 +562,7 @@ export async function emitNfseD2ti(req: Request, res: Response) {
   if (missingConfig) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais e fiscais obrigatórios do provedor D2TI antes de emitir.");
   const missingTomador = !cliente.documento || !cliente.endereco || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado;
   if (missingTomador) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, bairro, CEP, cidade e UF para esta NFS-e.");
+  if (!validarCpfCnpj(cliente.documento!)) return fail(req, res, 422, "tomador_document_invalid", "O CPF/CNPJ do tomador é inválido. Corrija o cadastro do cliente antes de emitir.");
 
   let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
   if (invoice) {

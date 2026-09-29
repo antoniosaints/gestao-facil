@@ -8,6 +8,7 @@
 - `default.ts` concentra rotas transversais como login, renovação de token, webhooks e push.
 
 ## Domínios atuais
+- `notasFiscais` (`/api/v1/notas-fiscais`): configuração por conta, NFS-e avulsa, documentos de vendas e homologação.
 - `whatsapp`
 - `informativos`
 - `contas`
@@ -27,6 +28,9 @@
 - `ourive`
 
 ## Padrão de rota
+- `GET /homologacao/geranet` valida somente o acesso à API Key; não transmite nota nem valida o certificado na SEFAZ ou prefeitura. `POST /homologacao/nfs-e/emitir` e `POST /homologacao/vendas/:vendaId/documentos` reutilizam os emissores existentes e exigem `ambiente = HOMOLOGACAO` salvo no servidor via `requireFiscalHomologacao`. O segundo aceita `tipo: NFE|NFCE` e uma venda faturada.
+- `GET /vendas/sem-documento` aceita `pageSize`, `page`, `search`, `sortBy` e `order` para a `DataTable` fiscal; sem `pageSize`, preserva a lista simples com `limit`. `GET /vendas/sem-documento/select2` atende à busca assíncrona da homologação com `search` ou `id`. Ambas usam o tenant do JWT.
+- `GET /vendas/:vendaId/cliente` informa o cliente vinculado e a validade do CPF/CNPJ; `PATCH /vendas/:vendaId/cliente` com `{ "clienteId": 123 }` vincula um cliente válido a uma venda faturada sem nota ativa, com permissão fiscal de escrita e isolamento por conta.
 - O router de domínio define paths e middlewares.
 - `authenticateJWT` protege quase toda a API privada.
 - O router normalmente delega para controllers menores por caso de uso, por exemplo:

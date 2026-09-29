@@ -10,6 +10,9 @@ import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { cancelGeranetNfe, cancelGeranetNfse } from "../../services/notasFiscais/geranet";
 import { readFiscalArtifact } from "../../services/notasFiscais/fiscalArtifactStorage";
+import type { Prisma } from "../../../generated";
+import { validarCpfCnpj } from "../../helpers/formatters";
+import { fiscalRecipientStatus } from "../../services/notasFiscais/fiscalRecipientPolicy";
 
 const types = z.enum(["NFE", "NFCE", "NFSE"]);
 const fiscalSaleTypes = z.enum(["NFE", "NFCE"]);
@@ -23,7 +26,7 @@ function fail(res: Response, status: number, code: string, message: string, deta
 function mapDocument(invoice: any) {
   return {
     id: invoice.id, vendaId: invoice.vendaId, tipo: invoice.tipo, modelo: invoice.modelo, status: invoice.status, serie: invoice.serie,
-    numero: invoice.numero, chaveAcesso: invoice.chaveAcesso, protocolo: invoice.protocolo, valorTotal: Number(invoice.valorTotal),
+    numero: invoice.numero, chaveAcesso: invoice.chaveAcesso, protocolo: invoice.protocolo, ambiente: invoice.ambiente, valorTotal: Number(invoice.valorTotal),
     erroMensagem: invoice.erroMensagem, criadoEm: invoice.criadoEm, emitidaEm: invoice.emitidaEm, canceladaEm: invoice.canceladaEm,
     cliente: invoice.Cliente ? { id: invoice.Cliente.id, nome: invoice.Cliente.nome, documento: invoice.Cliente.documento } : null,
     eventos: invoice.Eventos?.map((event: any) => ({ id: event.id, tipo: event.tipo, status: event.status, motivo: event.motivo, createdAt: event.createdAt })) || [],
@@ -44,12 +47,89 @@ export async function listFiscalDocuments(req: Request, res: Response) {
   return res.json({ data: items.map(mapDocument), pagination: { page, limit, total, pages: Math.ceil(total / limit) }, requestId: randomUUID() });
 }
 
+function uninvoicedSalesWhere(contaId: number, search = ""): Prisma.VendasWhereInput {
+  return {
+    contaId,
+    status: "FATURADO",
+    NotaFiscals: { none: { status: { notIn: ["REJEITADA", "CANCELADA"] } } },
+    ...(search ? { OR: [
+      { Uid: { contains: search } },
+      { cliente: { nome: { contains: search } } },
+      { cliente: { documento: { contains: search } } },
+    ] } : {}),
+  };
+}
+
+function mapUninvoicedSale(sale: any) {
+  return { id: sale.id, uid: sale.Uid, valorTotal: Number(sale.valor), data: sale.data, cliente: sale.cliente ? { id: sale.cliente.id, nome: sale.cliente.nome, documento: sale.cliente.documento, documentoValido: fiscalRecipientStatus(sale.cliente) === "DOCUMENTO_VALIDO" } : null };
+}
+
 export async function listUninvoicedSales(req: Request, res: Response) {
-  const custom = getCustomRequest(req).customData;
+  const { contaId } = getCustomRequest(req).customData;
+  const paginated = req.query.pageSize != null;
+  const requestedPage = Number(req.query.page);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize) || 10));
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-  const where = { contaId: custom.contaId, status: "FATURADO" as const, NotaFiscals: { none: { status: { notIn: ["REJEITADA", "CANCELADA"] } } } };
-  const sales = await prisma.vendas.findMany({ where, orderBy: { data: "asc" }, take: limit, include: { cliente: { select: { id: true, nome: true, documento: true } } } });
-  return res.json({ data: sales.map((sale) => ({ id: sale.id, uid: sale.Uid, valorTotal: Number(sale.valor), data: sale.data, cliente: sale.cliente ? { id: sale.cliente.id, nome: sale.cliente.nome, documento: sale.cliente.documento } : null })), requestId: randomUUID() });
+  const search = String(req.query.search || "").trim().slice(0, 100);
+  const order = req.query.order === "desc" ? "desc" : "asc";
+  const sortBy = String(req.query.sortBy || "data");
+  const orderBy: Prisma.VendasOrderByWithRelationInput = sortBy === "uid" ? { Uid: order } : sortBy === "valorTotal" ? { valor: order } : { data: order };
+  const where = uninvoicedSalesWhere(contaId, search);
+  const [sales, total] = await Promise.all([
+    prisma.vendas.findMany({ where, orderBy, skip: paginated ? (page - 1) * pageSize : 0, take: paginated ? pageSize : limit, include: { cliente: { select: { id: true, nome: true, documento: true } } } }),
+    prisma.vendas.count({ where }),
+  ]);
+  return res.json({ data: sales.map(mapUninvoicedSale), ...(paginated ? { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } : {}), requestId: randomUUID() });
+}
+
+export async function selectUninvoicedSales(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const id = req.query.id == null ? null : Number(req.query.id);
+  if (id != null && (!Number.isInteger(id) || id < 1)) return res.json({ results: [] });
+  const search = String(req.query.search || "").trim().slice(0, 100);
+  const sales = await prisma.vendas.findMany({
+    where: { ...uninvoicedSalesWhere(contaId, id == null ? search : ""), ...(id == null ? {} : { id }) },
+    orderBy: { data: "asc" },
+    take: id == null ? 20 : 1,
+    include: { cliente: { select: { nome: true, documento: true } } },
+  });
+  return res.json({ results: sales.map((sale) => {
+    const cliente = sale.cliente?.nome || "Consumidor final";
+    const documento = ({ SEM_CLIENTE: "Sem cliente vinculado", SEM_DOCUMENTO: "Sem CPF/CNPJ cadastrado", DOCUMENTO_VALIDO: "CPF/CNPJ válido", DOCUMENTO_INVALIDO: "CPF/CNPJ inválido" } as const)[fiscalRecipientStatus(sale.cliente)];
+    const label = `${sale.Uid} · ${cliente} · ${documento}`;
+    const valor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(sale.valor));
+    return { id: sale.id, label, caminho: `${label} · ${valor}` };
+  }) });
+}
+
+export async function getFiscalSaleCustomer(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const vendaId = idSchema.safeParse(req.params.vendaId);
+  if (!vendaId.success) return fail(res, 422, "fiscal_sale_invalid", "Venda inválida.");
+  const sale = await prisma.vendas.findFirst({
+    where: { ...uninvoicedSalesWhere(contaId), id: vendaId.data },
+    include: { cliente: { select: { id: true, nome: true, documento: true } } },
+  });
+  if (!sale) return fail(res, 404, "fiscal_sale_not_found", "Venda faturada sem nota ativa não encontrada.");
+  return res.json({ data: mapUninvoicedSale(sale), requestId: randomUUID() });
+}
+
+export async function linkFiscalSaleCustomer(req: Request, res: Response) {
+  const { contaId } = getCustomRequest(req).customData;
+  const vendaId = idSchema.safeParse(req.params.vendaId);
+  const body = z.object({ clienteId: z.coerce.number().int().positive() }).safeParse(req.body);
+  if (!vendaId.success || !body.success) return fail(res, 422, "fiscal_sale_customer_invalid", "Informe uma venda e um cliente válidos.");
+  const customer = await prisma.clientesFornecedores.findFirst({ where: { id: body.data.clienteId, contaId }, select: { id: true, documento: true } });
+  if (!customer) return fail(res, 404, "fiscal_sale_customer_not_found", "Cliente não encontrado nesta conta.");
+  if (!validarCpfCnpj(customer.documento || "")) return fail(res, 422, "fiscal_sale_customer_document_invalid", "O cliente precisa ter CPF/CNPJ válido antes de ser vinculado à emissão.");
+  const changed = await prisma.vendas.updateMany({
+    where: { id: vendaId.data, contaId, status: "FATURADO", NotaFiscals: { none: { status: { notIn: ["REJEITADA", "CANCELADA"] } } } },
+    data: { clienteId: customer.id },
+  });
+  if (!changed.count) return fail(res, 409, "fiscal_sale_customer_link_not_allowed", "Associe o cliente somente a uma venda faturada sem documento fiscal ativo.");
+  const sale = await prisma.vendas.findFirst({ where: { id: vendaId.data, contaId }, include: { cliente: { select: { id: true, nome: true, documento: true } } } });
+  return res.json({ data: mapUninvoicedSale(sale), requestId: randomUUID() });
 }
 
 export async function createSaleFiscalDocumentsBatch(req: Request, res: Response) {

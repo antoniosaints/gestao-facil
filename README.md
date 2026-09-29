@@ -2,6 +2,21 @@
 
 API principal do sistema, workers assíncronos, integrações externas e partes legadas renderizadas no servidor.
 
+## Homologação fiscal
+
+O app Notas Fiscais integra NFS-e, NF-e e NFC-e à Geranet por padrão; São Mateus do Maranhão ainda pode usar o legado D2TI para NFS-e. A configuração por conta precisa de dados legais, município IBGE, parâmetros fiscais e certificado A1; NFC-e também exige CSC. A emissão NFS-e Geranet atual envia `padraoNacional: "sim"`, portanto a cobertura e a adesão do município precisam ser confirmadas antes da implantação. Em `/api/v1/notas-fiscais/homologacao/geranet`, a API verifica a credencial Geranet sem emitir documento. As rotas de emissão de teste em `/homologacao/nfs-e/emitir` e `/homologacao/vendas/:vendaId/documentos` recusam chamadas se o ambiente salvo não for `HOMOLOGACAO`. NFS-e avulsa usa um tomador cadastrado e retorna o resultado síncrono; NF-e/NFC-e usam venda faturada e passam pelo worker fiscal. A autorização final depende da Geranet e da autoridade fiscal, portanto o status deve ser acompanhado no histórico.
+
+### Chave de criptografia fiscal
+
+Antes de salvar um certificado A1, token D2TI, CSC ou CSRT, configure `FISCAL_CERTIFICATE_ENC_KEY` com 64 caracteres hexadecimais (32 bytes aleatórios) no ambiente da API. O `env.example` mostra como gerar o valor. Em produção, configure a mesma chave no gerenciador de segredos de todas as instâncias da API e do worker fiscal e reinicie os processos para carregá-la. Mantenha um backup seguro: trocar ou perder a chave impede a leitura das credenciais já cifradas. Se já existirem credenciais salvas, restaure a chave original em vez de gerar outra; sem ela, será necessário cadastrar novamente as credenciais afetadas.
+
+`GET /api/v1/notas-fiscais/configuracao` informa `criptografiaFiscalDisponivel` sem expor a chave. A aba Integração bloqueia o envio do A1 e do token D2TI enquanto a chave estiver ausente e distingue um certificado salvo de um certificado utilizável. A API responde `503` com `certificate_encryption_unavailable` ou `credential_encryption_unavailable` caso seja chamada diretamente sem a chave. A existência da chave não prova que ela é a chave original nem que o certificado e sua senha são válidos; faça uma emissão de homologação para validar o fluxo completo.
+
+`GET /api/v1/notas-fiscais/vendas/sem-documento` mantém a resposta simples com `limit` para clientes existentes e, quando recebe `pageSize`, devolve `page`, `pageSize`, `total` e `totalPages` para a tabela de NF-e/NFC-e. Aceita `search` por código da venda, nome ou documento do cliente e ordenação limitada a código, data e valor. `GET /api/v1/notas-fiscais/vendas/sem-documento/select2` devolve `{ results: [{ id, label, caminho }] }` para o seletor de homologação; aceita `search` e `id` para recuperar a opção selecionada. Ambas as consultas são limitadas à conta autenticada e a vendas faturadas sem documento fiscal ativo.
+
+Para NF-e, o CPF/CNPJ precisa ser válido e pertencer ao cliente **vinculado à venda**; um cliente apenas cadastrado não basta. A API distingue venda sem cliente, cadastro sem documento e documento inválido, aceitando CPF/CNPJ com ou sem pontuação. `GET /api/v1/notas-fiscais/vendas/:vendaId/cliente` consulta esse vínculo e `PATCH` no mesmo caminho com `{ "clienteId": 123 }` permite associar um cliente com documento válido a uma venda faturada sem nota ativa. O cadastro de clientes normaliza CPF/CNPJ e CEP para dígitos, valida CPF/CNPJ pelos dígitos verificadores e CEP com 8 dígitos, e persiste número e bairro do endereço para NFS-e.
+As emissões NFS-e Geranet e D2TI também rejeitam CPF/CNPJ inválido do tomador antes de transmitir; `GET /clientes/:id` expõe `documentoValido` para a conferência visual do cadastro. O payload de NF-e/NFC-e envia telefone sem pontuação à Geranet mesmo quando o formulário o exibe com máscara.
+
 ## Stack
 
 - Node.js + TypeScript

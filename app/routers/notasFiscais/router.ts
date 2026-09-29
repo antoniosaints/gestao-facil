@@ -2,8 +2,9 @@ import { Router, type RequestHandler } from "express";
 import multer, { MulterError } from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { requireNotasFiscaisAccess } from "../../middlewares/notasFiscaisAccess";
+import { requireFiscalHomologacao } from "../../middlewares/fiscalHomologacao";
 import { createNfseRps, emitNfse, getFiscalConfig, getGeranetIntegrationStatus, getNationalMunicipalParameters, listMunicipios, listNfse, saveD2tiToken, saveFiscalConfig, uploadFiscalCertificate } from "../../controllers/notasFiscais/notasFiscais";
-import { cancelFiscalDocument, createSaleFiscalDocument, createSaleFiscalDocumentsBatch, downloadFiscalDocument, getFiscalDocument, listFiscalDocuments, listUninvoicedSales, plugNotasWebhook, retryFiscalDocument } from "../../controllers/notasFiscais/documentos";
+import { cancelFiscalDocument, createSaleFiscalDocument, createSaleFiscalDocumentsBatch, downloadFiscalDocument, getFiscalDocument, getFiscalSaleCustomer, linkFiscalSaleCustomer, listFiscalDocuments, listUninvoicedSales, plugNotasWebhook, retryFiscalDocument, selectUninvoicedSales } from "../../controllers/notasFiscais/documentos";
 
 export const routerNotasFiscais = Router();
 const use = (handler: unknown) => handler as RequestHandler;
@@ -23,6 +24,8 @@ routerNotasFiscais.use(authenticateJWT);
 routerNotasFiscais.get("/configuracao", requireNotasFiscaisAccess(4), use(getFiscalConfig));
 routerNotasFiscais.put("/configuracao", requireNotasFiscaisAccess(4), use(saveFiscalConfig));
 routerNotasFiscais.get("/homologacao/geranet", requireNotasFiscaisAccess(4), use(getGeranetIntegrationStatus));
+routerNotasFiscais.post("/homologacao/nfs-e/emitir", requireNotasFiscaisAccess(4), use(requireFiscalHomologacao), use(emitNfse));
+routerNotasFiscais.post("/homologacao/vendas/:vendaId/documentos", requireNotasFiscaisAccess(4), use(requireFiscalHomologacao), use(createSaleFiscalDocument));
 routerNotasFiscais.get("/municipios", requireNotasFiscaisAccess(4), use(listMunicipios));
 routerNotasFiscais.get("/parametros-municipais", requireNotasFiscaisAccess(4), use(getNationalMunicipalParameters));
 routerNotasFiscais.post("/certificado", requireNotasFiscaisAccess(4), (req, res, next) => {
@@ -41,6 +44,9 @@ routerNotasFiscais.post("/nfs-e/emitir", requireNotasFiscaisAccess(4), use(emitN
 routerNotasFiscais.get("/documentos", requireNotasFiscaisAccess(3), use(listFiscalDocuments));
 routerNotasFiscais.get("/documentos/:id", requireNotasFiscaisAccess(3), use(getFiscalDocument));
 routerNotasFiscais.get("/vendas/sem-documento", requireNotasFiscaisAccess(3), use(listUninvoicedSales));
+routerNotasFiscais.get("/vendas/sem-documento/select2", requireNotasFiscaisAccess(3), use(selectUninvoicedSales));
+routerNotasFiscais.get("/vendas/:vendaId/cliente", requireNotasFiscaisAccess(3), use(getFiscalSaleCustomer));
+routerNotasFiscais.patch("/vendas/:vendaId/cliente", requireNotasFiscaisAccess(4), use(linkFiscalSaleCustomer));
 routerNotasFiscais.post("/vendas/:vendaId/documentos", requireNotasFiscaisAccess(4), use(createSaleFiscalDocument));
 routerNotasFiscais.post("/vendas/documentos/lote", requireNotasFiscaisAccess(4), use(createSaleFiscalDocumentsBatch));
 routerNotasFiscais.post("/documentos/:id/reprocessar", requireNotasFiscaisAccess(4), use(retryFiscalDocument));
