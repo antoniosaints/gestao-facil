@@ -1,3 +1,4 @@
+import { claimFiscalEmission } from "./fiscalDeletionPolicy";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
@@ -167,12 +168,13 @@ function plugPayload(invoice: any) { const issuer = invoice.emitenteSnapshotJson
 export async function processFiscalEmission(notaFiscalId: number) {
   const invoice = await prisma.notaFiscal.findUnique({ where: { id: notaFiscalId }, include: { Itens: true } });
   if (!invoice || !["PENDENTE", "FALHA_REPROCESSAVEL"].includes(invoice.status) || !["NFE", "NFCE"].includes(invoice.tipo)) return;
-  await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "EMITINDO", idIntegracao: invoice.idIntegracao || `gestaofacil-nota-${invoice.id}` } });
+  if (!await claimFiscalEmission(prisma, invoice.id)) return;
+  await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { idIntegracao: invoice.idIntegracao || `gestaofacil-nota-${invoice.id}` } });
   if (invoice.provedor === "GERANET_NFE") return processGeranet(invoice);
   try { const prior = await getPlugNotasByIntegration(invoice.tipo as FiscalSaleType, digits((invoice.emitenteSnapshotJson as any)?.documento), invoice.idIntegracao || `gestaofacil-nota-${invoice.id}`); if (prior) return updateFiscalDocumentFromProvider(invoice.id, extractPlugNotasResult(prior), prior); const response = await sendPlugNotas(invoice.tipo as FiscalSaleType, plugPayload(invoice)); const result = extractPlugNotasResult(response); await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "EM_PROCESSAMENTO", provedorId: String(result?.id || result?.idNota || "") || null, respostaJson: response as any, erroMensagem: null } }); } catch (error: any) { await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "FALHA_REPROCESSAVEL", erroMensagem: error?.response?.data?.message || error?.message || "Falha ao enviar ao provedor." } }); throw error; }
 }
 
-export async function updateFiscalDocumentFromProvider(invoiceId: number, result: any, raw: unknown = result) { const status = fiscalStatusFromProvider(result?.status || result?.situacao); await prisma.notaFiscal.update({ where: { id: invoiceId }, data: { status, provedorId: String(result?.id || result?.idNota || "") || undefined, chaveAcesso: result?.chave || result?.chaveAcesso || undefined, protocolo: result?.protocolo || undefined, emitidaEm: status === "AUTORIZADA" ? new Date() : undefined, canceladaEm: status === "CANCELADA" ? new Date() : undefined, respostaJson: raw as any, erroMensagem: status === "REJEITADA" ? String(result?.mensagem || result?.message || "Documento rejeitado pelo autorizador.") : null } }); }
+export async function updateFiscalDocumentFromProvider(invoiceId: number, result: any, raw: unknown = result) { const status = fiscalStatusFromProvider(result?.status || result?.situacao); await prisma.notaFiscal.updateMany({ where: { id: invoiceId, status: { not: "EXCLUIDA" } }, data: { status, provedorId: String(result?.id || result?.idNota || "") || undefined, chaveAcesso: result?.chave || result?.chaveAcesso || undefined, protocolo: result?.protocolo || undefined, emitidaEm: status === "AUTORIZADA" ? new Date() : undefined, canceladaEm: status === "CANCELADA" ? new Date() : undefined, respostaJson: raw as any, erroMensagem: status === "REJEITADA" ? String(result?.mensagem || result?.message || "Documento rejeitado pelo autorizador.") : null } }); }
 
 async function reconcileGeranet() {
   const invoices = await prisma.notaFiscal.findMany({ where: { provedor: "GERANET_NFE", status: "RESULTADO_INCERTO" }, select: { id: true, numero: true, criadoEm: true, emitenteSnapshotJson: true }, take: 50 });

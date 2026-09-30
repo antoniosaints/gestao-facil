@@ -1,6 +1,7 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { buildGeranetNfseCancelPayload } from "../../services/notasFiscais/geranetNfsePolicy";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
 import { createFiscalIntentForSale, getGeranetCredentials } from "../../services/notasFiscais/fiscalSaleService";
@@ -14,8 +15,11 @@ import { Prisma } from "../../../generated";
 import { validarCpfCnpj } from "../../helpers/formatters";
 import { fiscalRecipientStatus } from "../../services/notasFiscais/fiscalRecipientPolicy";
 import { fiscalReportFilters } from "../../services/notasFiscais/fiscalReportFilters";
+import { fiscalDocumentPresentation } from "../../services/notasFiscais/fiscalDocumentPresentation";
 
 const fiscalSaleTypes = z.enum(["NFE", "NFCE"]);
+import { canDeleteFiscalDocument, deleteFiscalDraft } from "../../services/notasFiscais/fiscalDeletionPolicy";
+
 const idSchema = z.coerce.number().int().positive();
 const batchSaleDocumentsSchema = z.object({ tipo: fiscalSaleTypes, vendaIds: z.array(z.coerce.number().int().positive()).min(1).max(50) });
 
@@ -26,13 +30,13 @@ function fail(res: Response, status: number, code: string, message: string, deta
 function mapDocument(invoice: any) {
   const providerFile = !["GERANET_NFE", "GERANET_NFSE"].includes(invoice.provedor || "") && Boolean(invoice.provedorId) && invoice.status === "AUTORIZADA";
   return {
-    id: invoice.id, vendaId: invoice.vendaId, vendaUid: invoice.Venda?.Uid || null, tipo: invoice.tipo, modelo: invoice.modelo, status: invoice.status, serie: invoice.serie,
+    exclusaoPermitida: canDeleteFiscalDocument(invoice), id: invoice.id, vendaId: invoice.vendaId, vendaUid: invoice.Venda?.Uid || null, tipo: invoice.tipo, modelo: invoice.modelo, status: invoice.status, serie: invoice.serie,
     numero: invoice.numero, chaveAcesso: invoice.chaveAcesso, protocolo: invoice.protocolo, ambiente: invoice.ambiente, valorTotal: Number(invoice.valorTotal),
     rpsNumero: invoice.rpsNumero, codigoServico: invoice.codigoServico, discriminacao: invoice.discriminacao, provedor: invoice.provedor,
-    xmlDisponivel: Boolean(invoice.xmlPath) || providerFile, pdfDisponivel: Boolean(invoice.pdfPath) || providerFile,
+    xmlDisponivel: Boolean(invoice.xmlPath) || providerFile, pdfDisponivel: Boolean(invoice.pdfPath) || providerFile, pdfGeravel: invoice.provedor === "GERANET_NFSE" && Boolean(invoice.xmlPath) && !invoice.pdfPath && ["AUTORIZADA", "CANCELADA", "HOMOLOGADA"].includes(invoice.status),
     erroMensagem: invoice.erroMensagem, criadoEm: invoice.criadoEm, atualizadaEm: invoice.atualizadaEm, emitidaEm: invoice.emitidaEm, canceladaEm: invoice.canceladaEm,
     cliente: invoice.Cliente ? { id: invoice.Cliente.id, nome: invoice.Cliente.nome, documento: invoice.Cliente.documento } : null,
-    eventos: invoice.Eventos?.map((event: any) => ({ id: event.id, tipo: event.tipo, status: event.status, motivo: event.motivo, createdAt: event.createdAt })) || [],
+    eventos: invoice.Eventos?.map((event: any) => ({ id: event.id, tipo: event.tipo, status: event.status, motivo: event.motivo, createdAt: event.createdAt, processadoEm: event.processadoEm })) || [],
   };
 }
 
@@ -48,7 +52,7 @@ export async function listFiscalDocuments(req: Request, res: Response) {
   const sortBy = String(req.query.sortBy || "criadoEm");
   const allowedSort = ["id", "tipo", "status", "numero", "valorTotal", "criadoEm", "atualizadaEm", "emitidaEm"];
   const orderBy = { [allowedSort.includes(sortBy) && sortBy !== "id" ? sortBy : "criadoEm"]: sortBy === "id" ? "desc" : order } as Prisma.NotaFiscalOrderByWithRelationInput;
-  const where: Prisma.NotaFiscalWhereInput = { contaId: custom.contaId, ...filters.where };
+  const where: Prisma.NotaFiscalWhereInput = { contaId: custom.contaId, ...filters.where, AND: [{ status: { not: "EXCLUIDA" } }] };
   const [items, total] = await Promise.all([
     prisma.notaFiscal.findMany({ where, include: { Cliente: { select: { id: true, nome: true, documento: true } }, Venda: { select: { Uid: true } }, Eventos: { orderBy: { createdAt: "desc" }, take: 3 } }, orderBy: [orderBy, { id: "desc" }], skip: (page - 1) * limit, take: limit }),
     prisma.notaFiscal.count({ where }),
@@ -61,7 +65,7 @@ export async function summarizeFiscalDocuments(req: Request, res: Response) {
   const filters = fiscalReportFilters(req.query);
   if (filters.error) return fail(res, 422, "fiscal_report_filter_invalid", filters.error);
   const { status: _status, ...withoutStatus } = filters.where;
-  const groups = await prisma.notaFiscal.groupBy({ by: ["status"], where: { contaId, ...withoutStatus }, _count: { _all: true }, _sum: { valorTotal: true } });
+  const groups = await prisma.notaFiscal.groupBy({ by: ["status"], where: { contaId, ...withoutStatus, status: { not: "EXCLUIDA" } }, _count: { _all: true }, _sum: { valorTotal: true } });
   const counts = Object.fromEntries(groups.map((group) => [group.status, group._count._all]));
   const total = groups.reduce((sum, group) => sum + group._count._all, 0);
   const authorized = counts.AUTORIZADA || 0;
@@ -86,10 +90,10 @@ export async function fiscalDashboard(req: Request, res: Response) {
   const days = Math.round((to.getTime() - from.getTime()) / 86_400_000);
   if (days > 366) return fail(res, 422, "fiscal_dashboard_period_too_long", "Selecione um período de até 366 dias.");
   const previousFrom = new Date(from.getTime() - days * 86_400_000);
-  const baseWhere: Prisma.NotaFiscalWhereInput = { contaId, criadoEm: { gte: from, lt: to } };
+  const baseWhere: Prisma.NotaFiscalWhereInput = { contaId, status: { not: "EXCLUIDA" }, criadoEm: { gte: from, lt: to } };
   const [groups, previous, seriesRows, attention] = await Promise.all([
     prisma.notaFiscal.groupBy({ by: ["tipo", "status"], where: baseWhere, _count: { _all: true }, _sum: { valorTotal: true } }),
-    prisma.notaFiscal.groupBy({ by: ["status"], where: { contaId, criadoEm: { gte: previousFrom, lt: from } }, _count: { _all: true }, _sum: { valorTotal: true } }),
+    prisma.notaFiscal.groupBy({ by: ["status"], where: { contaId, status: { not: "EXCLUIDA" }, criadoEm: { gte: previousFrom, lt: from } }, _count: { _all: true }, _sum: { valorTotal: true } }),
     prisma.$queryRaw<Array<{ data: string; total: bigint; autorizadas: bigint }>>(Prisma.sql`
       SELECT DATE_FORMAT(DATE_SUB(criadoEm, INTERVAL 3 HOUR), '%Y-%m-%d') AS data, COUNT(*) AS total,
         SUM(CASE WHEN status = 'AUTORIZADA' THEN 1 ELSE 0 END) AS autorizadas
@@ -229,8 +233,12 @@ export async function getFiscalDocument(req: Request, res: Response) {
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return fail(res, 422, "fiscal_document_invalid", "Documento fiscal inválido.");
   const item = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId }, include: { Cliente: { select: { id: true, nome: true, documento: true } }, Venda: { select: { Uid: true } }, Itens: true, Eventos: { orderBy: { createdAt: "desc" } } } });
-  if (!item) return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
-  return res.json({ data: { ...mapDocument(item), itens: item.Itens.map((line) => ({ ...line, quantidade: Number(line.quantidade), valorUnitario: Number(line.valorUnitario), valorTotal: Number(line.valorTotal) })) }, requestId: randomUUID() });
+  if (!item || item.status === "EXCLUIDA") return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
+  let xml = '';
+  if (item.xmlPath && ['GERANET_NFE', 'GERANET_NFSE'].includes(item.provedor || '')) {
+    try { xml = (await readFiscalArtifact(item.xmlPath)).toString('utf8'); } catch { /* Os dados salvos continuam disponíveis quando o arquivo não pode ser lido. */ }
+  }
+  return res.json({ data: { ...mapDocument(item), ...fiscalDocumentPresentation(item, xml), itens: item.Itens.map((line) => ({ ...line, quantidade: Number(line.quantidade), valorUnitario: Number(line.valorUnitario), valorTotal: Number(line.valorTotal) })) }, requestId: randomUUID() });
 }
 
 export async function createSaleFiscalDocument(req: Request, res: Response) {
@@ -255,12 +263,24 @@ export async function createSaleFiscalDocument(req: Request, res: Response) {
   }
 }
 
+export async function deleteFiscalDocument(req: Request, res: Response) {
+  const custom = getCustomRequest(req).customData;
+  const id = idSchema.safeParse(req.params.id);
+  if (!id.success) return fail(res, 422, "fiscal_document_invalid", "Documento fiscal inválido.");
+  try {
+    const result = await prisma.$transaction(tx => deleteFiscalDraft(tx, custom.contaId, id.data, custom.userId));
+    return res.json({ data: result, requestId: randomUUID() });
+  } catch (error: any) {
+    return fail(res, error?.status || 500, error?.code || "fiscal_delete_failed", error?.status ? error.message : "Não foi possível excluir a nota. Atualize os detalhes e tente novamente.");
+  }
+}
+
 export async function retryFiscalDocument(req: Request, res: Response) {
   const custom = getCustomRequest(req).customData;
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return fail(res, 422, "fiscal_document_invalid", "Documento fiscal inválido.");
   const invoice = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId } });
-  if (!invoice) return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
+  if (!invoice || invoice.status === "EXCLUIDA") return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
   if (!["NFE", "NFCE"].includes(invoice.tipo) || !["PENDENTE", "FALHA_REPROCESSAVEL"].includes(invoice.status)) return fail(res, 409, "fiscal_retry_not_allowed", "Somente NF-e ou NFC-e pendente ou com falha reprocessável pode ser reenviada.");
   await enqueueFiscalEmission(invoice.id);
   return res.status(202).json({ data: mapDocument(invoice), requestId: randomUUID() });
@@ -269,17 +289,18 @@ export async function retryFiscalDocument(req: Request, res: Response) {
 export async function cancelFiscalDocument(req: Request, res: Response) {
   const custom = getCustomRequest(req).customData;
   const id = idSchema.safeParse(req.params.id);
-  const body = z.object({ motivo: z.string().trim().min(15).max(500) }).safeParse(req.body);
+  const body = z.object({ motivo: z.string().trim().min(15).max(500), codigoCancelamento: z.string().regex(/^\d{1,10}$/).default("2") }).safeParse(req.body);
   if (!id.success || !body.success) return fail(res, 422, "fiscal_cancel_invalid", "Informe uma justificativa de cancelamento com ao menos 15 caracteres.");
   const invoice = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId }, include: { Eventos: true } });
-  if (!invoice) return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
+  if (!invoice || invoice.status === "EXCLUIDA") return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
   // A Geranet identifica a nota pela chave e protocolo da SEFAZ; ela não
   // devolve um id interno de documento como o provedor legado.
   if (invoice.status !== "AUTORIZADA" || (!['GERANET_NFE', 'GERANET_NFSE'].includes(invoice.provedor || "") && !invoice.provedorId)) return fail(res, 409, "fiscal_cancel_not_allowed", "Somente documento autorizado pode ser cancelado.");
   const idempotencyKey = String(req.headers["idempotency-key"] || randomUUID());
   const duplicate = invoice.Eventos.find((event) => event.idempotencyKey === idempotencyKey);
   if (duplicate) return res.status(202).json({ data: { eventoId: duplicate.id, status: duplicate.status }, requestId: randomUUID() });
-  const event = await prisma.notaFiscalEvento.create({ data: { notaFiscalId: invoice.id, tipo: "CANCELAMENTO", status: "PROCESSANDO", motivo: body.data.motivo, idempotencyKey } });
+  if (invoice.Eventos.some(event => event.tipo === "CANCELAMENTO" && event.status === "PROCESSANDO")) return fail(res, 409, "fiscal_cancel_in_progress", "Esta nota já possui um cancelamento em processamento.");
+  const event = await prisma.notaFiscalEvento.create({ data: { notaFiscalId: invoice.id, tipo: "CANCELAMENTO", status: "PROCESSANDO", motivo: body.data.motivo, idempotencyKey, requisicaoJson: { codigoCancelamento: body.data.codigoCancelamento } } });
   try {
     if (invoice.provedor === "GERANET_NFE") {
       const issuer = invoice.emitenteSnapshotJson as any;
@@ -295,13 +316,8 @@ export async function cancelFiscalDocument(req: Request, res: Response) {
     }
     if (invoice.provedor === "GERANET_NFSE") {
       if (!invoice.xmlPath) throw new Error("O XML autorizado é necessário para cancelar esta NFS-e.");
-      const prestador = invoice.emitenteSnapshotJson as any;
       const credentials = await getGeranetCredentials(invoice);
-      const response = await cancelGeranetNfse({
-        acao: "cancelar", modeloDocumento: "nfse", certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password,
-        ambiente: invoice.ambiente === "PRODUCAO" ? "1" : "2", padraoNacional: "sim", xml: (await readFiscalArtifact(invoice.xmlPath)).toString("hex"),
-        codigoCancelamento: "2", motivoCancelamento: body.data.motivo, prestador,
-      });
+      const response = await cancelGeranetNfse({ ...buildGeranetNfseCancelPayload(invoice, await readFiscalArtifact(invoice.xmlPath), body.data.motivo, body.data.codigoCancelamento), certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password });
       if (response.situacao !== "sucesso") throw Object.assign(new Error(response.mensagem || "Cancelamento rejeitado pela Geranet."), { response: { data: response } });
       await prisma.$transaction([
         prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "CANCELADA", canceladaEm: new Date(), motivoCancelamento: body.data.motivo, erroMensagem: null } }),
@@ -324,7 +340,8 @@ export async function downloadFiscalDocument(req: Request, res: Response) {
   const format = z.enum(["xml", "pdf"]).safeParse(req.params.format);
   if (!id.success || !format.success) return fail(res, 422, "fiscal_download_invalid", "Arquivo fiscal inválido.");
   const invoice = await prisma.notaFiscal.findFirst({ where: { id: id.data, contaId: custom.contaId } });
-  if (!invoice || (!['GERANET_NFE', 'GERANET_NFSE'].includes(invoice.provedor || "") && !invoice.provedorId)) return fail(res, 409, "fiscal_file_unavailable", "O arquivo ainda não está disponível.");
+  if (!invoice || invoice.status === "EXCLUIDA") return fail(res, 404, "fiscal_document_not_found", "Documento fiscal não encontrado.");
+  if (!['GERANET_NFE', 'GERANET_NFSE'].includes(invoice.provedor || "") && !invoice.provedorId) return fail(res, 409, "fiscal_file_unavailable", "O arquivo ainda não está disponível.");
   try {
     if (invoice.provedor === "GERANET_NFE" || invoice.provedor === "GERANET_NFSE") {
       const reference = format.data === "xml" ? invoice.xmlPath : invoice.pdfPath;
@@ -354,10 +371,11 @@ export async function plugNotasWebhook(req: Request, res: Response) {
   const identifiers = [{ provedorId: providerId }, { idIntegracao: integrationId }].filter((identifier) => Object.values(identifier)[0]);
   if (!identifiers.length) return res.status(202).json({ accepted: true });
   const invoice = await prisma.notaFiscal.findFirst({ where: { OR: identifiers } });
-  if (!invoice) return res.status(202).json({ accepted: true });
+  if (!invoice || invoice.status === "EXCLUIDA") return res.status(202).json({ accepted: true });
   const next = fiscalStatusFromProvider(status);
   await prisma.$transaction(async (tx) => {
-    await tx.notaFiscal.update({ where: { id: invoice.id }, data: { status: next, provedorId: providerId || invoice.provedorId, chaveAcesso: payload?.chave || invoice.chaveAcesso, protocolo: payload?.protocolo || invoice.protocolo, emitidaEm: next === "AUTORIZADA" ? new Date() : invoice.emitidaEm, canceladaEm: next === "CANCELADA" ? new Date() : invoice.canceladaEm, respostaJson: payload } });
+    const changed = await tx.notaFiscal.updateMany({ where: { id: invoice.id, status: { not: "EXCLUIDA" } }, data: { status: next, provedorId: providerId || invoice.provedorId, chaveAcesso: payload?.chave || invoice.chaveAcesso, protocolo: payload?.protocolo || invoice.protocolo, emitidaEm: next === "AUTORIZADA" ? new Date() : invoice.emitidaEm, canceladaEm: next === "CANCELADA" ? new Date() : invoice.canceladaEm, respostaJson: payload } });
+    if (!changed.count) return;
     if (next === "CANCELADA") await tx.notaFiscalEvento.updateMany({ where: { notaFiscalId: invoice.id, tipo: "CANCELAMENTO", status: "PROCESSANDO" }, data: { status: "CONCLUIDO", processadoEm: new Date(), respostaJson: payload } });
   });
   return res.status(204).end();

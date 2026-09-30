@@ -20,6 +20,8 @@ import { getGeranetUser } from "../../services/notasFiscais/geranet";
 import { emitGeranetNfse, type GeranetResponse } from "../../services/notasFiscais/geranet";
 import { getGeranetCredentials } from "../../services/notasFiscais/fiscalSaleService";
 import { storeFiscalArtifact } from "../../services/notasFiscais/fiscalArtifactStorage";
+import { searchGeranetCities, usesNationalNfse, type GeranetCity } from "../../services/notasFiscais/geranetCities";
+import { buildGeranetNfsePayload, fiscalArtifactBytes, geranetNfseSchema, isConfirmedGeranetRejection, validateGeranetNfseRules } from "../../services/notasFiscais/geranetNfsePolicy";
 
 const text = (max = 191) => z.preprocess((value) => {
   const normalized = String(value ?? "").trim();
@@ -158,7 +160,7 @@ function mapConfig(config: any, conta: any) {
     },
     emissaoNfsePronta: d2ti
       ? Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.tokenIntegracaoCifrado && value.codigoServicoPadrao && value.descricaoServicoPadrao && value.codigoAtividadePadrao && value.descricaoAtividadePadrao && value.tipoTributacaoPadrao && value.tipoRecolhimentoPadrao && value.aliquotaIssPadrao != null && hasFiscalCertificateEncryptionKey())
-      : Boolean(value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.codigoServicoPadrao && value.nfseCodigoTributacaoMunicipio && value.aliquotaIssPadrao != null && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey() && (![1, 4].includes(value.regimeTributario) || value.nfseDataOpcaoSimples)),
+      : Boolean(/^\d{7}$/.test(value.codigoMunicipioIbge || "") && (value.nfseIssRetido !== "1" || ["1", "2", "3"].includes(value.nfseResponsavelRetencao)) && [1, 2, 3, 4].includes(value.regimeTributario) && value.nfseHabilitado && value.razaoSocial && value.documento && value.inscricaoMunicipal && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.codigoServicoPadrao && value.nfseCodigoTributacaoMunicipio && value.aliquotaIssPadrao != null && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey() && (![1, 4].includes(value.regimeTributario) || value.nfseDataOpcaoSimples)),
     emissaoNfePronta: Boolean(value.nfeHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.regimeTributario >= 1 && value.nfeNaturezaOperacao && value.certificadoReferencia && value.certificadoSenhaCifrada && hasFiscalCertificateEncryptionKey()),
     emissaoNfcePronta: Boolean(value.nfceHabilitado && value.razaoSocial && value.documento && value.inscricaoEstadual && value.codigoMunicipioIbge && value.municipioNome && value.uf && value.cep && value.logradouro && value.numero && value.bairro && value.regimeTributario >= 1 && value.nfeNaturezaOperacao && value.certificadoReferencia && value.certificadoSenhaCifrada && value.nfceCscId && value.nfceCscTokenCifrado && hasFiscalCertificateEncryptionKey()),
   };
@@ -325,13 +327,13 @@ export async function listNfse(req: Request, res: Response) {
   const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
   const [items, total] = await Promise.all([
     prisma.notaFiscal.findMany({
-      where: { contaId, tipo: "NFSE" },
+      where: { contaId, tipo: "NFSE", status: { not: "EXCLUIDA" } },
       include: { Cliente: { select: { id: true, nome: true, documento: true } } },
       orderBy: { criadoEm: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.notaFiscal.count({ where: { contaId, tipo: "NFSE" } }),
+    prisma.notaFiscal.count({ where: { contaId, tipo: "NFSE", status: { not: "EXCLUIDA" } } }),
   ]);
   return res.json({
     data: items.map((item) => ({
@@ -457,7 +459,7 @@ function geranetPrestador(config: any) {
 }
 
 export async function emitNfseGeranet(req: Request, res: Response) {
-  const parsed = nfseSchema.safeParse(req.body);
+  const parsed = geranetNfseSchema.safeParse(req.body);
   if (!parsed.success) return fail(req, res, 422, "validation_error", "Revise os dados da NFS-e.", parsed.error.flatten());
   const idempotencyKey = String(req.headers["idempotency-key"] || "").trim();
   if (idempotencyKey.length < 16 || idempotencyKey.length > 191) return fail(req, res, 400, "idempotency_key_required", "Envie uma chave de idempotência entre 16 e 191 caracteres para emitir a NFS-e.");
@@ -468,7 +470,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
     prisma.clientesFornecedores.findFirst({ where: { id: input.clienteId, contaId }, select: { id: true, nome: true, documento: true, im: true, endereco: true, numero: true, bairro: true, cep: true, cidade: true, estado: true, email: true, telefone: true } }),
   ]);
   if (!cliente) return fail(req, res, 422, "tomador_not_found", "Tomador não encontrado nesta conta.");
-  if (!config || selectedNfseMode(config) !== "GERANET" || !config.nfseHabilitado) return fail(req, res, 422, "provider_not_supported", "Ative a NFS-e e selecione a Geranet nas configurações fiscais.");
+  if (!config || !config.nfseHabilitado) return fail(req, res, 422, "provider_not_supported", "Ative a NFS-e nas configurações fiscais.");
   const simplesNacional = [1, 4].includes(config.regimeTributario) ? "1" : "2";
   const missingConfig = !config.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.municipioNome || !config.uf || !config.logradouro || !config.numero || !config.bairro || !config.cep || !config.codigoServicoPadrao || !config.nfseCodigoTributacaoMunicipio || config.aliquotaIssPadrao == null || !config.certificadoReferencia || !config.certificadoSenhaCifrada || (simplesNacional === "1" && !config.nfseDataOpcaoSimples);
   if (missingConfig) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais, códigos de serviço Geranet, alíquota, A1 e data de opção do Simples quando aplicável.");
@@ -478,6 +480,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
 
   let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
   if (invoice) {
+    if (invoice.status === "EXCLUIDA") return fail(req, res, 410, "fiscal_document_deleted", "Esta tentativa foi excluída. Inicie uma nova emissão com outra chave.");
     if (invoice.status === "EMISSAO_INCERTA") return fail(req, res, 409, "emission_uncertain", "A Geranet não confirmou esta tentativa. Consulte o portal antes de emitir novamente para evitar duplicidade.", { notaFiscalId: invoice.id });
     if (invoice.status === "EMITINDO") return fail(req, res, 409, "emission_in_progress", "Esta NFS-e já está em processamento.", { notaFiscalId: invoice.id });
     return res.json({ data: fiscalInvoiceDto(invoice), requestId: requestId(req) });
@@ -489,6 +492,24 @@ export async function emitNfseGeranet(req: Request, res: Response) {
   } catch (error: any) {
     return fail(req, res, 422, "tomador_municipio_invalid", error?.message || "Não foi possível identificar o município do tomador.");
   }
+  let national: boolean;
+  let municipality: GeranetCity;
+  try {
+    const cities = await searchGeranetCities(env.GERANET_NFE_BASE_URL, config.codigoMunicipioIbge!, 50);
+    const city = cities.find(item => item.codigoIbge === config.codigoMunicipioIbge);
+    if (!city || !city.provedor) return fail(req, res, 422, "nfse_city_unsupported", "O município do prestador não foi encontrado entre as cidades atendidas pela Geranet.");
+    municipality = city;
+    national = usesNationalNfse(city);
+  } catch {
+    return fail(req, res, 503, "nfse_cities_unavailable", "Não foi possível verificar o município na Geranet. Tente novamente em instantes.");
+  }
+  const rulesError = validateGeranetNfseRules(config, input, national, municipality);
+  if (rulesError) return fail(req, res, 422, "nfse_rules_invalid", rulesError);
+  let credentials: Awaited<ReturnType<typeof getGeranetCredentials>>;
+  try {
+    if (!env.GERANET_NFE_API_KEY) throw new Error("Integração Geranet indisponível.");
+    credentials = await getGeranetCredentials({ contaId });
+  } catch { return fail(req, res, 503, "nfse_credentials_unavailable", "Não foi possível acessar o certificado ou a integração Geranet. Revise as configurações antes de emitir."); }
   const codigoServico = input.codigoServico || config.codigoServicoPadrao;
   const prestador = geranetPrestador(config);
   try {
@@ -501,7 +522,7 @@ export async function emitNfseGeranet(req: Request, res: Response) {
         contaId, tipo: "NFSE", clienteId: cliente.id, valorTotal: input.valorTotal, status: "EMITINDO", idempotencyKey, ambiente: config.ambiente,
         provedor: "GERANET_NFSE", rpsNumero: String(rpsNumero), codigoServico, discriminacao: input.discriminacao,
         emitenteSnapshotJson: prestador, destinatarioSnapshotJson: { ...cliente, codigoMunicipioIbge: codigoMunicipioTomador },
-        requisicaoJson: { provider: "GERANET_NFSE", serie: config.serieRps, numeroRps: rpsNumero, codigoServicoNacional: config.nfseCodigoServicoNacional, codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, codigoCnae: config.nfseCodigoCnae },
+        requisicaoJson: { provider: "GERANET_NFSE", padraoNacional: national ? "sim" : "nao", dadosEmissao: input, serie: config.serieRps, numeroRps: rpsNumero, codigoServicoNacional: config.nfseCodigoServicoNacional, codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, codigoCnae: config.nfseCodigoCnae },
       },
       include: { Cliente: { select: { id: true, nome: true, documento: true } } },
     });
@@ -512,28 +533,33 @@ export async function emitNfseGeranet(req: Request, res: Response) {
     return res.json({ data: fiscalInvoiceDto(existing), requestId: requestId(req) });
   }
 
+  let providerAuthorized = false;
   try {
-    const credentials = await getGeranetCredentials(invoice);
-    const response = await emitGeranetNfse({
-      acao: "emitir", modeloDocumento: "nfse", nomeSistema: "Gestão Fácil", certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password,
-      padraoNacional: "sim", ambiente: config.ambiente === "PRODUCAO" ? "1" : "2", numeroLote: String(invoice.id), numeroRps: invoice.rpsNumero, serie: String(config.serieRps), simplesNacional,
-      ...(simplesNacional === "1" ? { dataOpcaoSimples: ymd(config.nfseDataOpcaoSimples), regimeApuracaoSN: config.nfseRegimeApuracaoSn || "1" } : {}),
-      tipo: "1", naturezaOperacao: config.nfseNaturezaOperacao || "1", incentivadorCultural: config.nfseIncentivadorCultural || "2", regimeEspecialTributacao: config.nfseRegimeEspecialTributacao || "1", prestador,
-      tomador: { cpfCnpj: onlyDigits(cliente.documento), inscricaoMunicipal: cliente.im || "", razaoSocial: cliente.nome, endereco: cliente.endereco, numero: cliente.numero, complemento: "", bairro: cliente.bairro, municipio: codigoMunicipioTomador, nomeMunicipio: cliente.cidade, uf: String(cliente.estado).toUpperCase(), codigoPais: "1058", pais: "Brasil", cep: onlyDigits(cliente.cep), telefone: splitPhone(cliente.telefone) || "", email: cliente.email || "", substitutoTributario: "2" },
-      servico: { valor: decimalNfse(input.valorTotal), deducoes: "0.00", aliquotaPis: "0.00", aliquotaCofins: "0.00", inss: "0.00", ir: "0.00", csll: "0.00", issRetido: config.nfseIssRetido || "2", valorIssRetido: "0.00", outrasRetencoes: "0.00", descontoIncondicionado: "0.00", descontoCondicionado: "0.00", aliquota: decimalNfse(config.aliquotaIssPadrao), responsavelRetencao: config.nfseResponsavelRetencao || "4", itemListaServico: codigoServico, ...(config.nfseCodigoServicoNacional ? { codigoServicoNacional: config.nfseCodigoServicoNacional } : {}), codigoTributacaoMunicipio: config.nfseCodigoTributacaoMunicipio, ...(config.nfseCodigoCnae ? { codigoCnae: config.nfseCodigoCnae } : {}), discriminacao: input.discriminacao, codigoMunicipio: config.codigoMunicipioIbge, municipioIncidencia: config.codigoMunicipioIbge, descricaoLocalidadeIncidencia: config.municipioNome, exigibilidadeISS: config.nfseExigibilidadeIss || "1", ...(simplesNacional === "1" ? { tributacao: { percentualTributosSimplesNacional: decimalNfse(config.aliquotaIssPadrao) } } : {}) },
-    });
-    const artifacts: Record<string, string> = {};
-    if (response.xml) artifacts.xmlPath = await storeFiscalArtifact({ contaId, notaFiscalId: invoice.id, format: "xml", bytes: Buffer.from(response.xml, "hex") });
-    if (response.pdf) artifacts.pdfPath = await storeFiscalArtifact({ contaId, notaFiscalId: invoice.id, format: "pdf", bytes: Buffer.from(response.pdf, "hex") });
-    const authorized = response.situacao === "sucesso" && (!response.cstat || String(response.cstat) === "100");
-    const updated = await prisma.notaFiscal.update({ where: { id: invoice.id }, data: authorized ? { status: "AUTORIZADA", numero: response.numero || null, chaveAcesso: response.chave || null, protocolo: response.protocolo || null, codigoVerificacao: (response as any).codigoVerificacao || null, respostaJson: cleanGeranetResponse(response) as any, erroMensagem: null, emitidaEm: new Date(), ...artifacts } : { status: "REJEITADA", respostaJson: cleanGeranetResponse(response) as any, erroMensagem: response.mensagem || "A Geranet rejeitou a NFS-e." }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
+    const payload = buildGeranetNfsePayload(config, input, invoice, prestador, { cpfCnpj: onlyDigits(cliente.documento), inscricaoMunicipal: cliente.im || "", razaoSocial: cliente.nome, endereco: cliente.endereco, numero: cliente.numero, complemento: "", bairro: cliente.bairro, municipio: codigoMunicipioTomador, nomeMunicipio: cliente.cidade, uf: String(cliente.estado).toUpperCase(), codigoPais: "1058", pais: "Brasil", cep: onlyDigits(cliente.cep), telefone: splitPhone(cliente.telefone) || "", email: cliente.email || "" }, national);
+    const response = await emitGeranetNfse({ ...payload, certificadoDigital: credentials.hex, senhaCertificadoDigital: credentials.password });
+    if (!["sucesso", "erro"].includes(response?.situacao || "")) throw new Error("Resposta de emissão não reconhecida pela Geranet.");
+    const authorized = response.situacao === "sucesso";
+    providerAuthorized = authorized;
+    let updated = await prisma.notaFiscal.update({ where: { id: invoice.id }, data: authorized ? { status: "AUTORIZADA", numero: response.numero || null, chaveAcesso: response.chave || null, protocolo: response.protocolo || null, codigoVerificacao: response.codigoVerificacao || null, respostaJson: cleanGeranetResponse(response) as any, erroMensagem: null, emitidaEm: new Date() } : { status: "REJEITADA", respostaJson: cleanGeranetResponse(response) as any, erroMensagem: response.mensagem || "A Geranet rejeitou a NFS-e." }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
     if (!authorized) return fail(req, res, 422, "nfse_rejeitada", response.mensagem || "A Geranet rejeitou a NFS-e.", { notaFiscalId: updated.id });
+    try {
+      for (const format of ["xml", "pdf"] as const) {
+        const content = response[format];
+        if (!content) continue;
+        const reference = await storeFiscalArtifact({ contaId, notaFiscalId: invoice.id, format, bytes: fiscalArtifactBytes(content, format) });
+        updated = await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { [format === "xml" ? "xmlPath" : "pdfPath"]: reference }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
+      }
+    } catch {
+      updated = await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { erroMensagem: "Nota autorizada, mas não foi possível salvar todos os arquivos fiscais. Consulte os documentos antes de tentar uma nova emissão." }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
+    }
     return res.status(201).json({ data: fiscalInvoiceDto(updated), requestId: requestId(req) });
   } catch (error: any) {
+    if (providerAuthorized) return fail(req, res, 503, "nfse_authorized_storage_pending", "A Geranet autorizou a nota, mas os dados não puderam ser atualizados. Consulte a nota antes de uma nova emissão.", { notaFiscalId: invoice.id });
     const providerResponse = error?.response?.data as GeranetResponse | undefined;
-    const status = providerResponse ? "REJEITADA" : "EMISSAO_INCERTA";
+    const rejected = isConfirmedGeranetRejection(error);
+    const status = rejected ? "REJEITADA" : "EMISSAO_INCERTA";
     await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status, respostaJson: providerResponse ? cleanGeranetResponse(providerResponse) as any : undefined, erroMensagem: providerResponse?.mensagem || (status === "EMISSAO_INCERTA" ? "A conexão falhou antes da confirmação; consulte a Geranet antes de tentar novamente." : "A Geranet rejeitou a NFS-e.") } });
-    return fail(req, res, providerResponse ? 422 : 502, providerResponse ? "nfse_rejeitada" : "municipal_service_unavailable", providerResponse?.mensagem || "Não foi possível confirmar a emissão na Geranet. A tentativa foi bloqueada para evitar duplicidade.", { notaFiscalId: invoice.id });
+    return fail(req, res, rejected ? 422 : 502, rejected ? "nfse_rejeitada" : "municipal_service_unavailable", providerResponse?.mensagem || "Não foi possível confirmar a emissão na Geranet. A tentativa foi bloqueada para evitar duplicidade.", { notaFiscalId: invoice.id });
   }
 }
 
@@ -566,6 +592,7 @@ export async function emitNfseD2ti(req: Request, res: Response) {
 
   let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
   if (invoice) {
+    if (invoice.status === "EXCLUIDA") return fail(req, res, 410, "fiscal_document_deleted", "Esta tentativa foi excluída. Inicie uma nova emissão com outra chave.");
     if (invoice.status === "EMISSAO_INCERTA") return fail(req, res, 409, "emission_uncertain", "A prefeitura não confirmou esta tentativa. Consulte o portal municipal antes de emitir novamente para evitar duplicidade.", { notaFiscalId: invoice.id });
     if (invoice.status === "EMITINDO") return fail(req, res, 409, "emission_in_progress", "Esta NFS-e já está em processamento.", { notaFiscalId: invoice.id });
     return res.json({ data: fiscalInvoiceDto(invoice), requestId: requestId(req) });
@@ -621,4 +648,13 @@ export async function emitNfseD2ti(req: Request, res: Response) {
     await prisma.notaFiscal.update({ where: { id: invoice.id }, data: { status: "EMISSAO_INCERTA", erroMensagem: "A conexão com a prefeitura falhou antes da confirmação. Consulte o portal municipal antes de tentar novamente." } });
     return fail(req, res, 502, "municipal_service_unavailable", "Não foi possível confirmar a emissão com a prefeitura. A tentativa foi bloqueada para evitar duplicidade; consulte o portal municipal.", { notaFiscalId: invoice.id });
   }
+}
+
+export async function listGeranetNfseCities(req: Request, res: Response) {
+  const query = z.object({ busca: z.string().trim().min(2).max(120), limite: z.coerce.number().int().min(1).max(50).default(30) }).safeParse(req.query);
+  if (!query.success) return fail(req, res, 422, "nfse_city_search_invalid", "Informe ao menos dois caracteres do nome ou código IBGE da cidade.");
+  try {
+    const cities = await searchGeranetCities(env.GERANET_NFE_BASE_URL, query.data.busca, query.data.limite);
+    return res.json({ data: cities, requestId: requestId(req) });
+  } catch { return fail(req, res, 503, "nfse_city_search_unavailable", "A busca de cidades Geranet está indisponível no momento."); }
 }

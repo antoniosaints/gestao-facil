@@ -12,6 +12,8 @@ export type GeranetResponse = {
   protocolo?: string;
   xml?: string;
   pdf?: string;
+  codigoVerificacao?: string;
+  link?: string;
 };
 
 function client() {
@@ -40,6 +42,16 @@ export async function cancelGeranetNfe(payload: unknown) {
 
 export async function cancelGeranetNfse(payload: unknown) {
   const { data } = await client().post<GeranetResponse>("/nfse/cancelar", payload);
+  return data;
+}
+
+export async function consultGeranetNfse(payload: unknown) {
+  const { data } = await client().post("/nfse/consultar-notas", payload);
+  return data;
+}
+
+export async function generateGeranetNfsePdf(payload: unknown) {
+  const { data } = await client().post<GeranetResponse>("/nfse/gerar-pdf", payload);
   return data;
 }
 

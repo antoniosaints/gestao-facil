@@ -3,8 +3,10 @@ import multer, { MulterError } from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
 import { requireNotasFiscaisAccess } from "../../middlewares/notasFiscaisAccess";
 import { requireFiscalHomologacao } from "../../middlewares/fiscalHomologacao";
-import { createNfseRps, emitNfse, getFiscalConfig, getGeranetIntegrationStatus, getNationalMunicipalParameters, listMunicipios, listNfse, saveD2tiToken, saveFiscalConfig, uploadFiscalCertificate } from "../../controllers/notasFiscais/notasFiscais";
-import { cancelFiscalDocument, createSaleFiscalDocument, createSaleFiscalDocumentsBatch, downloadFiscalDocument, fiscalDashboard, getFiscalDocument, getFiscalSaleCustomer, linkFiscalSaleCustomer, listFiscalDocuments, listUninvoicedSales, plugNotasWebhook, retryFiscalDocument, selectUninvoicedSales, summarizeFiscalDocuments } from "../../controllers/notasFiscais/documentos";
+import { createNfseRps, emitNfse, emitNfseGeranet, listGeranetNfseCities, getFiscalConfig, getGeranetIntegrationStatus, getNationalMunicipalParameters, listMunicipios, listNfse, saveD2tiToken, saveFiscalConfig, uploadFiscalCertificate } from "../../controllers/notasFiscais/notasFiscais";
+import { cancelFiscalDocument, deleteFiscalDocument, createSaleFiscalDocument, createSaleFiscalDocumentsBatch, downloadFiscalDocument, fiscalDashboard, getFiscalDocument, getFiscalSaleCustomer, linkFiscalSaleCustomer, listFiscalDocuments, listUninvoicedSales, plugNotasWebhook, retryFiscalDocument, selectUninvoicedSales, summarizeFiscalDocuments } from "../../controllers/notasFiscais/documentos";
+
+import { consultNfseGeranet, generateNfseGeranetPdf } from "../../controllers/notasFiscais/geranetNfse";
 
 export const routerNotasFiscais = Router();
 const use = (handler: unknown) => handler as RequestHandler;
@@ -26,6 +28,11 @@ routerNotasFiscais.put("/configuracao", requireNotasFiscaisAccess(4), use(saveFi
 routerNotasFiscais.get("/homologacao/geranet", requireNotasFiscaisAccess(4), use(getGeranetIntegrationStatus));
 routerNotasFiscais.post("/homologacao/nfs-e/emitir", requireNotasFiscaisAccess(4), use(requireFiscalHomologacao), use(emitNfse));
 routerNotasFiscais.post("/homologacao/vendas/:vendaId/documentos", requireNotasFiscaisAccess(4), use(requireFiscalHomologacao), use(createSaleFiscalDocument));
+routerNotasFiscais.get("/nfs-e/cidades", requireNotasFiscaisAccess(3), use(listGeranetNfseCities));
+routerNotasFiscais.post("/nfs-e/consultar", requireNotasFiscaisAccess(3), use(consultNfseGeranet));
+routerNotasFiscais.post("/nfs-e/geranet/emitir", requireNotasFiscaisAccess(4), use(emitNfseGeranet));
+routerNotasFiscais.post("/homologacao/nfs-e/geranet/emitir", requireNotasFiscaisAccess(4), use(requireFiscalHomologacao), use(emitNfseGeranet));
+routerNotasFiscais.post("/documentos/:id/gerar-pdf", requireNotasFiscaisAccess(3), use(generateNfseGeranetPdf));
 routerNotasFiscais.get("/municipios", requireNotasFiscaisAccess(4), use(listMunicipios));
 routerNotasFiscais.get("/parametros-municipais", requireNotasFiscaisAccess(4), use(getNationalMunicipalParameters));
 routerNotasFiscais.post("/certificado", requireNotasFiscaisAccess(4), (req, res, next) => {
@@ -51,6 +58,7 @@ routerNotasFiscais.get("/vendas/:vendaId/cliente", requireNotasFiscaisAccess(3),
 routerNotasFiscais.patch("/vendas/:vendaId/cliente", requireNotasFiscaisAccess(4), use(linkFiscalSaleCustomer));
 routerNotasFiscais.post("/vendas/:vendaId/documentos", requireNotasFiscaisAccess(4), use(createSaleFiscalDocument));
 routerNotasFiscais.post("/vendas/documentos/lote", requireNotasFiscaisAccess(4), use(createSaleFiscalDocumentsBatch));
+routerNotasFiscais.delete("/documentos/:id", requireNotasFiscaisAccess(4), use(deleteFiscalDocument));
 routerNotasFiscais.post("/documentos/:id/reprocessar", requireNotasFiscaisAccess(4), use(retryFiscalDocument));
 routerNotasFiscais.post("/documentos/:id/cancelamento", requireNotasFiscaisAccess(4), use(cancelFiscalDocument));
 routerNotasFiscais.get("/documentos/:id/arquivo/:format", requireNotasFiscaisAccess(3), use(downloadFiscalDocument));
