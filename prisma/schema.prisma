@@ -3303,6 +3303,7 @@ model OuriveOrdem {
   producaoFinalizadaEm      DateTime?
   pesoFinal                 Decimal?                 @db.Decimal(12, 3)
   antecipacaoCliente        Decimal                  @default(0) @db.Decimal(10, 2)
+  formaPagamentoCliente     MetodoPagamento?
   custoExtra                Decimal                  @default(0) @db.Decimal(10, 2)
   valorMaoObra              Decimal                  @default(0) @db.Decimal(10, 2)
   percentualLojaAplicado    Decimal?                 @db.Decimal(5, 2)

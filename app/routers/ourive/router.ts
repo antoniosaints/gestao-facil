@@ -52,6 +52,7 @@ import {
   reopenOrderFinancial,
   updateOrderFinancial,
   updateOrder,
+  updateClientPayment,
   updateOrderStatus,
   updateStage,
 } from "../../controllers/ourive/ourive";
@@ -195,6 +196,11 @@ routerOurive.patch(
   "/ordens/:id",
   requireOuriveAccess("RECEBER"),
   use(updateOrder),
+);
+routerOurive.patch(
+  "/ordens/:id/pagamento-cliente",
+  requireOuriveAccess("RECEBER"),
+  use(updateClientPayment),
 );
 routerOurive.get(
   "/ordens/:id/comprovante",

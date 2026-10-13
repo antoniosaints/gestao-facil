@@ -14,6 +14,13 @@ import {
   dividirRepasseOurives,
 } from "../../services/ourive/calculoFinanceiroService";
 import { snapshotMaterialPrices } from "../../services/ourive/orcamentoMaterialService";
+import {
+  clientPaymentFields,
+  clientPaymentSchema,
+  validateClientPayment,
+} from "../../services/ourive/clientPaymentSchema";
+import type { MetodoPagamento } from "../../../generated/client";
+import { saveClientPayment } from "../../services/ourive/clientPaymentService";
 import { prisma } from "../../utils/prisma";
 
 const db = prisma as any;
@@ -48,17 +55,18 @@ async function settleOuriveRevenue(
   lancamentoId: number,
   valor: unknown,
   paidAt: Date,
+  formaPagamento: MetodoPagamento = "OUTRO",
 ) {
   await tx.lancamentoFinanceiro.update({
     where: { id: lancamentoId },
-    data: { status: "PAGO", dataEntrada: paidAt },
+    data: { status: "PAGO", dataEntrada: paidAt, formaPagamento },
   });
   await tx.parcelaFinanceiro.updateMany({
     where: { lancamentoId },
     data: {
       pago: true,
       valorPago: money(valor),
-      formaPagamento: "OUTRO",
+      formaPagamento,
       dataPagamento: paidAt,
     },
   });
@@ -125,11 +133,9 @@ const orderSchema = z
     observacoes: z.string().max(5000).optional(),
     prazoPrevisto: z.coerce.date().optional(),
     valorMaoObra: z.coerce.number().nonnegative().max(99_999_999).optional(),
-    antecipacaoCliente: z.coerce
-      .number()
-      .nonnegative()
-      .max(99_999_999)
-      .default(0),
+    antecipacaoCliente: clientPaymentFields.antecipacaoCliente.default(0),
+    formaPagamentoCliente:
+      clientPaymentFields.formaPagamentoCliente.default(null),
     responsavelIds: z
       .array(z.coerce.number().int().positive())
       .max(100)
@@ -156,6 +162,7 @@ const orderSchema = z
       .default([]),
   })
   .superRefine((data, context) => {
+    validateClientPayment(data, context);
     if (data.tipo === "ENCOMENDA" && !data.pecas.length)
       context.addIssue({
         code: z.ZodIssueCode.too_small,
@@ -188,7 +195,8 @@ const updateOrderSchema = z.object({
       value === undefined || value === null || value === "" ? null : value,
     z.coerce.date().nullable(),
   ),
-  antecipacaoCliente: z.coerce.number().nonnegative().max(99_999_999),
+  antecipacaoCliente: clientPaymentFields.antecipacaoCliente,
+  formaPagamentoCliente: clientPaymentFields.formaPagamentoCliente.optional(),
   pecas: z
     .array(
       z.object({
@@ -1014,6 +1022,7 @@ export async function createOrder(req: Request, res: Response) {
         prazoPrevisto: parsed.data.prazoPrevisto,
         valorMaoObra: money(parsed.data.valorMaoObra),
         antecipacaoCliente: money(parsed.data.antecipacaoCliente),
+        formaPagamentoCliente: parsed.data.formaPagamentoCliente,
       },
     });
     if (parsed.data.tipo === "CONSERTO") {
@@ -1290,6 +1299,18 @@ export async function updateOrder(req: Request, res: Response) {
       "order_billed",
       "Uma ordem faturada não pode ter seus dados alterados.",
     );
+  const payment = clientPaymentSchema.safeParse({
+    antecipacaoCliente: parsed.data.antecipacaoCliente,
+    formaPagamentoCliente:
+      parsed.data.formaPagamentoCliente === undefined
+        ? order.formaPagamentoCliente || null
+        : parsed.data.formaPagamentoCliente,
+  });
+  if (!payment.success)
+    return fail(
+      req, res, 422, "validation_error", "Pagamento do cliente inválido.",
+      payment.error.flatten(),
+    );
   if (parsed.data.clienteId) {
     const client = await prisma.clientesFornecedores.findFirst({
       where: { id: parsed.data.clienteId, contaId: custom.contaId },
@@ -1336,6 +1357,7 @@ export async function updateOrder(req: Request, res: Response) {
         observacoes: parsed.data.observacoes || null,
         prazoPrevisto: parsed.data.prazoPrevisto,
         antecipacaoCliente: money(parsed.data.antecipacaoCliente),
+        formaPagamentoCliente: payment.data.formaPagamentoCliente,
       },
     });
     for (const piece of parsed.data.pecas)
@@ -1358,10 +1380,31 @@ export async function updateOrder(req: Request, res: Response) {
       {
         clienteId: parsed.data.clienteId,
         antecipacaoCliente: money(parsed.data.antecipacaoCliente).toFixed(2),
+        formaPagamentoCliente: payment.data.formaPagamentoCliente,
       },
     );
   });
   return ok(req, res, await orderDetails(custom.contaId, order.id));
+}
+
+export async function updateClientPayment(req: Request, res: Response) {
+  const custom = own(req);
+  const parsed = clientPaymentSchema.safeParse(req.body);
+  if (!parsed.success)
+    return fail(
+      req, res, 422, "validation_error", "Pagamento do cliente inválido.",
+      parsed.error.flatten(),
+    );
+  const ordemId = Number(req.params.id);
+  const result = await saveClientPayment(prisma, custom, ordemId, parsed.data);
+  if (result === "order_not_found")
+    return fail(req, res, 404, "order_not_found", "Ordem não encontrada.");
+  if (result === "order_billed")
+    return fail(
+      req, res, 409, "order_billed",
+      "Uma ordem faturada não pode ter seu pagamento alterado.",
+    );
+  return ok(req, res, { ordemId, ...parsed.data });
 }
 
 const operationalStatusSchema = z.enum([
@@ -3611,6 +3654,7 @@ export async function deliverOrder(req: Request, res: Response) {
             revenue.id,
             revenue.valorTotal,
             order.entregueEm || order.faturadaEm || new Date(),
+            order.formaPagamentoCliente || "OUTRO",
           ),
         );
     }
@@ -3771,7 +3815,7 @@ export async function deliverOrder(req: Request, res: Response) {
         valorTotal: money(budget.valorFinal),
         desconto,
         tipo: "RECEITA",
-        formaPagamento: "OUTRO",
+        formaPagamento: order.formaPagamentoCliente || "OUTRO",
         status: "PAGO",
         dataLancamento: deliveredAt,
         dataEntrada: deliveredAt,
@@ -3786,7 +3830,7 @@ export async function deliverOrder(req: Request, res: Response) {
             vencimento: deliveredAt,
             pago: true,
             valorPago: money(budget.valorFinal),
-            formaPagamento: "OUTRO",
+            formaPagamento: order.formaPagamentoCliente || "OUTRO",
             dataPagamento: deliveredAt,
           },
         },

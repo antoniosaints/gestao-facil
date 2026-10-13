@@ -2,6 +2,12 @@
 
 API principal do sistema, workers assíncronos, integrações externas e partes legadas renderizadas no servidor.
 
+## Pagamento do cliente no Ourive
+
+Ordens de conserto e encomendas armazenam `antecipacaoCliente` (total já pago, em reais) e `formaPagamentoCliente` (enum `MetodoPagamento`, como PIX, dinheiro e cartão). A forma é obrigatória quando há antecipação positiva. Ambos podem ser informados no cadastro, na edição geral ou em `PATCH /api/v1/ourive/ordens/:id/pagamento-cliente`, que exige a capacidade `RECEBER` e os dois campos no corpo. Essa ação substitui o total antecipado, registra os valores anterior e atual no histórico e bloqueia ordens faturadas. O saldo do cliente continua sendo o valor aprovado menos a antecipação, limitado a zero; a receita na entrega usa a forma escolhida, com `OUTRO` para ordens legadas sem método.
+
+Antes de publicar esta versão, execute `npx prisma migrate deploy` para aplicar `20261013010000_ourive_forma_pagamento_cliente` e gere o cliente Prisma com o build. Ordens existentes preservam o valor antecipado e iniciam com método nulo; ao registrar ou editar uma antecipação positiva, selecione a forma de pagamento. Validação local do domínio: `node --import tsx --test app/services/ourive/*.test.ts`.
+
 ## Homologação fiscal
 
 O app Notas Fiscais integra NFS-e, NF-e e NFC-e à Geranet por padrão; São Mateus do Maranhão ainda pode usar o legado D2TI para NFS-e. A configuração por conta precisa de dados legais, município IBGE, parâmetros fiscais e certificado A1; NFC-e também exige CSC. A emissão NFS-e Geranet atual envia `padraoNacional: "sim"`, portanto a cobertura e a adesão do município precisam ser confirmadas antes da implantação. Em `/api/v1/notas-fiscais/homologacao/geranet`, a API verifica a credencial Geranet sem emitir documento. As rotas de emissão de teste em `/homologacao/nfs-e/emitir` e `/homologacao/vendas/:vendaId/documentos` recusam chamadas se o ambiente salvo não for `HOMOLOGACAO`. NFS-e avulsa usa um tomador cadastrado e retorna o resultado síncrono; NF-e/NFC-e usam venda faturada e passam pelo worker fiscal. A autorização final depende da Geranet e da autoridade fiscal, portanto o status deve ser acompanhado no histórico.
