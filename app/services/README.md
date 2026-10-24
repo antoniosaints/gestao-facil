@@ -39,3 +39,7 @@
 - Webhooks de gateway da loja apenas confirmam pagamento/reserva; o débito físico, a Venda e a Movimentação de Estoque pertencem exclusivamente ao despacho idempotente.
 rquitetura que o projeto não usa por completo.
 - Quando houver side effects externos, preferir mantê-los concentrados aqui.
+
+## Personalização inicial de contas
+
+`contas/onboardingService.ts` calcula recomendações pelo catálogo real sem semeá-lo: apenas status habilitado e preço exatamente zero são elegíveis para ativação gratuita. Hash público catalogVersion detecta mudança desde a prévia. `contas/createAccountWithOnboarding.ts` valida catálogo antes de chamar a criação dos registros e usa o mesmo cliente transacional para parâmetros e apps, propagando falhas. O controller abre transação Serializable no fluxo guiado. Apps pagos só são recomendados, sem contratos ou cobranças; visibilidade de menus não substitui autorização. `schemas/onboarding.ts` valida respostas, menus, tema e allowlist de fontes. Contrato e comando de teste no README do backend.

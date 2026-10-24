@@ -1,3 +1,6 @@
+import { onboardingCadastroSchema } from "../../schemas/onboarding";
+import { OnboardingCatalogChanged } from "../../services/contas/onboardingService";
+import { createAccountWithOnboarding } from "../../services/contas/createAccountWithOnboarding";
 import { Request, Response } from "express";
 import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
@@ -50,12 +53,17 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    const onboarding = req.body.onboarding === undefined ? undefined : onboardingCadastroSchema.safeParse(req.body.onboarding);
+    if (onboarding && !onboarding.success) {
+      return res.status(400).json({ message: "Dados de onboarding inválidos", fieldErrors: onboarding.error.flatten().fieldErrors });
+    }
+    const onboardingInput = onboarding?.success ? onboarding.data : undefined;
     const platformGateway = await getConfiguredPlatformGateway();
 
     // Indicação: resolve o código informado (link/campo) antes de criar a conta.
     const indicadorContaId = await resolverIndicador(indicacao);
 
-    const data = await prisma.$transaction(async (tx) => {
+    const data = await prisma.$transaction(async (tx) => createAccountWithOnboarding(tx, onboardingInput, async () => {
       const created = await tx.contas.create({
         data: {
           nome: conta,
@@ -88,15 +96,8 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
           telefone,
         },
       });
-      await tx.parametrosConta.create({
-        data: { contaId: created.id, estiloUi: "SIDEV2" },
-      });
-
-      return {
-        created,
-        user,
-      };
-    });
+      return { created, user };
+    }), onboardingInput ? { isolationLevel: "Serializable" } : undefined);
 
     // Gera o código de indicação da nova conta (para ela mesma indicar depois).
     await getOrCreateCodigoIndicacao(data.created.id).catch((e) =>
@@ -119,6 +120,7 @@ export const criarConta = async (req: Request, res: Response): Promise<any> => {
 
     ResponseHandler(res, "Conta criada com sucesso", data);
   } catch (err: any) {
+    if (err instanceof OnboardingCatalogChanged) return res.status(409).json({ message: err.message, code: err.code });
     console.log(err);
     handleError(res, err);
   }

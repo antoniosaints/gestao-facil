@@ -372,3 +372,23 @@ ros opcionais de período.
 - notificações;
 - IA/Gemini;
 - integrações com gateways.
+
+## Cadastro guiado de novos assinantes
+
+As rotas públicas `GET /api/v1/contas/onboarding/config` e `POST /api/v1/contas/onboarding/preview` retornam `{ data: ... }`, sem criar catálogo nem modificar contas. O catálogo lê somente campos públicos dos módulos conhecidos do banco; preço/status configurados prevalecem e um catálogo vazio não é semeado por essas rotas.
+
+Config retorna `version: 1`, `catalogVersion` (SHA-256 do catálogo público), `questions: [{key,label}]`, `baseMenuKeys`, `modules: [{codigo,nome,menuKey,precoMensal,status,ativacaoNoCadastro}]`, `themePresets: [{id,nome,tema}]` e `fonts: string[]`. `menuKey` é null para gateways sem menu próprio. Os presets iniciais são azul, verde e violeta.
+
+Preview recebe `version: 1`, `respostas` com os 12 booleanos `vendeProdutos`, `prestaServicos`, `usaAgendamento`, `gerenciaQuadras`, `atuaOurivesaria`, `operaRestauranteDelivery`, `usaCombos`, `possuiContratosRecorrentes`, `vendeOnline`, `usaAtendimentoWhatsapp`, `usaNotificacoesWhatsapp`, `emiteNotas`; também aceita `modulosSelecionados`, `menusSelecionados` e `catalogVersion` opcionais. Retorna `version`, `catalogVersion`, `menusSugeridos`, `menusEfetivos`, `modulos: [{codigo,motivo,precoMensal,selecionado,acao}]` e `avisos`. A ação é `ATIVAR_GRATUITO`, `RECOMENDAR_CONTRATACAO` ou `NAO_SELECIONADO`. Seleções explícitas substituem sugestões. Sugestões indisponíveis não são selecionadas automaticamente; seleção explícita desconhecida/desabilitada retorna 409.
+
+`POST /api/v1/contas/cadastro` preserva o cadastro legado quando `onboarding` está ausente. No fluxo guiado, `onboarding` exige `version`, `respostas`, `modulosSelecionados: string[]`, `menusSelecionados: string[]`, `temaPersonalizado` e **`catalogVersion` devolvido pela prévia revisada**. Esse campo adicional é necessário para distinguir um módulo pago apenas recomendado de um módulo que era gratuito e ficou pago entre a revisão e o envio. Mudança no catálogo devolve HTTP 409 `{message,code:'ONBOARDING_CATALOG_CHANGED'}` antes de inserir a conta; refaça config/prévia e peça nova revisão. Dados inválidos retornam 400 `{message,fieldErrors}`. Preço, status e permissões não são aceitos no objeto onboarding. O envelope de sucesso existente continua `{status,message,data:{created,user,onboarding?}}`; `user` contém somente `id`, `nome` e `email`.
+
+Tema exige as seis cores `primariaLight`, `primariaDark`, `sidebarLight`, `sidebarDark`, `fundoLight`, `fundoDark` em `#RRGGBB`; `fonte` em Inter/Roboto/Poppins/Montserrat/Sora; `radius` em 0rem/0.375rem/0.5rem/0.75rem/1rem/1.5rem; `tamanhoFonte` em 100%/112.5%/125%/137.5%; `bordaBadgeCell` booleano.
+
+A transação Serializable do cadastro guiado recalcula o catálogo e grava conta, root, parâmetros, perfil, tema, menus e vínculos gratuitos ATIVO com valor zero e vencimento da conta. Apps pagos ficam apenas no perfil/resumo como recomendações: não há cobrança, gateway ou contrato criado. Plano base R$70, trial de sete dias, indicação e envio de boas-vindas mantêm o fluxo existente. Contas atuais não são reconfiguradas. O perfil guarda versão, respostas, módulos selecionados, menus confirmados e data de conclusão, sem senha ou preços como autoridade.
+
+Menus de topo são whitelist e submenus `pai:filho` continuam blacklist. Dashboard, financeiro, clientes, configurações, perfil, App Store e utilitários básicos ficam acessíveis ao proprietário; isso não concede permissões. Ourives mapeia para `ourive`, restaurante-delivery para `restaurante`; combos depende de `produtos` e remove `produtos:combos` da blacklist quando selecionado. Questionário não cancela contratos nem configura credenciais de integração.
+
+Migration aditiva pendente: `prisma/migrations/20261024120000_add_onboarding_perfil/migration.sql` adiciona `ParametrosConta.onboardingPerfil JSON NULL`, sem backfill ou alteração de contas atuais. Aplicar pelo processo normal de migrations antes de liberar o novo fluxo; nenhum banco real foi migrado nesta implementação.
+
+Testes locais sem conexão com banco/gateways: `npx tsx --test app/services/contas/onboardingService.test.ts app/services/contas/createAccountWithOnboarding.test.ts`. Cobrem regras, validação, catálogo alterado antes da criação, DTO seguro, fluxo legado, gravações no mesmo cliente transacional e propagação de falhas. Rollback físico MySQL e E2E autenticado requerem ambiente de integração isolado; os testes não aplicam migration.

@@ -54,3 +54,7 @@
 - Novos endpoints devem entrar no router do domínio correspondente.
 - Rotas transversais devem ser exceção, não regra.
 - Manter nomes e agrupamentos coerentes com o frontend, que consome a API por domínio.
+
+## Onboarding público de conta
+
+`GET /api/v1/contas/onboarding/config` e `POST /api/v1/contas/onboarding/preview` são públicos e não persistem dados. `POST /api/v1/contas/cadastro` aceita onboarding opcional; `PATCH /api/v1/contas/onboarding/tour` permanece autenticado e independente. Config/prévia usam envelope `{data}`; cadastro mantém `{status,message,data}`. Consulte o README do backend para catalogVersion e erros 400/409.

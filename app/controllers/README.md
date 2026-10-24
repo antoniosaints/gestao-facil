@@ -36,3 +36,7 @@
 ## Regras
 - Controllers devem continuar focados em um caso de uso claro.
 - Ao reutilizar lógica pesada, preferir extrair para `services`, `helpers` ou `utils` sem esconder a convenção híbrida atual.
+
+## Cadastro guiado
+
+`contas/onboarding.ts` atende config/prévia públicas validadas e devolve 400 com fieldErrors ou 409 ONBOARDING_CATALOG_CHANGED. `contas/cadastro.ts` valida onboarding opcional e delega a criação transacional a `createAccountWithOnboarding`; retorna usuário seguro (id/nome/email), preservando indicação, boas-vindas e cadastro legado. O cadastro guiado exige catalogVersion da prévia para detectar mudanças de preço/status antes de criar conta. Contrato completo no README do backend.

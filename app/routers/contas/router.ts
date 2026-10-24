@@ -1,3 +1,4 @@
+import { getOnboardingConfig, postOnboardingPreview } from "../../controllers/contas/onboarding";
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
 import { assinaturaConta } from "../../controllers/administracao/contas";
@@ -61,6 +62,8 @@ routerContas.get(
   authenticateJWT,
   getPaymentMercadoPago
 );
+routerContas.get("/onboarding/config", getOnboardingConfig);
+routerContas.post("/onboarding/preview", postOnboardingPreview);
 routerContas.post("/cadastro", criarConta);
 routerContas.post("/atualizar", authenticateJWT, atualizarDadosConta);
 routerContas.get("/infos", authenticateJWT, dadosConta);

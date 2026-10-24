@@ -969,6 +969,7 @@ model ParametrosConta {
   osLancamentoAutomatico                 Boolean? @default(false)
   osCategoriaFinanceiraId                Int?
   osContaFinanceiraId                    Int?
+  onboardingPerfil                       Json?
   temaPersonalizado                      Json?
   // Navegação compartilhada pela conta. Novas contas iniciam no SideV2.
   estiloUi                               String?  @default("SIDEV2")
