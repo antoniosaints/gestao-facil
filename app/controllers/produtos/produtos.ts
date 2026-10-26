@@ -1,3 +1,4 @@
+import { substituirImagemVariante } from "../../services/produtos/produtoImagemService";
 import { Request, Response } from "express";
 import { clampPageSize, sanitizeSort } from "../../utils/pagination";
 import { randomUUID } from "crypto";
@@ -19,10 +20,8 @@ import { mapperErrorSchema } from "../../mappers/schemasErros";
 import { ResponseHandler } from "../../utils/response";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { z } from "zod";
-import {
-  canDiscardProdutoStock,
-} from "../../services/produtos/estoqueService";
-import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
+import { registrarReposicao, registrarDescarte, registrarReposicaoLote } from "../../services/produtos/produtoEstoqueOperations";
+import { criarProdutoBase, criarProdutoVariante, gerarSkuUnico, getCategoriaNome } from "../../services/produtos/produtoCadastroService";
 import {
   buildScopedUploadKey,
   deleteStoredFile,
@@ -132,18 +131,6 @@ async function syncVariantBaseFields(
   });
 }
 
-async function getCategoriaNome(
-  tx: Prisma.TransactionClient,
-  contaId: number,
-  categoriaId?: number | null
-) {
-  if (!categoriaId) return null;
-  const categoria = await tx.produtoCategoria.findFirst({
-    where: { id: categoriaId, contaId },
-    select: { nome: true },
-  });
-  return categoria?.nome ?? null;
-}
 
 async function getProdutoVarianteById(
   contaId: number,
@@ -164,50 +151,6 @@ async function getProdutoVarianteById(
   });
 }
 
-/**
- * Normaliza um trecho de texto para compor o SKU:
- * remove acentos, mantém apenas letras/números e converte para maiúsculas.
- */
-function normalizarParteSku(texto: string | null | undefined, max: number): string {
-  return (texto ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, max);
-}
-
-type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
-
-/**
- * Gera um SKU único para a conta com base no nome do produto e da variante.
- * Ex.: "Camiseta Básica" + "Azul M" => "CAMISE-AZULM-4F7A".
- */
-async function gerarSkuUnico(
-  client: PrismaClientLike,
-  contaId: number,
-  nome: string,
-  nomeVariante?: string | null
-): Promise<string> {
-  const parteNome = normalizarParteSku(nome, 6);
-  const parteVariante =
-    nomeVariante && nomeVariante !== "Padrão"
-      ? normalizarParteSku(nomeVariante, 4)
-      : "";
-  const prefixo = [parteNome, parteVariante].filter(Boolean).join("-") || "SKU";
-
-  for (let tentativa = 0; tentativa < 25; tentativa++) {
-    const sufixo = Math.random().toString(36).slice(2, 6).toUpperCase();
-    const codigo = `${prefixo}-${sufixo}`;
-    const existente = await client.produto.findFirst({
-      where: { contaId, codigo },
-      select: { id: true },
-    });
-    if (!existente) return codigo;
-  }
-
-  return `${prefixo}-${Date.now().toString(36).toUpperCase()}`;
-}
 
 export const getProduto = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -684,66 +627,9 @@ export const saveProduto = async (
       );
     }
 
-    const produto = await prisma.$transaction(async (tx) => {
-      const categoriaNome = await getCategoriaNome(
-        tx,
-        customData.contaId,
-        data.categoriaId
-      );
-
-      const produtoBase = await tx.produtoBase.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("PB"),
-          contaId: customData.contaId,
-          nome: data.nome,
-          descricao: data.descricao,
-          categoriaId: data.categoriaId ?? null,
-          ...fiscalData,
-        },
-      });
-
-      const codigoFinal =
-        data.codigo?.trim() ||
-        (await gerarSkuUnico(
-          tx,
-          customData.contaId,
-          data.nome,
-          data.nomeVariante
-        ));
-
-      await tx.produto.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("PRO"),
-          contaId: customData.contaId,
-          produtoBaseId: produtoBase.id,
-          estoque: data.estoque as number,
-          nome: data.nome,
-          nomeVariante: data.nomeVariante || "Padrão",
-          ehPadrao: true,
-          preco: data.preco as number,
-          descricao: data.descricao,
-          precoCompra: data.precoCompra,
-          unidade: data.unidade,
-          codigo: codigoFinal,
-          minimo: data.minimo as number,
-          entradas: data.entradas,
-          saidas: data.saidas,
-          controlaEstoque: data.controlaEstoque,
-          producaoLocal: data.producaoLocal,
-          mostrarNoPdv: data.mostrarNoPdv,
-          mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
-          materiaPrima: data.materiaPrima,
-          custoMedioProducao: data.custoMedioProducao,
-          categoria: categoriaNome,
-          ...fiscalData,
-        },
-      });
-
-      return tx.produtoBase.findUniqueOrThrow({
-        where: { id: produtoBase.id },
-        include: produtoBaseInclude,
-      });
-    });
+    const produto = await prisma.$transaction((tx) =>
+      criarProdutoBase(tx, customData.contaId, data, fiscalData)
+    );
 
     await enqueuePushNotificationByPreference(
       "PRODUTO_ALTERADO",
@@ -836,58 +722,9 @@ export const reposicaoProduto = async (
   }
   const data = parsedReposicao.data;
   try {
-    const entrada = await prisma.$transaction(async (tx) => {
-      const produtoExistente = await tx.produto.findFirst({
-        where: {
-          contaId: customData.contaId,
-          id: data.produtoId,
-          entradas: true,
-        },
-      });
-
-      if (!produtoExistente) {
-        throw new Error(
-          "Produto não permite entradas de estoque, altere isso antes de continuar."
-        );
-      }
-
-      await tx.produto.update({
-        where: { id: data.produtoId, contaId: customData.contaId },
-        data: { estoque: { increment: data.quantidade } },
-      });
-
-      const movimentacao = await tx.movimentacoesEstoque.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("MOV"),
-          produtoId: data.produtoId as number,
-          tipo: "ENTRADA",
-          status: "CONCLUIDO",
-          quantidade: data.quantidade || 0,
-          custo: data.custo || 0,
-          contaId: customData.contaId,
-          clienteFornecedor: data.fornecedor,
-          notaFiscal: data.notaFiscal,
-          desconto: data.desconto,
-          frete: data.frete,
-
-        },
-      });
-
-      const produto = await tx.produto.findFirstOrThrow({
-        where: {
-          id: data.produtoId,
-          contaId: customData.contaId,
-        },
-        select: {
-          id: true,
-          nome: true,
-          nomeVariante: true,
-          unidade: true,
-        },
-      });
-
-      return { movimentacao, produto };
-    });
+    const entrada = await prisma.$transaction((tx) =>
+      registrarReposicao(tx, customData.contaId, data)
+    );
 
     await enqueuePushNotificationByPreference(
       "PRODUTO_ALTERADO",
@@ -924,94 +761,7 @@ export const reposicaoLoteProduto = async (
   const data = parsed.data;
 
   try {
-    // Rateio de frete e desconto proporcional ao subtotal (custo * quantidade)
-    // de cada item. O resíduo de arredondamento vai para o último item.
-    const freteTotal = new Decimal(data.frete || 0);
-    const descontoTotal = new Decimal(data.desconto || 0);
-    const totalBase = data.itens.reduce(
-      (acc, item) =>
-        acc.plus(new Decimal(Number(item.custo)).times(Number(item.quantidade))),
-      new Decimal(0)
-    );
-
-    const resultado = await prisma.$transaction(async (tx) => {
-      const movimentacoes = [];
-      let freteAcumulado = new Decimal(0);
-      let descontoAcumulado = new Decimal(0);
-
-      for (let i = 0; i < data.itens.length; i++) {
-        const item = data.itens[i];
-        const produtoId = Number(item.produtoId);
-        const quantidade = Number(item.quantidade);
-        const custo = Number(item.custo);
-        const isUltimo = i === data.itens.length - 1;
-
-        const produtoExistente = await tx.produto.findFirst({
-          where: {
-            contaId: customData.contaId,
-            id: produtoId,
-          },
-          select: {
-            id: true,
-            nome: true,
-            nomeVariante: true,
-            unidade: true,
-            entradas: true,
-          },
-        });
-
-        if (!produtoExistente) {
-          throw new Error(`Produto #${produtoId} não encontrado.`);
-        }
-
-        if (produtoExistente.entradas === false) {
-          throw new Error(
-            `O produto ${produtoExistente.nome} não permite entradas de estoque, altere isso antes de continuar.`
-          );
-        }
-
-        const base = new Decimal(custo).times(quantidade);
-        const peso = totalBase.gt(0)
-          ? base.div(totalBase)
-          : new Decimal(1).div(data.itens.length);
-
-        const freteItem = isUltimo
-          ? freteTotal.minus(freteAcumulado)
-          : freteTotal.times(peso).toDecimalPlaces(2);
-        const descontoItem = isUltimo
-          ? descontoTotal.minus(descontoAcumulado)
-          : descontoTotal.times(peso).toDecimalPlaces(2);
-
-        freteAcumulado = freteAcumulado.plus(freteItem);
-        descontoAcumulado = descontoAcumulado.plus(descontoItem);
-
-        await tx.produto.update({
-          where: { id: produtoId, contaId: customData.contaId },
-          data: { estoque: { increment: quantidade } },
-        });
-
-        const movimentacao = await tx.movimentacoesEstoque.create({
-          data: {
-            Uid: gerarIdUnicoComMetaFinal("MOV"),
-            produtoId: produtoId,
-            tipo: "ENTRADA",
-            status: "CONCLUIDO",
-            quantidade: quantidade,
-            custo: custo,
-            contaId: customData.contaId,
-            clienteFornecedor: data.fornecedor ?? null,
-            notaFiscal: data.notaFiscal ?? null,
-            frete: freteItem.toNumber(),
-            desconto: descontoItem.toNumber(),
-            ...(data.data ? { data: data.data } : {}),
-          },
-        });
-
-        movimentacoes.push({ movimentacao, produto: produtoExistente });
-      }
-
-      return movimentacoes;
-    });
+    const resultado = await prisma.$transaction(tx => registrarReposicaoLote(tx, customData.contaId, data));
 
     const totalItens = resultado.length;
     const totalUnidades = resultado.reduce(
@@ -1062,60 +812,9 @@ export const descarteProduto = async (
   if (!produtoId || !quantidade) return ResponseHandler(res, "Produto e quantidade são obrigatórios", null, 422);
 
   try {
-    const produto = await prisma.$transaction(async (tx) => {
-      const produtoExistente = await tx.produto.findFirst({
-        where: {
-          contaId: customData.contaId,
-          id: produtoId,
-        },
-        select: {
-          id: true,
-          nome: true,
-          nomeVariante: true,
-          estoque: true,
-          unidade: true,
-          controlaEstoque: true,
-        },
-      });
-
-      if (!produtoExistente) {
-        throw new Error("Produto nao encontrado.");
-      }
-
-      if (produtoExistente.controlaEstoque === false) {
-        throw new Error("Produto nao controla estoque.");
-      }
-
-      if (!canDiscardProdutoStock(produtoExistente.estoque, quantidade)) {
-        throw new Error(
-          `Estoque insuficiente para descarte. Disponivel: ${produtoExistente.estoque}.`
-        );
-      }
-
-      await assertAvailableAndDecrement(tx, customData.contaId, produtoId, quantidade);
-      await tx.movimentacoesEstoque.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("MOV"),
-          contaId: customData.contaId,
-          produtoId,
-          quantidade,
-          custo: 0,
-          tipo: "DESCARTE",
-          status: "CONCLUIDO",
-          notaFiscal: data.motivo || null,
-        },
-      });
-      return tx.produto.findFirstOrThrow({
-        where: { id: produtoId, contaId: customData.contaId },
-        select: {
-          id: true,
-          nome: true,
-          nomeVariante: true,
-          estoque: true,
-          unidade: true,
-        },
-      });
-    });
+    const produto = await prisma.$transaction((tx) =>
+      registrarDescarte(tx, customData.contaId, data)
+    );
 
     await enqueuePushNotificationByPreference(
       "PRODUTO_ALTERADO",
@@ -1325,44 +1024,7 @@ export const saveProdutoVariante = async (
         });
       }
 
-      const codigoFinal =
-        data.codigo?.trim() ||
-        (await gerarSkuUnico(
-          tx,
-          customData.contaId,
-          base.nome,
-          data.nomeVariante
-        ));
-
-      return tx.produto.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("PRO"),
-          contaId: customData.contaId,
-          produtoBaseId: base.id,
-          nome: base.nome,
-          descricao: base.descricao,
-          status: base.status,
-          categoria: categoriaNome,
-          nomeVariante: data.nomeVariante || "Padrão",
-          preco: data.preco || 0,
-          precoPromocional: data.precoPromocional ?? null,
-          precoCompra: data.precoCompra,
-          entradas: data.entradas,
-          saidas: data.saidas,
-          unidade: data.unidade,
-          estoque: data.estoque || 0,
-          minimo: data.minimo || 0,
-          codigo: codigoFinal,
-          controlaEstoque: data.controlaEstoque,
-          producaoLocal: data.producaoLocal,
-          mostrarNoPdv: data.mostrarNoPdv,
-          mostrarNoCatalogo: data.mostrarNoCatalogo ?? undefined,
-          materiaPrima: data.materiaPrima,
-          custoMedioProducao: data.custoMedioProducao,
-          ehPadrao: false,
-          ...fiscalData,
-        },
-      });
+      return criarProdutoVariante(tx, customData.contaId, { ...data, nome: base.nome }, fiscalData);
     });
 
     return ResponseHandler(res, "Variante salva com sucesso", variante, 201);
@@ -1449,11 +1111,6 @@ export const uploadVarianteImagem = async (
       quality: 72,
     });
 
-    // Remove a imagem anterior antes de subir a nova.
-    if (variante.imagem) {
-      await deleteStoredFile(variante.imagem).catch(() => undefined);
-    }
-
     // Chave única por upload: garante uma URL nova a cada troca (evita cache do
     // navegador/CDN servir a imagem antiga) e mantém a referência anterior distinta
     // para que a limpeza acima realmente apague o arquivo antigo.
@@ -1463,23 +1120,16 @@ export const uploadVarianteImagem = async (
       `variante-${variante.id}-${randomUUID()}.${processed.extension}`
     );
 
-    const file = await uploadPublicFile({
-      key,
-      body: processed.buffer,
-      contentType: processed.contentType,
-      cacheControl: "public, max-age=31536000, immutable",
+    const imagem = await substituirImagemVariante(prisma, customData.contaId, variante, {
+      upload: () => uploadPublicFile({
+        key,
+        body: processed.buffer,
+        contentType: processed.contentType,
+        cacheControl: "public, max-age=31536000, immutable",
+      }),
+      remove: deleteStoredFile,
     });
-
-    await prisma.produto.update({
-      where: { id: variante.id, contaId: customData.contaId },
-      data: { imagem: file.reference },
-    });
-
-    return ResponseHandler(res, "Imagem da variante enviada com sucesso", {
-      id: variante.id,
-      imagem: file.reference,
-      imagemUrl: file.url,
-    });
+    return ResponseHandler(res, "Imagem da variante enviada com sucesso", imagem);
   } catch (error) {
     handleError(res, error);
   }

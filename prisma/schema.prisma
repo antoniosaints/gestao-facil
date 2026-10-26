@@ -185,6 +185,8 @@ enum LojaCheckoutStatus {
 }
 
 model Contas {
+  modoFacilConfiguracao ModoFacilConfiguracao?
+  modoFacilOperacoes ModoFacilOperacao[]
   id                               Int                                @id @default(autoincrement())
   nome                             String
   valor                            Decimal                            @db.Decimal(10, 2)
@@ -4711,4 +4713,33 @@ model ReservaAgendaLock {
   updatedAt DateTime       @updatedAt
 
   @@unique([contaId, recursoId, dataLocal])
+}
+
+
+// Additive preference. Missing row means NORMAL/version 0.
+enum ModoExperiencia {
+  NORMAL
+  FACIL
+}
+
+model ModoFacilConfiguracao {
+  contaId Int @id
+  Conta Contas @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  modo ModoExperiencia @default(NORMAL)
+  versao Int @default(1)
+  alteradoPorId Int
+  suporteSessaoId Int?
+  updatedAt DateTime @updatedAt
+}
+
+// Idempotency scoped to account and operation key. No customer payload in logs.
+model ModoFacilOperacao {
+  contaId Int
+  Conta Contas @relation(fields: [contaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  chave String @db.VarChar(36)
+  hash String @db.VarChar(64)
+  resultado Json
+  createdAt DateTime @default(now())
+
+  @@id([contaId, chave])
 }

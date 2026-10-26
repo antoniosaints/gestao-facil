@@ -1,3 +1,4 @@
+import { routerModoFacil } from "../modofacil/router";
 import { Router } from "express";
 import { routerProdutos } from "./produtos/router";
 import { routerContas } from "./contas/router";
@@ -31,6 +32,7 @@ import { routerOurive } from "./ourive/router";
 const RouterMain = Router();
 
 RouterMain.use(routerDefault);
+RouterMain.use("/api/modofacil", routerModoFacil);
 RouterMain.use("/api/contas", routerContas);
 RouterMain.use("/api/produtos", routerProdutos);
 RouterMain.use("/api/servicos", routerServicos);

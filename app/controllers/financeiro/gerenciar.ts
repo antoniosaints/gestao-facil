@@ -1,3 +1,4 @@
+import { registrarPagamentoSePendente } from "../../services/financeiro/parcelaPagamentoService";
 import { Request, Response } from "express";
 import Decimal from "decimal.js";
 import dayjs from "dayjs";
@@ -1194,9 +1195,7 @@ export const pagarParcela = async (
     await assertFutureSettlementAllowed(customData.contaId, [req.body.dataPagamento]);
 
     const pagamentoResult = await prisma.$transaction(async (tx) => {
-      await tx.parcelaFinanceiro.update({
-        where: { id: parcelaId },
-        data: {
+      await registrarPagamentoSePendente(tx, parcelaId, {
           pago: true,
           valorPago: valorRecebido,
           // A parcela quitada sempre reflete o que entrou de fato. Quando há
@@ -1205,8 +1204,7 @@ export const pagarParcela = async (
           formaPagamento: req.body.metodoPagamento,
           dataPagamento: startOfDay(new Date(req.body.dataPagamento)),
           contaFinanceira: contaPagamento,
-        },
-      });
+        });
 
       if (criarSaldoPendente) {
         const ultimaParcela = await tx.parcelaFinanceiro.findFirst({

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "test:modofacil": "tsx --test app/modofacil/tests/*.test.ts app/services/produtos/*.test.ts app/services/vendas/*.test.ts app/services/financeiro/*Policy.test.ts app/controllers/financeiro/queryFilters.test.ts",
     "build": "prisma generate && tsup --config tsup.config.ts",
     "test:email-worker": "tsx --test app/services/email/resendEmailJob.test.ts app/services/email/welcomeEmailTemplate.test.ts",
     "test:whatsapp-webhook": "tsx --test app/services/whatsapp/atendimentoAccess.test.ts app/services/whatsapp/whatsappWebhookPolicy.test.ts app/services/whatsapp/wApiClient.test.ts",
