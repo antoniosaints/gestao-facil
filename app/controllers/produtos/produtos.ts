@@ -409,6 +409,9 @@ export const deleteProduto = async (
 
     return ResponseHandler(res, "Produto deletado com sucesso", produto);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2003", "P2014"].includes(error.code)) {
+      return ResponseHandler(res, "Este produto possui vínculos que impedem a exclusão. Remova os vínculos ou mantenha o cadastro inativo.", null, 409);
+    }
     handleError(res, error);
   }
 };

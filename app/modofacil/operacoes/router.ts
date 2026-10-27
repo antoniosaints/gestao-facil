@@ -7,13 +7,20 @@ import { ModoFacilError } from "../errors";
 import * as schema from "./schemas";
 import { criarVariante, reporLote, editarAvancado, editarPessoaAvancado, editarServicoAvancado, editarServicoBasico, editarContaFinanceira, getParametrosOperacionais, editarParametrosOperacionais, getEmpresa, editarEmpresa } from "./cadastros";
 import { carregarEdicao, editarOperacao, assertEditorScope } from "./edicao";
+import { selectOptions, type OptionKind } from "./selectOptions";
+import { alterarSituacaoProduto } from "../produtos/service";
 
 type Handler = (...args: Parameters<RequestHandler>) => unknown;
 type HandlerName = Exclude<keyof typeof import("../adapters/operacoesExtras"), "atualizarVendaTx" | "atualizarOrdemTx" | "restoreComboVendaStock" | "createComboVendaSaidas" | "restoreComboOrdemStock" | "createComboOrdemSaidas">;
-type Operation = { method: "get" | "post" | "put"; path: string; level: number; handler: HandlerName; body?: z.ZodTypeAny; scope?: "charge" | "message" | "charge-create" | "person-history" | "pdf-os" };
+type Operation = { method: "get" | "post" | "put" | "delete"; path: string; level: number; handler: HandlerName; body?: z.ZodTypeAny; scope?: "charge" | "message" | "charge-create" | "person-history" | "pdf-os" | "delete-sale" | "delete-product" | "delete-finance" | "delete-service" | "delete-person" };
 // Explicit inventory doubles as the audited route map; no broad legacy router
 // mount can accidentally expose public callbacks or platform/admin endpoints.
 export const operacoesAdicionais: readonly Operation[] = [
+  { method: "delete", path: "/vendas/:id", level: 3, handler: "deleteVenda", scope: "delete-sale" },
+  { method: "delete", path: "/produtos/:id", level: 4, handler: "deleteProduto", scope: "delete-product" },
+  { method: "delete", path: "/financeiro/lancamentos/:id", level: 3, handler: "deletarLancamento", scope: "delete-finance" },
+  { method: "delete", path: "/servicos/:id", level: 2, handler: "deleteServico", scope: "delete-service" },
+  { method: "delete", path: "/pessoas/:id", level: 2, handler: "deleteCliente", scope: "delete-person" },
   { method: "post", path: "/vendas/caixa/entrar", level: 2, handler: "entrarCaixa", body: z.object({ caixaId: schema.idSchema }).strict() },
   { method: "get", path: "/vendas/caixa/resumo", level: 2, handler: "resumoCaixa" },
   { method: "get", path: "/vendas/caixa/painel", level: 2, handler: "getResumoCaixas" },
@@ -75,8 +82,29 @@ export function createOperacoesRouter(
 ) {
   const router = Router();
   const access = (level: number) => requireAccess(db, level);
+  for (const [path, kind, level] of [
+    ['/financeiro/contas/opcoes', 'finance-accounts', 3],
+    ['/financeiro/categorias/opcoes', 'finance-categories', 3],
+    ['/produtos/categorias/opcoes', 'product-categories', 4],
+  ] as const) {
+    router.get(path, access(level), wrap(async (req, res) => {
+      res.json(await selectOptions(db, session(req).contaId, kind as OptionKind, req.query));
+    }));
+  }
   const scoped = (kind: Operation["scope"]): RequestHandler => wrap(async (req, _res, next) => {
     const contaId = session(req).contaId;
+    if (kind?.startsWith("delete-")) {
+      const id = numericId(req.params.id);
+      const where = { id, contaId };
+      const found = kind === "delete-sale" ? await db.vendas.findFirst({ where, select: { id: true, status: true, faturado: true } })
+        : kind === "delete-product" ? await db.produtoBase.findFirst({ where, select: { id: true } })
+        : kind === "delete-finance" ? await db.lancamentoFinanceiro.findFirst({ where, select: { id: true } })
+        : kind === "delete-person" ? await db.clientesFornecedores.findFirst({ where, select: { id: true } })
+        : await db.servicos.findFirst({ where, select: { id: true } });
+      if (!found) throw new ModoFacilError(404, "record_not_found", "Registro não encontrado nesta conta.");
+      if (kind === "delete-sale" && (("faturado" in found && found.faturado) || ("status" in found && found.status === "FATURADO")))
+        throw new ModoFacilError(409, "sale_invoiced", "Estorne o faturamento da venda antes de excluí-la.");
+    }
     if (kind === "charge") {
       if (!(await db.cobrancasFinanceiras.findFirst({ where: { id: req.body.cobrancaId, contaId }, select: { id: true } }))) throw new ModoFacilError(404, "charge_not_found", "Cobrança não encontrada nesta conta.");
     }
@@ -112,6 +140,9 @@ export function createOperacoesRouter(
     const result = await criarVariante(db, session(req).contaId, numericId(req.params.produtoBaseId), req.body);
     if (!result.replay) await notifyStock(session(req).contaId);
     ok(res, result.data, result.replay ? 200 : 201);
+  }));
+  router.patch("/produtos/:produtoBaseId/status", access(4), wrap(async (req, res) => {
+    ok(res, await alterarSituacaoProduto(db, session(req).contaId, numericId(req.params.produtoBaseId), req.body));
   }));
   router.patch("/produtos/:produtoBaseId/avancado", access(4), wrap(async (req, res) => {
     ok(res, await editarAvancado(db, session(req).contaId, numericId(req.params.produtoBaseId), null, req.body));

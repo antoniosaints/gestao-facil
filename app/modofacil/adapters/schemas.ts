@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { money } from "../produtos/schemas";
-import { recorrenciaSchema, servicoFields } from "../operacoes/schemas";
+import { recorrenciaSchema, servicoFields, pessoaAvancadoFields } from "../operacoes/schemas";
 
 export const servicoSchema = z.object({
   id: z.number().int().positive().optional(),
@@ -13,8 +13,9 @@ const contato = {
   whastapp: z.string().max(191).nullable().optional(),
   email: z.string().email().max(191).nullable().optional(),
 };
-export const pessoaSchema = z.object({ ...contato, tipo: z.enum(["CLIENTE", "FORNECEDOR"]).default("CLIENTE") }).strict();
-export const pessoaPatchSchema = z.object(contato).partial().strict().refine(value => Object.keys(value).length > 0, "Informe algum campo.");
+const pessoaFields = { ...contato, ...pessoaAvancadoFields };
+export const pessoaSchema = z.object(pessoaFields).partial().extend({ nome: contato.nome, tipo: pessoaAvancadoFields.tipo.default("CLIENTE") }).strict();
+export const pessoaPatchSchema = z.object(pessoaFields).partial().strict().refine(value => Object.keys(value).length > 0, "Informe algum campo.");
 export const lancamentoSchema = z.object({
   chaveOperacao: z.string().uuid(),
   descricao: z.string().trim().min(1).max(191),

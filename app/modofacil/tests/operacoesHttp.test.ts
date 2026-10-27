@@ -26,6 +26,32 @@ async function harness(t: any) {
   const send = (path: string, body?: unknown, method = "POST", headers: Record<string, string> = {}) => fetch(url + path, { method, headers: { "Content-Type": "application/json", ...headers }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   return { send, calls, queries, db };
 }
+test("HTTP situação de produto exige nível de produtos, valida campos e escopo da conta", async t => {
+  const h = await harness(t), writes: any[] = [];
+  let found = true;
+  h.db.$transaction = async (work: any) => work(h.db);
+  h.db.$queryRaw = async () => [];
+  h.db.produtoBase = {
+    findFirst: async ({ where }: any) => { assert.deepEqual(where, { id: 7, contaId: 1 }); return found ? { id: 7 } : null; },
+    updateMany: async (query: any) => { writes.push(query); return { count: 1 }; },
+  };
+  h.db.produto = { updateMany: async (query: any) => { writes.push(query); return { count: 2 }; } };
+  for (const role of ["usuario", "vendedor", "gerente"])
+    assert.equal((await h.send("/produtos/7/status", { status: "INATIVO" }, "PATCH", { "x-test-role": role })).status, 403);
+  for (const body of [{ status: false }, { status: "BLOQUEADO" }, { status: "ATIVO", preco: 0 }])
+    assert.equal((await h.send("/produtos/7/status", body, "PATCH")).status, 422);
+  for (const id of ["0", "-1", "abc", "1.5"])
+    assert.equal((await h.send(`/produtos/${id}/status`, { status: "INATIVO" }, "PATCH")).status, 422);
+  assert.equal(writes.length, 0);
+  assert.equal((await h.send("/produtos/7/status", { status: "INATIVO" }, "PATCH")).status, 200);
+  assert.deepEqual(writes, [
+    { where: { id: 7, contaId: 1 }, data: { status: "INATIVO" } },
+    { where: { produtoBaseId: 7, contaId: 1 }, data: { status: "INATIVO" } },
+  ]);
+  found = false;
+  assert.equal((await h.send("/produtos/7/status", { status: "ATIVO" }, "PATCH")).status, 404);
+  assert.equal(writes.length, 2);
+});
 test("HTTP parcial/recorrência/transferência delegam uma única operação, validação rejeita campos ambíguos", async t => {
   const h = await harness(t);
   const p = { metodoPagamento: "PIX", dataPagamento: "2026-10-26T12:00:00Z", valorRecebido: "40.50", criarSaldoPendente: true };
@@ -80,5 +106,80 @@ test("HTTP cobrança já paga ou ativa é recusada antes de qualquer gateway", a
 test("HTTP fiscal de serviço exige administrador; status permanece ação do catálogo", async t => {
   const h = await harness(t);
   assert.equal((await h.send("/servicos/7/avancado", { ncm: "0901" }, "PATCH", { "x-test-role": "vendedor" })).status, 403);
+  assert.equal(h.calls.length, 0);
+});
+test('HTTP ativação de serviço valida boolean, conta e permissão antes de atualizar', async t => {
+  const h = await harness(t); const writes: any[] = [];
+  h.db.servicos = {updateMany:async(query:any)=>{writes.push(query);return {count:1};},findFirst:async()=>({id:7,status:false})};
+  assert.equal((await h.send('/servicos/7/status',{status:false},'PATCH',{'x-test-role':'usuario'})).status,403);
+  assert.equal((await h.send('/servicos/7/status',{status:'false'},'PATCH',{'x-test-role':'vendedor'})).status,422);
+  assert.equal(writes.length,0);
+  assert.equal((await h.send('/servicos/7/status',{status:false},'PATCH',{'x-test-role':'vendedor'})).status,200);
+  assert.deepEqual(writes,[{where:{id:7,contaId:1},data:{status:false}}]);
+});
+
+test('HTTP seletores paginados respeitam permissões e conta autenticada', async t => {
+  const h = await harness(t);
+  const optionQueries: any[] = [];
+  const model = { findMany: async (args: any) => { optionQueries.push(args); return [{ id: 95, nome: 'Categoria distante' }]; } };
+  h.db.categoriaFinanceiro = model;
+  h.db.contasFinanceiro = model;
+  h.db.produtoCategoria = model;
+  const response = await h.send('/financeiro/categorias/opcoes?page=2&search=aluguel', undefined, 'GET');
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { results: [{ id: 95, label: 'Categoria distante' }], hasMore: false });
+  assert.equal(optionQueries[0].where.contaId, 1);
+  assert.equal(optionQueries[0].skip, 20);
+  assert.equal((await h.send('/financeiro/contas/opcoes', undefined, 'GET', { 'x-test-role': 'vendedor' })).status, 403);
+  assert.equal((await h.send('/produtos/categorias/opcoes', undefined, 'GET', { 'x-test-role': 'gerente' })).status, 403);
+  assert.equal(optionQueries.length, 1);
+  assert.equal((await h.send('/produtos/categorias/opcoes?id=95', undefined, 'GET')).status, 200);
+  assert.equal(optionQueries[1].where.id, 95);
+  assert.equal(optionQueries[1].where.contaId, 1);
+});
+
+test('HTTP exclusões delegam ao domínio com IDs validados, conta e permissão atual', async t => {
+  const h = await harness(t);
+  const resources = [
+    { path: '/vendas/7', model: 'vendas', handler: 'deleteVenda', denied: 'vendedor', allowed: 'gerente' },
+    { path: '/produtos/7', model: 'produtoBase', handler: 'deleteProduto', denied: 'gerente', allowed: 'admin' },
+    { path: '/financeiro/lancamentos/7', model: 'lancamentoFinanceiro', handler: 'deletarLancamento', denied: 'vendedor', allowed: 'gerente' },
+    { path: '/servicos/7', model: 'servicos', handler: 'deleteServico', denied: 'usuario', allowed: 'vendedor' },
+    { path: '/pessoas/7', model: 'clientesFornecedores', handler: 'deleteCliente', denied: 'usuario', allowed: 'vendedor' },
+  ];
+  for (const resource of resources) {
+    const queries: any[] = [];
+    (h.db as any)[resource.model] = { findFirst: async (query: any) => { queries.push(query); return { id: 7, status: 'PENDENTE', faturado: false }; } };
+    const before = h.calls.length;
+    assert.equal((await h.send(resource.path, undefined, 'DELETE', { 'x-test-role': resource.denied })).status, 403);
+    assert.equal(h.calls.length, before);
+    assert.equal(queries.length, 0);
+    assert.equal((await h.send(resource.path, undefined, 'DELETE', { 'x-test-role': resource.allowed })).status, 200);
+    assert.equal(h.calls.length, before + 1);
+    assert.equal(h.calls.at(-1).handler, resource.handler);
+    assert.equal(h.calls.at(-1).contaId, 1);
+    assert.deepEqual(queries[0].where, { id: 7, contaId: 1 });
+  }
+});
+test('HTTP exclusões de registro de outra conta ou ID inválido não chegam ao domínio', async t => {
+  const h = await harness(t);
+  for (const [base, model] of [['/vendas', 'vendas'], ['/produtos', 'produtoBase'], ['/financeiro/lancamentos', 'lancamentoFinanceiro'], ['/servicos', 'servicos'], ['/pessoas', 'clientesFornecedores']]) {
+    const queries: any[] = [];
+    (h.db as any)[model] = { findFirst: async (query: any) => { queries.push(query); return null; } };
+    assert.equal((await h.send(`${base}/99`, undefined, 'DELETE')).status, 404);
+    assert.deepEqual(queries[0].where, { id: 99, contaId: 1 });
+    for (const id of ['0', '-1', 'abc', '1.5']) assert.equal((await h.send(`${base}/${id}`, undefined, 'DELETE')).status, 422);
+    assert.equal(queries.length, 1);
+  }
+  assert.equal(h.calls.length, 0);
+});
+test('HTTP exclusão de venda faturada exige estorno antes de chamar a operação', async t => {
+  const h = await harness(t);
+  for (const state of [{ status: 'FATURADO', faturado: false }, { status: 'PENDENTE', faturado: true }]) {
+    h.db.vendas.findFirst = async () => ({ id: 7, ...state });
+    const result = await h.send('/vendas/7', undefined, 'DELETE');
+    assert.equal(result.status, 409);
+    assert.equal((await result.json()).code, 'sale_invoiced');
+  }
   assert.equal(h.calls.length, 0);
 });

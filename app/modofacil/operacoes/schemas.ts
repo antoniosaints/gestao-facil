@@ -8,7 +8,7 @@ export const dateSchema = z.string().datetime({ offset: true });
 export const nonempty = z.string().trim().min(1).max(191);
 const text = z.string().max(191).nullable();
 const notEmpty = (data: object) => Object.keys(data).length > 0;
-export const servicoFields = { nome: z.string().trim().min(2).max(191), preco: money.refine(n => n > 0, "O contrato atual exige preço maior que zero."), descricao: text.optional() };
+export const servicoFields = { nome: z.string().trim().min(2).max(191), preco: money.refine(n => n > 0, "O contrato atual exige preço maior que zero."), descricao: text.optional(), status: z.boolean().optional() };
 export const servicoBasicoSchema = z.object(servicoFields).partial().strict().refine(notEmpty, "Informe campos para alterar.");
 export const fiscalFields = {
   ncm: text, cest: text, cfop: text, origem: z.number().int().min(0).max(8).nullable(),
@@ -60,13 +60,14 @@ export const ordemPatchSchema = z.object({
   itens: z.array(itemOs).min(1).max(200).optional(),
 }).strict().refine(data => Object.keys(data).length > 1, "Informe campos para alterar.");
 
-export const pessoaAvancadoSchema = z.object({
+export const pessoaAvancadoFields = {
   documento: z.string().refine(s => s.trim() === "" || /\d/.test(s), "CPF/CNPJ inválido.").transform(s => s.replace(/\D/g, "")).refine(s => s === "" || validarCpfCnpj(s), "CPF/CNPJ inválido.").nullable(),
   cep: z.string().refine(s => s.trim() === "" || /\d/.test(s), "CEP inválido.").transform(s => s.replace(/\D/g, "")).refine(s => s === "" || s.length === 8, "CEP inválido.").nullable(),
   endereco: text, bairro: text, numero: text, cidade: text, estado: z.string().max(2).nullable(),
   ie: text, im: text, municipio: text, observacaos: text,
   tipo: z.enum(["CLIENTE", "FORNECEDOR"]), status: z.enum(["ATIVO", "INATIVO", "BLOQUEADO"]),
-}).partial().strict().refine(notEmpty, "Informe campos para alterar.");
+};
+export const pessoaAvancadoSchema = z.object(pessoaAvancadoFields).partial().strict().refine(notEmpty, "Informe campos para alterar.");
 export const servicoAvancadoSchema = z.object({
   ncm: text, cest: text, cfop: text, origem: fiscalFields.origem,
   aliquotaIcms: fiscalFields.aliquotaIcms, aliquotaIpi: fiscalFields.aliquotaIpi,

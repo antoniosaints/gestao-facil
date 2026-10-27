@@ -9,10 +9,11 @@ import { sendSessionUpdated } from "../hooks/contas/socket";
 import { sendFinanceiroUpdated } from "../hooks/financeiro/socket";
 import { createConfiguracaoRouter } from "./configuracao/router";
 import { requireAccess } from "./access";
+import { editarPessoa } from "./pessoas";
 import { criarProduto, editarProduto, reporEstoque, descartarEstoque } from "./produtos/service";
 import { executarUmaVez } from "./idempotencia";
 import { criarLancamentoFinanceiro } from "../services/financeiro/lancamentoService";
-import { lancamentoSchema, lancamentoBasicoSchema, pessoaSchema, pessoaPatchSchema, servicoSchema } from "./adapters/schemas";
+import { lancamentoSchema, lancamentoBasicoSchema, pessoaSchema, servicoSchema } from "./adapters/schemas";
 import { vendaSchema, efetivarVendaSchema } from "../schemas/vendas";
 import { saveOrdemServicoSchema, efetivarOsSchema } from "../schemas/ordemservico";
 import { finalizarVendaPdvSchema } from "../schemas/caixas";
@@ -163,10 +164,8 @@ pessoas.use(requireAccess(prisma, 2));
 pessoas.get("/", domain.tableClientes);
 pessoas.post("/", body(pessoaSchema), domain.saveCliente);
 pessoas.get("/:id", domain.getCliente);
-pessoas.patch("/:id/basico", body(pessoaPatchSchema), route(async (req, res) => {
-  const result = await prisma.clientesFornecedores.updateMany({ where: { id: id(req.params.id), contaId: session(req).contaId }, data: req.body });
-  if (result.count !== 1) throw new ModoFacilError(404, "person_not_found", "Pessoa não encontrada.");
-  ok(res, await prisma.clientesFornecedores.findFirst({ where: { id: id(req.params.id), contaId: session(req).contaId } }));
+pessoas.patch("/:id/basico", route(async (req, res) => {
+  ok(res, await editarPessoa(prisma, session(req).contaId, id(req.params.id), req.body));
 }));
 routerModoFacil.use("/pessoas", pessoas);
 

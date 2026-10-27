@@ -1,4 +1,9 @@
 export { entrarCaixa, resumoCaixa, getResumoCaixas } from "./operacoesExtrasCaixa";
+export { deleteVenda } from "../../controllers/vendas/gerenciar";
+export { deleteProduto } from "../../controllers/produtos/produtos";
+export { deleteServico } from "../../controllers/servicos/servicos";
+export { deleteCliente } from "../../controllers/clientes/clientes";
+export { deletarLancamento } from "../../controllers/financeiro/gerenciar";
 export { relatorioProdutos, relatorioVendasProduto, relatorioLucroProduto, relatorioProdutoMovimentacoes } from "../../controllers/produtos/relatorios";
 export { gerarCupomNaoFiscal } from "../../controllers/vendas/cupomNaoFiscal";
 export { gerarCupomPdf } from "../../controllers/vendas/cupomNaoFiscalPdf";

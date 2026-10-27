@@ -39,6 +39,9 @@ export const deleteCliente = async (req: Request, res: Response): Promise<any> =
         });
         ResponseHandler(res, "Cliente deletado", cliente);
     } catch (err: any) {
+        if (err?.code === "P2003") {
+            return ResponseHandler(res, "Esta pessoa possui vínculos que impedem a exclusão. Desative o cadastro para preservar o histórico.", null, 409);
+        }
         handleError(res, err);
     }
 }
@@ -79,6 +82,9 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     status: data.status,
                     tipo: data.tipo,
                     observacaos: data.observacaos,
+                    ie: data.ie,
+                    im: data.im,
+                    municipio: data.municipio,
                 }
             });
             return ResponseHandler(res, "Cliente atualizado", cliente);
@@ -100,6 +106,9 @@ export const saveCliente = async (req: Request, res: Response): Promise<any> => 
                     status: data.status,
                     tipo: data.tipo,
                     observacaos: data.observacaos,
+                    ie: data.ie,
+                    im: data.im,
+                    municipio: data.municipio,
                     Uid: gerarIdUnicoComMetaFinal("CLI"),
                 }
             });

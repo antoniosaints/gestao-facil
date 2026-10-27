@@ -1,135 +1,78 @@
-import { Request, Response } from 'express'
-import { clampPageSize } from '../../utils/pagination'
-import { prisma } from '../../utils/prisma'
-import { Prisma } from '../../../generated'
-import { getCustomRequest } from '../../helpers/getCustomRequest'
-import { isAccountOverdue } from '../../routers/web'
-import { applyIgnoredParcelaFilter, applyTotalParcelasFilter, parseFinanceiroFilters } from './queryFilters'
-import { atualizarStatusLancamentos } from './hooks'
+import { Request, Response } from "express";
+import { clampPageSize } from "../../utils/pagination";
+import { prisma } from "../../utils/prisma";
+import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { isAccountOverdue } from "../../routers/web";
+import {
+  applyTotalParcelasFilter,
+  parseFinanceiroFilters,
+} from "./queryFilters";
+import { atualizarStatusLancamentos } from "./hooks";
+import { buildLancamentoWhere } from "./tableFilters";
+import {
+  getFinanceSummaryScope,
+  summarizeMatchingParcels,
+} from "./tableSummaryFilter";
 
 function resolveSortField(value: unknown) {
-  const sortBy = typeof value === 'string' ? value : 'dataLancamento'
+  const sortBy = typeof value === "string" ? value : "dataLancamento";
 
   switch (sortBy) {
-    case 'Uid':
-      return 'Uid'
-    case 'tipo':
-      return 'tipo'
-    case 'status':
-      return 'status'
-    case 'descricao':
-      return 'descricao'
-    case 'valorTotal':
-      return 'valorTotal'
-    case 'dataLancamento':
-      return 'dataLancamento'
-    case 'categoriaId':
-      return 'categoriaId'
-    case 'createdAt':
-      return 'createdAt'
+    case "Uid":
+      return "Uid";
+    case "tipo":
+      return "tipo";
+    case "status":
+      return "status";
+    case "descricao":
+      return "descricao";
+    case "valorTotal":
+      return "valorTotal";
+    case "dataLancamento":
+      return "dataLancamento";
+    case "categoriaId":
+      return "categoriaId";
+    case "createdAt":
+      return "createdAt";
     default:
-      return 'dataLancamento'
+      return "dataLancamento";
   }
 }
 
-function resolveSortOrder(value: unknown): 'asc' | 'desc' {
-  return value === 'desc' ? 'desc' : 'asc'
-}
-
-function buildLancamentoWhere(
-  contaId: number,
-  filters: ReturnType<typeof parseFinanceiroFilters>,
-): Prisma.LancamentoFinanceiroWhereInput {
-  const where: Prisma.LancamentoFinanceiroWhereInput = {
-    contaId,
-  }
-
-  if (filters.tipo !== 'TODOS') {
-    where.tipo = filters.tipo
-  }
-
-  if (filters.status !== 'TODOS') {
-    where.status = filters.status
-  }
-
-  if (filters.origem && filters.origem !== 'TODOS') {
-    where.origemSistema = filters.origem
-  }
-
-  if (filters.modalidade === 'PARCELADOS') {
-    where.recorrente = true
-    where.recorrencia = { is: null }
-  }
-
-  if (filters.modalidade === 'RECORRENTES') {
-    where.recorrencia = { isNot: null }
-  }
-
-  // O estado de ignorado é operacionalmente definido nas parcelas. Assim, um
-  // lançamento entra no filtro assim que qualquer uma de suas parcelas tiver
-  // sido ignorada, mesmo que as demais ainda estejam ativas.
-  applyIgnoredParcelaFilter(where, filters.ignorado)
-
-  if (filters.contaFinanceiraId) {
-    where.contasFinanceiroId = filters.contaFinanceiraId
-  }
-
-  if (filters.categoriaId) {
-    where.categoriaId = filters.categoriaId
-  }
-
-  if (filters.clienteId) {
-    where.clienteId = filters.clienteId
-  }
-
-  if (filters.inicio || filters.fim) {
-    where.dataLancamento = {
-      ...(filters.inicio ? { gte: filters.inicio } : {}),
-      ...(filters.fim ? { lte: filters.fim } : {}),
-    }
-  }
-
-  if (filters.search) {
-    where.OR = [
-      { descricao: { contains: filters.search } },
-      { Uid: { contains: filters.search } },
-      { venda: { Uid: { contains: filters.search } } },
-      { categoria: { nome: { contains: filters.search } } },
-      { cliente: { nome: { contains: filters.search } } },
-      { ContasFinanceiro: { nome: { contains: filters.search } } },
-      { assinaturaPagar: { nomeServico: { contains: filters.search } } },
-    ]
-  }
-
-  return where
+function resolveSortOrder(value: unknown): "asc" | "desc" {
+  return value === "desc" ? "desc" : "asc";
 }
 
 export const tableFinanceiro = async (
   req: Request,
   res: Response,
 ): Promise<any> => {
-  const customData = getCustomRequest(req).customData
+  const customData = getCustomRequest(req).customData;
   if (await isAccountOverdue(req)) {
     return res.status(404).json({
-      message: 'Conta inativa ou bloqueada, verifique seu plano',
-    })
+      message: "Conta inativa ou bloqueada, verifique seu plano",
+    });
   }
 
   // A listagem é a referência visual do ciclo financeiro. Sincronizamos antes
   // de consultar para não manter como pendente uma parcela já efetivada.
-  await atualizarStatusLancamentos(customData.contaId)
+  await atualizarStatusLancamentos(customData.contaId);
 
-  const page = parseInt(req.query.page as string) || 1
-  const pageSize = clampPageSize(req.query.pageSize)
-  const filters = parseFinanceiroFilters(req)
-  const sortBy = resolveSortField(req.query.sortBy)
-  const order = resolveSortOrder(req.query.order)
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = clampPageSize(req.query.pageSize);
+  const filters = parseFinanceiroFilters(req);
+  const summary = getFinanceSummaryScope(
+    req.query.resumo,
+    parseFinanceiroFilters(req, { defaultRange: "current-month" }),
+  );
+  const sortBy = resolveSortField(req.query.sortBy);
+  const order = resolveSortOrder(req.query.order);
 
   const where = await applyTotalParcelasFilter(
-    buildLancamentoWhere(customData.contaId, filters),
+    buildLancamentoWhere(customData.contaId, filters, summary),
     customData.contaId,
     filters,
-  )
+  );
 
   const [total, data] = await Promise.all([
     prisma.lancamentoFinanceiro.count({ where }),
@@ -137,27 +80,37 @@ export const tableFinanceiro = async (
       where,
       include: {
         parcelas: {
-          orderBy: [{ vencimento: 'asc' }, { numero: 'asc' }, { id: 'asc' }],
+          orderBy: [{ vencimento: "asc" }, { numero: "asc" }, { id: "asc" }],
         },
         recorrencia: true,
         categoria: true,
         cliente: true,
         ContasFinanceiro: true,
         assinaturaPagar: {
-          select: { id: true, nomeServico: true, icone: true, corDestaque: true },
+          select: {
+            id: true,
+            nomeServico: true,
+            icone: true,
+            corDestaque: true,
+          },
         },
       },
       orderBy: { [sortBy]: order },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-  ])
+  ]);
 
   res.json({
-    data,
+    data: summary
+      ? data.map((row) => ({
+          ...row,
+          ...summarizeMatchingParcels(row.parcelas, summary),
+        }))
+      : data,
     page,
     pageSize,
     total,
     totalPages: Math.ceil(total / pageSize),
-  })
-}
+  });
+};

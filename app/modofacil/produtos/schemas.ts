@@ -34,6 +34,8 @@ export const criarProdutoSchema = z.object({
 export const editarProdutoSchema = z.object(fields).partial().strict()
   .refine(data => Object.keys(data).length > 0, "Informe ao menos um campo.");
 
+export const situacaoProdutoSchema = z.object({ status: z.enum(["ATIVO", "INATIVO"]) }).strict();
+
 export const reposicaoSchema = z.object({
   produtoId: z.number().int().positive(),
   quantidade: decimalField(3, 9, true),

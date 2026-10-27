@@ -6,6 +6,7 @@ import { prisma } from "../../utils/prisma";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { ResponseHandler } from "../../utils/response";
 import { Prisma } from "../../../generated";
+import { buildServiceWhere } from "./queryFilters";
 
 export const saveServico = async (
   req: Request,
@@ -108,6 +109,9 @@ export const deleteServico = async (
     });
     return ResponseHandler(res, "Servico deletado", servico);
   } catch (err: any) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && ["P2003", "P2014"].includes(err.code)) {
+      return ResponseHandler(res, "Este serviço possui vínculos que impedem a exclusão. Remova os vínculos ou mantenha o cadastro inativo.", null, 409);
+    }
     handleError(res, err);
   }
 };
@@ -122,20 +126,7 @@ export const tableServico = async (
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
 
-  const where: Prisma.ServicosWhereInput = {
-    contaId: customData.contaId,
-  };
-  if (search) {
-    where.OR = [
-      { nome: { contains: search } },
-      { Uid: { contains: search } },
-      { descricao: { contains: search } },
-    ];
-  }
-
-  if (req.query.status) {
-    where.status = req.query.status as any;
-  }
+  const where = buildServiceWhere(customData.contaId, { search, status: req.query.status });
 
   const total = await prisma.servicos.count({ where });
   const data = await prisma.servicos.findMany({

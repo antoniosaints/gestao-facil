@@ -3,7 +3,7 @@ import { criarProdutoBase } from "../../services/produtos/produtoCadastroService
 import { registrarReposicao, registrarDescarte } from "../../services/produtos/produtoEstoqueOperations";
 import { executarUmaVez } from "../idempotencia";
 import { ModoFacilError } from "../errors";
-import { criarProdutoSchema, editarProdutoSchema, reposicaoSchema, descarteSchema } from "./schemas";
+import { criarProdutoSchema, editarProdutoSchema, situacaoProdutoSchema, reposicaoSchema, descarteSchema } from "./schemas";
 import { z } from "zod";
 
 async function categoriaNome(tx: Prisma.TransactionClient, contaId: number, id: number | null) {
@@ -57,6 +57,20 @@ export async function editarProduto(db: PrismaClient, contaId: number, produtoBa
     if (Object.keys(patch.variante).length) await tx.produto.updateMany({ where: { id: varianteId, produtoBaseId, contaId }, data: patch.variante });
     const produto = await tx.produtoBase.findFirstOrThrow({ where: { id: produtoBaseId, contaId }, include: { Categoria: true, variantes: { orderBy: [{ ehPadrao: "desc" }, { id: "asc" }] } } });
     return { produtoBaseId, varianteId, produto };
+  });
+}
+
+export async function alterarSituacaoProduto(db: PrismaClient, contaId: number, produtoBaseId: number, input: unknown) {
+  const { status } = situacaoProdutoSchema.parse(input);
+  return db.$transaction(async tx => {
+    // Same lock order as basic edits; only status changes, never stock/prices.
+    await tx.$queryRaw`SELECT id FROM ProdutoBase WHERE id = ${produtoBaseId} AND contaId = ${contaId} FOR UPDATE`;
+    const base = await tx.produtoBase.findFirst({ where: { id: produtoBaseId, contaId }, select: { id: true } });
+    if (!base) throw new ModoFacilError(404, "product_not_found", "Produto não encontrado nesta conta.");
+    await tx.produtoBase.updateMany({ where: { id: produtoBaseId, contaId }, data: { status } });
+    // Product status is shared by its variants, as in syncVariantBaseFields.
+    await tx.produto.updateMany({ where: { produtoBaseId, contaId }, data: { status } });
+    return { id: produtoBaseId, status };
   });
 }
 

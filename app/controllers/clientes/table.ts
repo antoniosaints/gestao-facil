@@ -3,7 +3,7 @@ import { clampPageSize, sanitizeSort } from "../../utils/pagination";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { isAccountOverdue } from "../../routers/web";
-import { Prisma, Status } from "../../../generated";
+import { buildPeopleWhere } from "./queryFilters";
 
 export const tableClientes = async (req: Request, res: Response): Promise<any> => {
   const customData = getCustomRequest(req).customData;
@@ -15,21 +15,9 @@ export const tableClientes = async (req: Request, res: Response): Promise<any> =
 
   const page = parseInt(req.query.page as string) || 1;
   const pageSize = clampPageSize(req.query.pageSize);
-  const search = (req.query.search as string) || "";
   const sortBy = (req.query.sortBy as string) || "id";
   const order = req.query.order || "asc";
-  const { ...filters } = req.query;
-
-  const where: Prisma.ClientesFornecedoresWhereInput = {
-    contaId: customData.contaId,
-  };
-  if (search) {
-    where.OR = [{ nome: { contains: search } }, { Uid: { contains: search } }];
-  }
-
-  if (filters.status) {
-    where.status = filters.status as Status;
-  }
+  const where = buildPeopleWhere(customData.contaId, req.query);
 
   const total = await prisma.clientesFornecedores.count({ where });
   const data = await prisma.clientesFornecedores.findMany({

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { criarProduto, editarProduto, reporEstoque, descartarEstoque } from "../produtos/service";
+import { criarProduto, editarProduto, alterarSituacaoProduto, reporEstoque, descartarEstoque } from "../produtos/service";
 import { criarProdutoSchema, editarProdutoSchema, quantity, money } from "../produtos/schemas";
 import { criarProdutoBase } from "../../services/produtos/produtoCadastroService";
 import { ProdutoSchema } from "../../schemas/produtos";
@@ -8,6 +8,42 @@ import { database } from "./fixtures";
 
 const input = { chaveOperacao: "9509e4e7-776a-4f30-b4e7-215a003d1341", nome: "Café", categoriaId: null, unidade: "kg", preco: "35.90", precoCompra: null, estoque: "0.250", minimo: "0.100", descricao: null };
 const dataOf = (result: any) => result.data as any;
+
+test("situação do produto sincroniza variantes da conta sem alterar estoque, preços ou fiscal", async () => {
+  const d = database(); await criarProduto(d.db, 1, input);
+  const base = d.state().bases[0], variant = d.state().variants[0];
+  base.status = variant.status = "ATIVO"; variant.ncm = "0901";
+  d.state().variants.push({ ...variant, id: 202, status: "INATIVO" });
+  d.state().variants.push({ ...variant, id: 203, produtoBaseId: 999 });
+  d.state().variants.push({ ...variant, id: 204, contaId: 2 });
+  const before = structuredClone(d.state());
+  for (const status of ["INATIVO", "ATIVO"] as const) {
+    assert.deepEqual(await alterarSituacaoProduto(d.db, 1, 101, { status }), { id: 101, status });
+    assert.equal(d.state().bases[0].status, status);
+    d.state().variants.slice(0, 2).forEach((row: any) => assert.equal(row.status, status));
+    d.state().variants.forEach((row: any, index: number) => {
+      const { status: _old, ...original } = before.variants[index];
+      const { status: _new, ...current } = row;
+      assert.deepEqual(current, original);
+    });
+    assert.equal(d.state().variants[2].status, "ATIVO");
+    assert.equal(d.state().variants[3].status, "ATIVO");
+  }
+  assert.deepEqual(d.state().movements, before.movements);
+  assert.ok(d.writes.some(w => w.lock));
+});
+test("situação valida payload, isola conta e reverte base se atualização de variantes falhar", async () => {
+  const d = database(); await criarProduto(d.db, 1, input);
+  d.state().bases[0].status = d.state().variants[0].status = "ATIVO";
+  for (const body of [{}, { status: false }, { status: "BLOQUEADO" }, { status: "INATIVO", estoque: 0 }, { status: "INATIVO", contaId: 2 }])
+    await assert.rejects(alterarSituacaoProduto(d.db, 1, 101, body));
+  await assert.rejects(alterarSituacaoProduto(d.db, 2, 101, { status: "INATIVO" }), { status: 404 });
+  await assert.rejects(alterarSituacaoProduto(d.db, 1, 999, { status: "INATIVO" }), { status: 404 });
+  d.db.produto.updateMany = async () => { throw new Error("Falha simulada"); };
+  await assert.rejects(alterarSituacaoProduto(d.db, 1, 101, { status: "INATIVO" }), /Falha simulada/);
+  assert.equal(d.state().bases[0].status, "ATIVO");
+  assert.equal(d.state().variants[0].status, "ATIVO");
+});
 
 test("precisão e limites decimais: aceita frações e rejeita truncamento/overflow/pt-BR/NaN", () => {
   assert.equal(quantity.parse("0.250"), 0.25);

@@ -7,9 +7,9 @@ test("lançamento manual não aceita vínculos automáticos nem repetição de i
   assert.equal(lancamentoSchema.parse(input).valorTotal, 100.5);
   for (const extra of [{ vendaId: 9 }, { ordemId: 5 }, { contaId: 2 }, { id: 10 }, { valorTotal: "100.001" }]) assert.equal(lancamentoSchema.safeParse({ ...input, ...extra }).success, false);
 });
-test("edição reduzida de pessoas não limpa documento/CEP; serviço rejeita campos avançados e conta", () => {
+test("edição parcial de pessoas preserva omissões e permite limpar documento explicitamente; serviço rejeita campos avançados e conta", () => {
   assert.deepEqual(pessoaPatchSchema.parse({ nome: "Maria" }), { nome: "Maria" });
-  assert.equal(pessoaPatchSchema.safeParse({ nome: "Maria", documento: "" }).success, false);
+  assert.deepEqual(pessoaPatchSchema.parse({ nome: "Maria", documento: "" }), { nome: "Maria", documento: "" });
   assert.equal(pessoaPatchSchema.safeParse({ nome: "Maria", contaId: 2 }).success, false);
   assert.deepEqual(servicoSchema.parse({ nome: "Reparo", preco: "10.50" }), { nome: "Reparo", preco: 10.5 });
   assert.equal(servicoSchema.safeParse({ nome: "Reparo", preco: 10, ncm: null }).success, false);
