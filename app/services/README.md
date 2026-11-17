@@ -48,3 +48,14 @@ rquitetura que o projeto não usa por completo.
 ## Core IA
 
 `ia/coreIaAgent.ts` prepara escritas sem executá-las; `coreIaActions` confirma revisões vinculadas a conta/usuário, com exclusão mútua no Redis. Áudio é transcrito sem ferramentas antes de interpretar o pedido. Vendas reutilizam `vendas/vendaCriacaoService.ts`. Contrato, limites e validação em [docs/core-ia-integracao.md](../../../docs/core-ia-integracao.md).
+
+
+## Receita e despesa na mesma operação
+
+`financeiro/lancamentoContrapartidaService.ts` cria receita e despesa reutilizando `criarLancamentoFinanceiro`. `POST /lancamentos/receita-despesa` exige o mesmo JWT do cadastro financeiro e uma `chaveOperacao` UUID. Valor, desconto, entrada, parcelas, datas, cliente, categoria, conta, método de pagamento, situação e flags são compartilhados; notificações ao cliente permanecem exclusivas da receita. A validação resolve referências no tenant autenticado.
+
+A reserva idempotente existente em `ModoFacilOperacao` e os dois registros são gravados na mesma transação: falhas revertem também parcelas e recorrências. Repetir a chave com os mesmos dados retorna o resultado; com outros dados, retorna 409. Não há nova migração. As políticas de datas usam a conexão da transação para evitar esgotar o pool em repetições concorrentes. Notificações e websocket ocorrem após o commit, sem transformar uma gravação concluída em erro.
+
+No formulário, a opção **Criar receita e despesa juntas** começa desligada e não aparece na edição. **Efetivar ambos** marca receita recebida e despesa paga; desligado, cria as pendências. O cadastro comum continua em `POST /lancamentos`. À vista, parcelamento e recorrência usam os cálculos existentes. Após a criação, edições, baixas e gerações recorrentes são individuais; não existe sincronização permanente entre os registros.
+
+Homologação opt-in: `cd api && FINANCEIRO_QA_PAR=1 npm run test:financeiro:contrapartida:live`. O roteiro usa JWT, controllers e MySQL reais em conta inativa com dados fictícios e notificações desabilitadas, valida o cadastro individual, seis pedidos concorrentes, parcelas com centavos, recorrência, rollback e saldo realizado líquido zero, e remove exclusivamente o tenant criado pela execução. Evidências em `output/financeiro-contrapartida/validation.json` na raiz do projeto.
