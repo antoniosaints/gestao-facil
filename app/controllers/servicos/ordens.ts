@@ -140,7 +140,7 @@ export const saveOrdemServico = async (
               `Produto ${produto.nome} não permite saídas, altere isso antes de continuar`
             );
           }
-          if (produto.estoque < item.quantidade) {
+          if (Number(produto.estoque) < item.quantidade) {
             throw new Error(
               `Produto ${produto.nome} não possui estoque suficiente (disponível: ${produto.estoque})`
             );

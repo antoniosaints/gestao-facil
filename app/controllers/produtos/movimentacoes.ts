@@ -9,7 +9,7 @@ const ALLOWED_SORT = new Set(["id", "data", "quantidade", "custo"]);
 const TIPOS = new Set(["ENTRADA", "SAIDA", "DESCARTE", "TRANSFERENCIA"]);
 const STATUSES = new Set(["PENDENTE", "CONCLUIDO", "CANCELADO"]);
 const quantity = (value: unknown) =>
-  new Decimal(value?.toString?.() ?? value ?? 0).toDecimalPlaces(3);
+  new Decimal(String(value ?? 0)).toDecimalPlaces(3);
 const quantityNumber = (value: unknown) => quantity(value).toNumber();
 const moneyNumber = (value: Decimal) => value.toDecimalPlaces(2).toNumber();
 

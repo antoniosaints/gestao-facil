@@ -41,7 +41,7 @@ export async function restaurantAssistantContext(contaId: number): Promise<Resta
       grupos: { where: { Grupo: { ativo: true } }, include: { Grupo: { include: { opcoes: { where: { ativo: true }, orderBy: { ordem: "asc" } } } } } },
     },
   });
-  const available = items.filter((item) => !item.Produto || (item.Produto.status === "ATIVO" && (!item.Produto.controlaEstoque || item.Produto.estoque > 0))).map((item) => ({
+  const available = items.filter((item) => !item.Produto || (item.Produto.status === "ATIVO" && (!item.Produto.controlaEstoque || Number(item.Produto.estoque) > 0))).map((item) => ({
     id: item.id, nome: item.nomePublico || item.Produto?.nome, descricao: item.descricao, preco: (item.Produto?.preco || item.preco).toString(),
     complementos: item.grupos.map((link) => ({ id: link.Grupo.id, nome: link.Grupo.nome, minimo: link.Grupo.minimo, maximo: link.Grupo.maximo, opcoes: link.Grupo.opcoes.map((opcao) => ({ id: opcao.id, nome: opcao.nome, adicional: opcao.precoAdicional.toString() })) })),
   }));
@@ -69,10 +69,11 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
   if (input.pagamento === "NA_ENTREGA" && !config.pagamentoNaEntregaAtivo) throw new Error("O pagamento na retirada ou entrega está indisponível.");
   if (input.pagamento === "PIX" && !config.pagamentoOnlineAtivo) throw new Error("O pagamento por Pix está indisponível.");
   let quote: Awaited<ReturnType<typeof calculatePublicCheckout>>;
-  try { quote = await calculatePublicCheckout(config, input, true); }
+  try { quote = await calculatePublicCheckout(config, { ...input, fidelidadeProgramaIds: [] }, true); }
   catch (error) { if (error instanceof CheckoutError) throw new Error(error.message); throw error; }
 
   const fidelity = await currentFidelityForPhone(prisma, params.contaId, input.cliente.telefone);
+  const normalizedPhone = fidelity.normalizedPhone;
   const fidelityRewards = availableFidelityRewards(fidelity, quote.snapshots);
   const discount = fidelityRewards.reduce(
     (total, reward) => total.plus(new Decimal(reward.snapshot.unit).mul(Number(reward.program.descontoPercentual)).div(100)),
@@ -96,9 +97,9 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
         enderecoSnapshotJson: input.endereco as any, zonaEntregaSnapshotJson: quote.zone as any, subtotal: quote.subtotal, frete: quote.frete, desconto: (quote as any).desconto || 0, total: quote.total, observacao: input.observacao, trackingTokenHash: hash(trackingToken), fidelidadeRecompensasJson: fidelityRewards.map((reward) => reward.program.id) as any,
         itens: { create: quote.snapshots.map(({ requested, item, selections, unit, line }) => ({ catalogoItemId: item.id, produtoId: item.produtoId, quantidade: requested.quantidade, nomeSnapshot: item.nomePublico || item.Produto?.nome || "Item do cardápio", precoUnitarioSnapshot: unit, subtotalSnapshot: line, tamanhoSnapshot: requested.tamanho, selecoesSnapshotJson: selections as any, regraPrecoSnapshot: item.regraPrecoSabores, observacao: requested.observacao })) },
       }, include: { itens: true } });
-      if (fidelityRewards.length && fidelity.normalizedPhone) {
+      if (fidelityRewards.length && normalizedPhone) {
         for (const reward of fidelityRewards) {
-          const claimed = await tx.restauranteFidelidadeProgresso.updateMany({ where: { contaId: params.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } }, data: { recompensasDisponiveis: { decrement: 1 } } });
+          const claimed = await tx.restauranteFidelidadeProgresso.updateMany({ where: { contaId: params.contaId, programaId: reward.program.id, telefoneNormalizado: normalizedPhone, recompensasDisponiveis: { gt: 0 } }, data: { recompensasDisponiveis: { decrement: 1 } } });
           if (!claimed.count) throw new Error("A recompensa foi usada em outro pedido. Atualize o pedido antes de confirmar.");
         }
       }
@@ -119,9 +120,9 @@ export async function createRestaurantOrderFromAssistant(params: { contaId: numb
           await tx.cobrancasFinanceiras.deleteMany({ where: { contaId: params.contaId, restaurantePedidoId: response.pedido.id } });
           const removed = await tx.restaurantePedido.deleteMany({ where: { id: response.pedido.id, contaId: params.contaId, status: "RECEBIDO", pagamentoStatus: "PENDENTE" } });
           await tx.restauranteIdempotencia.deleteMany({ where: { contaId: params.contaId, chaveHash: keyHash } });
-          if (removed.count && fidelityRewards.length && fidelity.normalizedPhone) {
+          if (removed.count && fidelityRewards.length && normalizedPhone) {
             await Promise.all(fidelityRewards.map((reward) => tx.restauranteFidelidadeProgresso.updateMany({
-              where: { contaId: params.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone },
+              where: { contaId: params.contaId, programaId: reward.program.id, telefoneNormalizado: normalizedPhone },
               data: { recompensasDisponiveis: { increment: 1 } },
             })));
           }

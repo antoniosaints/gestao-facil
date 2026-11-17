@@ -55,7 +55,7 @@ app.use(
 app.use((err: any, _req: Request, res: Response, next: NextFunction): any => {
   if (err?.type === "entity.too.large" || err?.status === 413) {
     return res.status(413).json({
-      message: "Imagem muito grande para processar. Reduza a imagem ou envie uma versão menor.",
+      message: "Anexo ou histórico muito grande. Reduza o arquivo ou inicie uma nova conversa.",
     });
   }
   return next(err);

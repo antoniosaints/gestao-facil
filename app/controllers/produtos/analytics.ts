@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import PDFDocument from "pdfkit";
+import type { TipoMovimentacao } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { handleError } from "../../utils/handleError";
@@ -44,7 +45,7 @@ type VarianteParaResumo = {
 
 type MovimentacaoParaResumo = {
   produtoId: number;
-  tipo: "ENTRADA" | "SAIDA";
+  tipo: TipoMovimentacao;
   quantidade: Decimal.Value;
   custo: Decimal.Value;
   frete?: Decimal.Value | null;
@@ -70,6 +71,7 @@ export function calcularResumoEstoque(
       continue;
     }
 
+    if (movimentacao.tipo !== "ENTRADA") continue;
     totalEntradas = totalEntradas.plus(quantidadeMovimentada);
     const atual = reposicaoPorVariante.get(movimentacao.produtoId) ?? {
       custoTotal: new Decimal(0),

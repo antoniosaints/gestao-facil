@@ -39,7 +39,7 @@ test("situação valida payload, isola conta e reverte base se atualização de 
     await assert.rejects(alterarSituacaoProduto(d.db, 1, 101, body));
   await assert.rejects(alterarSituacaoProduto(d.db, 2, 101, { status: "INATIVO" }), { status: 404 });
   await assert.rejects(alterarSituacaoProduto(d.db, 1, 999, { status: "INATIVO" }), { status: 404 });
-  d.db.produto.updateMany = async () => { throw new Error("Falha simulada"); };
+  d.db.produto.updateMany = () => { throw new Error("Falha simulada"); };
   await assert.rejects(alterarSituacaoProduto(d.db, 1, 101, { status: "INATIVO" }), /Falha simulada/);
   assert.equal(d.state().bases[0].status, "ATIVO");
   assert.equal(d.state().variants[0].status, "ATIVO");

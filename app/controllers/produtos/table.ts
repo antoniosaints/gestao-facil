@@ -173,7 +173,7 @@ export const tableProdutos = async (req: Request, res: Response) => {
         },
       });
 
-      return res.json({
+      return void res.json({
         data: data.map(mapVariantRow),
         page,
         pageSize,
@@ -218,7 +218,7 @@ export const tableProdutos = async (req: Request, res: Response) => {
 
     const paginated = paginate(rows, page, pageSize);
 
-    return res.json({
+    return void res.json({
       data: paginated.data,
       page,
       pageSize,
@@ -263,7 +263,7 @@ export const tableProdutos = async (req: Request, res: Response) => {
       },
     });
 
-    return res.json({
+    return void res.json({
       data: data.map(mapBaseRow),
       page,
       pageSize,
@@ -307,7 +307,7 @@ export const tableProdutos = async (req: Request, res: Response) => {
 
   const paginated = paginate(rows, page, pageSize);
 
-  return res.json({
+  return void res.json({
     data: paginated.data,
     page,
     pageSize,

@@ -38,10 +38,10 @@ webRouterProdutos.get("/detalhes/:id", async (req, res) => {
 
     if (mov.tipo === "ENTRADA") {
       totalGasto = totalGasto.plus(quantidade.times(custo));
-      totalEntradas += mov.quantidade;
+      totalEntradas += Number(mov.quantidade);
     } else if (mov.tipo === "SAIDA") {
       totalVendido = totalVendido.plus(quantidade.times(custo));
-      totalSaidas += mov.quantidade;
+      totalSaidas += Number(mov.quantidade);
     }
   }
 

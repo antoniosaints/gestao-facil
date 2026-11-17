@@ -54,7 +54,7 @@ export async function generateBarcodesStream(
 
   const startX = 30;
   const startY = 30;
-  const quantidade = options.quantity || product.estoque;
+  const quantidade = options.quantity || Number(product.estoque);
 
   // O codigo e o mesmo em todas as etiquetas: gera a imagem uma unica vez.
   const barcodeBuffer = await generateBarcodeImage(product.codigo);

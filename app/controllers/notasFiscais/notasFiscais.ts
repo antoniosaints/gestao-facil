@@ -13,7 +13,7 @@ import {
 } from "../../services/notasFiscais/certificateCrypto";
 import { D2TI_SAO_MATEUS, emitirD2ti, isD2tiSaoMateus } from "../../services/notasFiscais/d2tiSaoMateus";
 import { resolveNfseProvider, selectedNfseMode } from "../../services/notasFiscais/providerResolver";
-import { buildDpsDraft, consultarParametrosMunicipaisNacional, nationalEndpoints } from "../../services/notasFiscais/nacionalProvider";
+import { buildDpsDraft } from "../../services/notasFiscais/nacionalProvider";
 import { prisma } from "../../utils/prisma";
 import { env } from "../../utils/dotenv";
 import { getGeranetUser } from "../../services/notasFiscais/geranet";
@@ -307,18 +307,7 @@ export async function listMunicipios(req: Request, res: Response) {
 }
 
 export async function getNationalMunicipalParameters(req: Request, res: Response) {
-  const { contaId } = getCustomRequest(req).customData;
-  const config = await prisma.notaFiscalConfiguracao.findUnique({ where: { contaId }, select: { codigoMunicipioIbge: true, ambiente: true, modoEmissaoNfse: true, provedorNfse: true } });
-  if (!config || selectedNfseMode(config) !== "NACIONAL") {
-    return fail(req, res, 422, "provider_mismatch", "Selecione o Emissor Nacional para consultar os parâmetros municipais.");
-  }
-  try {
-    const data = await consultarParametrosMunicipaisNacional(config.codigoMunicipioIbge || "", config.ambiente as "HOMOLOGACAO" | "PRODUCAO");
-    return res.json({ data, fonte: nationalEndpoints(config.ambiente as "HOMOLOGACAO" | "PRODUCAO").parametros, requestId: requestId(req) });
-  } catch (error: any) {
-    const status = error?.response?.status === 404 ? 422 : 503;
-    return fail(req, res, status, "national_municipal_parameters_unavailable", "Não foi possível obter os parâmetros municipais do Emissor Nacional agora.", { codigoMunicipioIbge: config.codigoMunicipioIbge });
-  }
+  return fail(req, res, 422, "provider_mismatch", "A consulta direta ao Emissor Nacional não está disponível. Use o provedor de NFS-e configurado para a conta.");
 }
 
 export async function listNfse(req: Request, res: Response) {
@@ -472,10 +461,8 @@ export async function emitNfseGeranet(req: Request, res: Response) {
   if (!cliente) return fail(req, res, 422, "tomador_not_found", "Tomador não encontrado nesta conta.");
   if (!config || !config.nfseHabilitado) return fail(req, res, 422, "provider_not_supported", "Ative a NFS-e nas configurações fiscais.");
   const simplesNacional = [1, 4].includes(config.regimeTributario) ? "1" : "2";
-  const missingConfig = !config.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.municipioNome || !config.uf || !config.logradouro || !config.numero || !config.bairro || !config.cep || !config.codigoServicoPadrao || !config.nfseCodigoTributacaoMunicipio || config.aliquotaIssPadrao == null || !config.certificadoReferencia || !config.certificadoSenhaCifrada || (simplesNacional === "1" && !config.nfseDataOpcaoSimples);
-  if (missingConfig) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais, códigos de serviço Geranet, alíquota, A1 e data de opção do Simples quando aplicável.");
-  const missingTomador = !cliente.documento || !cliente.endereco || !cliente.numero || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado;
-  if (missingTomador) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, número, bairro, CEP, cidade e UF.");
+  if (!config.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.codigoMunicipioIbge || !config.municipioNome || !config.uf || !config.logradouro || !config.numero || !config.bairro || !config.cep || !config.codigoServicoPadrao || !config.nfseCodigoTributacaoMunicipio || config.aliquotaIssPadrao == null || !config.certificadoReferencia || !config.certificadoSenhaCifrada || (simplesNacional === "1" && !config.nfseDataOpcaoSimples)) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais, códigos de serviço Geranet, alíquota, A1 e data de opção do Simples quando aplicável.");
+  if (!cliente.documento || !cliente.endereco || !cliente.numero || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, número, bairro, CEP, cidade e UF.");
   if (!validarCpfCnpj(cliente.documento!)) return fail(req, res, 422, "tomador_document_invalid", "O CPF/CNPJ do tomador é inválido. Corrija o cadastro do cliente antes de emitir.");
 
   let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });
@@ -584,10 +571,8 @@ export async function emitNfseD2ti(req: Request, res: Response) {
   if (config.ambiente === "PRODUCAO" && env.FISCAL_ALLOW_INSECURE_D2TI_HTTP !== "true") {
     return fail(req, res, 503, "insecure_municipal_transport_blocked", "A prefeitura disponibiliza este webservice apenas em HTTP. A emissão em produção está bloqueada até que o administrador autorize explicitamente esse transporte no ambiente.");
   }
-  const missingConfig = !config.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.logradouro || !config.bairro || !config.cep || !config.codigoServicoPadrao || !config.descricaoServicoPadrao || !config.codigoAtividadePadrao || !config.descricaoAtividadePadrao || !config.tipoTributacaoPadrao || !config.tipoRecolhimentoPadrao || config.aliquotaIssPadrao == null;
-  if (missingConfig) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais e fiscais obrigatórios do provedor D2TI antes de emitir.");
-  const missingTomador = !cliente.documento || !cliente.endereco || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado;
-  if (missingTomador) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, bairro, CEP, cidade e UF para esta NFS-e.");
+  if (!config.razaoSocial || !config.documento || !config.inscricaoMunicipal || !config.logradouro || !config.bairro || !config.cep || !config.codigoServicoPadrao || !config.descricaoServicoPadrao || !config.codigoAtividadePadrao || !config.descricaoAtividadePadrao || !config.tipoTributacaoPadrao || !config.tipoRecolhimentoPadrao || config.aliquotaIssPadrao == null) return fail(req, res, 422, "fiscal_config_incomplete", "Conclua os dados cadastrais e fiscais obrigatórios do provedor D2TI antes de emitir.");
+  if (!cliente.documento || !cliente.endereco || !cliente.bairro || !cliente.cep || !cliente.cidade || !cliente.estado) return fail(req, res, 422, "tomador_incomplete", "O tomador precisa de CPF/CNPJ, endereço, bairro, CEP, cidade e UF para esta NFS-e.");
   if (!validarCpfCnpj(cliente.documento!)) return fail(req, res, 422, "tomador_document_invalid", "O CPF/CNPJ do tomador é inválido. Corrija o cadastro do cliente antes de emitir.");
 
   let invoice = await prisma.notaFiscal.findUnique({ where: { contaId_idempotencyKey: { contaId, idempotencyKey } }, include: { Cliente: { select: { id: true, nome: true, documento: true } } } });

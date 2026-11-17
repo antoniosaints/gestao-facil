@@ -12,7 +12,7 @@ export async function optionalRestaurantCustomer(req: Request, _res: Response, n
 export async function requireRestaurantCustomer(req: Request, res: Response, next: NextFunction) {
   await optionalRestaurantCustomer(req, res, () => undefined);
   if (!(req as any).restaurantCustomer) {
-    return res.status(401).json({ error: { code: "unauthorized", message: "Sessão do cliente inválida" } });
+    return void res.status(401).json({ error: { code: "unauthorized", message: "Sessão do cliente inválida" } });
   }
   next();
 }

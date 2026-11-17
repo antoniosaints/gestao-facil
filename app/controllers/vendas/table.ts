@@ -109,7 +109,7 @@ export const tableVendas = async (req: Request, res: Response) => {
   }
 
   if (advancedFilters.length) {
-    where.AND = [...(where.AND || []), ...advancedFilters];
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), ...advancedFilters];
   }
 
   const periodoInicio = (req.query["periodo[inicio]"] || req.query.inicio) as string | undefined;

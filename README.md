@@ -392,3 +392,10 @@ Menus de topo são whitelist e submenus `pai:filho` continuam blacklist. Dashboa
 Migration aditiva pendente: `prisma/migrations/20261024120000_add_onboarding_perfil/migration.sql` adiciona `ParametrosConta.onboardingPerfil JSON NULL`, sem backfill ou alteração de contas atuais. Aplicar pelo processo normal de migrations antes de liberar o novo fluxo; nenhum banco real foi migrado nesta implementação.
 
 Testes locais sem conexão com banco/gateways: `npx tsx --test app/services/contas/onboardingService.test.ts app/services/contas/createAccountWithOnboarding.test.ts`. Cobrem regras, validação, catálogo alterado antes da criação, DTO seguro, fluxo legado, gravações no mesmo cliente transacional e propagação de falhas. Rollback físico MySQL e E2E autenticado requerem ambiente de integração isolado; os testes não aplicam migration.
+
+
+## Checagem de tipos e Core IA
+
+`npm run type-check` valida a API, os workers, os testes, os scripts e `tsup.config.ts`, sem emitir JavaScript. `npm run build` gera o Prisma Client, exige a checagem e empacota os artefatos de produção.
+
+`npm run test:core-ia` executa os contratos de interpretação, revisão, confirmação e isolamento. A homologação real é opt-in: `CORE_IA_QA_LIVE=1 npm run test:core-ia:live`; ela cria uma conta temporária inativa, usa dados fictícios e remove somente os registros dessa conta ao terminar. `CORE_IA_QA_AUDIO_PATH=/caminho/sintetico.wav` inclui a transcrição de áudio. Detalhes e evidências em [Core IA](../docs/core-ia-integracao.md).

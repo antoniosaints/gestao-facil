@@ -45,9 +45,9 @@ export async function getDashboardLayout(req: Request, res: Response) {
     const personalLayout = canCustomize ? usuario?.dashboardLayout : null;
     const layout = personalLayout ?? conta?.dashboardLayoutPadrao ?? null;
     const source = personalLayout ? "USER" : conta?.dashboardLayoutPadrao ? "CONTA" : "DEFAULT";
-    return ResponseHandler(res, "Layout da dashboard", { layout, source, canCustomize });
+    return void ResponseHandler(res, "Layout da dashboard", { layout, source, canCustomize });
   } catch {
-    return ResponseHandler(res, "Não foi possível carregar o layout da dashboard", null, 500);
+    return void ResponseHandler(res, "Não foi possível carregar o layout da dashboard", null, 500);
   }
 }
 
@@ -55,19 +55,19 @@ export async function saveDashboardLayout(req: Request, res: Response) {
   try {
     const customData = getCustomRequest(req).customData;
     if (!(await hasPermission(customData, 4))) {
-      return ResponseHandler(res, "Apenas administradores podem personalizar a dashboard", null, 403);
+      return void ResponseHandler(res, "Apenas administradores podem personalizar a dashboard", null, 403);
     }
 
     const layout = parseLayout(req.body?.layout);
-    if (!layout) return ResponseHandler(res, "Layout da dashboard inválido", null, 422);
+    if (!layout) return void ResponseHandler(res, "Layout da dashboard inválido", null, 422);
 
     await prisma.usuarios.update({
       where: { id: customData.userId },
       data: { dashboardLayout: layout },
     });
-    return ResponseHandler(res, "Layout pessoal salvo", { layout });
+    return void ResponseHandler(res, "Layout pessoal salvo", { layout });
   } catch {
-    return ResponseHandler(res, "Não foi possível salvar o layout da dashboard", null, 500);
+    return void ResponseHandler(res, "Não foi possível salvar o layout da dashboard", null, 500);
   }
 }
 
@@ -75,18 +75,18 @@ export async function saveDefaultDashboardLayout(req: Request, res: Response) {
   try {
     const customData = getCustomRequest(req).customData;
     if (!(await hasPermission(customData, 4))) {
-      return ResponseHandler(res, "Apenas administradores podem definir o layout padrão", null, 403);
+      return void ResponseHandler(res, "Apenas administradores podem definir o layout padrão", null, 403);
     }
 
     const layout = parseLayout(req.body?.layout);
-    if (!layout) return ResponseHandler(res, "Layout da dashboard inválido", null, 422);
+    if (!layout) return void ResponseHandler(res, "Layout da dashboard inválido", null, 422);
 
     await prisma.contas.update({
       where: { id: customData.contaId },
       data: { dashboardLayoutPadrao: layout },
     });
-    return ResponseHandler(res, "Layout padrão da conta salvo", { layout });
+    return void ResponseHandler(res, "Layout padrão da conta salvo", { layout });
   } catch {
-    return ResponseHandler(res, "Não foi possível salvar o layout padrão da dashboard", null, 500);
+    return void ResponseHandler(res, "Não foi possível salvar o layout padrão da dashboard", null, 500);
   }
 }

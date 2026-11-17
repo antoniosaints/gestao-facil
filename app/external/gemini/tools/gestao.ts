@@ -23,7 +23,7 @@ function narrow<T extends readonly string[]>(list: T, value?: string | null): T[
   return value && (list as readonly string[]).includes(value) ? (value as T[number]) : undefined;
 }
 
-async function resolverContaFinanceira(
+export async function resolverContaFinanceira(
   args: { contaFinanceiraId?: number; contaFinanceira?: string },
   contaId: number,
 ) {
@@ -166,6 +166,7 @@ export const systemFunctionsGestaoIA = {
   createLancamentoFinanceiro: async (
     args: {
       descricao: string;
+      data?: string;
       valor: number;
       tipo: string;
       categoria?: string;
@@ -222,7 +223,7 @@ export const systemFunctionsGestaoIA = {
       lancamentoEfetivado: Boolean(args.pago),
       categoriaId: categoria.id,
       contasFinanceiroId: contaFinanceiraResolvida.conta.id,
-      dataLancamento: new Date(),
+      dataLancamento: args.data ? new Date(`${args.data}T12:00:00-03:00`) : new Date(),
       parcelas: 1,
       tipoLancamentoModo: "AVISTA",
     } as any));
@@ -292,6 +293,7 @@ export const toolsGestao: FunctionDeclaration[] = [
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
+        data: { type: SchemaType.STRING, description: "Data do lançamento AAAA-MM-DD, opcional (hoje)" },
         descricao: { type: SchemaType.STRING, description: "Descrição do lançamento" },
         valor: { type: SchemaType.NUMBER, description: "Valor do lançamento (maior que zero)" },
         tipo: { type: SchemaType.STRING, description: "RECEITA (entrada) ou DESPESA (saída)" },

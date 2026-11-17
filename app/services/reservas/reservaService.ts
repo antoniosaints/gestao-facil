@@ -1510,7 +1510,7 @@ export async function getReservationsDashboard(contaId: number, startAt: Date, e
       aguardandoPagamento += 1;
       valorPendente += Math.max(0, Number(booking.valorPagamento || 0) - paid);
     }
-    if (![ReservaStatus.CANCELADA, ReservaStatus.EXPIRADA].includes(booking.status)) {
+    if (booking.status !== ReservaStatus.CANCELADA && booking.status !== ReservaStatus.EXPIRADA) {
       validBookings += 1;
     }
   }

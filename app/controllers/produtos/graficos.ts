@@ -11,9 +11,9 @@ dayjs.locale("pt-br");
 // As quantidades de estoque podem ter miligramas. Nunca some Decimal com `+`:
 // isso concatena texto ou expõe imprecisão binária (ex.: 1.900000000000001).
 const quantityNumber = (value: unknown) =>
-  new Decimal(value?.toString?.() ?? value ?? 0).toDecimalPlaces(3).toNumber();
+  new Decimal(String(value ?? 0)).toDecimalPlaces(3).toNumber();
 const addQuantity = (current: unknown, value: unknown) =>
-  quantityNumber(new Decimal(current?.toString?.() ?? current ?? 0).plus(value?.toString?.() ?? value ?? 0));
+  quantityNumber(new Decimal(String(current ?? 0)).plus(String(value ?? 0)));
 const moneyNumber = (value: Decimal.Value) =>
   new Decimal(value).toDecimalPlaces(2).toNumber();
 
@@ -44,7 +44,7 @@ function getLabelsPeriodo(start: Date, end: Date) {
 function getNomeProduto(produto?: {
   nome?: string | null;
   nomeVariante?: string | null;
-}) {
+} | null) {
   if (!produto?.nome) return "Desconhecido";
   if (!produto.nomeVariante || produto.nomeVariante === "Padrão") return produto.nome;
   return `${produto.nome} / ${produto.nomeVariante}`;
@@ -341,7 +341,7 @@ export async function getGiroEstoque(req: Request, res: Response) {
     .map((produto) => {
       const venda = vendas.find((item) => item.produtoId === produto.id);
       const qtdVendida = venda?._sum.quantidade || 0;
-      const giro = produto.estoque > 0 ? qtdVendida / produto.estoque : qtdVendida;
+      const giro = Number(produto.estoque) > 0 ? qtdVendida / Number(produto.estoque) : qtdVendida;
 
       return {
         nome: getNomeProduto(produto),
@@ -521,12 +521,12 @@ export async function getSaudeEstoqueProdutos(req: Request, res: Response) {
       continue;
     }
 
-    if (produto.estoque <= 0) {
+    if (Number(produto.estoque) <= 0) {
       resumo.semEstoque++;
       continue;
     }
 
-    if (produto.estoque <= produto.minimo) {
+    if (Number(produto.estoque) <= Number(produto.minimo)) {
       resumo.baixo++;
       continue;
     }
@@ -663,12 +663,12 @@ export async function getResumoGeralProdutos(
     const produtosEstoqueBaixo = produtos.filter(
       (produto) =>
         Boolean(produto.controlaEstoque) &&
-        produto.estoque > 0 &&
-        produto.estoque <= produto.minimo
+        Number(produto.estoque) > 0 &&
+        Number(produto.estoque) <= Number(produto.minimo)
     ).length;
 
     const produtosSemEstoque = produtos.filter(
-      (produto) => Boolean(produto.controlaEstoque) && produto.estoque <= 0
+      (produto) => Boolean(produto.controlaEstoque) && Number(produto.estoque) <= 0
     ).length;
 
     const produtosNoPdv = produtos.filter(
@@ -866,8 +866,8 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
 
     // KPIs de catálogo/estoque (snapshot atual)
     const controlados = produtos.filter((p) => p.controlaEstoque === true);
-    const estoqueBaixo = controlados.filter((p) => p.estoque > 0 && p.estoque <= p.minimo).length;
-    const semEstoque = controlados.filter((p) => p.estoque <= 0).length;
+    const estoqueBaixo = controlados.filter((p) => Number(p.estoque) > 0 && Number(p.estoque) <= Number(p.minimo)).length;
+    const semEstoque = controlados.filter((p) => Number(p.estoque) <= 0).length;
     const materiasPrimas = produtos.filter((p) => p.materiaPrima === true).length;
     const produtosNoPdv = produtos.filter(
       (p) => (p.mostrarNoPdv === true || p.mostrarNoPdv === null) && !p.materiaPrima
@@ -878,14 +878,14 @@ export async function getPainelProdutos(req: Request, res: Response): Promise<an
     const saude = { saudavel: 0, baixo: 0, semEstoque: 0, semControle: 0 };
     for (const p of produtos) {
       if (!p.controlaEstoque) saude.semControle++;
-      else if (p.estoque <= 0) saude.semEstoque++;
-      else if (p.estoque <= p.minimo) saude.baixo++;
+      else if (Number(p.estoque) <= 0) saude.semEstoque++;
+      else if (Number(p.estoque) <= Number(p.minimo)) saude.baixo++;
       else saude.saudavel++;
     }
 
     // Estoque crítico (acionável)
     const estoqueCritico = controlados
-      .filter((p) => p.estoque <= p.minimo)
+      .filter((p) => Number(p.estoque) <= Number(p.minimo))
       .map((p) => ({
         nome: getNomeProduto(p),
         estoque: quantityNumber(p.estoque),

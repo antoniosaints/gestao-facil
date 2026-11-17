@@ -1,3 +1,4 @@
+import { systemFunctionsVendasIA, toolsVendas } from "./tools/vendas";
 import { SchemaType, Tool } from "@google/generative-ai";
 import { prisma } from "../../utils/prisma";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
@@ -13,6 +14,7 @@ const brlIa = (valor: number) =>
 
 // Funções reais do seu sistema
 export const systemFunctionsIA = {
+  ...systemFunctionsVendasIA,
   ...systemFunctionsProdutosIA,
   ...systemFunctionsGestaoIA,
   ...systemFunctionsAnaliseIA,
@@ -263,7 +265,7 @@ export const systemFunctionsIA = {
       response,
     };
   },
-  createClienteNovo: async (args: { nome: string, endereco?: string }, request: CustomData) => {
+  createClienteNovo: async (args: { nome: string, endereco?: string, telefone?: string, email?: string, documento?: string }, request: CustomData) => {
     const auth = await hasPermission(request, 2);
     if (!auth) return { response: { error: "Acesso negado, informe o usuario que ele não tem permissão!" } };
     const response = await prisma.clientesFornecedores.create({
@@ -271,7 +273,10 @@ export const systemFunctionsIA = {
         contaId: request.contaId,
         nome: args.nome,
         Uid: gerarIdUnicoComMetaFinal("CLI"),
-        endereco: args.endereco
+        endereco: args.endereco,
+        telefone: args.telefone,
+        email: args.email,
+        documento: args.documento
       },
     });
     return {
@@ -394,6 +399,9 @@ export const toolsIA: Tool[] = [
               type: SchemaType.STRING,
               description: "Nome do cliente",
             },
+            email: { type: SchemaType.STRING, description: "Email opcional" },
+            telefone: { type: SchemaType.STRING, description: "Telefone opcional" },
+            documento: { type: SchemaType.STRING, description: "CPF/CNPJ opcional" },
             endereco: {
               type: SchemaType.STRING,
               description: "Endereço do cliente",
@@ -402,6 +410,7 @@ export const toolsIA: Tool[] = [
           required: ["nome"],
         },
       },
+      ...toolsVendas,
       ...toolsProducts,
       ...toolsGestao,
       ...toolsAnalise,

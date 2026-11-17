@@ -103,7 +103,7 @@ export const ListagemMobileVendas = async (
     }
 
     if (advancedFilters.length) {
-      where.AND = [...(where.AND || []), ...advancedFilters];
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), ...advancedFilters];
     }
 
     const take = Number(limit);

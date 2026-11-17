@@ -1,3 +1,4 @@
+import { Prisma } from "../../../generated";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import Decimal from "decimal.js";
@@ -391,7 +392,7 @@ export async function calculatePublicCheckout(
   });
   const catalog = catalogCandidates.filter((item) => !item.Produto || (
     item.Produto.status === "ATIVO"
-    && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
+    && (!item.Produto.controlaEstoque || Number(item.Produto.estoque) > 0)
   ));
   if (catalog.length !== new Set(ids).size) {
     throw new CheckoutError("item_unavailable", "Um ou mais itens estao indisponiveis.");
@@ -1113,6 +1114,7 @@ export async function saveOnlineOrderingStatus(req: Request, res: Response) {
         select: { id: true, nome: true, nomeFantasia: true },
       }).then(buildInitialRestaurantConfig)),
       contaId,
+      localizacaoJson: Prisma.DbNull,
       aceitarPedidosOnline: parsed.data.aceitarPedidosOnline,
     },
     select: { aceitarPedidosOnline: true },
@@ -1175,7 +1177,7 @@ export async function publicMenu(req: Request, res: Response) {
   });
   const items = itemCandidates.filter((item) => !item.Produto || (
     item.Produto.status === "ATIVO"
-    && (!item.Produto.controlaEstoque || item.Produto.estoque > 0)
+    && (!item.Produto.controlaEstoque || Number(item.Produto.estoque) > 0)
   ));
   const caixaAberto = await findOpenRestaurantCash(config.contaId);
   const atendimento = caixaAberto
@@ -1291,6 +1293,7 @@ export async function createPublicOrder(req: Request, res: Response) {
   // A recompensa e aplicada automaticamente na primeira unidade do produto-premio
   // presente no carrinho. O decremento abaixo acontece na mesma transacao do pedido.
   const fidelity = await currentFidelityForPhone(prisma, config.contaId, parsed.data.cliente.telefone);
+  const normalizedPhone = fidelity.normalizedPhone;
   const selectedPrograms = fidelity.programs.filter((entry: any) => parsed.data.fidelidadeProgramaIds.includes(entry.program.id));
   const fidelityRewards = availableFidelityRewards({ ...fidelity, programs: selectedPrograms }, quote.snapshots);
   const fidelityDiscount = fidelityRewards.reduce(
@@ -1333,9 +1336,9 @@ export async function createPublicOrder(req: Request, res: Response) {
       await tx.restauranteIdempotencia.deleteMany({
         where: { contaId: config.contaId, chaveHash: keyHash, pedidoId: payload.pedido.id },
       });
-      if (removed.count && fidelityRewards.length && fidelity.normalizedPhone) {
+      if (removed.count && fidelityRewards.length && normalizedPhone) {
         await Promise.all(fidelityRewards.map((reward) => tx.restauranteFidelidadeProgresso.updateMany({
-          where: { contaId: config.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone },
+          where: { contaId: config.contaId, programaId: reward.program.id, telefoneNormalizado: normalizedPhone },
           data: { recompensasDisponiveis: { increment: 1 } },
         })));
       }
@@ -1343,10 +1346,11 @@ export async function createPublicOrder(req: Request, res: Response) {
   };
   const finalizePayment = async (payload: any) => {
     if (isPaymentOnDelivery(parsed.data.pagamento) || payload.paymentAction) return payload;
+    if (parsed.data.pagamento !== "PIX") throw new CheckoutError("unsupported_payment_method", "Pagamento online indisponível para este método.", 422);
     try {
       const paymentAction = await createRestaurantOnlinePayment({
         order: payload.pedido,
-        method: parsed.data.pagamento,
+        method: "PIX",
         slug: config.slug,
         trackingToken: payload.trackingToken,
         idempotencyKey: key,
@@ -1421,10 +1425,10 @@ export async function createPublicOrder(req: Request, res: Response) {
         },
         include: { itens: true },
       });
-      if (fidelityRewards.length && fidelity.normalizedPhone) {
+      if (fidelityRewards.length && normalizedPhone) {
         for (const reward of fidelityRewards) {
           const claimed = await tx.restauranteFidelidadeProgresso.updateMany({
-            where: { contaId: config.contaId, programaId: reward.program.id, telefoneNormalizado: fidelity.normalizedPhone, recompensasDisponiveis: { gt: 0 } },
+            where: { contaId: config.contaId, programaId: reward.program.id, telefoneNormalizado: normalizedPhone, recompensasDisponiveis: { gt: 0 } },
             data: { recompensasDisponiveis: { decrement: 1 } },
           });
           if (!claimed.count) throw new CheckoutError("fidelity_reward_unavailable", "A recompensa foi usada em outro pedido. Atualize o carrinho.", 409);
@@ -1795,7 +1799,7 @@ export async function createTableOrder(req: Request, res: Response) {
   try {
     quote = await calculatePublicCheckout(
       { ...config, retiradaAtiva: true, pedidoMinimo: new Decimal(0) },
-      { origem: "RETIRADA", itens: parsed.data.itens },
+      { origem: "RETIRADA", fidelidadeProgramaIds: [], itens: parsed.data.itens },
       false,
       false,
     );
@@ -1916,7 +1920,7 @@ export async function createManualOrder(req: Request, res: Response) {
   try {
     quote = await calculatePublicCheckout(
       { ...config, retiradaAtiva: true, pedidoMinimo: new Decimal(0) },
-      { origem: "RETIRADA", itens: parsed.data.itens },
+      { origem: "RETIRADA", fidelidadeProgramaIds: [], itens: parsed.data.itens },
       false,
       false,
     );

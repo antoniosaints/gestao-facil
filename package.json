@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test:modofacil": "tsx --test app/modofacil/tests/*.test.ts app/services/produtos/*.test.ts app/services/vendas/*.test.ts app/services/financeiro/*Policy.test.ts app/controllers/financeiro/queryFilters.test.ts",
-    "build": "prisma generate && tsup --config tsup.config.ts",
+    "build": "prisma generate && npm run type-check && tsup --config tsup.config.ts",
+    "type-check": "tsc --project tsconfig.typecheck.json",
     "test:email-worker": "tsx --test app/services/email/resendEmailJob.test.ts app/services/email/welcomeEmailTemplate.test.ts",
     "test:whatsapp-webhook": "tsx --test app/services/whatsapp/atendimentoAccess.test.ts app/services/whatsapp/whatsappWebhookPolicy.test.ts app/services/whatsapp/wApiClient.test.ts",
     "test:fiscal": "tsx --test app/services/notasFiscais/*.test.ts",
@@ -24,7 +25,11 @@
     "fiscal": "node dist/workers/fiscalEmissionWorker.js",
     "cron": "node dist/workers/cronJobsWorker.js",
     "initialize": "npx prisma migrate dev",
-    "seed": "npx prisma db seed"
+    "seed": "npx prisma db seed",
+    "test:core-ia": "node --import tsx --test app/services/ia/coreIa*.test.ts",
+    "test:core-ia:live": "node --import tsx scripts/validateCoreIaIntegration.ts",
+    "qa:core-ia:ui": "node --import tsx scripts/serveCoreIaUiQa.ts",
+    "test:financeiro:contrapartida:live": "node --import tsx scripts/validateContrapartida.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

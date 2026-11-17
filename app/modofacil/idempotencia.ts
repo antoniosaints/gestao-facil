@@ -8,6 +8,7 @@ export async function executarUmaVez(
   chave: string,
   payload: unknown,
   work: (tx: Prisma.TransactionClient) => Promise<unknown>,
+  options?: { maxWait?: number; timeout?: number },
 ) {
   const hash = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
   const where = { contaId_chave: { contaId, chave } };
@@ -27,7 +28,7 @@ export async function executarUmaVez(
       const data = JSON.parse(JSON.stringify(await work(tx))) as Prisma.InputJsonValue;
       await tx.modoFacilOperacao.update({ where, data: { resultado: data } });
       return { data, replay: false };
-    });
+    }, options);
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") {
       const previous = await replay();

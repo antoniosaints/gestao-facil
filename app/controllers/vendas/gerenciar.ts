@@ -1,3 +1,4 @@
+import { criarVendaInternal } from "../../services/vendas/vendaCriacaoService";
 import { atualizarVendaTx } from "../../services/vendas/vendaEdicaoService";
 import { Request, Response } from "express";
 import { handleError } from "../../utils/handleError";
@@ -6,10 +7,8 @@ import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { efetivarVendaSchema, vendaSchema } from "../../schemas/vendas";
 import Decimal from "decimal.js";
 import { prisma } from "../../utils/prisma";
-import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
-import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
 import { checkLowStockAndNotify } from "../../services/notifications/lowStockNotificationService";
-import { addHours, eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from "date-fns";
+import { eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from "date-fns";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { hasPermission } from "../../helpers/userPermission";
 import { formatCurrency } from "../../utils/formatters";
@@ -23,7 +22,6 @@ import {
 } from "../../services/vendas/caixaService";
 import { assertAvailableAndDecrement } from "../../services/loja/lojaInventoryService";
 import { requireContaFinanceiraPadrao } from "../../services/financeiro/contaFinanceiraPadraoService";
-import { criarLancamentoCrediarioVenda } from "../../services/vendas/crediarioVendaService";
 import {
   criarLancamentoVendaFaturada,
   deveLancarFinanceiroVenda,
@@ -34,8 +32,6 @@ import {
   restoreComboVendaStock,
 } from "../../services/combos/comboService";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
-import { createFiscalIntentForSale, validateFiscalSalePreflight } from "../../services/notasFiscais/fiscalSaleService";
-import { enqueueFiscalEmission } from "../../queues/fiscalEmissionQueue";
 
 function buildProdutoItemName(produto: {
   nome: string;
@@ -687,175 +683,7 @@ export const saveVenda = async (req: Request, res: Response): Promise<any> => {
       return ResponseHandler(res, "Venda atualizada com sucesso", updated, 200);
     }
 
-    if (data.tipoDocumentoFiscal !== "NENHUM") {
-      await validateFiscalSalePreflight(customData.contaId, data.itens);
-    }
-
-    const comboItems = data.itens.filter((item) => item.tipo === "COMBO");
-    const comboPrices = comboItems.length
-      ? new Map((await prisma.combo.findMany({
-          where: { contaId: customData.contaId, ativo: true, id: { in: comboItems.map((item) => item.id) } },
-          select: { id: true, preco: true },
-        })).map((item) => [item.id, item.preco]))
-      : new Map<number, Decimal>();
-    if (comboPrices.size !== new Set(comboItems.map((item) => item.id)).size) {
-      return ResponseHandler(res, "Um ou mais combos não estão disponíveis.", { error: { code: "combo_not_found" } }, 404);
-    }
-    const valorTotal = data.itens.reduce((total, item) => total.add(
-      new Decimal(item.quantidade).mul(item.tipo === "COMBO" ? comboPrices.get(item.id) || 0 : item.preco)
-    ), new Decimal(0));
-
-    const descontoTotal = data.desconto
-      ? new Decimal(data.desconto)
-      : new Decimal(0);
-
-    let notaFiscalId: number | null = null;
-    const resultado = await prisma.$transaction(async (tx) => {
-      const venda = await tx.vendas.create({
-        data: {
-          Uid: gerarIdUnicoComMetaFinal("VEN"),
-          valor: valorTotal.minus(descontoTotal),
-          clienteId: data.clienteId,
-          observacoes: data.observacoes,
-          vendedorId: data.vendedorId || customData.userId,
-          contaId: customData.contaId,
-          comandaId: data.comandaId,
-          data: addHours(data.data, 3),
-          status: data.status,
-          garantia: data.garantia,
-          desconto: descontoTotal,
-          PagamentoVendas: {
-            create: {
-              valor: 0,
-              metodo: data.pagamento || "OUTRO",
-              status: "PENDENTE",
-            },
-          },
-        },
-      });
-
-      for (const item of data.itens) {
-        if (item.tipo === "COMBO") continue;
-        let itemName = item.nome || "Item";
-        if (item.tipo === "PRODUTO") {
-          const produto = await tx.produto.findUniqueOrThrow({
-            where: { id: item.id, contaId: customData.contaId },
-          });
-          if (!produto) {
-            throw new Error(`Produto ${item.id} não encontrado`);
-          }
-          if (produto.saidas === false) {
-            throw new Error(
-              `Produto ${produto.nome} não permite saídas, altere isso antes de continuar`
-            );
-          }
-          if (produto.estoque < item.quantidade) {
-            throw new Error(
-              `Produto ${produto.nome} não possui estoque suficiente (disponível: ${produto.estoque})`
-            );
-          }
-        }
-        if (item.tipo === "SERVICO") {
-          const servico = await tx.servicos.findUniqueOrThrow({
-            where: { id: item.id, contaId: customData.contaId },
-          });
-          if (!servico) {
-            throw new Error(`Serviço ${item.id} não encontrado`);
-          }
-        }
-
-        await tx.itensVendas.create({
-          data: {
-            vendaId: venda.id,
-            itemName,
-            produtoId: item.tipo === "PRODUTO" ? item.id : null,
-            servicoId: item.tipo === "SERVICO" ? item.id : null,
-            quantidade: item.quantidade,
-            valor: new Decimal(item.preco),
-          },
-        });
-
-        if (item.tipo === "PRODUTO") {
-          await assertAvailableAndDecrement(tx, customData.contaId, item.id, item.quantidade);
-          await tx.movimentacoesEstoque.create({
-            data: {
-              Uid: gerarIdUnicoComMetaFinal("MOV"),
-              vendaId: venda.id,
-              produtoId: item.id,
-              quantidade: item.quantidade,
-              status: "CONCLUIDO",
-              tipo: "SAIDA",
-              clienteFornecedor: data.clienteId,
-              contaId: customData.contaId,
-              custo: new Decimal(item.preco),
-            },
-          });
-        }
-
-      }
-
-      await createComboVendaSaidas(tx, {
-        contaId: customData.contaId,
-        vendaId: venda.id,
-        canal: "VENDA",
-        clienteId: data.clienteId,
-        lines: comboItems.map((item) => ({ id: item.id, quantidade: item.quantidade })),
-      });
-
-      if (data.tipoDocumentoFiscal !== "NENHUM") {
-        const nota = await createFiscalIntentForSale(tx, { contaId: customData.contaId, vendaId: venda.id, tipo: data.tipoDocumentoFiscal });
-        notaFiscalId = nota.id;
-      }
-
-      // Crediario: gera o financeiro parcelado a receber da venda (mesma logica do PDV PRO).
-      if (data.pagamento === "CREDIARIO") {
-        await criarLancamentoCrediarioVenda(tx, {
-          contaId: customData.contaId,
-          vendaId: venda.id,
-          vendaUid: venda.Uid,
-          clienteId: data.clienteId || null,
-          dataVenda: data.data,
-          valorBruto: valorTotal,
-          valorTotal: valorTotal.minus(descontoTotal),
-          desconto: descontoTotal,
-          parcelas: data.crediarioParcelas || 1,
-          primeiroVencimento: new Date(data.crediarioPrimeiroVencimento as string),
-        });
-      }
-
-      return venda;
-    });
-
-    if (notaFiscalId) await enqueueFiscalEmission(notaFiscalId);
-
-    await enqueuePushNotificationByPreference(
-      "VENDA_CONCLUIDA",
-      {
-        title: "Opa! 🏷️Nova venda.",
-        body: `Uma nova venda no valor de ${formatCurrency(
-          valorTotal.minus(descontoTotal)
-        )} foi realizada!`,
-      },
-      customData.contaId
-    );
-
-    await enqueueWhatsAppNotificationByPreference(
-      "NOVA_VENDA",
-      {
-        title: "🏷️Nova venda.",
-        body: `Venda _*${resultado.Uid}*_ no valor de *${formatCurrency(
-          valorTotal.minus(descontoTotal)
-        )}*.`,
-      },
-      customData.contaId
-    );
-
-    await checkLowStockAndNotify(
-      customData.contaId,
-      data.itens
-        .filter((item) => item.tipo === "PRODUTO")
-        .map((item) => item.id)
-    );
+    const resultado = await criarVendaInternal(data, customData);
 
     return ResponseHandler(res, "Venda criada com sucesso", resultado);
   } catch (error: any) {

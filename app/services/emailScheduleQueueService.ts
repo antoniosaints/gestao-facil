@@ -1,3 +1,4 @@
+import { createTextEmailJob } from "./email/resendEmailJob";
 import { emailScheduleQueue } from "../queues/emailScheduleQueue";
 
 export type EmailScheduleQueue = {
@@ -8,7 +9,7 @@ export type EmailScheduleQueue = {
 };
 
 export async function emailScheduleService(payload: EmailScheduleQueue) {
-  await emailScheduleQueue.add("send", payload, {
+  await emailScheduleQueue.add("send", createTextEmailJob(payload), {
     jobId: `email-${Date.now()}`, // opcional, evita duplicações
     attempts: 3,
     backoff: {

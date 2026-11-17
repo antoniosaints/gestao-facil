@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { calculateAvailableStock } from "./lojaInventoryService";
@@ -7,6 +8,8 @@ describe("políticas da loja virtual", () => {
   it("desconta reservas do estoque disponível sem alterar o físico", () => {
     assert.equal(calculateAvailableStock(8, 3), 5);
     assert.equal(calculateAvailableStock(2, 4), 0);
+    assert.equal(calculateAvailableStock(new Decimal("0.300"), 0.1), 0.2);
+    assert.equal(calculateAvailableStock(new Decimal("0.100"), 0.2), 0);
   });
 
   it("usa 30 minutos para gateway e 24 horas para WhatsApp", () => {

@@ -210,7 +210,6 @@ export async function orderReceiptPdf(req: Request, res: Response) {
       const logo = await resolveRenderableImageSource(account.profile);
       doc.image(logo, left, doc.y, {
         fit: format === "A4" ? [70, 55] : [45, 38],
-        align: "left",
       });
     }
   } catch {

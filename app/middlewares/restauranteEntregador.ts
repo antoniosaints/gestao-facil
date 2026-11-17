@@ -25,7 +25,7 @@ export function requireRestauranteEntregador(): RequestHandler {
     ]);
 
     if (!moduleActive || !role || !driver) {
-      return res.status(403).json({
+      return void res.status(403).json({
         error: {
           code: !moduleActive ? "restaurante_module_inactive" : "driver_forbidden",
           message: !moduleActive ? "O app Restaurante e Delivery precisa estar ativo." : "Este usuario nao esta habilitado como entregador.",

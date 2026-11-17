@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 
 function toNumber(d: Prisma.Decimal | null | undefined) {

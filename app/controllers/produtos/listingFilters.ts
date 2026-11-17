@@ -13,8 +13,8 @@ export type ProdutoListingFilters = {
 
 type VariantLike = {
   controlaEstoque?: boolean | null;
-  estoque?: number | null;
-  minimo?: number | null;
+  estoque?: number | Prisma.Decimal | null;
+  minimo?: number | Prisma.Decimal | null;
 };
 
 type BaseLike = {

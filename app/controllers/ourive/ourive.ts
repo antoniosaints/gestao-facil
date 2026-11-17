@@ -19,7 +19,7 @@ import {
   clientPaymentSchema,
   validateClientPayment,
 } from "../../services/ourive/clientPaymentSchema";
-import type { MetodoPagamento } from "../../../generated/client";
+import type { MetodoPagamento, OuriveOrdem } from "../../../generated/client";
 import { saveClientPayment } from "../../services/ourive/clientPaymentService";
 import { prisma } from "../../utils/prisma";
 
@@ -1210,7 +1210,7 @@ export async function listPurchaseNeeds(req: Request, res: Response) {
   const orders = await db.ouriveOrdem.findMany({
     where: {
       contaId: custom.contaId,
-      id: { in: [...new Set(needs.map((need: any) => need.ordemOuriveId))] },
+      id: { in: [...new Set<number>(needs.map((need: any) => need.ordemOuriveId))] },
     },
     select: {
       id: true,
@@ -1223,7 +1223,7 @@ export async function listPurchaseNeeds(req: Request, res: Response) {
     prisma.produto.findMany({
       where: {
         contaId: custom.contaId,
-        id: { in: [...new Set(needs.map((need: any) => need.produtoId))] },
+        id: { in: [...new Set<number>(needs.map((need: any) => need.produtoId))] },
       },
       select: { id: true, nome: true },
     }),
@@ -1497,7 +1497,7 @@ export async function getOrderFinancial(req: Request, res: Response) {
       select: { id: true, nome: true },
     });
     const repasseResponsavelIds = [
-      ...new Set(repasses.map((item: any) => Number(item.usuarioId))),
+      ...new Set<number>(repasses.map((item: any) => Number(item.usuarioId))),
     ];
     return ok(req, res, {
       status: order.financeiroStatus,
@@ -2845,7 +2845,7 @@ export async function startProduction(req: Request, res: Response) {
       new Set<number>(
         pendingMaterials
           .map((item: any) => Number(item.produtoId))
-          .filter((produtoId) => Number.isInteger(produtoId) && produtoId > 0),
+          .filter((produtoId: number) => Number.isInteger(produtoId) && produtoId > 0),
       ),
     );
     const stockRows = await prisma.produto.findMany({
@@ -4312,7 +4312,7 @@ export async function listOuriveTransfers(req: Request, res: Response) {
     prisma.usuarios.findMany({
       where: {
         contaId: custom.contaId,
-        id: { in: [...new Set(repasses.map((item: any) => item.usuarioId))] },
+        id: { in: [...new Set<number>(repasses.map((item: any) => item.usuarioId))] },
       },
       select: { id: true, nome: true },
     }),
@@ -4320,7 +4320,7 @@ export async function listOuriveTransfers(req: Request, res: Response) {
       where: {
         contaId: custom.contaId,
         id: {
-          in: [...new Set(repasses.map((item: any) => item.ordemOuriveId))],
+          in: [...new Set<number>(repasses.map((item: any) => item.ordemOuriveId))],
         },
       },
       select: { id: true, codigoRastreio: true, ordemServicoId: true },
@@ -4368,7 +4368,7 @@ export async function listOurivePayments(req: Request, res: Response) {
     prisma.usuarios.findMany({
       where: {
         contaId: custom.contaId,
-        id: { in: [...new Set(payments.map((item: any) => item.usuarioId))] },
+        id: { in: [...new Set<number>(payments.map((item: any) => item.usuarioId))] },
       },
       select: { id: true, nome: true },
     }),
@@ -4418,7 +4418,7 @@ export async function createOurivePayment(req: Request, res: Response) {
       "transfer_unavailable",
       "Um dos repasses não está mais pendente.",
     );
-  const usuarioIds = [...new Set(repasses.map((item: any) => item.usuarioId))];
+  const usuarioIds = [...new Set<number>(repasses.map((item: any) => item.usuarioId))];
   if (usuarioIds.length !== 1)
     return fail(
       req,
@@ -4498,7 +4498,7 @@ export async function createOurivePayment(req: Request, res: Response) {
       })),
     });
     for (const orderId of [
-      ...new Set(repasses.map((item: any) => item.ordemOuriveId)),
+      ...new Set<number>(repasses.map((item: any) => item.ordemOuriveId)),
     ]) {
       const orderPayment = repasses
         .filter((item: any) => item.ordemOuriveId === orderId)
@@ -4545,7 +4545,7 @@ export async function listProLabore(req: Request, res: Response) {
   const users = await prisma.usuarios.findMany({
     where: {
       contaId: custom.contaId,
-      id: { in: [...new Set(rows.map((item: any) => item.beneficiarioId))] },
+      id: { in: [...new Set<number>(rows.map((item: any) => item.beneficiarioId))] },
     },
     select: { id: true, nome: true },
   });
@@ -4838,7 +4838,7 @@ export async function dashboard(req: Request, res: Response) {
   );
   const revenueCurrent = sum(budgetsCurrent);
   const revenuePrevious = sum(budgetsPrevious);
-  const orderByIdForFinance = new Map(
+  const orderByIdForFinance = new Map<number, OuriveOrdem>(
     orders.map((order: any) => [order.id, order]),
   );
   const netStore = (budget: any) => {
@@ -4991,7 +4991,7 @@ export async function listCommissions(req: Request, res: Response) {
   const users = await prisma.usuarios.findMany({
     where: {
       contaId: custom.contaId,
-      id: { in: [...new Set(rows.map((item: any) => item.usuarioId))] },
+      id: { in: [...new Set<number>(rows.map((item: any) => item.usuarioId))] },
     },
     select: { id: true, nome: true },
   });
@@ -5244,7 +5244,7 @@ export async function report(req: Request, res: Response) {
       (total: Decimal, item: any) => total.plus(item.valor),
       new Decimal(0),
     );
-  const paidPaymentIds = new Set(payments.map((item: any) => item.id));
+  const paidPaymentIds = new Set<number>(payments.map((item: any) => item.id));
   const paidTransfers = paymentItems
     .filter((item: any) => paidPaymentIds.has(item.pagamentoId))
     .reduce(
@@ -5259,7 +5259,7 @@ export async function report(req: Request, res: Response) {
     new Decimal(material.medidaPerdaReal || 0).greaterThan(0),
   );
   const lossOrderIds = [
-    ...new Set(lossMaterials.map((material: any) => material.ordemOuriveId)),
+    ...new Set<number>(lossMaterials.map((material: any) => material.ordemOuriveId)),
   ];
   const [lossProducts, lossStages, transferUsers] = await Promise.all([
     prisma.produto.findMany({
@@ -5267,7 +5267,7 @@ export async function report(req: Request, res: Response) {
         contaId: custom.contaId,
         id: {
           in: [
-            ...new Set(
+            ...new Set<number>(
               lossMaterials.map((material: any) => material.produtoId),
             ),
           ],
@@ -5283,7 +5283,7 @@ export async function report(req: Request, res: Response) {
       where: {
         contaId: custom.contaId,
         id: {
-          in: [...new Set(repasses.map((repasse: any) => repasse.usuarioId))],
+          in: [...new Set<number>(repasses.map((repasse: any) => repasse.usuarioId))],
         },
       },
       select: { id: true, nome: true },
@@ -5294,14 +5294,14 @@ export async function report(req: Request, res: Response) {
     select: { etapaId: true, usuarioId: true },
   });
   const lossUserIds = [
-    ...new Set(lossAssignments.map((item: any) => item.usuarioId)),
+    ...new Set<number>(lossAssignments.map((item: any) => item.usuarioId)),
   ];
   const lossUsers = await prisma.usuarios.findMany({
     where: { contaId: custom.contaId, id: { in: lossUserIds } },
     select: { id: true, nome: true },
   });
   const pendingByGoldsmith = [
-    ...new Set(repasses.map((repasse: any) => repasse.usuarioId)),
+    ...new Set<number>(repasses.map((repasse: any) => repasse.usuarioId)),
   ]
     .map((usuarioId) => ({
       usuarioId,

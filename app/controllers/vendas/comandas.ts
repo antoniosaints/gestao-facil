@@ -719,7 +719,7 @@ export async function addItemComanda(req: Request, res: Response): Promise<any> 
           );
         }
 
-        if (produto.estoque < data.quantidade) {
+        if (Number(produto.estoque) < data.quantidade) {
           throw new Error(
             `Produto ${produto.nome} não possui estoque suficiente.`
           );

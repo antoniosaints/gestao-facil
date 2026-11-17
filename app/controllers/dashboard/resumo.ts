@@ -123,8 +123,8 @@ export const resumoDashboard = async (
           ? produtos.filter((produto) => {
               return (
                 produto.controlaEstoque === true &&
-                produto.estoque > 0 &&
-                produto.estoque <= produto.minimo
+                Number(produto.estoque) > 0 &&
+                Number(produto.estoque) <= Number(produto.minimo)
               );
             })
           : [];

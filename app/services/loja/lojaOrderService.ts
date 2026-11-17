@@ -105,7 +105,7 @@ async function calculateOrder(contaId: number, config: Awaited<ReturnType<typeof
   for (const item of items) {
     if (!item.product.controlaEstoque) continue;
     const reserved = await getReservedQuantity(prisma, contaId, item.product.id);
-    const available = Math.max(0, item.product.estoque - reserved);
+    const available = Math.max(0, Number(item.product.estoque) - reserved);
     if (available < item.quantity) throw new CommerceError("stock_unavailable", `${item.product.nome} não possui estoque suficiente`, { produtoId: item.product.id, requested: item.quantity, available });
   }
   const publicCombos = comboQuantities.size ? await listPublicCombos(contaId) : [];

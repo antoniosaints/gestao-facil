@@ -768,7 +768,7 @@ export const reposicaoLoteProduto = async (
 
     const totalItens = resultado.length;
     const totalUnidades = resultado.reduce(
-      (acc, item) => acc + item.movimentacao.quantidade,
+      (acc, item) => acc + Number(item.movimentacao.quantidade),
       0
     );
 

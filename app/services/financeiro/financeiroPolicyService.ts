@@ -1,5 +1,8 @@
 import { endOfDay, isAfter, isBefore, startOfDay } from "date-fns";
 import { prisma } from "../../utils/prisma";
+import type { Prisma } from "../../../generated/client";
+
+type PolicyDb = Pick<Prisma.TransactionClient, "parametrosConta">;
 
 export type FinanceiroFeatureFlags = {
   permitirLancamentoRetroativo: boolean;
@@ -15,8 +18,8 @@ const DEFAULT_FLAGS: FinanceiroFeatureFlags = {
   permitirCriacaoCobranca: true,
 };
 
-export async function getFinanceiroFeatureFlags(contaId: number): Promise<FinanceiroFeatureFlags> {
-  const parametros = await prisma.parametrosConta.findUnique({
+export async function getFinanceiroFeatureFlags(contaId: number, db: PolicyDb = prisma): Promise<FinanceiroFeatureFlags> {
+  const parametros = await db.parametrosConta.findUnique({
     where: { contaId },
     select: {
       permitirLancamentoRetroativo: true,
@@ -38,8 +41,8 @@ export async function getFinanceiroFeatureFlags(contaId: number): Promise<Financ
   };
 }
 
-export async function assertLancamentoDateAllowed(contaId: number, dataReferencia: Date | string) {
-  const flags = await getFinanceiroFeatureFlags(contaId);
+export async function assertLancamentoDateAllowed(contaId: number, dataReferencia: Date | string, db: PolicyDb = prisma) {
+  const flags = await getFinanceiroFeatureFlags(contaId, db);
 
   if (flags.permitirLancamentoRetroativo) {
     return flags;
@@ -59,8 +62,8 @@ export async function assertLancamentoDateAllowed(contaId: number, dataReferenci
   return flags;
 }
 
-export async function assertFutureSettlementAllowed(contaId: number, datas: Array<Date | string | null | undefined>) {
-  const flags = await getFinanceiroFeatureFlags(contaId);
+export async function assertFutureSettlementAllowed(contaId: number, datas: Array<Date | string | null | undefined>, db: PolicyDb = prisma) {
+  const flags = await getFinanceiroFeatureFlags(contaId, db);
 
   if (flags.permitirEfetivacaoFutura) {
     return flags;

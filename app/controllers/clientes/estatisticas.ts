@@ -52,7 +52,7 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
                 // Se for custo unitário: custo * quantidade.
                 const custoVenda = venda.MovimentacoesEstoque
                     .filter(m => m.tipo === 'SAIDA')
-                    .reduce((acc, curr) => acc + (Number(curr.custo) * curr.quantidade), 0);
+                    .reduce((acc, curr) => acc + (Number(curr.custo) * Number(curr.quantidade)), 0);
                 
                 lucroEstimado += (valorVenda - custoVenda);
             }
@@ -76,7 +76,7 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
             });
 
             qtdCompras = movimentacoesEntrada.length;
-            totalCompras = movimentacoesEntrada.reduce((acc, curr) => acc + (Number(curr.custo) * curr.quantidade), 0);
+            totalCompras = movimentacoesEntrada.reduce((acc, curr) => acc + (Number(curr.custo) * Number(curr.quantidade)), 0);
         }
 
         // 3. Ordens de Serviço

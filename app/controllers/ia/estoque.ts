@@ -58,7 +58,7 @@ export const reposicaoSugestao = async (
     ]);
 
     const saidaMap = new Map<number, number>(
-      saidas.map((s) => [s.produtoId, s._sum.quantidade || 0])
+      saidas.map((s) => [s.produtoId, Number(s._sum.quantidade || 0)])
     );
 
     // Monta os candidatos: abaixo do mínimo OU com cobertura curta (< 20 dias).
@@ -66,8 +66,8 @@ export const reposicaoSugestao = async (
       .map((p) => {
         const vendido = saidaMap.get(p.id) || 0;
         const porDia = vendido / dias;
-        const coberturaDias = porDia > 0 ? Math.round(p.estoque / porDia) : null;
-        const abaixoMinimo = p.estoque <= p.minimo;
+        const coberturaDias = porDia > 0 ? Math.round(Number(p.estoque) / porDia) : null;
+        const abaixoMinimo = Number(p.estoque) <= Number(p.minimo);
         return {
           id: p.id,
           nome: [p.nome, p.nomeVariante].filter(Boolean).join(" "),

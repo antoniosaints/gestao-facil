@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import crypto from "crypto";
 import { ZodError } from "zod";
 import { Prisma, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
@@ -201,6 +202,10 @@ export function agentAttendsNow(
   return true;
 }
 
+export function filterAgentsAttendingNow<T extends Parameters<typeof agentAttendsNow>[0]>(agents: readonly T[], now = new Date()): T[] {
+  return agents.filter(agent => agentAttendsNow(agent, now));
+}
+
 function publicAgent(agent: any) {
   if (!agent) return agent;
   const instanciaIds = Array.isArray(agent.instancias) ? agent.instancias.map((i: any) => i.instanciaId) : [];
@@ -320,7 +325,7 @@ export const whatsAppAgentService = {
     if (!apiKey) throw new Error("Nenhuma chave de IA está configurada pela plataforma");
     const targets = await prisma.whatsAppAgente.findMany({ where: { contaId, id: { not: id }, ativo: true }, select: { id: true, nome: true, ativo: true, diasSemana: true, horaInicio: true, horaFim: true } });
     const restaurant = wantsRestaurantTools(message, history) ? await restaurantAssistantContext(contaId) : null;
-    const eligibleTargets = targets.filter(agentAttendsNow);
+    const eligibleTargets = filterAgentsAttendingNow(targets);
     let activeAgent = agent;
     let reply = await generateAgentReply({ apiKey, modelo: agent.modelo, systemPrompt: buildSystemPrompt(agent, eligibleTargets, restaurant?.prompt, true), history, userText: message });
     await iaUsageService.recordUsage({ contaId, feature: "atendimento_agente_teste", modelId: agent.modelo, ...reply.usage });
@@ -415,7 +420,7 @@ export const whatsAppAgentService = {
         where: { contaId, id: { not: agent.id }, ativo: true },
         select: { id: true, nome: true, ativo: true, diasSemana: true, horaInicio: true, horaFim: true },
       });
-      const eligibleTargets = transferTargets.filter(agentAttendsNow);
+      const eligibleTargets = filterAgentsAttendingNow(transferTargets);
       const restaurant = wantsRestaurantTools(incoming.conteudo || "", history)
         ? await restaurantAssistantContext(contaId)
         : null;

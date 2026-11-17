@@ -49,8 +49,8 @@ export async function montarKpisNegocio(contaId: number, inicio: Date, fim: Date
   const receitas = num(finGrupos.find((g) => g.tipo === "RECEITA")?._sum.valorTotal);
   const despesas = num(finGrupos.find((g) => g.tipo === "DESPESA")?._sum.valorTotal);
 
-  const baixos = produtos.filter((p) => p.estoque > 0 && p.estoque <= p.minimo);
-  const zerados = produtos.filter((p) => p.estoque <= 0);
+  const baixos = produtos.filter((p) => Number(p.estoque) > 0 && Number(p.estoque) <= Number(p.minimo));
+  const zerados = produtos.filter((p) => Number(p.estoque) <= 0);
   const nomeProduto = (p: any) => [p.nome, p.nomeVariante].filter(Boolean).join(" ");
 
   return {

@@ -325,6 +325,7 @@ export async function cancelFiscalDocument(req: Request, res: Response) {
       ]);
       return res.status(200).json({ data: { eventoId: event.id, status: "CONCLUIDO" }, requestId: randomUUID() });
     }
+    if (!invoice.provedorId) throw new Error("O documento não tem identificador no provedor para cancelamento.");
     const response = await requestPlugNotasCancellation(invoice.tipo as "NFE" | "NFCE" | "NFSE", invoice.provedorId, body.data.motivo);
     await prisma.notaFiscalEvento.update({ where: { id: event.id }, data: { respostaJson: response as any, protocolo: String(response?.data?.protocol || response?.protocolo || "") || null } });
     return res.status(202).json({ data: { eventoId: event.id, status: "PROCESSANDO" }, requestId: randomUUID() });

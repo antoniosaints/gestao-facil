@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import type { PrismaClient } from "../../../generated/client";
+import type { Prisma, PrismaClient } from "../../../generated/client";
 import type { prisma as prismaSingleton } from "../../utils/prisma";
 import {
   calculateMetaProgress,
@@ -90,9 +90,9 @@ async function calcularValorMeta(db: DbClient, meta: MetaLike, inicio: Date, fim
 }
 
 async function calcularMetaVendas(db: DbClient, meta: MetaLike, inicio: Date, fim: Date) {
-  const where = {
+  const where: Prisma.VendasWhereInput = {
     contaId: meta.contaId,
-    status: { in: ["FATURADO", "FINALIZADO"] as const },
+    status: { in: ["FATURADO", "FINALIZADO"] },
     data: { gte: inicio, lte: fim },
   };
 
@@ -109,7 +109,7 @@ async function calcularMetaVendas(db: DbClient, meta: MetaLike, inicio: Date, fi
 }
 
 async function calcularMetaServicos(db: DbClient, meta: MetaLike, inicio: Date, fim: Date) {
-  const where = {
+  const where: Prisma.OrdensServicoWhereInput = {
     contaId: meta.contaId,
     status: "FATURADA" as const,
     data: { gte: inicio, lte: fim },

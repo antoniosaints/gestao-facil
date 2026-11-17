@@ -752,7 +752,7 @@ export async function fecharCaixaGerencial(req: Request, res: Response) {
 
     const isAdmin = await hasPermission(customData, 4);
     if (!isAdmin) {
-      return ResponseHandler(res, "Apenas administradores podem fechar caixas pela tabela.", null, 403);
+      return void ResponseHandler(res, "Apenas administradores podem fechar caixas pela tabela.", null, 403);
     }
 
     const parsed = fecharCaixaSchema.safeParse(req.body);
@@ -791,7 +791,7 @@ export async function reenviarCaixaWhatsapp(req: Request, res: Response) {
 
     const isAdmin = await hasPermission(customData, 4);
     if (!isAdmin) {
-      return ResponseHandler(
+      return void ResponseHandler(
         res,
         "Apenas administradores podem reenviar o resumo do caixa.",
         null,
@@ -825,7 +825,7 @@ export async function reenviarCaixaWhatsapp(req: Request, res: Response) {
     });
 
     if (!caixa) {
-      return ResponseHandler(res, "Caixa fechado não encontrado.", null, 404);
+      return void ResponseHandler(res, "Caixa fechado não encontrado.", null, 404);
     }
 
     const resultado = await enqueueWhatsAppNotificationToInstance(
@@ -880,7 +880,7 @@ export async function buscarPdv(req: Request, res: Response) {
           contaId: customData.contaId,
         },
       });
-      return ResponseHandler(res, "PDV encontrado", pdv);
+      return void ResponseHandler(res, "PDV encontrado", pdv);
     }
 
     const pdvs = await prisma.pdvPonto.findMany({
@@ -940,7 +940,7 @@ export async function buscarCaixa(req: Request, res: Response) {
           },
         },
       });
-      return ResponseHandler(res, "Caixa encontrado", formatCaixa(caixa));
+      return void ResponseHandler(res, "Caixa encontrado", formatCaixa(caixa));
     }
 
     const caixas = await prisma.caixaSessao.findMany({
@@ -1477,7 +1477,7 @@ export async function deletarCaixa(req: Request, res: Response) {
     });
 
     if (!canDeleteCaixa({ isAdmin, linkedSalesCount: caixa._count.vendas })) {
-      return ResponseHandler(
+      return void ResponseHandler(
         res,
         isAdmin
           ? "Nao e possivel apagar caixa com venda vinculada."
@@ -1658,10 +1658,10 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
 
     const data = parsed.data;
     if (data.tipoDocumentoFiscal !== "NENHUM" && !(await contaHasActiveModule(customData.contaId, "notas-fiscais"))) {
-      return ResponseHandler(res, "O app Notas Fiscais precisa estar ativo para emitir pela venda.", { error: { code: "notas_fiscais_module_inactive" } }, 403);
+      return void ResponseHandler(res, "O app Notas Fiscais precisa estar ativo para emitir pela venda.", { error: { code: "notas_fiscais_module_inactive" } }, 403);
     }
     if (data.itens.some((item) => item.tipo === "COMBO") && !(await contaHasActiveModule(customData.contaId, "combos"))) {
-      return ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
+      return void ResponseHandler(res, "O app Combos precisa estar ativo.", { error: { code: "combos_module_inactive" } }, 403);
     }
     if (data.tipoDocumentoFiscal !== "NENHUM") {
       await validateFiscalSalePreflight(customData.contaId, data.itens);
@@ -1718,7 +1718,7 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
             );
           }
 
-          if (produto.estoque < item.quantidade) {
+          if (Number(produto.estoque) < item.quantidade) {
             throw new Error(
               `Produto ${produto.nome} nao possui estoque suficiente (disponivel: ${produto.estoque})`
             );

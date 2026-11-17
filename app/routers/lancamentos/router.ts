@@ -48,11 +48,13 @@ import {
   salvarRecorrenciaLancamento,
 } from "../../controllers/financeiro/recorrencias";
 import multer from "multer";
+import { criarReceitaDespesa } from "../../controllers/financeiro/contrapartida";
 
 const routerLancamentos = Router();
 const upload = multer({ dest: "uploads/" });
 
 routerLancamentos.post("/", authenticateJWT, criarLancamento);
+routerLancamentos.post("/receita-despesa", authenticateJWT, criarReceitaDespesa);
 routerLancamentos.get("/download/csv", authenticateJWT, getCsvBaseLancamentos);
 routerLancamentos.post("/importar/csv", authenticateJWT, upload.single("arquivo"), postImportarLancamentos);
 routerLancamentos.get("/getDataTable", authenticateJWT, tableFinanceiro);

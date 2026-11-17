@@ -69,6 +69,8 @@ export const systemFunctionsProdutosIA = {
           contains: args.produto,
         },
       },
+      take: 20,
+      select: { id: true, nome: true, preco: true, estoque: true },
     });
 
     return {
@@ -94,8 +96,8 @@ export const systemFunctionsProdutosIA = {
     if (!Number.isFinite(preco) || preco < 0) {
       return { response: { error: "Informe um preço válido (maior ou igual a zero)." } };
     }
-    const estoque = Math.max(0, Math.round(Number(args.estoque) || 0));
-    const minimo = Math.max(0, Math.round(Number(args.minimo) || 0));
+    const estoque = Number(args.estoque) || 0;
+    const minimo = Number(args.minimo) || 0;
 
     // Todo produto é uma variante de um ProdutoBase. Criamos os dois numa transação (mesmo
     // fluxo do cadastro normal), senão a variante fica órfã e quebra a listagem de produtos.
@@ -270,7 +272,7 @@ export const toolsProducts: FunctionDeclaration[] = [
           description: "Preco do produto",
         },
       },
-      required: ["nome", "estoque", "minimo", "preco"],
+      required: ["nome", "preco"],
     },
   },
 ];

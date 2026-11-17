@@ -1,3 +1,4 @@
+import { createTextEmailJob } from "../email/resendEmailJob";
 import { createHash, randomBytes } from "crypto";
 import jwt from "jsonwebtoken";
 import { prisma } from "../../utils/prisma";
@@ -54,7 +55,7 @@ async function issueCustomerToken(customer: { id: number; contaId: number; email
 }
 
 async function enqueueCustomerEmail(to: string, subject: string, link: string) {
-  await emailScheduleQueue.add("loja-cliente", { to, subject, text: `${subject}\n\n${link}\n\nSe você não solicitou esta ação, ignore esta mensagem.` }, { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true });
+  await emailScheduleQueue.add("loja-cliente", createTextEmailJob({ to, subject, text: `${subject}\n\n${link}\n\nSe você não solicitou esta ação, ignore esta mensagem.` }), { attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true });
 }
 
 export async function registerStoreCustomer(slug: string, input: { name: string; email: string; phone?: string; password: string }, context: { userAgent?: string; ip?: string } = {}) {

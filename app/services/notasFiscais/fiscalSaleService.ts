@@ -129,7 +129,7 @@ function geranetPayload(invoice: any, auth: Awaited<ReturnType<typeof getGeranet
   const isSimple = String(issuer.regimeTributario) === "1" || String(issuer.regimeTributario) === "4";
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
   const technical = issuer.responsavelTecnico || {};
-  const paymentDetails = payments.map((item: any) => ({ tipo: paymentCode(item.metodo), valor: Number(item.valor), indicadorPagamento: ["CREDIARIO", "BOLETO"].includes(item.metodo) ? "1" : "0" }));
+  const paymentDetails: { tipo: string; valor: number; indicadorPagamento: string }[] = payments.map((item: any) => ({ tipo: paymentCode(item.metodo), valor: Number(item.valor), indicadorPagamento: ["CREDIARIO", "BOLETO"].includes(item.metodo) ? "1" : "0" }));
   const isInstallment = paymentDetails.some((item) => item.indicadorPagamento === "1");
   const dueDate = payment?.data ? new Date(payment.data).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
   const totalInstallment = paymentDetails.filter((item) => item.indicadorPagamento === "1").reduce((sum, item) => sum + item.valor, 0);

@@ -548,7 +548,7 @@ export const getLancamentosMensal = async (
         contaFinanceiraId: number | null;
         valor: number;
         tipo: "RECEITA" | "DESPESA";
-        status: "PAGO" | "PENDENTE" | "ATRASADO";
+        status: "PAGO" | "PENDENTE" | "ATRASADO" | "PARCIAL";
         pago: boolean;
         vencimento: Date;
         dataPagamento: Date | null;
@@ -965,7 +965,7 @@ export const atualizarLancamentosEmMassa = async (
   try {
     const customData = getCustomRequest(req).customData;
     const ids = Array.isArray(req.body?.lancamentoIds)
-      ? [...new Set(req.body.lancamentoIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0))]
+      ? [...new Set<number>(req.body.lancamentoIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0))]
       : [];
     const temCategoria = Object.prototype.hasOwnProperty.call(req.body || {}, "categoriaId");
     const temCliente = Object.prototype.hasOwnProperty.call(req.body || {}, "clienteId");

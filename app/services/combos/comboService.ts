@@ -154,7 +154,7 @@ export async function comboAvailability(tx: Transaction, combo: ComboWithCompone
     }
     if (!product.controlaEstoque) continue;
     const reserved = await getReservedQuantity(tx, combo.contaId, product.id);
-    const units = Math.max(0, Math.floor((product.estoque - reserved) / component.quantidade));
+    const units = Math.max(0, Math.floor((Number(product.estoque) - reserved) / component.quantidade));
     available = available === null ? units : Math.min(available, units);
     if (units === 0) reason ||= `Sem estoque de ${product.nome}.`;
   }
@@ -699,7 +699,7 @@ export async function reserveComboOrderSaidas(
       });
       if (component.tipo === "PRODUTO" && component.Produto?.controlaEstoque) {
         const reserved = await getReservedQuantity(tx, args.contaId, component.Produto.id);
-        const available = Math.max(0, component.Produto.estoque - reserved);
+        const available = Math.max(0, Number(component.Produto.estoque) - reserved);
         if (available < totalQuantity) {
           throw new ComboError("stock_unavailable", `${component.Produto.nome} não possui estoque suficiente.`, 409, {
             produtoId: component.Produto.id,
@@ -751,7 +751,7 @@ export async function consumeComboOrderReservations(tx: Transaction, contaId: nu
   });
   for (const reservation of reservations) {
     const product = await tx.produto.findFirstOrThrow({ where: { id: reservation.produtoId, contaId } });
-    if (product.estoque < reservation.quantidade) throw new ComboError("stock_unavailable", `Estoque físico inconsistente para ${product.nome}.`, 409);
+    if (Number(product.estoque) < Number(reservation.quantidade)) throw new ComboError("stock_unavailable", `Estoque físico inconsistente para ${product.nome}.`, 409);
     await tx.produto.update({ where: { id: product.id }, data: { estoque: { decrement: reservation.quantidade } } });
     const movement = await tx.movimentacoesEstoque.create({
       data: {

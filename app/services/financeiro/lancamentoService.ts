@@ -357,7 +357,8 @@ export async function criarLancamentoFinanceiro(
     tipoLancamentoModo,
   } = calcularValoresLancamento(payloadComConta)
 
-  await assertLancamentoDateAllowed(contaId, payloadComConta.dataLancamento)
+  // Reuse the transaction connection; concurrent idempotency reservations can occupy the pool.
+  await assertLancamentoDateAllowed(contaId, payloadComConta.dataLancamento, db)
 
   if (hasEfetivadoTotal) {
     const datasEfetivadas = valoresParcelas.map((_, index) =>
@@ -368,7 +369,7 @@ export async function criarLancamentoFinanceiro(
       datasEfetivadas.push(startOfDay(new Date(payloadComConta.dataEntrada)))
     }
 
-    await assertFutureSettlementAllowed(contaId, datasEfetivadas)
+    await assertFutureSettlementAllowed(contaId, datasEfetivadas, db)
   }
 
   const novoLancamento = await db.lancamentoFinanceiro.create({

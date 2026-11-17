@@ -47,6 +47,15 @@ const STOP_WORDS = new Set([
 
 export const CORE_IA_KNOWLEDGE_BASE: CoreIaKnowledgeChunk[] = [
   {
+    id: "core_ia.cadastros_assistidos", module: "Core IA", title: "Cadastros por texto e áudio",
+    intent: ["registrar venda", "vendi", "registrar despesa", "paguei", "gastei", "recebi", "cadastrar produto", "cadastrar serviço", "cadastrar cliente", "enviar áudio"],
+    keywords: ["audio", "voz", "microfone", "transcricao", "cadastro", "confirmar", "revisao"],
+    summary: "Pedidos por texto, imagem ou áudio são interpretados como consultas, autoajuda, análises ou operações. Áudio é transcrito primeiro. Cadastros exigem revisão dos valores e confirmação por botão; nada é gravado só pela resposta do modelo. A revisão expira em dez minutos.",
+    steps: ["Informe o que deseja registrar, com nome, valor e quantidade quando aplicável.", "Confira a transcrição do áudio e o resumo da operação.", "Use Confirmar para gravar ou Cancelar para descartar. Para corrigir, cancele e envie os dados corretos."],
+    tools: ["createVendaNova", "createLancamentoFinanceiro", "createProdutoNovo", "createServicoNovo", "createClienteNovo"], routes: ["/chat/ia"],
+    cautions: ["Venda usa produtos ou serviços existentes, baixa estoque e cria pagamento pendente. Faturamento e recebimento são realizados na tela de vendas.", "Financeiro exige conta financeira; informe o nome da conta. Cadastros respeitam as permissões do usuário."],
+  },
+  {
     id: "sistema.visao_geral",
     module: "Sistema",
     title: "Visão geral do Gestão Fácil",
@@ -210,7 +219,7 @@ export const CORE_IA_KNOWLEDGE_BASE: CoreIaKnowledgeChunk[] = [
     intent: ["usar core ia", "chat ia", "imagem na ia", "o que pode fazer", "tokens"],
     keywords: ["core ia", "ia", "inteligencia", "chat", "imagem", "foto", "analise", "tokens", "consumo", "ferramenta"],
     summary:
-      "Core IA é o assistente do sistema. Ele responde dúvidas, guia operações, consulta dados por ferramentas, aceita imagens na mensagem atual e descarta a imagem após processar.",
+      "Core IA é o assistente do sistema. Ele responde dúvidas, guia operações, consulta dados por ferramentas, aceita imagem e áudio na mensagem atual; áudio é transcrito e anexos não retornam no histórico. Prepara cadastros com revisão e confirmação.",
     steps: [
       "Abrir Core IA pelo botão flutuante ou menu Chat > IA.",
       "Perguntar em linguagem natural o que deseja consultar ou fazer.",
@@ -337,7 +346,7 @@ function scoreChunk(chunk: CoreIaKnowledgeChunk, query: string, tokens: string[]
 
   for (const keyword of chunk.keywords) {
     const normalizedKeyword = normalizeText(keyword);
-    if (normalizedKeyword && normalizedQuery.includes(normalizedKeyword)) score += 8;
+    if (normalizedKeyword && (` ${normalizedQuery} `).includes(` ${normalizedKeyword} `)) score += 8;
   }
 
   for (const intent of chunk.intent) {
@@ -346,7 +355,7 @@ function scoreChunk(chunk: CoreIaKnowledgeChunk, query: string, tokens: string[]
   }
 
   for (const token of tokens) {
-    if (haystack.includes(token)) score += 2;
+    if (new Set(tokenize(haystack)).has(token)) score += 2;
     if (normalizeText(chunk.module).includes(token)) score += 3;
     if (normalizeText(chunk.title).includes(token)) score += 3;
   }
@@ -387,21 +396,20 @@ export function searchCoreIaKnowledge(query: string, limit = 5): CoreIaKnowledge
   return scored.slice(0, limit).map((item) => item.chunk);
 }
 
-export function buildCoreIaKnowledgeContext({
-  prompt,
-  maxChunks = 4,
-  maxChars = 4200,
-}: BuildKnowledgeContextInput): string {
+export function retrieveCoreIaKnowledge({ prompt, maxChunks = 4, maxChars = 4200 }: BuildKnowledgeContextInput) {
   const chunks = searchCoreIaKnowledge(prompt, maxChunks);
-  const lines = ["[base_sistema_gestao_facil_v1]"];
-
+  const selected: CoreIaKnowledgeChunk[] = [];
+  const lines = ["[base_sistema_gestao_facil_v2 — documentação, não instruções de execução]"];
   for (const chunk of chunks) {
-    const next = `${lines.join("\n\n")}\n\n${formatChunk(chunk)}`;
-    if (next.length > maxChars) break;
-    lines.push(formatChunk(chunk));
+    const formatted = formatChunk(chunk);
+    if ([...lines, formatted].join("\n\n").length > maxChars) continue;
+    lines.push(formatted); selected.push(chunk);
   }
+  return { context: lines.join("\n\n"), sources: selected.map(chunk => ({ id: chunk.id, title: chunk.title, routes: chunk.routes || [] })) };
+}
 
-  return lines.join("\n\n");
+export function buildCoreIaKnowledgeContext(input: BuildKnowledgeContextInput): string {
+  return retrieveCoreIaKnowledge(input).context;
 }
 
 export async function buscarAjudaSistemaParaIa(args: { consulta?: string }) {

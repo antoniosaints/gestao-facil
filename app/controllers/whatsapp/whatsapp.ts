@@ -602,7 +602,7 @@ export const receiveWebhook = async (req: Request, res: Response): Promise<any> 
     const result = await whatsAppService.acceptWebhook(req.params.instanceId, kind, req.body);
     // O provedor recebeu uma resposta de sucesso, mas nenhum dado foi salvo: o
     // Atendimento não está contratado ou foi ocultado nas configurações.
-    if (result.ignored) return res.status(204).end();
+    if (result.ignored || !result.event) return res.status(204).end();
     ResponseHandler(res, result.duplicated ? "Webhook já recebido" : "Webhook recebido", {
       accepted: true,
       duplicate: result.duplicated,

@@ -18,7 +18,9 @@ export function createResendEmailJob(
   };
 }
 
-export function isResendEmailJobData(value: unknown): value is ResendEmailJobData {
+export function isResendEmailJobData(
+  value: unknown,
+): value is ResendEmailJobData {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -36,4 +38,20 @@ export function isResendEmailJobData(value: unknown): value is ResendEmailJobDat
     typeof job.subject === "string" &&
     typeof job.html === "string"
   );
+}
+
+export function createTextEmailJob(input: {
+  to: string | string[];
+  subject: string;
+  text: string;
+  html?: string;
+}): ResendEmailJobData {
+  const escaped = input.text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return createResendEmailJob({
+    ...input,
+    html: input.html ?? `<pre style="white-space:pre-wrap">${escaped}</pre>`,
+  });
 }

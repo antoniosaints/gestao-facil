@@ -6,8 +6,8 @@ import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 type Transaction = Prisma.TransactionClient;
 type RequestedItem = { produtoId: number; quantidade: number };
 
-export function calculateAvailableStock(physical: number, reserved: number) {
-  return Math.max(0, physical - reserved);
+export function calculateAvailableStock(physical: Decimal.Value, reserved: number) {
+  return Math.max(0, new Decimal(physical).minus(reserved).toNumber());
 }
 
 export async function getReservedQuantity(
@@ -109,7 +109,7 @@ export async function consumeOrderReservations(tx: Transaction, contaId: number,
 
   for (const reservation of reservations) {
     const product = await tx.produto.findFirstOrThrow({ where: { id: reservation.produtoId, contaId } });
-    if (product.estoque < reservation.quantidade) {
+    if (Number(product.estoque) < Number(reservation.quantidade)) {
       throw new CommerceError("stock_unavailable", `Estoque físico inconsistente para ${product.nome}`);
     }
     await tx.produto.update({
