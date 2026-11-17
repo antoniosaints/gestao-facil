@@ -13,6 +13,7 @@ import {
   separarParcelasParaEstornar,
   separarParcelasParaExcluir,
   sumParcelasFinanceiras,
+  resolveLancamentoValoresFromParcelas,
   type ParcelaLoteInput,
 } from "./parcelaFinanceiraPolicy";
 
@@ -150,5 +151,24 @@ describe("separarParcelasParaExcluir", () => {
 
     assert.deepEqual(resultado.aplicar, [2]);
     assert.deepEqual(resultado.ignoradas, [{ id: 1, motivo: MOTIVO_MINIMO_UMA_PARCELA }]);
+  });
+});
+
+describe("totais ao editar parcelas com desconto", () => {
+  it("preserva o bruto original ao recalcular o parcelamento", () => {
+    const result = resolveLancamentoValoresFromParcelas([{ valor: "400" }, { valor: "400" }, { valor: "399.99" }], "34.57");
+    assert.equal(result.valorTotal.toFixed(2), "1199.99");
+    assert.equal(result.valorBruto.toFixed(2), "1234.56");
+  });
+  it("mantém o desconto após editar um valor e não o aplica duas vezes", () => {
+    const result = resolveLancamentoValoresFromParcelas([{ valor: "400" }, { valor: "400" }, { valor: "1234.56" }], "34.57");
+    assert.equal(result.valorTotal.toFixed(2), "2034.56");
+    assert.equal(result.valorBruto.toFixed(2), "2069.13");
+    assert.equal(result.valorBruto.minus("34.57").toFixed(2), result.valorTotal.toFixed(2));
+  });
+  it("mantém total e bruto iguais sem desconto e inclui a entrada", () => {
+    const result = resolveLancamentoValoresFromParcelas([{ valor: "100.10" }, { valor: "200.20" }]);
+    assert.equal(result.valorTotal.toFixed(2), "300.30");
+    assert.equal(result.valorBruto.toFixed(2), "300.30");
   });
 });

@@ -94,6 +94,7 @@ export async function criarProdutoBase(
           ehPadrao: true,
           preco: data.preco as number,
           descricao: data.descricao,
+          precoPromocional: data.precoPromocional ?? null,
           precoCompra: data.precoCompra,
           unidade: data.unidade,
           codigo: codigoFinal,

@@ -32,13 +32,13 @@
                     <label for="telefoneCliente" class="block text-sm font-medium mb-1">
                         Telefone
                     </label>
-                    <input type="text" id="telefoneCliente" name="telefone" placeholder="Telefone"
-                        class="w-full p-2 money_mask rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
+                    <input type="tel" inputmode="tel" data-input-mask="phone" id="telefoneCliente" name="telefone" placeholder="(00) 00000-0000"
+                        class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
                 <!-- Código -->
                 <div class="md:col-span-4 lg:col-span-6">
                     <label for="cpfCnpjCliente" class="block text-sm font-medium mb-1">CPF/CNPJ</label>
-                    <input type="text" id="cpfCnpjCliente" name="documento" placeholder="CPF/CNPJ"
+                    <input type="text" inputmode="numeric" data-input-mask="cpf-cnpj" id="cpfCnpjCliente" name="documento" placeholder="CPF/CNPJ"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
                 <!-- Preço -->
@@ -46,7 +46,7 @@
                     <label for="contatoCliente" class="block text-sm font-medium mb-1">
                         WhatsApp
                     </label>
-                    <input type="text" id="contatoCliente" name="whastapp" placeholder="WhatsApp"
+                    <input type="tel" inputmode="tel" data-input-mask="phone" id="contatoCliente" name="whastapp" placeholder="(00) 00000-0000"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
                 <!-- Permitir Entrada e Saída de Estoque -->
@@ -124,7 +124,7 @@
                     <label for="cepCliente" class="block text-sm font-medium mb-1">
                         CEP
                     </label>
-                    <input type="text" id="cepCliente" name="cep" placeholder="CEP"
+                    <input type="text" inputmode="numeric" data-input-mask="cep" id="cepCliente" name="cep" placeholder="00000-000"
                         class="w-full p-2 rounded-md border bg-card dark:bg-card-dark border-border dark:border-border-dark" />
                 </div>
                 <!-- Observação -->

@@ -112,6 +112,12 @@ export function sumParcelasFinanceiras(parcelas: ParcelaValorInput[]) {
   return parcelas.reduce((acc, parcela) => acc.plus(new Decimal(parcela.valor || 0)), new Decimal(0));
 }
 
+/** Installment amounts are net; changing them must retain the launch discount. */
+export function resolveLancamentoValoresFromParcelas(parcelas: ParcelaValorInput[], desconto: Decimal.Value = 0) {
+  const valorTotal = sumParcelasFinanceiras(parcelas);
+  return { valorTotal, valorBruto: valorTotal.plus(new Decimal(desconto || 0)) };
+}
+
 export function resolveLancamentoStatusFromParcelas(
   parcelas: ParcelaStatusInput[],
   referenceDate: Date = new Date(),

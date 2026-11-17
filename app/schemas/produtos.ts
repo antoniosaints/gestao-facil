@@ -1,4 +1,5 @@
 import { z } from "zod";
+import Decimal from "decimal.js";
 
 const parseNullableText = z.preprocess((value) => {
   if (value === undefined || value === null) return null;
@@ -55,6 +56,12 @@ const parseDecimal = (field: string, required = false) =>
         })
         .finite(`${field} inválido`)
         .optional());
+
+// Estoque e mínimo seguem Decimal(12,3), assim como o cadastro no Modo Fácil.
+const parseQuantity = (field: string) => parseDecimal(field, true).pipe(
+  z.number().finite().min(0, `${field} não pode ser negativo`).lt(1_000_000_000)
+    .refine(value => new Decimal(value).decimalPlaces() <= 3, `${field} deve ter até 3 casas decimais`)
+);
 
 const parseInteger = (field: string, required = false, min = 0) =>
   z.preprocess((value) => {
@@ -129,8 +136,8 @@ export const ProdutoSchema = z.object({
   descricao: parseNullableText.optional(),
   preco: parseDecimal("preco", true),
   precoPromocional: parseDecimal("precoPromocional").optional().nullable(),
-  estoque: parseInteger("estoque", true, 0),
-  minimo: parseInteger("minimo", true, 0),
+  estoque: parseQuantity("estoque"),
+  minimo: parseQuantity("minimo"),
   precoCompra: parseDecimal("precoCompra").optional(),
   unidade: parseOptionalText("unidade"),
   codigo: parseOptionalText("codigo"),

@@ -3,7 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { Prisma, StatusPagamentoFinanceiro } from "../../../generated";
 import { Request, Response } from "express";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
-import { resolveLancamentoStatusFromParcelas, sumParcelasFinanceiras } from "../../services/financeiro/parcelaFinanceiraPolicy";
+import { resolveLancamentoStatusFromParcelas, resolveLancamentoValoresFromParcelas } from "../../services/financeiro/parcelaFinanceiraPolicy";
 
 export const atualizarStatusLancamentos = async (idConta: number) => {
   const hoje = dayjs().startOf("day").toDate();
@@ -18,15 +18,15 @@ export const atualizarStatusLancamentos = async (idConta: number) => {
     // Ignorar exclui valores de relatórios, mas não muda o ciclo operacional da
     // parcela: uma parcela efetivada precisa manter o lançamento como pago.
     const novoStatus = resolveLancamentoStatusFromParcelas(lancamento.parcelas, hoje) as StatusPagamentoFinanceiro;
-    const totalParcelas = sumParcelasFinanceiras(lancamento.parcelas);
+    const { valorTotal, valorBruto } = resolveLancamentoValoresFromParcelas(lancamento.parcelas, lancamento.desconto);
 
-    if (lancamento.status !== novoStatus || !new Prisma.Decimal(lancamento.valorTotal).equals(totalParcelas)) {
+    if (lancamento.status !== novoStatus || !new Prisma.Decimal(lancamento.valorTotal).equals(valorTotal) || !new Prisma.Decimal(lancamento.valorBruto).equals(valorBruto)) {
       await prisma.lancamentoFinanceiro.update({
         where: { id: lancamento.id },
         data: {
           status: novoStatus,
-          valorTotal: totalParcelas,
-          valorBruto: totalParcelas,
+          valorTotal,
+          valorBruto,
           recorrente: lancamento.parcelas.filter((parcela) => parcela.numero !== 0).length > 1,
         },
       });
