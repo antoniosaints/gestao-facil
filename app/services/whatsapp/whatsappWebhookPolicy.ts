@@ -153,7 +153,8 @@ function webhookMessageContent(payload: any): JsonRecord {
   // `data` também é usado em callbacks de conexão/status. Só o consideramos mensagem
   // quando ele traz explicitamente o envelope `message`; caso contrário um `connected`
   // poderia ser confundido com conteúdo de chat e descartado por não ter telefone.
-  return object(source.msgContent || data.message || message.message || message);
+  const content = object(source.msgContent || data.message || message.message || message);
+  return object(content.message || content);
 }
 
 function webhookChatId(payload: any): string {
@@ -243,7 +244,7 @@ function serialize(value: unknown) {
 }
 
 export function resolveWebhookIdentity(explicitKind: WhatsAppWebhookKind, payload: any) {
-  const eventId = String(
+  let eventId = String(
     payload?.eventId ||
     payload?.id ||
     payload?.data?.id ||
@@ -252,6 +253,12 @@ export function resolveWebhookIdentity(explicitKind: WhatsAppWebhookKind, payloa
     crypto.createHash("sha256").update(serialize(payload)).digest("hex"),
   );
   const tipo = String(explicitKind || payload?.event || payload?.type || payload?.eventName || "generic");
+  // A mesma mensagem recebe RECEIVED e READ em callbacks separados. Deduplicar só
+  // por messageId descartava a leitura depois de persistir a entrega.
+  const status = String(payload?.status || payload?.data?.status || payload?.ack || payload?.data?.ack || "").trim().toUpperCase();
+  if ((tipo === "status" || tipo === "webhookStatus") && status) {
+    eventId = crypto.createHash("sha256").update(serialize([eventId, status])).digest("hex");
+  }
   return { eventId, tipo };
 }
 

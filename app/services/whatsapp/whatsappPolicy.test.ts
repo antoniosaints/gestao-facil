@@ -7,6 +7,8 @@ import {
   canDeleteWhatsAppPayment,
   canRemoveWhatsAppInstance,
   mapWApiInstanceStatusFromPayload,
+  mapWApiFetchInstancePayload,
+  mapWApiMessageStatus,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 
@@ -51,6 +53,33 @@ describe("whatsappPolicy", () => {
     assert.equal(mapWApiInstanceStatusFromPayload({ connected: false }), "DESCONECTADA");
     assert.equal(mapWApiInstanceStatusFromPayload({ result: { connected: true } }), "CONECTADA");
     assert.equal(mapWApiInstanceStatusFromPayload({ data: { connected: false } }), "DESCONECTADA");
+  });
+
+  it("não confunde disconnected e desconectado com connected", () => {
+    assert.equal(mapWApiInstanceStatusFromPayload({ status: "disconnected" }), "DESCONECTADA");
+    assert.equal(mapWApiInstanceStatusFromPayload({ data: { status: "desconectado" } }), "DESCONECTADA");
+    assert.equal(mapWApiInstanceStatusFromPayload({ status: "connected" }), "CONECTADA");
+    assert.equal(mapWApiInstanceStatusFromPayload({ status: "connecting" }), "CONECTANDO");
+  });
+
+  it("interpreta o exemplo atual de fetch-instance sem confundir pagamento e conexão", () => {
+    assert.deepEqual(mapWApiFetchInstancePayload({
+      instanceId: "instance-test", connected: false, connectedPhone: "5511999999999",
+      paymentStatus: "PAID", expires: 1737137931513,
+    }), {
+      status: "DESCONECTADA", connectedPhone: "5511999999999",
+      assinaturaStatus: "PAID", expiresAt: new Date(1737137931513),
+    });
+  });
+
+  it("interpreta os callbacks atuais de envio, recebimento e leitura", () => {
+    assert.equal(mapWApiMessageStatus({ event: "webhookDelivery", messageId: "wa-message", fromMe: true }), "ENVIADA");
+    assert.equal(mapWApiMessageStatus({ event: "webhookStatus", messageId: "wa-message", status: "RECEIVED" }), "ENTREGUE");
+    assert.equal(mapWApiMessageStatus({ event: "webhookStatus", messageId: "wa-message", status: "READ" }), "LIDA");
+    assert.equal(mapWApiMessageStatus({ event: "webhookDelivery", status: "FAILED" }), "ERRO");
+    assert.equal(mapWApiMessageStatus({ data: { status: "RECEIVED" } }), "ENTREGUE");
+    assert.equal(mapWApiMessageStatus({ ack: 3 }), "ENTREGUE");
+    assert.equal(mapWApiMessageStatus({}), "PENDENTE");
   });
 
   it("builds a deleted instance id that frees the original external id", () => {

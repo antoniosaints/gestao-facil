@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { readWApiInstance } from "./wApiInstanceSync";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Prisma, WhatsAppConversaStatus, WhatsAppInstanciaStatus, WhatsAppMensagemDirecao, WhatsAppMensagemOrigem, WhatsAppMensagemStatus, WhatsAppMensagemTipo } from "../../../generated";
@@ -19,8 +20,8 @@ import {
   buildDeletedWhatsAppInstanceId,
   buildWApiPaymentPayload,
   canDeleteWhatsAppPayment,
-  mapWApiFetchInstancePayload,
   mapWApiInstanceStatusFromPayload,
+  mapWApiMessageStatus,
   mapWApiPaymentStatus,
 } from "./whatsappPolicy";
 import {
@@ -160,12 +161,7 @@ export function instanceAtendimentoPaused(instance: {
 }
 
 export function mapMessageStatus(payload: any): WhatsAppMensagemStatus {
-  const text = String(payload?.status || payload?.data?.status || payload?.ack || payload?.data?.ack || "").toLowerCase();
-  if (["read", "lida", "played", "4"].includes(text) || text.includes("read")) return WhatsAppMensagemStatus.LIDA;
-  if (["delivered", "entregue", "3"].includes(text) || text.includes("deliver")) return WhatsAppMensagemStatus.ENTREGUE;
-  if (["sent", "enviada", "server_ack", "2"].includes(text) || text.includes("sent")) return WhatsAppMensagemStatus.ENVIADA;
-  if (["error", "erro", "failed"].some((term) => text.includes(term))) return WhatsAppMensagemStatus.ERRO;
-  return WhatsAppMensagemStatus.PENDENTE;
+  return mapWApiMessageStatus(payload);
 }
 
 function normalizeMessageType(value?: string | null): WhatsAppMensagemTipo {
@@ -559,21 +555,21 @@ export const whatsAppService = {
     return instances.map(publicInstance);
   },
 
-  // Consulta a W-API (`fetch-instance`) de UMA instância e persiste o que já tem coluna
-  // (status/número/lastSync). Retorna `expiresAt`/`assinaturaStatus` de forma transiente (não são
-  // persistidos, por decisão de projeto). Em falha, grava `ultimoErro` e não devolve os transientes.
+  // Sincroniza conexão e dados da instância sem depender da disponibilidade de device.
+  // Vencimento e assinatura são transientes. Falhas parciais preservam os dados válidos.
   async refreshInstanceFromApi(instance: { id: number; contaId: number; instanceId: string; token: string; numeroConectado: string | null }) {
     try {
-      const result = await new WApiClient(instance.instanceId, instance.token).fetchInstance();
-      const info = mapWApiFetchInstancePayload(result);
+      const info = await readWApiInstance(new WApiClient(instance.instanceId, instance.token));
 
       const updated = await prisma.whatsAppInstancia.update({
         where: { id: instance.id },
         data: {
-          status: info.status,
-          numeroConectado: normalizePhone(info.connectedPhone) || instance.numeroConectado,
+          ...(info.status ? { status: info.status } : {}),
+          ...(info.connectedPhone !== undefined
+            ? { numeroConectado: info.connectedPhone === null ? null : normalizePhone(info.connectedPhone) || instance.numeroConectado }
+            : {}),
           lastSyncAt: new Date(),
-          ultimoErro: null,
+          ultimoErro: info.ultimoErro,
         },
       });
       sendWhatsAppInstanceUpdated(instance.contaId, publicInstance(updated));
@@ -594,7 +590,7 @@ export const whatsAppService = {
     }
   },
 
-  // Recarrega o status de TODAS as instâncias ativas da conta consultando a W-API (N chamadas,
+  // Recarrega o status de TODAS as instâncias ativas da conta consultando a W-API (duas consultas por instância,
   // isoladas por `allSettled` para uma falha não derrubar as demais). Devolve a lista sanitizada
   // (via listInstances, já com `pagamentos`) mesclada com o vencimento/pagamento transientes.
   async syncAllInstances(contaId: number) {
@@ -851,19 +847,36 @@ export const whatsAppService = {
     if (action === "restart") result = await client.restart();
     if (action === "disconnect") result = await client.disconnect();
     if (action === "status") result = await client.status();
-    if (action === "device") result = await client.device();
+    if (action === "device") {
+      result = await client.device();
+      if (result?.available === false) {
+        await this.refreshInstanceFromApi(instance);
+        const updated = await prisma.whatsAppInstancia.update({
+          where: { id },
+          data: { devicePayload: null },
+        });
+        sendWhatsAppInstanceUpdated(contaId, publicInstance(updated));
+        return { result, instance: publicInstance(updated) };
+      }
+    }
 
     const data: Prisma.WhatsAppInstanciaUpdateInput = {
       lastSyncAt: new Date(),
       ultimoErro: null,
     };
 
-    if (["status", "device", "qrCode", "pairingCode", "restart", "disconnect"].includes(action)) {
-      data.status = action === "disconnect" ? WhatsAppInstanciaStatus.DESCONECTADA : mapWApiInstanceStatusFromPayload(result);
-      if (action === "device") {
-        data.devicePayload = safeJson(result);
-        data.numeroConectado = normalizePhone(result?.phone || result?.number || result?.data?.phone || result?.data?.number) || instance.numeroConectado;
-      }
+    if (action === "device") {
+      // `status` neste retorno é o recado do perfil (ex.: "Ocupado"), não a conexão.
+      data.devicePayload = safeJson(result);
+      data.numeroConectado = normalizePhone(result?.connectedPhone || result?.data?.connectedPhone || result?.phone || result?.number || result?.data?.phone || result?.data?.number) || instance.numeroConectado;
+    } else if (action === "disconnect") {
+      data.status = WhatsAppInstanciaStatus.DESCONECTADA;
+    } else {
+      const status = mapWApiInstanceStatusFromPayload(result);
+      data.status = status !== "PENDENTE"
+        ? status
+        : action === "status" ? instance.status : WhatsAppInstanciaStatus.CONECTANDO;
+      if (data.status === WhatsAppInstanciaStatus.DESCONECTADA) data.numeroConectado = null;
     }
 
     const updated = await prisma.whatsAppInstancia.update({ where: { id }, data });

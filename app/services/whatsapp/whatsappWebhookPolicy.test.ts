@@ -8,6 +8,29 @@ import {
 } from "./whatsappWebhookPolicy";
 
 describe("whatsappWebhookPolicy", () => {
+  it("mantém entrega e leitura distintas e deduplica cada reenvio", () => {
+    const payload = { event: "webhookStatus", messageId: "wa-message", chat: { id: "5511999999999" } };
+    const received = { ...payload, status: "RECEIVED" };
+    const read = { ...payload, status: "READ" };
+    const receivedId = resolveWebhookIdentity("status", received);
+    assert.deepEqual(shouldPersistWebhookEvent("status", received), { persist: true });
+    assert.deepEqual(shouldPersistWebhookEvent("status", read), { persist: true });
+    assert.notEqual(receivedId.eventId, resolveWebhookIdentity("status", read).eventId);
+    assert.deepEqual(receivedId, resolveWebhookIdentity("status", { ...received, moment: 1770681611963 }));
+    assert.deepEqual(compactWebhookPayload(read), { event: "webhookStatus", messageId: "wa-message", status: "READ", chat: { id: "5511999999999" } });
+  });
+
+  it("preserva a mídia do envelope msgContent.message usado nos callbacks de envio", () => {
+    const payload = {
+      event: "webhookDelivery", fromMe: true, messageId: "wa-image", chat: { id: "5511999999999" },
+      msgContent: { message: { imageMessage: { url: "https://erp.test/image.enc", mediaKey: "key-test", mimetype: "image/jpeg", caption: "Imagem", jpegThumbnail: "descartar" } } },
+    };
+    assert.deepEqual(shouldPersistWebhookEvent("delivery", payload), { persist: true });
+    assert.deepEqual(compactWebhookPayload(payload).msgContent, {
+      imageMessage: { url: "https://erp.test/image.enc", mediaKey: "key-test", mimetype: "image/jpeg", caption: "Imagem" },
+    });
+  });
+
   it("mantém o id externo e separa eventos do mesmo id pelo tipo", () => {
     const payload = { messageId: "message-42" };
     assert.deepEqual(resolveWebhookIdentity("received", payload), {

@@ -82,10 +82,6 @@ export function mapWApiInstanceStatusFromPayload(payload: any): WhatsAppInstance
       ""
   ).toLowerCase();
 
-  if (["open", "connected", "conectado", "online", "success"].some((term) => status.includes(term))) {
-    return "CONECTADA";
-  }
-
   if (["connecting", "qrcode", "pairing", "loading"].some((term) => status.includes(term))) {
     return "CONECTANDO";
   }
@@ -94,10 +90,25 @@ export function mapWApiInstanceStatusFromPayload(payload: any): WhatsAppInstance
     return "DESCONECTADA";
   }
 
+  if (["open", "connected", "conectado", "online", "success"].some((term) => status.includes(term))) {
+    return "CONECTADA";
+  }
+
   if (["error", "erro", "failed"].some((term) => status.includes(term))) {
     return "ERRO";
   }
 
+  return "PENDENTE";
+}
+
+export function mapWApiMessageStatus(payload: any): "PENDENTE" | "ENVIADA" | "ENTREGUE" | "LIDA" | "ERRO" {
+  const text = String(payload?.status || payload?.data?.status || payload?.ack || payload?.data?.ack || "").toLowerCase();
+  if (["read", "lida", "played", "4"].includes(text) || text.includes("read")) return "LIDA";
+  if (["received", "delivered", "entregue", "3"].includes(text) || text.includes("deliver")) return "ENTREGUE";
+  if (["sent", "enviada", "server_ack", "2"].includes(text) || text.includes("sent")) return "ENVIADA";
+  if (["error", "erro", "failed"].some((term) => text.includes(term))) return "ERRO";
+  // webhookDelivery confirma o envio e normalmente não contém `status` ou `ack`.
+  if (String(payload?.event || payload?.data?.event || "").toLowerCase() === "webhookdelivery") return "ENVIADA";
   return "PENDENTE";
 }
 

@@ -45,6 +45,12 @@ export function wApiSendAccepted(response: any): boolean {
   );
 }
 
+function assertWApiSuccess(response: any): void {
+  if (wApiSendAccepted(response)) return;
+  const payload = response?.data && typeof response.data === "object" ? response.data : response;
+  throw new Error(payload?.message || "Solicitação recusada pela W-API");
+}
+
 export interface WApiSendMessageInput {
   phone: string;
   message?: string;
@@ -52,9 +58,9 @@ export interface WApiSendMessageInput {
   caption?: string;
   fileName?: string;
   extension?: string;
+  // Identificador local de rastreio, não enviado à W-API.
   messageId: string;
-  // Id externo (WhatsApp) da mensagem citada. Quando presente, a W-API envia como resposta
-  // marcando a mensagem original; caso contrário mantemos o `messageId` interno de rastreio.
+  // Id externo da mensagem citada, enviado como `messageId` (citação).
   quotedMessageId?: string;
 }
 
@@ -125,6 +131,7 @@ export class WApiClient {
       },
     });
 
+    assertWApiSuccess(response.data);
     return response.data;
   }
 
@@ -152,6 +159,7 @@ export class WApiClient {
         instanceId: this.instanceId,
       },
     });
+    assertWApiSuccess(response.data);
     return response.data;
   }
 
@@ -160,7 +168,8 @@ export class WApiClient {
   }
 
   pairingCode(phone?: string) {
-    return this.request({ method: "GET", url: "/v1/instance/pairing-code", params: phone ? { phone } : undefined });
+    if (!phone?.trim()) throw new Error("Informe o telefone para gerar o código de pareamento");
+    return this.request({ method: "GET", url: "/v1/instance/pairing-code", params: { phoneNumber: phone.trim() } });
   }
 
   restart() {
@@ -175,8 +184,22 @@ export class WApiClient {
     return this.request({ method: "GET", url: "/v1/instance/status-instance" });
   }
 
-  device() {
-    return this.request({ method: "GET", url: "/v1/instance/device" });
+  async device() {
+    try {
+      return await this.request({ method: "GET", url: "/v1/instance/device" });
+    } catch (error) {
+      // Instâncias sem provisionamento respondem 400; não é uma falha de autenticação.
+      const message = axios.isAxiosError(error) ? String(error.response?.data?.message || "") : "";
+      if (axios.isAxiosError(error) && error.response?.status === 400 &&
+          /n[aã]o possui ip ou porta configurados/i.test(message)) {
+        return {
+          available: false,
+          reason: "INSTANCE_NOT_PROVISIONED",
+          message: "Os dados do aparelho estão indisponíveis no momento. Consulte o status da instância para acompanhar a conexão.",
+        };
+      }
+      throw error;
+    }
   }
 
   fetchInstance() {
@@ -222,12 +245,10 @@ export class WApiClient {
   }
 
   send(kind: WApiMessageKind, input: WApiSendMessageInput) {
-    // O campo `messageId` da W-API, quando aponta para uma mensagem existente, faz o envio
-    // ser uma resposta (citação) a ela. Ao responder usamos o id da mensagem citada; nos
-    // envios normais mantemos o id interno de rastreio (a W-API ignora se não existir).
+    // Na W-API, `messageId` referencia uma mensagem citada, não o id local do envio.
     const common = {
       phone: input.phone,
-      messageId: input.quotedMessageId || input.messageId,
+      ...(input.quotedMessageId ? { messageId: input.quotedMessageId } : {}),
       delayMessage: 0,
     };
 
@@ -263,13 +284,20 @@ export class WApiClient {
       });
     }
 
+    const extension = (
+      input.extension?.trim().replace(/^\./, "") ||
+      input.fileName?.match(/\.([a-z0-9]+)$/i)?.[1] ||
+      input.mediaUrl?.split(/[?#]/)[0].match(/\.([a-z0-9]+)$/i)?.[1] ||
+      ""
+    ).toLowerCase();
+    if (!extension) throw new Error("Informe a extensão do documento para enviar pela W-API");
     return this.request({
       method: "POST",
       url: "/v1/message/send-document",
       data: {
         ...common,
         document: input.mediaUrl,
-        extension: input.extension || "",
+        extension,
         fileName: input.fileName || "documento",
         caption: input.caption || input.message || "",
       },

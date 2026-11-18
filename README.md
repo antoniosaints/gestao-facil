@@ -29,6 +29,32 @@ As emissões NFS-e Geranet e D2TI também rejeitam CPF/CNPJ inválido do tomador
 
 `GET /api/v1/notas-fiscais/documentos/painel` alimenta o painel de notas. Exige `inicio` e `fim` em `AAAA-MM-DD`, aceita até 366 dias e limita tudo ao `contaId` autenticado. Retorna KPIs e valores autorizados comparados ao período anterior de igual duração, taxa de autorização, distribuição por tipo/status, série diária de registros e autorizações e seis documentos em andamento ou com problema mais antigos no período. O relatório operacional mostra filtros em painel lateral e deixa os indicadores no painel.
 
+## Validação da W-API — 18/11/2026
+
+Revisão restrita aos 24 endpoints já usados pelo `WApiClient`, comparados com a [documentação oficial](https://docs.w-api.app/api-integration/create-instance) e a coleção `W-API.postman_collection.json` fornecida. Nenhuma ação ou rota de produto foi adicionada.
+
+| Grupo | Endpoints existentes conferidos |
+| --- | --- |
+| Criação | `POST /v1/client/create-instance` |
+| Instância | `GET /v1/instance/{qr-code,pairing-code,restart,disconnect,status-instance,device,fetch-instance}` |
+| Mensagens | `POST /v1/message/{send-text,send-image,send-audio,send-video,send-document,send-location,send-contact,read-message}` |
+| Webhooks | `PUT /v1/webhook/update-webhook-{connected,disconnected,delivery,received,message-status,chat-presence}` |
+| Pagamentos | `POST /v1/payment/pix/create` e `POST /v1/payment/card/subscribe` |
+
+- Criação continua com `apiKey` no corpo, sem Bearer ou `instanceId`; mantém LITE e sete dias de teste. A coleção inclui Bearer e `instanceId` indevidos nesse exemplo; a documentação e seu snippet de criação são a referência.
+- As operações de instância continuam com Bearer e um único `instanceId` na query. O pareamento exige `phoneNumber`. O retorno de `device` usa `connectedPhone`; seu `status` é o recado do perfil e não deve alterar a conexão.
+- `messageId` nos envios é reservado à mensagem citada; o ID interno permanece local. Documentos exigem extensão, preenchida pelo campo explícito, nome ou caminho da URL, sem usar a query da URL.
+- Erros de negócio em HTTP 200 são rejeitados também nas consultas e na configuração dos webhooks. `webhookDelivery` confirma envio; `RECEIVED` confirma entrega e `READ`, leitura. Esses dois status têm identidades de evento distintas para não perder a leitura na deduplicação. Mídia em `msgContent.message` é preservada no envelope compacto.
+- PIX e cartão mantêm os campos `payerEmail` e `webhookPaymentUrl`. Não copiar a query duplicada dos exemplos de pagamento da coleção.
+
+Validação: `npm run test:whatsapp-webhook` cobre contratos de requisição com adapter HTTP simulado e regressões de interpretação dos callbacks; `npm run type-check` confere os tipos do backend. Esta revisão não executa ações na conta W-API: não cria instâncias, cobra pagamentos, envia mensagens ou modifica webhooks reais. O funcionamento com credenciais reais depende da instância e da disponibilidade do provedor.
+
+A sincronização existente consulta `status-instance` e `fetch-instance` em paralelo: a conexão tem prioridade sobre os metadados e um retorno válido continua sendo persistido mesmo se a outra consulta falhar. Instância desconectada limpa `numeroConectado`; se nenhuma consulta informar conexão válida, o status anterior é preservado e a falha fica em `ultimoErro`. A sincronização não depende de `device`.
+
+O erro HTTP 400 de `device` com a mensagem “não possui IP ou porta configurados” retorna `result.available: false`, motivo `INSTANCE_NOT_PROVISIONED` e um aviso legível. A ação existente sincroniza o status, limpa os dados antigos do aparelho e continua retornando a instância; as telas exibem um aviso. Outros erros (inclusive autenticação, servidor e outros HTTP 400) continuam sendo propagados.
+
+Validação real em 18/11/2026: `syncAllInstances` e a ação `device` existente foram executados com chamadas externas limitadas aos três GETs de consulta. “Numero Principal” passou de `CONECTADA` para `DESCONECTADA` e “Entrada” permaneceu `DESCONECTADA`; ambas retornaram o aviso de aparelho indisponível sem interromper a consulta. Tokens e segredos foram preservados. Evidência sanitizada: `output/wapi-readonly/2026-11-18-sync-validation.json` na raiz do projeto.
+
 ## Stack
 
 - Node.js + TypeScript

@@ -170,7 +170,7 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
     const isDeliveryStatusEvent =
       event.tipo === "delivery" ||
       (event.tipo === "status" && Boolean(messageIdFromPayload(payload)));
-    if (isMessageEvent && isDeliveryStatusEvent) {
+    if (isDeliveryStatusEvent) {
       const externalMessageId = messageIdFromPayload(payload);
       if (!externalMessageId) {
         await markIgnored(tx, event.id, "delivery-sem-message-id");
@@ -245,7 +245,7 @@ export async function processClaimedWebhookEvent(eventDatabaseId: number): Promi
       }
     }
 
-    if (isMessageEvent && event.tipo !== "delivery") {
+    if (isMessageEvent && !isDeliveryStatusEvent) {
       const protocolMessage =
         payload?.msgContent?.protocolMessage || payload?.message?.protocolMessage || payload?.data?.message?.protocolMessage;
       const reactionMessage =
