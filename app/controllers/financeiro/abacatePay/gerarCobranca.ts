@@ -1,3 +1,4 @@
+import { AppRequirementError } from "../../../utils/appRequirementError";
 import Decimal from "decimal.js";
 
 import { Prisma, type ParametrosConta } from "../../../../generated";
@@ -72,15 +73,10 @@ async function resolveAbacatePayTenantConfig(contaId: number) {
     },
   });
 
-  if (!parametros?.AbacatePayApiKey) {
-    throw new Error(
-      "AbacatePay não configurado para esta conta. Informe a API Key em /configuracoes > Integrações.",
-    );
-  }
-
-  if (!parametros?.AbacatePaySecret) {
-    throw new Error(
-      "AbacatePay sem secret configurado para esta conta. Informe o Webhook Secret em /configuracoes > Integrações.",
+  if (!parametros?.AbacatePayApiKey || !parametros?.AbacatePaySecret) {
+    throw new AppRequirementError(
+      "Configure a API Key e o secret do AbacatePay em Apps > AbacatePay.",
+      "abacatepay_configuration_required",
     );
   }
 

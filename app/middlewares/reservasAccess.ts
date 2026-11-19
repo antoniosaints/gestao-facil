@@ -33,6 +33,7 @@ export function requireReservationPermission(permission: ReservationPermission):
       res.status(403).json({
         status: 403,
         message: "O módulo Reservas precisa estar ativo.",
+        error: { code: "reservas_module_inactive" },
         data: null,
       });
       return;

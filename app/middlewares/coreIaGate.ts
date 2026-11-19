@@ -14,6 +14,7 @@ export const coreIaGate = async (
     if (!hasAccess) {
       return res.status(403).json({
         message: "O app CORE IA não está ativo no seu plano.",
+        error: { code: "core_ia_module_inactive" },
       });
     }
     next();

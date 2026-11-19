@@ -479,7 +479,7 @@ async function ensurePermission(req: Request, res: Response) {
 
   const hasModuleAccess = await contaHasActiveModule(contaId, 'assinaturas')
   if (!hasModuleAccess) {
-    res.status(403).json({ message: 'O app Assinaturas não está ativo no plano desta conta.' })
+    res.status(403).json({ message: 'O app Contratos não está ativo no plano desta conta.', error: { code: 'assinaturas_module_inactive' } })
     return false
   }
 

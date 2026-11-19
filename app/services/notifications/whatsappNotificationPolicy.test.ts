@@ -4,12 +4,27 @@ import {
   canConfigureWhatsAppNotifications,
   buildWhatsAppNotificationText,
   getWhatsAppNotificationEventField,
+  whatsAppEventForPushPreference,
   isWhatsAppNotificationEventEnabled,
   normalizeWhatsAppNotificationPhone,
   selectWhatsAppNotificationRecipients,
 } from "./whatsappNotificationPolicy";
 
 describe("whatsappNotificationPolicy", () => {
+  it("encaminha os eventos complementares sem duplicar produtores WhatsApp existentes", () => {
+    for (const event of ["ESTOQUE_BAIXO", "PRODUTO_ALTERADO", "SANGRIA"]) assert.equal(whatsAppEventForPushPreference(event), event);
+    for (const event of ["VENDA_CONCLUIDA", "NOVA_VENDA", "NOVA_OS", "NOVO_LANCAMENTO"]) assert.equal(whatsAppEventForPushPreference(event), null);
+  });
+  it("expõe os novos eventos e mantém alertas novos desligados por padrão", () => {
+    for (const [event, field] of [["ESTOQUE_BAIXO", "whatsappEventoEstoqueBaixo"], ["PRODUTO_ALTERADO", "whatsappEventoProdutoAlterado"], ["SANGRIA", "whatsappEventoSangria"]] as const) {
+      assert.equal(getWhatsAppNotificationEventField(event), field);
+      assert.equal(isWhatsAppNotificationEventEnabled({ whatsappNotificacoesAtivo: true }, event), false);
+      assert.equal(isWhatsAppNotificationEventEnabled({ whatsappNotificacoesAtivo: true, [field]: true }, event), true);
+      assert.equal(isWhatsAppNotificationEventEnabled({ whatsappNotificacoesAtivo: false, [field]: true }, event), false);
+    }
+    assert.equal(getWhatsAppNotificationEventField("VENDA_CONCLUIDA"), "whatsappEventoVendaConcluida");
+    assert.equal(isWhatsAppNotificationEventEnabled({ whatsappNotificacoesAtivo: true, whatsappEventoNovaVenda: false, whatsappEventoVendaConcluida: true }, "VENDA_CONCLUIDA"), true);
+  });
   it("requires active WhatsApp module and a valid instance only when WhatsApp notifications are enabled", () => {
     assert.equal(
       canConfigureWhatsAppNotifications({
@@ -53,7 +68,7 @@ describe("whatsappNotificationPolicy", () => {
     assert.equal(getWhatsAppNotificationEventField("COMANDA_FATURADA"), "whatsappEventoComandaFaturada");
     assert.equal(getWhatsAppNotificationEventField("CAIXA_ABERTO"), "whatsappEventoCaixaAberto");
     assert.equal(getWhatsAppNotificationEventField("CAIXA_FECHADO"), "whatsappEventoCaixaFechado");
-    assert.equal(getWhatsAppNotificationEventField("VENCIMENTO_FINANCEIRO"), "financeiroVencimentosNotificacoesAtivo");
+    assert.equal(getWhatsAppNotificationEventField("VENCIMENTO_FINANCEIRO"), "whatsappEventoVencimentoFinanceiro");
 
     assert.equal(
       isWhatsAppNotificationEventEnabled(

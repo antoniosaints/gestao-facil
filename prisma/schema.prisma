@@ -985,6 +985,11 @@ model ParametrosConta {
   whatsappNotificacoesAtivo              Boolean? @default(false)
   whatsappNotificacoesInstanciaId        Int?
   whatsappEventoNovaVenda                Boolean? @default(true)
+  whatsappEventoVendaConcluida Boolean? @default(true)
+  whatsappEventoEstoqueBaixo Boolean? @default(false)
+  whatsappEventoProdutoAlterado Boolean? @default(false)
+  whatsappEventoSangria Boolean? @default(false)
+  whatsappEventoVencimentoFinanceiro Boolean? @default(true)
   whatsappEventoNovaOs                   Boolean? @default(true)
   whatsappEventoNovoLancamento           Boolean? @default(true)
   whatsappEventoNovoCliente              Boolean? @default(true)

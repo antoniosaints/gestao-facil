@@ -1,3 +1,4 @@
+import { AppRequirementError } from "../../utils/appRequirementError";
 import crypto from "crypto";
 import { readWApiInstance } from "./wApiInstanceSync";
 import { format } from "date-fns";
@@ -1895,7 +1896,7 @@ export const whatsAppService = {
           where: { contaId, ativo: true },
           orderBy: { updatedAt: "desc" },
         }));
-      if (!instance) throw new Error("Nenhuma instância de WhatsApp ativa. Conecte uma instância no app WhatsApp antes de iniciar o atendimento.");
+      if (!instance) throw new AppRequirementError("Conecte uma instância no app WhatsApp antes de iniciar o atendimento.", "whatsapp_instance_required");
     }
 
     const conversa = await prisma.whatsAppConversa.upsert({

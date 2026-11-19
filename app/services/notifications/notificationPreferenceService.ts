@@ -1,4 +1,5 @@
 import { prisma } from "../../utils/prisma";
+import { whatsAppEventForPushPreference } from "./whatsappNotificationPolicy";
 import { enqueuePushNotification } from "../pushNotificationQueueService";
 import type { NotificationPayload } from "../sendPushNotificationService";
 
@@ -43,6 +44,12 @@ export async function enqueuePushNotificationByPreference(
   contaId: number,
   adminsOnly: boolean = false,
 ) {
+  // WhatsApp possui preferências próprias e independe do canal push.
+  const whatsappEvent = whatsAppEventForPushPreference(event);
+  if (whatsappEvent) {
+    const { enqueueWhatsAppNotificationByPreference } = await import("./whatsappNotificationQueueService");
+    await enqueueWhatsAppNotificationByPreference(whatsappEvent, payload, contaId, adminsOnly);
+  }
   if (!(await canSendEvent(contaId, event))) {
     return false;
   }

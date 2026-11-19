@@ -1,8 +1,10 @@
 import { Router } from "express";
 import multer from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
+import { requireStoreApp } from "../../middlewares/appModuleAccess";
 import { coreIaGate } from "../../middlewares/coreIaGate";
 import { atendimentoAccess } from "../../middlewares/atendimentoAccess";
+import { registerInstanceWebhookLogRoutes } from "./instanceWebhookLogs";
 import { createAgent, listAgents, removeAgent, testAgent, updateAgent } from "../../controllers/whatsapp/agentes";
 import { getPainelAtendimento } from "../../controllers/whatsapp/painel";
 import { getRelatorioAtendimentos, getRelatorioAtendimentosResumo } from "../../controllers/whatsapp/relatorios";
@@ -54,6 +56,7 @@ routerWhatsapp.post("/webhooks/:instanceId", receiveWebhook);
 routerWhatsapp.post("/payments/webhooks/:instanceId", receivePaymentWebhook);
 
 routerWhatsapp.use(authenticateJWT);
+routerWhatsapp.use("/instances", requireStoreApp("whatsapp"));
 routerWhatsapp.use("/agentes", coreIaGate);
 routerWhatsapp.get("/instances", listInstances);
 routerWhatsapp.post("/instances", createInstance);
@@ -64,8 +67,11 @@ routerWhatsapp.put("/instances/:id", updateInstance);
 routerWhatsapp.patch("/instances/:id/atendimento", atendimentoAccess, updateInstanceAtendimento);
 routerWhatsapp.delete("/instances/:id", removeInstance);
 routerWhatsapp.get("/instances/:id/webhooks", getInstanceWebhooks);
-routerWhatsapp.get("/instances/:id/eventos", atendimentoAccess, listInstanceWebhookEvents);
-routerWhatsapp.post("/instances/:id/eventos/:eventoId/retry", atendimentoAccess, retryInstanceWebhookEvent);
+registerInstanceWebhookLogRoutes(routerWhatsapp, {
+  list: listInstanceWebhookEvents,
+  retry: retryInstanceWebhookEvent,
+  atendimentoAccess,
+});
 routerWhatsapp.post("/instances/:id/webhooks", configureInstanceWebhooks);
 routerWhatsapp.post("/instances/:id/payments/pix", createPixPayment);
 routerWhatsapp.post("/instances/:id/payments/card-subscription", createCardSubscription);

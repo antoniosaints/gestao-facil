@@ -1,5 +1,9 @@
 export type WhatsAppNotificationEvent =
   | "NOVA_VENDA"
+  | "VENDA_CONCLUIDA"
+  | "ESTOQUE_BAIXO"
+  | "PRODUTO_ALTERADO"
+  | "SANGRIA"
   | "NOVA_OS"
   | "NOVO_LANCAMENTO"
   | "NOVO_CLIENTE"
@@ -10,6 +14,11 @@ export type WhatsAppNotificationEvent =
 
 export type WhatsAppNotificationEventField =
   | "whatsappEventoNovaVenda"
+  | "whatsappEventoVendaConcluida"
+  | "whatsappEventoEstoqueBaixo"
+  | "whatsappEventoProdutoAlterado"
+  | "whatsappEventoSangria"
+  | "whatsappEventoVencimentoFinanceiro"
   | "whatsappEventoNovaOs"
   | "whatsappEventoNovoLancamento"
   | "whatsappEventoNovoCliente"
@@ -24,17 +33,28 @@ export const WHATSAPP_NOTIFICATION_EVENTS: Array<{
   label: string;
 }> = [
   { key: "NOVA_VENDA", field: "whatsappEventoNovaVenda", label: "Nova venda" },
+  { key: "VENDA_CONCLUIDA", field: "whatsappEventoVendaConcluida", label: "Venda concluída" },
+  { key: "ESTOQUE_BAIXO", field: "whatsappEventoEstoqueBaixo", label: "Estoque baixo" },
+  { key: "PRODUTO_ALTERADO", field: "whatsappEventoProdutoAlterado", label: "Alteração de produto" },
+  { key: "SANGRIA", field: "whatsappEventoSangria", label: "Sangria de caixa" },
   { key: "NOVA_OS", field: "whatsappEventoNovaOs", label: "Nova OS" },
   { key: "NOVO_LANCAMENTO", field: "whatsappEventoNovoLancamento", label: "Novo lancamento" },
   { key: "NOVO_CLIENTE", field: "whatsappEventoNovoCliente", label: "Novo cliente" },
   { key: "COMANDA_FATURADA", field: "whatsappEventoComandaFaturada", label: "Comanda faturada" },
   { key: "CAIXA_ABERTO", field: "whatsappEventoCaixaAberto", label: "Caixa aberto" },
   { key: "CAIXA_FECHADO", field: "whatsappEventoCaixaFechado", label: "Caixa fechado" },
-  { key: "VENCIMENTO_FINANCEIRO", field: "financeiroVencimentosNotificacoesAtivo", label: "Vencimento financeiro" },
+  { key: "VENCIMENTO_FINANCEIRO", field: "whatsappEventoVencimentoFinanceiro", label: "Vencimento financeiro" },
 ];
 
 const ADMINISTRATIVE_PERMISSIONS = new Set(["root", "admin", "gerente"]);
 const FINANCIAL_DUE_PERMISSIONS = new Set(["root", "admin"]);
+
+// Estes eventos já passam pelo dispatcher de preferências push. Os outros têm
+// produtores WhatsApp próprios e não devem ser duplicados nesse dispatcher.
+export function whatsAppEventForPushPreference(event: string) {
+  if (event === "ESTOQUE_BAIXO" || event === "PRODUTO_ALTERADO" || event === "SANGRIA") return event;
+  return null;
+}
 
 export function getWhatsAppNotificationEventField(event: WhatsAppNotificationEvent) {
   return WHATSAPP_NOTIFICATION_EVENTS.find((item) => item.key === event)!.field;
@@ -75,7 +95,7 @@ export function isWhatsAppNotificationEventEnabled(
   }
 
   const field = getWhatsAppNotificationEventField(event);
-  return parametros[field] ?? true;
+  return parametros[field] ?? !["ESTOQUE_BAIXO", "PRODUTO_ALTERADO", "SANGRIA"].includes(event);
 }
 
 export function normalizeWhatsAppNotificationPhone(value?: string | null) {

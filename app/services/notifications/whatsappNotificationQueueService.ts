@@ -1,3 +1,4 @@
+import { AppRequirementError } from "../../utils/appRequirementError";
 import crypto from "crypto";
 import { WhatsAppInstanciaStatus } from "../../../generated";
 import { whatsappNotificationQueue } from "../../queues/whatsappNotificationQueue";
@@ -67,6 +68,11 @@ const PARAMETER_SELECT = {
   whatsappNotificacoesAtivo: true,
   whatsappNotificacoesInstanciaId: true,
   whatsappEventoNovaVenda: true,
+  whatsappEventoVendaConcluida: true,
+  whatsappEventoEstoqueBaixo: true,
+  whatsappEventoProdutoAlterado: true,
+  whatsappEventoSangria: true,
+  whatsappEventoVencimentoFinanceiro: true,
   whatsappEventoNovaOs: true,
   whatsappEventoNovoLancamento: true,
   whatsappEventoNovoCliente: true,
@@ -335,7 +341,7 @@ export async function enqueueWhatsAppClientMessage(
 
   const moduleActive = await contaHasActiveModule(contaId, "whatsapp");
   if (!moduleActive) {
-    throw new Error("O modulo WhatsApp precisa estar ativo para enviar mensagens.");
+    throw new AppRequirementError("Ative o app WhatsApp para enviar mensagens.", "whatsapp_module_inactive", 403);
   }
 
   const [parametros, cliente] = await Promise.all([
@@ -359,7 +365,7 @@ export async function enqueueWhatsAppClientMessage(
   }
 
   if (!parametros?.whatsappNotificacoesInstanciaId) {
-    throw new Error("Configure a instancia principal de WhatsApp nas notificacoes.");
+    throw new AppRequirementError("Configure a instância principal de WhatsApp nas notificações.", "whatsapp_notification_instance_required");
   }
 
   const instance = await prisma.whatsAppInstancia.findFirst({
@@ -373,7 +379,7 @@ export async function enqueueWhatsAppClientMessage(
   });
 
   if (!instance) {
-    throw new Error("A instancia principal de WhatsApp precisa estar conectada.");
+    throw new AppRequirementError("A instância principal de WhatsApp precisa estar conectada.", "whatsapp_instance_disconnected");
   }
 
   const jobId = `wa-client-${contaId}-${clienteId}-${crypto.randomUUID()}`;

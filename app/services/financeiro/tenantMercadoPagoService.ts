@@ -2,6 +2,7 @@ import { ParametrosConta } from "../../../generated";
 import { prisma } from "../../utils/prisma";
 import { MercadoPagoService } from "./mercadoPagoService";
 import { getValidAccessToken } from "./mercadoPagoOAuthService";
+import { AppRequirementError } from "../../utils/appRequirementError";
 
 const MENSAGEM_SEM_CREDENCIAL =
   "Conta do Mercado Pago não conectada. Acesse Apps > Mercado Pago e clique em Conectar.";
@@ -52,7 +53,7 @@ export async function getTenantMercadoPagoService(
   const accessToken = await resolveTenantAccessToken(contaId, parametros);
 
   if (!accessToken) {
-    throw new Error(MENSAGEM_SEM_CREDENCIAL);
+    throw new AppRequirementError(MENSAGEM_SEM_CREDENCIAL, "mercado_pago_configuration_required");
   }
 
   return new MercadoPagoService(accessToken);

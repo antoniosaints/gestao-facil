@@ -1,3 +1,4 @@
+import { requireStoreApp } from "../../middlewares/appModuleAccess";
 import { Router } from "express";
 import multer from "multer";
 import { authenticateJWT } from "../../middlewares/auth";
@@ -39,20 +40,20 @@ routerLoja.post("/publica/:slug/auth/addresses", requireStoreCustomer as any, sa
 routerLoja.put("/publica/:slug/auth/addresses/:id", requireStoreCustomer as any, saveAddress as any);
 routerLoja.delete("/publica/:slug/auth/addresses/:id", requireStoreCustomer as any, deleteAddress as any);
 
-routerLoja.get("/resumo", authenticateJWT, getResumoLoja);
-routerLoja.get("/config", authenticateJWT, getLojaConfig);
-routerLoja.put("/config", authenticateJWT, saveLojaConfig);
-routerLoja.post("/config/banner", authenticateJWT, uploadBanner.single("file"), uploadLojaBanner);
-routerLoja.delete("/config/banner", authenticateJWT, deleteLojaBanner);
-routerLoja.get("/secoes", authenticateJWT, listSecoes as any);
-routerLoja.post("/secoes", authenticateJWT, createSecao as any);
-routerLoja.patch("/secoes/:id", authenticateJWT, updateSecao as any);
-routerLoja.delete("/secoes/:id", authenticateJWT, deleteSecao as any);
-routerLoja.post("/secoes/:id/produtos", authenticateJWT, addProdutoSecao as any);
-routerLoja.delete("/secoes/:id/produtos/:produtoBaseId", authenticateJWT, removeProdutoSecao as any);
-routerLoja.get("/pedidos", authenticateJWT, listStoreOrders as any);
-routerLoja.get("/pedidos/:id", authenticateJWT, showStoreOrder as any);
-routerLoja.delete("/pedidos/:id", authenticateJWT, deleteStoreOrder as any);
-routerLoja.post("/pedidos/:id/:action", authenticateJWT, actOnStoreOrder as any);
+routerLoja.get("/resumo", authenticateJWT, requireStoreApp("loja-virtual"), getResumoLoja);
+routerLoja.get("/config", authenticateJWT, requireStoreApp("loja-virtual"), getLojaConfig);
+routerLoja.put("/config", authenticateJWT, requireStoreApp("loja-virtual"), saveLojaConfig);
+routerLoja.post("/config/banner", authenticateJWT, requireStoreApp("loja-virtual"), uploadBanner.single("file"), uploadLojaBanner);
+routerLoja.delete("/config/banner", authenticateJWT, requireStoreApp("loja-virtual"), deleteLojaBanner);
+routerLoja.get("/secoes", authenticateJWT, requireStoreApp("loja-virtual"), listSecoes as any);
+routerLoja.post("/secoes", authenticateJWT, requireStoreApp("loja-virtual"), createSecao as any);
+routerLoja.patch("/secoes/:id", authenticateJWT, requireStoreApp("loja-virtual"), updateSecao as any);
+routerLoja.delete("/secoes/:id", authenticateJWT, requireStoreApp("loja-virtual"), deleteSecao as any);
+routerLoja.post("/secoes/:id/produtos", authenticateJWT, requireStoreApp("loja-virtual"), addProdutoSecao as any);
+routerLoja.delete("/secoes/:id/produtos/:produtoBaseId", authenticateJWT, requireStoreApp("loja-virtual"), removeProdutoSecao as any);
+routerLoja.get("/pedidos", authenticateJWT, requireStoreApp("loja-virtual"), listStoreOrders as any);
+routerLoja.get("/pedidos/:id", authenticateJWT, requireStoreApp("loja-virtual"), showStoreOrder as any);
+routerLoja.delete("/pedidos/:id", authenticateJWT, requireStoreApp("loja-virtual"), deleteStoreOrder as any);
+routerLoja.post("/pedidos/:id/:action", authenticateJWT, requireStoreApp("loja-virtual"), actOnStoreOrder as any);
 
 export { routerLoja };

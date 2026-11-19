@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { resolveClienteWhatsappInstance } from "./clienteWhatsappInstance";
 import { prisma } from "../../utils/prisma";
 import { contaHasActiveModule } from "../contas/storeModulesService";
 import { WApiClient } from "../whatsapp/wApiClient";
@@ -7,7 +8,7 @@ import {
   resolveClienteWhatsappPhone,
 } from "./clienteWhatsappPolicy";
 
-export type ClienteWhatsappSendInput =
+export type ClienteWhatsappSendInput = { instanciaId?: number } & (
   | {
       tipo: "COBRANCA";
       cobrancaId: number;
@@ -28,7 +29,7 @@ export type ClienteWhatsappSendInput =
       tipo: "COMPROVANTE_VENDA";
       vendaId: number;
       telefone?: string;
-    };
+    });
 
 function hasChargeClienteVinculo(
   cobranca: Awaited<ReturnType<typeof getCobrancaForMessage>>,
@@ -122,40 +123,12 @@ function resolveItemVendaNome(item: {
   return nome;
 }
 
-async function resolveConfiguredInstance(contaId: number) {
-  const moduleActive = await contaHasActiveModule(contaId, "whatsapp");
-  if (!moduleActive) {
-    throw new Error("O modulo WhatsApp precisa estar ativo para enviar mensagens.");
-  }
-
-  const parametros = await prisma.parametrosConta.findUnique({
-    where: { contaId },
-    select: {
-      whatsappNotificacoesInstanciaId: true,
-    },
+export async function resolveConfiguredInstance(contaId: number, instanciaId?: number) {
+  return resolveClienteWhatsappInstance(contaId, instanciaId, {
+    moduleActive: id => contaHasActiveModule(id, "whatsapp"),
+    defaultInstance: async id => (await prisma.parametrosConta.findUnique({ where: { contaId: id }, select: { whatsappNotificacoesInstanciaId: true } }))?.whatsappNotificacoesInstanciaId ?? null,
+    findInstance: where => prisma.whatsAppInstancia.findFirst({ where }),
   });
-
-  if (!parametros?.whatsappNotificacoesInstanciaId) {
-    throw new Error("Configure a instancia principal de WhatsApp nas notificacoes.");
-  }
-
-  const instance = await prisma.whatsAppInstancia.findFirst({
-    where: {
-      id: parametros.whatsappNotificacoesInstanciaId,
-      contaId,
-      ativo: true,
-    },
-  });
-
-  if (!instance) {
-    throw new Error("Instancia principal de WhatsApp nao encontrada.");
-  }
-
-  if (instance.status !== "CONECTADA") {
-    throw new Error("A instancia principal de WhatsApp precisa estar conectada.");
-  }
-
-  return instance;
 }
 
 function getVendaTotal(venda: { valor: any; desconto?: any | null }) {
@@ -302,7 +275,7 @@ export async function sendClienteWhatsappMessage(
     }
   }
 
-  const instance = await resolveConfiguredInstance(contaId);
+  const instance = await resolveConfiguredInstance(contaId, input.instanciaId);
   const result = await new WApiClient(instance.instanceId, instance.token).send("text", {
     phone,
     message,

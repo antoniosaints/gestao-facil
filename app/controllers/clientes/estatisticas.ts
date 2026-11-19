@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
 import { prisma } from "../../utils/prisma";
@@ -14,7 +15,7 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
         // Verificar se cliente existe
         const cliente = await prisma.clientesFornecedores.findUnique({
             where: { id: clienteId, contaId: contaId },
-            select: { id: true, nome: true, tipo: true, status: true, telefone: true, whastapp: true }
+            select: { id: true, Uid: true, nome: true, tipo: true, status: true, telefone: true, whastapp: true, documento: true, email: true, cidade: true, estado: true, createdAt: true }
         });
 
         if (!cliente) {
@@ -138,7 +139,13 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
             .reduce((acc, p) => acc + Number(p.valor), 0);
 
 
+        const whatsappAtivo = await contaHasActiveModule(contaId, "whatsapp");
+        const [parametrosWhatsapp, instanciasWhatsapp] = await Promise.all([
+          whatsappAtivo ? prisma.parametrosConta.findUnique({ where: { contaId }, select: { whatsappNotificacoesInstanciaId: true } }) : null,
+          whatsappAtivo ? prisma.whatsAppInstancia.findMany({ where: { contaId, ativo: true }, select: { id: true, nome: true, status: true, numeroConectado: true }, orderBy: { nome: "asc" } }) : [],
+        ]);
         return ResponseHandler(res, "Estatísticas recuperadas com sucesso", {
+            whatsapp: { ativo: whatsappAtivo, instanciaPadraoId: parametrosWhatsapp?.whatsappNotificacoesInstanciaId ?? null, instancias: instanciasWhatsapp },
             cliente,
             vendas: {
                 total: totalVendas,

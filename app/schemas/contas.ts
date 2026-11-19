@@ -267,6 +267,11 @@ export const updateParametrosContaSchema = z.object(
       .optional()
       .nullable(),
     whatsappEventoNovaVenda: z.boolean().optional().nullable(),
+    whatsappEventoVendaConcluida: z.boolean().optional().nullable(),
+    whatsappEventoEstoqueBaixo: z.boolean().optional().nullable(),
+    whatsappEventoProdutoAlterado: z.boolean().optional().nullable(),
+    whatsappEventoSangria: z.boolean().optional().nullable(),
+    whatsappEventoVencimentoFinanceiro: z.boolean().optional().nullable(),
     whatsappEventoNovaOs: z.boolean().optional().nullable(),
     whatsappEventoNovoLancamento: z.boolean().optional().nullable(),
     whatsappEventoNovoCliente: z.boolean().optional().nullable(),

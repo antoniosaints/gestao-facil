@@ -1954,7 +1954,7 @@ export async function finalizarVendaPdv(req: Request, res: Response) {
     );
 
     await enqueueWhatsAppNotificationByPreference(
-      "NOVA_VENDA",
+      "VENDA_CONCLUIDA",
       {
         title: "🏷️Nova venda.",
         body: `Venda PDV _*${resultado.Uid}*_ no valor de *${formatCurrency(resultado.valor)}*.`,

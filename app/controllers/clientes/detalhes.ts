@@ -33,8 +33,9 @@ const sendClienteWhatsappSchema = z.discriminatedUnion("tipo", [
 ]);
 
 function getPagination(req: Request) {
-  const page = Math.max(Number(req.query.page || 1), 1);
-  const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 30);
+  const number = (value: unknown, fallback: number) => Number.isFinite(Number(value)) && Number(value) > 0 ? Math.max(1, Math.trunc(Number(value))) : fallback;
+  const page = number(req.query.page, 1);
+  const limit = Math.min(number(req.query.pageSize || req.query.limit, 10), 100);
   return {
     page,
     limit,
@@ -69,6 +70,18 @@ function withMeta<T>(items: T[], total: number, page: number, limit: number) {
       totalPages: Math.max(Math.ceil(total / limit), 1),
     },
   };
+}
+
+function respondDetails<T>(res: Response, req: Request, items: T[], total: number, page: number, limit: number, extra: object) {
+  if (req.query.pageSize !== undefined) {
+    return res.json({ data: items, total, page, pageSize: limit, totalPages: Math.max(Math.ceil(total / limit), 1) });
+  }
+  return ResponseHandler(res, "Detalhes operacionais recuperados", { ...extra, ...withMeta(items, total, page, limit) });
+}
+
+function orderBy(req: Request, allowed: string[], fallback: string): Record<string, "asc" | "desc"> {
+  const field = String(req.query.sortBy || fallback);
+  return { [allowed.includes(field) ? field : fallback]: req.query.order === "asc" ? "asc" : "desc" };
 }
 
 export const getClienteOperationalDetails = async (req: Request, res: Response): Promise<any> => {
@@ -126,7 +139,7 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
       const [items, total] = await Promise.all([
         prisma.cobrancasFinanceiras.findMany({
           where: chargeClientWhere,
-          orderBy: { dataVencimento: "desc" },
+          orderBy: orderBy(req, ["id", "Uid", "dataVencimento", "status", "valor"], "dataVencimento"),
           take: limit,
           skip,
           include: {
@@ -144,9 +157,8 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
         prisma.cobrancasFinanceiras.count({ where: chargeClientWhere }),
       ]);
 
-      return ResponseHandler(res, "Detalhes operacionais recuperados", {
+      return respondDetails(res, req, items, total, page, limit, {
         tab,
-        ...withMeta(items, total, page, limit),
       });
     }
 
@@ -170,7 +182,7 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
       const [items, total] = await Promise.all([
         prisma.lancamentoFinanceiro.findMany({
           where,
-          orderBy: { dataLancamento: "desc" },
+          orderBy: orderBy(req, ["id", "Uid", "descricao", "dataLancamento", "status", "valorTotal"], "dataLancamento"),
           take: limit,
           skip,
           include: {
@@ -182,9 +194,8 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
         prisma.lancamentoFinanceiro.count({ where }),
       ]);
 
-      return ResponseHandler(res, "Detalhes operacionais recuperados", {
+      return respondDetails(res, req, items, total, page, limit, {
         tab,
-        ...withMeta(items, total, page, limit),
       });
     }
 
@@ -217,7 +228,7 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
       const [items, total] = await Promise.all([
         prisma.vendas.findMany({
           where,
-          orderBy: { data: "desc" },
+          orderBy: orderBy(req, ["id", "Uid", "data", "status", "valor"], "data"),
           take: limit,
           skip,
           include: {
@@ -228,9 +239,8 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
         prisma.vendas.count({ where }),
       ]);
 
-      return ResponseHandler(res, "Detalhes operacionais recuperados", {
+      return respondDetails(res, req, items, total, page, limit, {
         tab,
-        ...withMeta(items, total, page, limit),
       });
     }
 
@@ -253,7 +263,7 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
       const [items, total] = await Promise.all([
         prisma.ordensServico.findMany({
           where,
-          orderBy: { data: "desc" },
+          orderBy: orderBy(req, ["id", "Uid", "data", "status"], "data"),
           take: limit,
           skip,
           include: {
@@ -264,9 +274,8 @@ export const getClienteOperationalDetails = async (req: Request, res: Response):
         prisma.ordensServico.count({ where }),
       ]);
 
-      return ResponseHandler(res, "Detalhes operacionais recuperados", {
+      return respondDetails(res, req, items, total, page, limit, {
         tab,
-        ...withMeta(items, total, page, limit),
       });
     }
 
@@ -280,7 +289,10 @@ export const sendClienteWhatsapp = async (req: Request, res: Response): Promise<
   try {
     const customData = getCustomRequest(req).customData;
     const clienteId = Number(req.params.id);
-    const payload = sendClienteWhatsappSchema.parse(req.body);
+    const payload = {
+      ...sendClienteWhatsappSchema.parse(req.body),
+      instanciaId: z.coerce.number().int().positive().optional().parse(req.body.instanciaId),
+    };
 
     const result = await sendClienteWhatsappMessage(
       customData.contaId,
