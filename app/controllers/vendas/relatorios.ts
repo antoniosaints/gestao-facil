@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import PDFDocument from "pdfkit";
 import Decimal from "decimal.js";
 import { endOfDay, format, startOfDay } from "date-fns";
+import { parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { formatCurrency } from "../../utils/formatters";
@@ -118,9 +119,13 @@ async function buildResumoRelatorioVendas(
         },
       },
       LancamentoFinanceiro: {
+        where: { ignorado: false, parcelas: { some: { ignorado: false, ...parcelaDeContaContabilizada } } },
         select: {
-          valorTotal: true,
           tipo: true,
+          parcelas: {
+            where: { ignorado: false, ...parcelaDeContaContabilizada },
+            select: { valor: true },
+          },
         },
       },
     },
@@ -231,7 +236,7 @@ async function buildResumoRelatorioVendas(
 
     // Financeiro considerando apenas lançamentos vinculados a esta venda
     for (const lancamento of venda.LancamentoFinanceiro) {
-      const valorLancamento = new Decimal(lancamento.valorTotal || 0);
+      const valorLancamento = lancamento.parcelas.reduce((total, parcela) => total.plus(parcela.valor), new Decimal(0));
       resumo.financeiro.quantidade += 1;
 
       if (lancamento.tipo === "RECEITA") {

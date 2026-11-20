@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { startOfMonth, subMonths } from "date-fns";
+import { parcelaDaContaFinanceira, parcelaDeContaContabilizada } from "./contaFinanceiraCalculosPolicy";
 import { prisma } from "../../utils/prisma";
 import {
   agruparPorCategoria,
@@ -42,7 +43,10 @@ async function carregarParcelas(
   const registros = await prisma.parcelaFinanceiro.findMany({
     where: {
       ignorado: false,
-      ...(filtros.contaFinanceiraId ? { contaFinanceira: filtros.contaFinanceiraId } : {}),
+      AND: [
+        parcelaDeContaContabilizada,
+        ...(filtros.contaFinanceiraId ? [parcelaDaContaFinanceira(filtros.contaFinanceiraId)] : []),
+      ],
       OR: [
         { vencimento: { gte: janelaInicio, lte: janelaFim } },
         { dataPagamento: { gte: janelaInicio, lte: janelaFim } },

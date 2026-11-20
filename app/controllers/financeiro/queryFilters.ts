@@ -2,6 +2,7 @@ import type { Request } from "express";
 import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import type { Prisma } from "../../../generated";
 import { prisma } from "../../utils/prisma";
+import { parcelaDaContaFinanceira } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 
 export type FinanceiroStatusFiltro = "TODOS" | "PAGO" | "PENDENTE" | "ATRASADO" | "PARCIAL";
 export type FinanceiroTipoFiltro = "TODOS" | "RECEITA" | "DESPESA";
@@ -133,15 +134,7 @@ export function buildParcelaFinanceiroWhere(
   };
 
   if (filters.contaFinanceiraId) {
-    where.OR = [
-      { contaFinanceira: filters.contaFinanceiraId },
-      {
-        contaFinanceira: null,
-        lancamento: {
-          contasFinanceiroId: filters.contaFinanceiraId,
-        },
-      },
-    ];
+    Object.assign(where, parcelaDaContaFinanceira(filters.contaFinanceiraId));
   }
 
   const lancamentoWhere = where.lancamento as Prisma.LancamentoFinanceiroWhereInput;

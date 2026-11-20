@@ -15,6 +15,7 @@ import {
   filtrarParcelasPorEscopo,
   type EscopoAtualizacaoParcela,
 } from "../../services/financeiro/lancamentoService";
+import { contaFinanceiraEfetivaId, contaIgnoradaDaParcela } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, isParcelaConsideradaNoResumo, matchesStatusFilter, parseFinanceiroFilters } from "./queryFilters";
 import { assertFutureSettlementAllowed, assertLancamentoDateAllowed } from "../../services/financeiro/financeiroPolicyService";
 import { processarPosPagamentoAssinaturaPagar } from "../../services/financeiro/assinaturasPagarService";
@@ -337,13 +338,15 @@ export const getLancamentosMensal = async (
         id: true,
         nome: true,
         saldoInicial: true,
+        ignorarNosCalculos: true,
       },
     });
 
-    const saldoInicialTotal = contasFinanceiras.reduce(
-      (acc, conta) => acc + decimalToNumber(conta.saldoInicial),
-      0
-    );
+    const nomesDasContas = new Map(contasFinanceiras.map((conta) => [conta.id, conta.nome]));
+    const contasIgnoradas = new Set(contasFinanceiras.filter((conta) => conta.ignorarNosCalculos).map((conta) => conta.id));
+    const saldoInicialTotal = contasFinanceiras
+      .filter((conta) => !conta.ignorarNosCalculos)
+      .reduce((acc, conta) => acc + decimalToNumber(conta.saldoInicial), 0);
 
     const parcelas = await prisma.parcelaFinanceiro.findMany({
       where: buildParcelaFinanceiroWhere(customData.contaId, filters, { incluirIgnoradas: true }),
@@ -361,12 +364,6 @@ export const getLancamentosMensal = async (
           select: {
             id: true,
             externalLink: true,
-          },
-        },
-        ContaFinanceira: {
-          select: {
-            id: true,
-            nome: true,
           },
         },
         lancamento: {
@@ -404,58 +401,30 @@ export const getLancamentosMensal = async (
       ? await prisma.parcelaFinanceiro.findMany({
         where: buildParcelaFinanceiroWhere(customData.contaId, filtersSaldo, { incluirIgnoradas: true }),
         select: {
-          id: true,
-          numero: true,
           valor: true,
           pago: true,
           ignorado: true,
           vencimento: true,
           dataPagamento: true,
           contaFinanceira: true,
-          formaPagamento: true,
-          CobrancasFinanceiras: {
-            select: {
-              id: true,
-              externalLink: true,
-            },
-          },
-          ContaFinanceira: {
-            select: {
-              id: true,
-              nome: true,
-            },
-          },
           lancamento: {
             select: {
-            id: true,
-            Uid: true,
-            ignorado: true,
-            descricao: true,
+              ignorado: true,
+              contasFinanceiroId: true,
               tipo: true,
-              categoria: {
-                select: {
-                  id: true,
-                  nome: true,
-                },
-              },
-              cliente: {
-                select: {
-                  id: true,
-                  nome: true,
-                },
-              },
             },
           },
         },
-        orderBy: [{ vencimento: "asc" }, { id: "asc" }],
       })
       : parcelas;
 
     const hoje = startOfDay(new Date());
     const parcelasFiltradas = parcelas.filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje));
     const parcelasFiltradasSaldo = parcelasSaldo.filter((parcela) => matchesStatusFilter(parcela, filters.status, hoje));
-    const parcelasParaResumo = parcelasFiltradas.filter(isParcelaConsideradaNoResumo);
-    const parcelasParaResumoSaldo = parcelasFiltradasSaldo.filter(isParcelaConsideradaNoResumo);
+    const consideradaNoResumo = (parcela: (typeof parcelasSaldo)[number]) =>
+      isParcelaConsideradaNoResumo(parcela) && !contaIgnoradaDaParcela(parcela, contasIgnoradas);
+    const parcelasParaResumo = parcelasFiltradas.filter(consideradaNoResumo);
+    const parcelasParaResumoSaldo = parcelasFiltradasSaldo.filter(consideradaNoResumo);
 
     const parcelasDoMes = parcelasFiltradas.filter(
       (parcela) => parcela.vencimento >= inicio && parcela.vencimento <= fim
@@ -490,14 +459,17 @@ export const getLancamentosMensal = async (
 
       const valor = decimalToNumber(parcela.valor);
       const status = getParcelaStatus(parcela, hoje);
-      const consideradaNoResumo = isParcelaConsideradaNoResumo(parcela);
+      const contaFinanceiraId = contaFinanceiraEfetivaId(parcela);
+      const contaIgnoradaNosCalculos = contaIgnoradaDaParcela(parcela, contasIgnoradas);
+      const ignorado = !isParcelaConsideradaNoResumo(parcela);
+      const incluirNoResumo = !ignorado && !contaIgnoradaNosCalculos;
 
-      if (consideradaNoResumo && parcela.lancamento.tipo === "RECEITA") {
+      if (incluirNoResumo && parcela.lancamento.tipo === "RECEITA") {
         acc[dia].entradasPrevistas += valor;
         if (parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim) {
           acc[dia].entradasRealizadas += valor;
         }
-      } else if (consideradaNoResumo) {
+      } else if (incluirNoResumo) {
         acc[dia].saidasPrevistas += valor;
         if (parcela.pago && parcela.dataPagamento && parcela.dataPagamento >= inicio && parcela.dataPagamento <= fim) {
           acc[dia].saidasRealizadas += valor;
@@ -513,8 +485,8 @@ export const getLancamentosMensal = async (
         descricao: parcela.lancamento.descricao,
         categoria: parcela.lancamento.categoria.nome,
         cliente: parcela.lancamento.cliente?.nome || null,
-        conta: parcela.ContaFinanceira?.nome || null,
-        contaFinanceiraId: parcela.contaFinanceira ?? parcela.lancamento.contasFinanceiroId,
+        conta: contaFinanceiraId === null ? null : nomesDasContas.get(contaFinanceiraId) ?? null,
+        contaFinanceiraId,
         valor,
         tipo: parcela.lancamento.tipo,
         status,
@@ -523,7 +495,8 @@ export const getLancamentosMensal = async (
         dataPagamento: parcela.dataPagamento,
         formaPagamento: parcela.formaPagamento,
         cobrancaLink: parcela.CobrancasFinanceiras[0]?.externalLink || null,
-        ignorado: !consideradaNoResumo,
+        ignorado,
+        contaIgnoradaNosCalculos,
       });
 
       return acc;
@@ -555,6 +528,7 @@ export const getLancamentosMensal = async (
         formaPagamento: string | null;
         cobrancaLink: string | null;
         ignorado: boolean;
+        contaIgnoradaNosCalculos: boolean;
       }>;
     }>);
 

@@ -1,5 +1,7 @@
 import { systemFunctionsVendasIA, toolsVendas } from "./tools/vendas";
 import { SchemaType, Tool } from "@google/generative-ai";
+import Decimal from "decimal.js";
+import { parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { prisma } from "../../utils/prisma";
 import { gerarIdUnicoComMetaFinal } from "../../helpers/generateUUID";
 import { CustomData } from "../../helpers/getCustomRequest";
@@ -114,30 +116,32 @@ export const systemFunctionsIA = {
     const periodo = resolverPeriodoIa(args?.inicio, args?.fim);
     const tipo = String(args?.tipo || "").toUpperCase();
 
-    const where = {
-      contaId: request.contaId,
-      dataLancamento: { gte: periodo.inicio, lte: periodo.fim },
-      ...(tipo === "RECEITA" || tipo === "DESPESA" ? { tipo: tipo as any } : {}),
-    };
-
-    const [porTipo, lancamentos] = await Promise.all([
-      prisma.lancamentoFinanceiro.groupBy({
-        by: ["tipo"],
-        _sum: { valorTotal: true },
-        _count: { _all: true },
-        where,
-      }),
-      prisma.lancamentoFinanceiro.findMany({
-        where,
-        select: { descricao: true, tipo: true, valorTotal: true, status: true, dataLancamento: true },
-        orderBy: { valorTotal: "desc" },
-        take: 15,
-      }),
-    ]);
-
-    const soma = (t: string) => Number(porTipo.find((g) => g.tipo === t)?._sum.valorTotal ?? 0);
-    const receitas = soma("RECEITA");
-    const despesas = soma("DESPESA");
+    const parcelasConsideradas = { ignorado: false, ...parcelaDeContaContabilizada };
+    const lancamentos = await prisma.lancamentoFinanceiro.findMany({
+      where: {
+        contaId: request.contaId,
+        ignorado: false,
+        dataLancamento: { gte: periodo.inicio, lte: periodo.fim },
+        ...(tipo === "RECEITA" || tipo === "DESPESA" ? { tipo } : {}),
+        parcelas: { some: parcelasConsideradas },
+      },
+      select: {
+        descricao: true,
+        tipo: true,
+        status: true,
+        dataLancamento: true,
+        parcelas: { where: parcelasConsideradas, select: { valor: true } },
+      },
+    });
+    const lancamentosComValor = lancamentos.map(({ parcelas, ...lancamento }) => ({
+      ...lancamento,
+      valor: parcelas.reduce((total, parcela) => total.plus(parcela.valor), new Decimal(0)),
+    }));
+    const somar = (tipo: "RECEITA" | "DESPESA") => lancamentosComValor
+      .filter((item) => item.tipo === tipo)
+      .reduce((total, item) => total.plus(item.valor), new Decimal(0));
+    const receitas = somar("RECEITA");
+    const despesas = somar("DESPESA");
 
     return {
       periodo: {
@@ -146,15 +150,15 @@ export const systemFunctionsIA = {
         assumido: periodo.assumido,
       },
       totais: {
-        receitas: brlIa(receitas),
-        despesas: brlIa(despesas),
-        saldo: brlIa(receitas - despesas),
-        quantidade: porTipo.reduce((acc, g) => acc + g._count._all, 0),
+        receitas: brlIa(receitas.toNumber()),
+        despesas: brlIa(despesas.toNumber()),
+        saldo: brlIa(receitas.minus(despesas).toNumber()),
+        quantidade: lancamentosComValor.length,
       },
-      maioresLancamentos: lancamentos.map((l) => ({
+      maioresLancamentos: lancamentosComValor.sort((a, b) => b.valor.comparedTo(a.valor)).slice(0, 15).map((l) => ({
         descricao: l.descricao,
         tipo: l.tipo,
-        valor: brlIa(Number(l.valorTotal || 0)),
+        valor: brlIa(l.valor.toNumber()),
         status: l.status,
         data: l.dataLancamento?.toISOString().slice(0, 10),
       })),

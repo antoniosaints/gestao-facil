@@ -44,7 +44,7 @@ export function buildLancamentoWhere(
   // sido ignorada, mesmo que as demais ainda estejam ativas.
   applyIgnoredParcelaFilter(where, filters.ignorado);
 
-  if (filters.contaFinanceiraId) {
+  if (!summary && filters.contaFinanceiraId) {
     where.contasFinanceiroId = filters.contaFinanceiraId;
   }
 

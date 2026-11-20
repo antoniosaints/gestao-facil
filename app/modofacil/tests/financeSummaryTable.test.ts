@@ -7,6 +7,7 @@ import {
 } from "../../controllers/financeiro/tableSummaryFilter";
 import { parseFinanceiroFilters } from "../../controllers/financeiro/queryFilters";
 import type { Request } from "express";
+import { parcelaDaContaFinanceira, parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 
 const inicio = new Date("2026-10-01T03:00:00.000Z");
 const fim = new Date("2026-11-01T02:59:59.999Z");
@@ -21,6 +22,7 @@ for (const [key, tipo, pago, dateField] of [
     const scope = getFinanceSummaryScope(key, { inicio, fim })!;
     assert.deepEqual(scope.where, {
       ignorado: false,
+      AND: [parcelaDeContaContabilizada],
       pago,
       [dateField]: { gte: inicio, lte: fim },
     });
@@ -121,4 +123,23 @@ test("valores de query não reconhecidos não ativam filtro de card", () => {
   for (const value of [undefined, "", "TODOS", "__proto__", ["RECEBIDO"], {}])
     assert.equal(getFinanceSummaryScope(value, { inicio, fim }), undefined);
   assert.equal(getFinanceSummaryScope("RECEBIDO", {}), undefined);
+});
+
+test("resumo por conta usa a conta efetiva e exclui apenas a parcela da conta ignorada", () => {
+  const scope = getFinanceSummaryScope("RECEBIDO", { inicio, fim, contaFinanceiraId: 3 })!;
+  assert.deepEqual(scope.where.AND, [parcelaDeContaContabilizada, parcelaDaContaFinanceira(3)]);
+  const where = buildLancamentoWhere(9, filters({ contaFinanceiraId: "3" }), scope);
+  assert.equal(where.contasFinanceiroId, undefined);
+  assert.deepEqual(where.AND, [{ parcelas: { some: scope.where } }]);
+
+  const part = { ignorado: false, pago: true, valor: "25", vencimento: inicio, dataPagamento: inicio };
+  const parcelas = [part, { ...part, contaFinanceira: 3 }, { ...part, contaFinanceira: 7 }];
+  assert.deepEqual(summarizeMatchingParcels(parcelas, scope, new Set([2]), 2), {
+    valorResumo: 25,
+    parcelasResumo: 1,
+  });
+  assert.deepEqual(summarizeMatchingParcels(parcelas, scope, new Set([2, 3]), 2), {
+    valorResumo: 0,
+    parcelasResumo: 0,
+  });
 });

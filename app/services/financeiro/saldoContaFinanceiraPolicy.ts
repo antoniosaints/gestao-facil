@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { contaFinanceiraEfetivaId } from "./contaFinanceiraCalculosPolicy";
 
 export type MovimentacaoSaldoConta = {
   contaFinanceira: number | null;
@@ -40,7 +41,7 @@ export function calcularMovimentacoesRealizadasPorConta(
   for (const parcela of parcelas) {
     if (!parcela.pago || !parcela.dataPagamento || parcela.dataPagamento > referencia) continue;
 
-    const contaFinanceiraId = parcela.contaFinanceira ?? parcela.lancamento.contasFinanceiroId;
+    const contaFinanceiraId = contaFinanceiraEfetivaId(parcela);
     if (!contaFinanceiraId) continue;
 
     const atual = totais.get(contaFinanceiraId) ?? {

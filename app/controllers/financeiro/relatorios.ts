@@ -12,6 +12,7 @@ import {
   subMonths,
 } from "date-fns";
 import { resolveRenderableImageSource } from "../../services/uploads/fileStorageService";
+import { contaFinanceiraEfetivaId, parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { formatCurrency } from "../../utils/formatters";
 
 type DREGroupedItem = {
@@ -71,6 +72,7 @@ function serializeGroupedMap(map: Map<string, Decimal>) {
 async function buildDrePayload(contaId: number, inicio: Date, fim: Date): Promise<DREPayload> {
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ...parcelaDeContaContabilizada,
       ignorado: false,
       vencimento: {
         gte: inicio,
@@ -876,6 +878,7 @@ export const getParcelasAtrasadas = async (
   const customData = getCustomRequest(req).customData;
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ...parcelaDeContaContabilizada,
       pago: false,
       ignorado: false,
       vencimento: { lt: hoje },
@@ -922,15 +925,11 @@ export const getResumoPorCliente = async (
         select: {
           tipo: true,
           parcelas: {
-            where: periodo
-              ? {
-                  ignorado: false,
-                  vencimento: {
-                    gte: periodo.inicio,
-                    lte: periodo.fim,
-                  },
-                }
-              : { ignorado: false },
+            where: {
+              ignorado: false,
+              ...parcelaDeContaContabilizada,
+              ...(periodo ? { vencimento: { gte: periodo.inicio, lte: periodo.fim } } : {}),
+            },
             select: {
               valor: true,
             },
@@ -992,6 +991,7 @@ export const getMediaMensalLancamentos = async (
 
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ...parcelaDeContaContabilizada,
       ignorado: false,
       vencimento: {
         gte: meses[0].inicio,
@@ -1049,18 +1049,33 @@ export const getLancamentosPorConta = async (
 ): Promise<any> => {
   const { contaId } = getCustomRequest(req).customData;
 
-  const contas = await prisma.contasFinanceiro.findMany({
-    where: { contaId },
-    include: {
-      ParcelaFinanceiro: {
-        where: { ignorado: false, lancamento: { ignorado: false } },
-        include: { lancamento: true },
+  const [contas, parcelasContabilizadas] = await Promise.all([
+    prisma.contasFinanceiro.findMany({
+      where: { contaId, ignorarNosCalculos: false },
+      select: { id: true, nome: true, saldoInicial: true },
+    }),
+    prisma.parcelaFinanceiro.findMany({
+      where: { ignorado: false, ...parcelaDeContaContabilizada, lancamento: { contaId, ignorado: false } },
+      select: {
+        contaFinanceira: true,
+        pago: true,
+        valor: true,
+        valorPago: true,
+        lancamento: { select: { tipo: true, contasFinanceiroId: true } },
       },
-    },
-  });
+    }),
+  ]);
+  const porConta = new Map<number, typeof parcelasContabilizadas>();
+  for (const parcela of parcelasContabilizadas) {
+    const id = contaFinanceiraEfetivaId(parcela);
+    if (id === null) continue;
+    const parcelas = porConta.get(id) ?? [];
+    parcelas.push(parcela);
+    porConta.set(id, parcelas);
+  }
 
   const resultado = contas.map((conta) => {
-    const parcelas = conta.ParcelaFinanceiro;
+    const parcelas = porConta.get(conta.id) ?? [];
 
     const receitas = parcelas.filter((p) => p.lancamento.tipo === "RECEITA");
     const despesas = parcelas.filter((p) => p.lancamento.tipo === "DESPESA");
@@ -1105,6 +1120,7 @@ export const getLancamentosPorStatus = async (
 
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ...parcelaDeContaContabilizada,
       ignorado: false,
       ...(periodo
         ? {
@@ -1145,6 +1161,7 @@ export const getLancamentosPorPagamento = async (
 
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ...parcelaDeContaContabilizada,
       pago: true,
       ignorado: false,
       ...(periodo
@@ -1203,15 +1220,11 @@ export const getLancamentosPorCategoria = async (
         where: { ignorado: false },
         include: {
           parcelas: {
-            where: periodo
-              ? {
-                  ignorado: false,
-                  vencimento: {
-                    gte: periodo.inicio,
-                    lte: periodo.fim,
-                  },
-                }
-              : { ignorado: false },
+            where: {
+              ignorado: false,
+              ...parcelaDeContaContabilizada,
+              ...(periodo ? { vencimento: { gte: periodo.inicio, lte: periodo.fim } } : {}),
+            },
           },
         },
         select: {
@@ -1258,6 +1271,7 @@ export const getLancamentosTotaisGerais = async (
 
   const parcelas = await prisma.parcelaFinanceiro.findMany({
     where: {
+      ...parcelaDeContaContabilizada,
       pago: true,
       ignorado: false,
       ...(periodo

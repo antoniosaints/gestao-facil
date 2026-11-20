@@ -79,6 +79,7 @@ export function createOperacoesRouter(
   editPorts: Parameters<typeof editarOperacao>[5],
   notify: (contaId: number, userId: number) => Promise<void> = async () => undefined,
   notifyStock: (contaId: number) => Promise<void> = async () => undefined,
+  notifyFinance: (contaId: number, contaFinanceiraId: number) => void = () => undefined,
 ) {
   const router = Router();
   const access = (level: number) => requireAccess(db, level);
@@ -173,7 +174,13 @@ export function createOperacoesRouter(
   router.patch("/servicos/:id/avancado", access(4), wrap(async (req, res) => { ok(res, await editarServicoAvancado(db, session(req).contaId, numericId(req.params.id), req.body)); }));
   router.patch("/servicos/:id/basico", access(2), wrap(async (req, res) => { ok(res, await editarServicoBasico(db, session(req).contaId, numericId(req.params.id), req.body)); }));
   router.patch("/servicos/:id/status", access(2), validate(z.object({ status: z.boolean() }).strict()), wrap(async (req, res) => { ok(res, await editarServicoAvancado(db, session(req).contaId, numericId(req.params.id), req.body)); }));
-  router.patch("/financeiro/contas/:id", access(4), wrap(async (req, res) => { ok(res, await editarContaFinanceira(db, session(req).contaId, numericId(req.params.id), req.body)); }));
+  router.patch("/financeiro/contas/:id", access(4), wrap(async (req, res) => {
+    const { contaId } = session(req);
+    const id = numericId(req.params.id);
+    const conta = await editarContaFinanceira(db, contaId, id, req.body);
+    notifyFinance(contaId, id);
+    ok(res, conta);
+  }));
   router.get("/configuracoes/operacionais", access(4), wrap(async (req, res) => { ok(res, await getParametrosOperacionais(db, session(req).contaId)); }));
   router.get("/configuracoes/empresa", access(4), wrap(async (req, res) => { ok(res, await getEmpresa(db, session(req).contaId)); }));
   router.patch("/configuracoes/empresa", access(4), wrap(async (req, res) => {

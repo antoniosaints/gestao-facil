@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { parcelaDeContaContabilizada } from "../financeiro/contaFinanceiraCalculosPolicy";
 import type { Prisma, PrismaClient } from "../../../generated/client";
 import type { prisma as prismaSingleton } from "../../utils/prisma";
 import {
@@ -150,19 +151,20 @@ async function calcularMetaFinanceiro(db: DbClient, meta: MetaLike, inicio: Date
     ignorado: false,
     ...(categoriaIds.length ? { categoriaId: { in: categoriaIds } } : {}),
   };
-  const where = {
+  const parcelasConsideradas = {
     pago: true,
     ignorado: false,
+    ...parcelaDeContaContabilizada,
     dataPagamento: { gte: inicio, lte: fim },
-    lancamento,
   };
+  const where = { ...parcelasConsideradas, lancamento };
 
   if (meta.metrica === "QUANTIDADE") {
     if (categoriaIds.length) {
       return new Decimal(await db.lancamentoFinanceiro.count({
         where: {
           ...lancamento,
-          parcelas: { some: { pago: true, ignorado: false, dataPagamento: { gte: inicio, lte: fim } } },
+          parcelas: { some: parcelasConsideradas },
         },
       }));
     }

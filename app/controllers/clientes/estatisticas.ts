@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { contaHasActiveModule } from "../../services/contas/storeModulesService";
 import { ResponseHandler } from "../../utils/response";
 import { handleError } from "../../utils/handleError";
+import { parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 
@@ -104,6 +105,7 @@ export const getClienteStats = async (req: Request, res: Response): Promise<any>
         const parcelasFinanceiras = await prisma.parcelaFinanceiro.findMany({
             where: {
                 ignorado: false,
+                ...parcelaDeContaContabilizada,
                 lancamento: {
                     clienteId: clienteId,
                     contaId: contaId,

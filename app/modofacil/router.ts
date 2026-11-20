@@ -46,7 +46,11 @@ routerModoFacil.use(createOperacoesRouter(prisma, extras, {
 }, async (contaId, userId) => {
   await syncAuthenticatedSessionCaches(contaId, userId);
   notify(() => sendSessionUpdated(contaId, { reason: "parametros-operacionais-atualizados" }));
-}, contaId => notificarProduto(contaId, "Alteração de produto", "Um cadastro ou uma entrada de estoque foi registrado.")));
+}, contaId => notificarProduto(contaId, "Alteração de produto", "Um cadastro ou uma entrada de estoque foi registrado."),
+(contaId, contaFinanceiraId) => notify(() => sendFinanceiroUpdated(contaId, {
+  reason: "conta-financeira-atualizada",
+  contaFinanceiraId,
+}))));
 
 const produtos = Router();
 produtos.use(requireAccess(prisma, 4));

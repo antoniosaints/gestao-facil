@@ -93,8 +93,8 @@ export const parcelaSchema = z.object({ valor: money.refine(n => n > 0), vencime
 export const parcelaAtualizacaoSchema = z.object({ valor: money.refine(n => n > 0), vencimento: dateSchema,
   escopo: z.enum(["ATUAL", "TODAS", "PENDENTES", "PAGAS", "ATUAL_EM_DIANTE", "ATUAL_PARA_TRAS"]).default("ATUAL"),
 }).strict();
-export const contaSchema = z.object({ nome: nonempty, saldoInicial: decimalField(2, 10, false, true), corDestaque: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable() }).strict();
-export const contaPatchSchema = contaSchema.pick({ nome: true, corDestaque: true }).partial().strict().refine(notEmpty, "Informe campos para alterar.");
+export const contaSchema = z.object({ nome: nonempty, saldoInicial: decimalField(2, 10, false, true), ignorarNosCalculos: z.boolean().optional(), corDestaque: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable() }).strict();
+export const contaPatchSchema = contaSchema.pick({ nome: true, corDestaque: true, ignorarNosCalculos: true }).partial().strict().refine(notEmpty, "Informe campos para alterar.");
 export const categoriaSchema = z.object({ id: idSchema.optional(), nome: nonempty, categoriaPai: idSchema.nullable() }).strict();
 export const moverCategoriaSchema = z.object({ parentId: idSchema.nullable() }).strict();
 const filtrosTransferencia = z.object({ inicio: dateSchema.optional(), fim: dateSchema.optional(), status: z.enum(["TODOS", "PAGO", "PENDENTE", "ATRASADO"]).optional(), tipo: z.enum(["TODOS", "RECEITA", "DESPESA"]).optional(), categoriaId: idSchema.optional(), clienteId: idSchema.optional(), search: z.string().max(191).optional() }).strict();

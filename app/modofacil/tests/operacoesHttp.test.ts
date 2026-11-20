@@ -73,6 +73,33 @@ test("HTTP financeiro nível3/conta nível4 preservam autorização atual do ban
   assert.equal((await h.send("/financeiro/parcelas/5/pagar", p, "POST", { "x-test-role": "gerente" })).status, 200);
   assert.equal(h.calls.length, 1);
 });
+test("HTTP ignora e reinclui uma conta nos cálculos sem alterar seu saldo inicial", async t => {
+  const h = await harness(t);
+  const conta = { id: 7, saldoInicial: 250, ignorarNosCalculos: false };
+  const where = { id: conta.id, contaId: 1 };
+  h.db.contasFinanceiro = {
+    updateMany: async (query: any) => {
+      if (query.where.id !== conta.id) return { count: 0 };
+      assert.deepEqual(query.where, where);
+      assert.deepEqual(Object.keys(query.data), ["ignorarNosCalculos"]);
+      Object.assign(conta, query.data);
+      return { count: 1 };
+    },
+    findFirst: async (query: any) => {
+      assert.deepEqual(query.where, where);
+      return conta;
+    },
+  };
+
+  assert.equal((await h.send("/financeiro/contas/7", { ignorarNosCalculos: "true" }, "PATCH")).status, 422);
+  assert.equal((await h.send("/financeiro/contas/7", { ignorarNosCalculos: true }, "PATCH", { "x-test-role": "gerente" })).status, 403);
+  assert.equal((await h.send("/financeiro/contas/8", { ignorarNosCalculos: true }, "PATCH")).status, 404);
+  for (const ignorarNosCalculos of [true, false]) {
+    const response = await h.send("/financeiro/contas/7", { ignorarNosCalculos }, "PATCH");
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).data, { id: 7, saldoInicial: 250, ignorarNosCalculos });
+  }
+});
 test("HTTP cobrança e mensagem de outra conta são barradas antes do handler externo", async t => {
   const h = await harness(t);
   for (const action of ["cancelar", "estornar"]) assert.equal((await h.send(`/financeiro/cobrancas/${action}`, { cobrancaId: 99 })).status, 404);

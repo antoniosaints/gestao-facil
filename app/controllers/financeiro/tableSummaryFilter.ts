@@ -1,4 +1,5 @@
 import type { Prisma } from "../../../generated";
+import { contaFinanceiraEfetivaId, parcelaDaContaFinanceira, parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 
 const cards = {
   RECEBIDO: { tipo: "RECEITA", pago: true },
@@ -13,10 +14,11 @@ export interface FinanceSummaryScope {
   inicio: Date;
   fim: Date;
   where: Prisma.ParcelaFinanceiroWhereInput;
+  contaFinanceiraId?: number;
 }
 export function getFinanceSummaryScope(
   value: unknown,
-  period: { inicio?: Date; fim?: Date },
+  period: { inicio?: Date; fim?: Date; contaFinanceiraId?: number },
 ): FinanceSummaryScope | undefined {
   if (
     typeof value !== "string" ||
@@ -32,8 +34,13 @@ export function getFinanceSummaryScope(
     dateField,
     inicio: period.inicio,
     fim: period.fim,
+    contaFinanceiraId: period.contaFinanceiraId,
     where: {
       ignorado: false,
+      AND: [
+        parcelaDeContaContabilizada,
+        ...(period.contaFinanceiraId ? [parcelaDaContaFinanceira(period.contaFinanceiraId)] : []),
+      ],
       pago: card.pago,
       [dateField]: { gte: period.inicio, lte: period.fim },
     },
@@ -46,13 +53,22 @@ export function summarizeMatchingParcels(
     valor: unknown;
     vencimento: Date;
     dataPagamento: Date | null;
+    contaFinanceira?: number | null;
   }[],
   scope: FinanceSummaryScope,
+  contasIgnoradas: ReadonlySet<number> = new Set(),
+  contasFinanceiroId: number | null = null,
 ) {
   const matches = parcels.filter((part) => {
     const date = part[scope.dateField];
+    const contaId = contaFinanceiraEfetivaId({
+      contaFinanceira: part.contaFinanceira ?? null,
+      lancamento: { contasFinanceiroId },
+    });
     return (
       !part.ignorado &&
+      (contaId === null || !contasIgnoradas.has(contaId)) &&
+      (scope.contaFinanceiraId === undefined || contaId === scope.contaFinanceiraId) &&
       part.pago === scope.pago &&
       date &&
       date >= scope.inicio &&

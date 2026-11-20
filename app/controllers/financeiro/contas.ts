@@ -45,6 +45,7 @@ export const listContasFinanceiro = async (req: Request, res: Response): Promise
                 icone: true,
                 corDestaque: true,
                 saldoInicial: true,
+                ignorarNosCalculos: true,
             },
             orderBy: {
                 nome: "asc",
@@ -85,14 +86,22 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
             return ResponseHandler(res, "Nome da conta obrigatorio!", null, 400);
         }
 
+        const { ignorarNosCalculos } = req.body;
+        if (ignorarNosCalculos !== undefined && typeof ignorarNosCalculos !== "boolean") {
+            return ResponseHandler(res, "Informe um valor booleano para ignorar a conta nos cálculos.", null, 400);
+        }
+
         const dataPayload = {
+            ...(ignorarNosCalculos === undefined ? {} : { ignorarNosCalculos }),
             nome: String(req.body.nome).trim(),
-            saldoInicial: new Decimal(req.body.saldoInicial || 0),
+            ...(req.body.saldoInicial === undefined
+                ? {}
+                : { saldoInicial: new Decimal(req.body.saldoInicial || 0) }),
             corDestaque: normalizeColor(req.body.corDestaque),
         };
 
         const removeIcon = Boolean(req.body.removeIcon);
-        let saved: { id: number; Uid: string; nome: string; icone: string | null; corDestaque: string | null; saldoInicial: Decimal };
+        let saved: { id: number; Uid: string; nome: string; icone: string | null; corDestaque: string | null; saldoInicial: Decimal; ignorarNosCalculos: boolean };
 
         if (req.body.id) {
             const contaAtual = await prisma.contasFinanceiro.findFirst({
@@ -100,14 +109,7 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
                     id: Number(req.body.id),
                     contaId,
                 },
-                select: {
-                    id: true,
-                    Uid: true,
-                    nome: true,
-                    icone: true,
-                    corDestaque: true,
-                    saldoInicial: true,
-                },
+                select: { icone: true },
             });
 
             if (!contaAtual) {
@@ -134,6 +136,7 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
                     icone: true,
                     corDestaque: true,
                     saldoInicial: true,
+                    ignorarNosCalculos: true,
                 },
             });
         } else {
@@ -150,6 +153,7 @@ export const saveContaFinanceiro = async (req: Request, res: Response): Promise<
                     icone: true,
                     corDestaque: true,
                     saldoInicial: true,
+                    ignorarNosCalculos: true,
                 },
             });
         }
@@ -209,6 +213,7 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
                 icone: true,
                 corDestaque: true,
                 saldoInicial: true,
+                ignorarNosCalculos: true,
             },
         });
 
@@ -999,6 +1004,7 @@ export const tableContasFinanceiro = async (req: Request, res: Response): Promis
                 icone: true,
                 corDestaque: true,
                 saldoInicial: true,
+                ignorarNosCalculos: true,
             },
             orderBy: shouldSortBySaldoAtual ? [{ nome: "asc" }, { id: "asc" }] : orderBy,
             ...(shouldSortBySaldoAtual

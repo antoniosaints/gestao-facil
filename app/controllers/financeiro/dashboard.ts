@@ -3,6 +3,7 @@ import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, format, isWithinInt
 import { ptBR } from "date-fns/locale";
 import { prisma } from "../../utils/prisma";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { contaFinanceiraEfetivaId, contaIgnoradaDaParcela } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { buildParcelaFinanceiroWhere, decimalToNumber, getParcelaStatus, parseFinanceiroFilters } from "./queryFilters";
 
 type ParcelaAnalytics = {
@@ -54,6 +55,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
           id: true,
           nome: true,
           saldoInicial: true,
+          ignorarNosCalculos: true,
           icone: true,
           corDestaque: true,
         },
@@ -97,6 +99,12 @@ export const getDashboardFinanceiroVisaoGeral = async (
         where: {
           contaId,
           status: "ATIVA",
+          AND: [{
+            OR: [
+              { contaFinanceiraId: null },
+              { contaFinanceira: { is: { ignorarNosCalculos: false } } },
+            ],
+          }],
           proximoVencimento: { not: null },
           ...(filters.contaFinanceiraId ? { contaFinanceiraId: filters.contaFinanceiraId } : {}),
           ...(filters.categoriaId ? { categoriaId: filters.categoriaId } : {}),
@@ -126,9 +134,12 @@ export const getDashboardFinanceiroVisaoGeral = async (
     ]);
 
     const hoje = startOfDay(new Date());
-    const saldoInicialTotal = contasFinanceiras.reduce((acc, conta) => acc + decimalToNumber(conta.saldoInicial), 0);
+    const contasIgnoradas = new Set(contasFinanceiras.filter((conta) => conta.ignorarNosCalculos).map((conta) => conta.id));
+    const saldoInicialTotal = contasFinanceiras
+      .filter((conta) => !conta.ignorarNosCalculos)
+      .reduce((acc, conta) => acc + decimalToNumber(conta.saldoInicial), 0);
 
-    const parcelas = parcelasBrutas.map((parcela) => ({
+    const todasParcelas = parcelasBrutas.map((parcela) => ({
       id: parcela.id,
       valor: decimalToNumber(parcela.valor),
       pago: parcela.pago,
@@ -149,6 +160,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
         cliente: parcela.lancamento.cliente,
       },
     })) as ParcelaAnalytics[];
+    const parcelas = todasParcelas.filter((parcela) => !contaIgnoradaDaParcela(parcela, contasIgnoradas));
 
     const saldoRealizadoAtual = saldoInicialTotal + parcelas
       .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento <= hoje)
@@ -314,9 +326,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
 
     const contasResumo = contasFinanceiras.map((conta) => {
       const saldoInicialConta = decimalToNumber(conta.saldoInicial);
-      const parcelasConta = parcelas.filter(
-        (parcela) => (parcela.contaFinanceira ?? parcela.lancamento.contasFinanceiroId) === conta.id,
-      );
+      const parcelasConta = todasParcelas.filter((parcela) => contaFinanceiraEfetivaId(parcela) === conta.id);
 
       const saldoAtual = saldoInicialConta + parcelasConta
         .filter((parcela) => parcela.pago && parcela.dataPagamento && parcela.dataPagamento <= hoje)
@@ -339,6 +349,7 @@ export const getDashboardFinanceiroVisaoGeral = async (
         conta: conta.nome,
         icone: conta.icone,
         corDestaque: conta.corDestaque,
+        ignorarNosCalculos: conta.ignorarNosCalculos,
         saldoInicial: saldoInicialConta,
         saldoAtual,
         saldoPrevisto,

@@ -3,6 +3,7 @@ import { prisma } from "../../utils/prisma";
 import { eachMonthOfInterval, endOfDay, endOfMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
 import Decimal from "decimal.js";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
+import { contaFinanceiraEfetivaId, parcelaDeContaContabilizada } from "../../services/financeiro/contaFinanceiraCalculosPolicy";
 import { hasPermission } from "../../helpers/userPermission";
 
 export const graficoByCategoria = async (
@@ -30,7 +31,7 @@ export const graficoByCategoria = async (
         },
         select: {
           tipo: true,
-          parcelas: { where: { ignorado: false } },
+          parcelas: { where: { ignorado: false, ...parcelaDeContaContabilizada } },
         },
       },
     },
@@ -91,47 +92,49 @@ export const graficoByContaFinanceira = async (
     return res.status(400).json({ erro: "Informe o período" });
   }
 
-  const contasFinanceiras = await prisma.contasFinanceiro.findMany({
-    where: { contaId },
-    include: {
-      lancamentos: {
-        where: {
+  const [contasFinanceiras, parcelas] = await Promise.all([
+    prisma.contasFinanceiro.findMany({
+      where: { contaId, ignorarNosCalculos: false },
+      select: { id: true, nome: true },
+    }),
+    prisma.parcelaFinanceiro.findMany({
+      where: {
+        ignorado: false,
+        ...parcelaDeContaContabilizada,
+        lancamento: {
+          contaId,
           ignorado: false,
           dataLancamento: {
             gte: new Date(inicio as string),
             lte: new Date(fim as string),
           },
         },
-        include: {
-          parcelas: { where: { ignorado: false } },
-        },
-        select: {
-          tipo: true,
-          parcelas: true,
-        },
       },
-    },
-  });
+      select: {
+        contaFinanceira: true,
+        valor: true,
+        lancamento: { select: { tipo: true, contasFinanceiroId: true } },
+      },
+    }),
+  ]);
+
+  const totais = new Map<number, { RECEITA: number; DESPESA: number }>();
+  for (const parcela of parcelas) {
+    const id = contaFinanceiraEfetivaId(parcela);
+    if (id === null) continue;
+
+    const total = totais.get(id) ?? { RECEITA: 0, DESPESA: 0 };
+    total[parcela.lancamento.tipo] += Number(parcela.valor);
+    totais.set(id, total);
+  }
 
   const labels: string[] = [];
   const receitas: number[] = [];
   const despesas: number[] = [];
 
-  const sumParcelas = (lanc: any[]) =>
-    lanc.reduce(
-      (soma, l) =>
-        soma +
-        l.parcelas.reduce((ps: number, p: any) => ps + Number(p.valor), 0),
-      0
-    );
-
   for (const row of contasFinanceiras) {
-    const receita = sumParcelas(
-      row.lancamentos.filter((l) => l.tipo === "RECEITA")
-    );
-    const despesa = sumParcelas(
-      row.lancamentos.filter((l) => l.tipo === "DESPESA")
-    );
+    const receita = totais.get(row.id)?.RECEITA ?? 0;
+    const despesa = totais.get(row.id)?.DESPESA ?? 0;
 
     if (receita > 0 || despesa > 0) {
       labels.push(row.nome);
@@ -184,7 +187,7 @@ export const graficoByStatus = async (
       },
     },
     include: {
-      parcelas: { where: { ignorado: false } },
+      parcelas: { where: { ignorado: false, ...parcelaDeContaContabilizada } },
     },
   });
 
@@ -267,7 +270,7 @@ export const graficoDespesasPorCategoria = async (
         },
         select: {
           parcelas: {
-            where: { ignorado: false },
+            where: { ignorado: false, ...parcelaDeContaContabilizada },
             select: { valor: true },
           },
         },
@@ -358,6 +361,7 @@ export const graficoSaldoMensal = async (
       },
       pago: true,
       ignorado: false,
+      ...parcelaDeContaContabilizada,
       lancamento: {
         contaId: customData.contaId,
         ignorado: false,
@@ -441,7 +445,7 @@ export const graficoReceitaDespesaMensal = async (
         dataLancamento: { gte: mes.inicio, lte: mes.fim },
       },
       include: {
-        parcelas: { where: { ignorado: false } },
+        parcelas: { where: { ignorado: false, ...parcelaDeContaContabilizada } },
       },
     });
 

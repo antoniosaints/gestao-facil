@@ -1,3 +1,5 @@
+import type { Prisma } from "../../../generated";
+import { parcelaDeContaContabilizada } from "../financeiro/contaFinanceiraCalculosPolicy";
 import { prisma } from "../../utils/prisma";
 
 const num = (d: any) => Number(d ?? 0);
@@ -13,7 +15,19 @@ export async function montarKpisNegocio(contaId: number, inicio: Date, fim: Date
   const prevInicio = new Date(prevFim.getTime() - duracao);
   const statusVendaEfetiva = ["FATURADO", "FINALIZADO"] as const;
 
-  const [vendasAtual, vendasAnterior, finGrupos, pendencias, produtos, clientes] =
+  const periodoFinanceiro: Prisma.LancamentoFinanceiroWhereInput = {
+    contaId,
+    ignorado: false,
+    dataLancamento: { gte: inicio, lte: fim },
+  };
+  const parcelasConsideradas = { ignorado: false, ...parcelaDeContaContabilizada };
+  const sumarizar = (tipo: "RECEITA" | "DESPESA") =>
+    prisma.parcelaFinanceiro.aggregate({
+      _sum: { valor: true },
+      where: { ...parcelasConsideradas, lancamento: { ...periodoFinanceiro, tipo } },
+    });
+
+  const [vendasAtual, vendasAnterior, receitasTotal, despesasTotal, pendencias, produtos, clientes] =
     await Promise.all([
       prisma.vendas.aggregate({
         _sum: { valor: true },
@@ -25,13 +39,14 @@ export async function montarKpisNegocio(contaId: number, inicio: Date, fim: Date
         _count: { _all: true },
         where: { contaId, status: { in: statusVendaEfetiva as any }, data: { gte: prevInicio, lte: prevFim } },
       }),
-      prisma.lancamentoFinanceiro.groupBy({
-        by: ["tipo"],
-        _sum: { valorTotal: true },
-        where: { contaId, dataLancamento: { gte: inicio, lte: fim } },
-      }),
+      sumarizar("RECEITA"),
+      sumarizar("DESPESA"),
       prisma.lancamentoFinanceiro.count({
-        where: { contaId, status: { in: ["PENDENTE", "ATRASADO"] }, dataLancamento: { gte: inicio, lte: fim } },
+        where: {
+          ...periodoFinanceiro,
+          status: { in: ["PENDENTE", "ATRASADO"] },
+          parcelas: { some: { ...parcelasConsideradas, pago: false } },
+        },
       }),
       prisma.produto.findMany({
         where: { contaId, controlaEstoque: true },
@@ -46,8 +61,8 @@ export async function montarKpisNegocio(contaId: number, inicio: Date, fim: Date
   const totalVendasAnt = num(vendasAnterior._sum.valor);
   const variacaoVendas = totalVendasAnt > 0 ? ((totalVendas - totalVendasAnt) / totalVendasAnt) * 100 : null;
 
-  const receitas = num(finGrupos.find((g) => g.tipo === "RECEITA")?._sum.valorTotal);
-  const despesas = num(finGrupos.find((g) => g.tipo === "DESPESA")?._sum.valorTotal);
+  const receitas = num(receitasTotal._sum.valor);
+  const despesas = num(despesasTotal._sum.valor);
 
   const baixos = produtos.filter((p) => Number(p.estoque) > 0 && Number(p.estoque) <= Number(p.minimo));
   const zerados = produtos.filter((p) => Number(p.estoque) <= 0);

@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 import Decimal from "decimal.js";
 
+import { parcelaDeContaContabilizada } from "./contaFinanceiraCalculosPolicy";
 import { prisma } from "../../utils/prisma";
 import {
   DEFAULT_LEMBRETE_DIAS,
@@ -268,29 +269,31 @@ export async function getInadimplenciaResumo(contaId: number) {
   const hoje = startOfDay(new Date());
   const baseLancamento = { contaId, tipo: "RECEITA" as const, ignorado: false, clienteId: { not: null } };
 
+  const parcelasPendentes = { pago: false, ignorado: false, ...parcelaDeContaContabilizada };
+
   const [aReceber, atrasado, inadimplentes, comOverrideAtivo, comConfigCliente, comLegado] =
     await Promise.all([
       prisma.parcelaFinanceiro.aggregate({
-        where: { pago: false, ignorado: false, lancamento: baseLancamento },
+        where: { ...parcelasPendentes, lancamento: baseLancamento },
         _sum: { valor: true },
       }),
       prisma.parcelaFinanceiro.aggregate({
-        where: { pago: false, ignorado: false, vencimento: { lt: hoje }, lancamento: baseLancamento },
+        where: { ...parcelasPendentes, vencimento: { lt: hoje }, lancamento: baseLancamento },
         _sum: { valor: true },
       }),
       prisma.lancamentoFinanceiro.findMany({
-        where: { ...baseLancamento, parcelas: { some: { pago: false, ignorado: false, vencimento: { lt: hoje } } } },
+        where: { ...baseLancamento, parcelas: { some: { ...parcelasPendentes, vencimento: { lt: hoje } } } },
         select: { clienteId: true },
         distinct: ["clienteId"],
       }),
       // Lembrete ativo resolvido (precedência override → cliente → legado), sem dupla contagem:
       prisma.lancamentoFinanceiro.count({
-        where: { ...baseLancamento, parcelas: { some: { pago: false, ignorado: false } }, lembreteCliente: { ativo: true } },
+        where: { ...baseLancamento, parcelas: { some: parcelasPendentes }, lembreteCliente: { ativo: true } },
       }),
       prisma.lancamentoFinanceiro.count({
         where: {
           ...baseLancamento,
-          parcelas: { some: { pago: false, ignorado: false } },
+          parcelas: { some: parcelasPendentes },
           lembreteCliente: { is: null },
           cliente: { LembreteConfig: { ativo: true } },
         },
@@ -298,7 +301,7 @@ export async function getInadimplenciaResumo(contaId: number) {
       prisma.lancamentoFinanceiro.count({
         where: {
           ...baseLancamento,
-          parcelas: { some: { pago: false, ignorado: false } },
+          parcelas: { some: parcelasPendentes },
           lembreteCliente: { is: null },
           cliente: { LembreteConfig: { is: null } },
           notificarClienteVencimento: true,

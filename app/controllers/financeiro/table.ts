@@ -74,7 +74,7 @@ export const tableFinanceiro = async (
     filters,
   );
 
-  const [total, data] = await Promise.all([
+  const [total, data, contasForaDoResumo] = await Promise.all([
     prisma.lancamentoFinanceiro.count({ where }),
     prisma.lancamentoFinanceiro.findMany({
       where,
@@ -99,13 +99,20 @@ export const tableFinanceiro = async (
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
+    summary
+      ? prisma.contasFinanceiro.findMany({
+          where: { contaId: customData.contaId, ignorarNosCalculos: true },
+          select: { id: true },
+        })
+      : [],
   ]);
+  const contasIgnoradas = new Set(contasForaDoResumo.map((conta) => conta.id));
 
   res.json({
     data: summary
       ? data.map((row) => ({
           ...row,
-          ...summarizeMatchingParcels(row.parcelas, summary),
+          ...summarizeMatchingParcels(row.parcelas, summary, contasIgnoradas, row.contasFinanceiroId),
         }))
       : data,
     page,

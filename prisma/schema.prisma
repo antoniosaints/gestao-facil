@@ -2974,6 +2974,7 @@ model ContasFinanceiro {
   icone              String?
   corDestaque        String?
   saldoInicial       Decimal                @default(0)
+  ignorarNosCalculos Boolean                @default(false)
   lancamentos        LancamentoFinanceiro[]
   assinaturasPagar   AssinaturaPagar[]
   assinaturasCliente AssinaturaCliente[]
