@@ -404,7 +404,7 @@ export const getContaFinanceiroDetalhes = async (req: Request, res: Response): P
     }
 }
 
-/** Listagem paginada para o DataTable do modal de detalhes da conta. */
+/** Listagem paginada de movimentações da conta. */
 export const tableMovimentacoesContaFinanceira = async (req: Request, res: Response): Promise<any> => {
     try {
         const { contaId } = getCustomRequest(req).customData;

@@ -1,5 +1,9 @@
 import { Router } from "express";
 import { authenticateJWT } from "../../middlewares/auth";
+import { atualizarCalculosContaFinanceira } from "../../controllers/financeiro/contaCalculos";
+import { hasPermission } from "../../helpers/userPermission";
+import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
+import { prisma } from "../../utils/prisma";
 import { adicionarParcela, atualizarIgnoradoLancamento, atualizarIgnoradoMultiplasParcelas, atualizarIgnoradoParcela, atualizarLancamentosEmMassa, converterTipoLancamento, criarLancamento, deletarLancamento, deletarMultiplasParcelas, deletarParcela, estornarMultiplasParcelas, estornarParcela, gerarReciboPdf, getLacamento, getLancamentosMensal, listarParcelas, pagarMultiplasParcelas, pagarParcela, updateLancamentoBasico, updateLancamentoNotificacaoClienteVencimento, updateLancamentoNotificacaoVencimento, updateParcela } from "../../controllers/financeiro/gerenciar";
 import { gerarCobrancaLancamentoPdf } from "../../controllers/financeiro/cobrancaPdf";
 import { tableFinanceiro } from "../../controllers/financeiro/table";
@@ -146,6 +150,13 @@ routerLancamentos.get("/contas/getDataTable", authenticateJWT, tableContasFinanc
 routerLancamentos.get("/contas/select2", authenticateJWT, select2ContasFinanceiras);
 routerLancamentos.delete("/contas/:id", authenticateJWT, deleteContaFinanceiro);
 routerLancamentos.post("/contas", authenticateJWT, saveContaFinanceiro);
+routerLancamentos.patch(
+  "/contas/:id/calculos-gerais",
+  authenticateJWT,
+  atualizarCalculosContaFinanceira(prisma, hasPermission, (contaId, contaFinanceiraId) =>
+    sendFinanceiroUpdated(contaId, { reason: "conta-financeira-atualizada", contaFinanceiraId }),
+  ),
+);
 // Cobrancas
 routerLancamentos.get("/cobrancas/lista", authenticateJWT, getCobrancas);
 routerLancamentos.get("/cobrancas/lista/table", authenticateJWT, tableCobrancas);

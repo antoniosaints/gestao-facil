@@ -43,6 +43,7 @@ export const KNOWN_SUBMENU_KEYS = [
   "financeiro:acompanhamento",
   "financeiro:contas-a-receber",
   "financeiro:contas-a-pagar",
+  "financeiro:contas",
   "financeiro:assinaturas-a-pagar",
   "financeiro:inadimplencia",
   "financeiro:cobrancas",
