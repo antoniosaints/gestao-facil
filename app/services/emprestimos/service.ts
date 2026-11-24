@@ -8,7 +8,7 @@ import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { QrCodePix } from "../qrcodeGenerator";
 import { getTenantMercadoPagoService } from "../financeiro/tenantMercadoPagoService";
-import { correspondeAoPagamento, cotarParcela, cronograma, dataFinanceira, diaLocal, fimDiaFinanceiro, inicioDiaFinanceiro, limiteCotacao, referenciaGateway, tipoComprovante } from "./policy";
+import { correspondeAoPagamento, cotarParcela, cronograma, dataFinanceira, diaLocal, fimDiaFinanceiro, inicioDiaFinanceiro, limiteCotacao, referenciaGateway, resumirClientePublico, tipoComprovante } from "./policy";
 import { valorMaximoPagamento, type AbrirPagamento, type BaixaEmprestimo, type ConfigEmprestimo, type ConfirmacaoEmprestimo, type CotacaoBaixa, type CriarEmprestimo, type FiltrosTabelaEmprestimos } from "./schemas";
 
 const configPadrao = { pixManual: false, mercadoPago: false, descontoJurosBps: 0 };
@@ -34,7 +34,7 @@ async function dadosRecebimento(contaId: number) {
     prisma.contas.findUniqueOrThrow({
       where: { id: contaId },
       select: {
-        nome: true, nomeFantasia: true,
+        nome: true, nomeFantasia: true, profile: true,
         ParametrosConta: { select: { chavePix: true, MercadoPagoApiKey: true }, take: 1 },
         MercadoPagoOAuth: { select: { id: true } },
         NotaFiscalConfiguracao: { select: { municipioNome: true } },
@@ -43,7 +43,8 @@ async function dadosRecebimento(contaId: number) {
   ]);
   return {
     config: config ?? configPadrao,
-    nome: conta.nomeFantasia || conta.nome,
+    nome: conta.nomeFantasia?.trim() || conta.nome.trim(),
+    profile: conta.profile?.trim() || null,
     cidade: conta.NotaFiscalConfiguracao?.municipioNome || "SAO PAULO",
     chavePix: conta.ParametrosConta[0]?.chavePix?.trim() || null,
     gatewayDisponivel: !!(conta.MercadoPagoOAuth || conta.ParametrosConta[0]?.MercadoPagoApiKey),
@@ -350,15 +351,22 @@ async function cotar(tx: Prisma.TransactionClient, loan: Emprestimo, ids: number
 
 export async function estadoPublico(token: string) {
   const loan = await publico(token);
-  const [parcelas, ativo, dados] = await Promise.all([
+  const [parcelas, ativo, dados, cliente] = await Promise.all([
     prisma.emprestimoParcela.findMany({ where: { emprestimoId: loan.id }, ...parcelasOrdenadas }),
     prisma.emprestimoPagamento.findUnique({ where: { emprestimoAtivoId: loan.id }, select: ativoSelect }),
     dadosRecebimento(loan.contaId),
+    prisma.clientesFornecedores.findFirst({
+      where: { id: loan.clienteId, contaId: loan.contaId },
+      select: { nome: true, documento: true, email: true, telefone: true },
+    }),
   ]);
   const hoje = diaLocal();
   const expirada = !!ativo?.expiraEm && ativo.expiraEm <= new Date();
   return {
-    estabelecimento: dados.nome, referencia: `#EMP-${String(loan.id).padStart(4, "0")}`,
+    estabelecimento: dados.nome,
+    logoEmpresa: dados.profile && !/^\/*imgs\/logo\.png(?:[?#].*)?$/i.test(dados.profile) ? dados.profile : null,
+    cliente: cliente ? resumirClientePublico(cliente) : null,
+    referencia: `#EMP-${String(loan.id).padStart(4, "0")}`,
     dataContratacao: loan.dataSaida, principalCentavos: loan.principalCentavos, jurosBps: loan.jurosBps,
     descontoJurosBps: loan.descontoJurosBps, jurosMoraBps: loan.jurosMoraBps, multaBps: loan.multaBps,
     descontoFixoCentavos: loan.descontoFixoCentavos,

@@ -1,7 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { correspondeAoPagamento, cotarParcela, cronograma, dataValida, diaLocal, limiteCotacao, referenciaGateway, tipoComprovante } from "./policy";
+import { correspondeAoPagamento, cotarParcela, cronograma, dataValida, diaLocal, limiteCotacao, referenciaGateway, resumirClientePublico, tipoComprovante } from "./policy";
 import { criarSchema, filtrosTabelaSchema, pagamentoSchema } from "./schemas";
+
+test("a identificação do cliente no empréstimo público limita a exposição de documento e contato", () => {
+  assert.deepEqual(resumirClientePublico({
+    nome: " Mariana Souza ", documento: "529.982.247-25", email: "mariana@example.com", telefone: "+55 (11) 98765-4321",
+  }), {
+    nome: "Mariana Souza", documento: { tipo: "CPF", mascarado: "•••.•••.•••-25" },
+    emailMascarado: "m•••@•••", telefoneMascarado: "••••-4321",
+  });
+  assert.deepEqual(resumirClientePublico({
+    nome: "Horizonte", documento: "12.ABC.345/01DE-35", email: null, telefone: "1234",
+  }), {
+    nome: "Horizonte", documento: { tipo: "CNPJ", mascarado: "••.•••.•••/••••-35" },
+    emailMascarado: null, telefoneMascarado: null,
+  });
+  assert.equal(resumirClientePublico({ nome: "Cliente", documento: "RG 123456", email: null, telefone: null }).documento, null);
+});
 
 test("distribui o principal e os juros simples até o último centavo sem parcelas negativas", () => {
   const principal = 10_001;

@@ -23,6 +23,31 @@ export function dataValida(dia: string) {
   return Number.isFinite(date.getTime()) && date.toISOString().startsWith(`${dia}T`);
 }
 
+export function resumirClientePublico(cliente: {
+  nome: string;
+  documento: string | null;
+  email: string | null;
+  telefone: string | null;
+}) {
+  const identificacao = cliente.documento?.trim().replace(/[.\/-]/g, "") ?? "";
+  const finalDocumento = identificacao.slice(-2);
+  let documento: { tipo: "CPF" | "CNPJ"; mascarado: string } | null = null;
+  if (/^\d{11}$/.test(identificacao)) {
+    documento = { tipo: "CPF", mascarado: `•••.•••.•••-${finalDocumento}` };
+  } else if (/^[a-z0-9]{12}\d{2}$/i.test(identificacao)) {
+    documento = { tipo: "CNPJ", mascarado: `••.•••.•••/••••-${finalDocumento}` };
+  }
+
+  const email = cliente.email?.trim().match(/^([^\s@])[^\s@]*@[^\s@]+\.[^\s@]+$/u);
+  const telefone = cliente.telefone?.replace(/\D/g, "") ?? "";
+  return {
+    nome: cliente.nome.trim(),
+    documento,
+    emailMascarado: email ? `${email[1]}•••@•••` : null,
+    telefoneMascarado: /^\d{8,13}$/.test(telefone) ? `••••-${telefone.slice(-4)}` : null,
+  };
+}
+
 function distribuir(centavos: number, parcelas: number, indice: number) {
   return Math.floor(centavos / parcelas) + Number(indice < centavos % parcelas);
 }
