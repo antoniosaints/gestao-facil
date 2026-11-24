@@ -4,6 +4,9 @@ import { prisma } from "../../utils/prisma";
 import { formatCurrency, formatDateToPtBR } from "../../utils/formatters";
 import { enqueuePushNotification } from "../pushNotificationQueueService";
 import { enqueueWhatsAppNotificationByPreference } from "../notifications/whatsappNotificationQueueService";
+import { isWhatsAppNotificationEventEnabled } from "../notifications/whatsappNotificationPolicy";
+import { enqueueEmailNotification } from "../notifications/emailNotificationService";
+import { emailNotificationSelect, getNotificationEmail, isPushNotificationEnabled } from "../notifications/notificationChannelPolicy";
 import {
   getFinancialDueMilestone,
   getFinancialDueMilestoneLabel,
@@ -156,10 +159,21 @@ async function getCandidates(today: Date): Promise<Candidate[]> {
 async function isAccountFinancialDueNotificationEnabled(contaId: number) {
   const parametros = await prisma.parametrosConta.findUnique({
     where: { contaId },
-    select: { financeiroVencimentosNotificacoesAtivo: true },
+    select: {
+      ...emailNotificationSelect,
+      pushNotificacoesAtivo: true,
+      pushEventoVencimentoFinanceiro: true,
+      whatsappNotificacoesAtivo: true,
+      whatsappNotificacoesInstanciaId: true,
+      whatsappEventoVencimentoFinanceiro: true,
+    },
   });
 
-  return parametros?.financeiroVencimentosNotificacoesAtivo !== false;
+  return (
+    isPushNotificationEnabled(parametros, "VENCIMENTO_FINANCEIRO") ||
+    !!getNotificationEmail(parametros, "VENCIMENTO_FINANCEIRO") ||
+    !!(parametros?.whatsappNotificacoesInstanciaId && isWhatsAppNotificationEventEnabled(parametros, "VENCIMENTO_FINANCEIRO"))
+  );
 }
 
 async function markAsSent(candidate: Candidate, milestone: FinancialDueNotificationMilestone) {
@@ -178,13 +192,12 @@ async function markAsSent(candidate: Candidate, milestone: FinancialDueNotificat
 async function sendCandidate(candidate: Candidate, milestone: FinancialDueNotificationMilestone) {
   await markAsSent(candidate, milestone);
 
+  const event = "VENCIMENTO_FINANCEIRO";
+  const payload = { title: candidate.title, body: candidate.body };
   await Promise.all([
-    enqueuePushNotification({ title: candidate.title, body: candidate.body }, candidate.contaId, true),
-    enqueueWhatsAppNotificationByPreference(
-      "VENCIMENTO_FINANCEIRO",
-      { title: candidate.title, body: candidate.body },
-      candidate.contaId,
-    ),
+    enqueuePushNotification(payload, candidate.contaId, true, event),
+    enqueueWhatsAppNotificationByPreference(event, payload, candidate.contaId),
+    enqueueEmailNotification(event, payload, candidate.contaId),
   ]);
 }
 

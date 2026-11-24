@@ -949,6 +949,11 @@ model ParametrosConta {
   MercadoPagoEnv                         String?
   AsaasEnv                               String?
   emailAvisos                            String?
+  emailNotificacoesAtivo                 Boolean  @default(false)
+  emailEventoEstoqueBaixo                Boolean  @default(true)
+  emailEventoVencimentoFinanceiro        Boolean  @default(true)
+  pushNotificacoesAtivo                  Boolean  @default(true)
+  pushEventoVencimentoFinanceiro         Boolean  @default(true)
   eventoVendaConcluida                   Boolean? @default(true)
   eventoSangria                          Boolean? @default(false)
   eventoEstoqueBaixo                     Boolean? @default(true)
@@ -975,6 +980,7 @@ model ParametrosConta {
   temaPersonalizado                      Json?
   // Navegação compartilhada pela conta. Novas contas iniciam no SideV2.
   estiloUi                               String?  @default("SIDEV2")
+  estiloCarregamento                     String   @default("ATUAL")
   linkPublicoAtivo                       Boolean? @default(false)
   cadastrosPermitidosLinkPublico         Int?     @default(1)
   chavePix                               String?

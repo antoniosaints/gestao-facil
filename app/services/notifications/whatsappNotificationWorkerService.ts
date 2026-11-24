@@ -2,7 +2,12 @@ import crypto from "crypto";
 import { WhatsAppInstanciaStatus } from "../../../generated";
 import { WApiClient, wApiMessageIdFromResponse, wApiSendAccepted } from "../whatsapp/wApiClient";
 import { prisma } from "../../utils/prisma";
-import { normalizeWhatsAppNotificationPhone } from "./whatsappNotificationPolicy";
+import {
+  getWhatsAppNotificationEventField,
+  isWhatsAppNotificationEventEnabled,
+  normalizeWhatsAppNotificationPhone,
+} from "./whatsappNotificationPolicy";
+import { contaHasActiveModule } from "../contas/storeModulesService";
 import { notifyAdminsWhatsAppUnavailable } from "./whatsappAvailabilityAlertService";
 import type { WhatsAppQueueJobData } from "./whatsappNotificationQueueService";
 
@@ -121,6 +126,28 @@ async function handleRestaurantOutboxNotification(notificationId: number) {
 export async function handleWhatsAppNotificationJob(data: WhatsAppQueueJobData) {
   if (data.kind === "RESTAURANT_MESSAGE" && data.notificationId) {
     return handleRestaurantOutboxNotification(data.notificationId);
+  }
+  if (data.kind === "INTERNAL_NOTIFICATION") {
+    const [preferences, moduleActive] = await Promise.all([
+      prisma.parametrosConta.findUnique({
+        where: { contaId: data.contaId },
+        select: {
+          whatsappNotificacoesAtivo: true,
+          whatsappNotificacoesInstanciaId: true,
+          financeiroVencimentosNotificacoesAtivo: true,
+          [getWhatsAppNotificationEventField(data.event)]: true,
+        },
+      }),
+      contaHasActiveModule(data.contaId, "whatsapp"),
+    ]);
+    if (
+      !moduleActive ||
+      !preferences ||
+      preferences.whatsappNotificacoesInstanciaId !== data.instanceId ||
+      !isWhatsAppNotificationEventEnabled(preferences, data.event)
+    ) {
+      return { skipped: true, reason: "notification-disabled" };
+    }
   }
   const isClientMessage = data.kind === "CLIENT_MESSAGE";
   const isReservationMessage = data.kind === "RESERVATION_MESSAGE";

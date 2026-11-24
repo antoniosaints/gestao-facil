@@ -89,9 +89,11 @@ export const sendNotification = async (req: Request, res: Response) => {
     body: "Notificação de teste de envio.",
   };
 
-  await sendPushNotification(payload, contaId);
+  const enabled = await sendPushNotification(payload, contaId);
 
   res.status(200).json({
-    message: "Notificações enviadas e inscrições inválidas removidas",
+    message: enabled
+      ? "Notificações enviadas e inscrições inválidas removidas"
+      : "Notificações push desativadas para a conta.",
   });
 };

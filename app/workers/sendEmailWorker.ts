@@ -3,9 +3,11 @@ import { EMAIL_QUEUE_NAME } from "../queues/emailScheduleQueue";
 import { sendEmail } from "../services/email/resendEmailService";
 import {
   isResendEmailJobData,
+  isRetiredEmailJob,
   type ResendEmailJobData,
 } from "../services/email/resendEmailJob";
 import { redisConnecion } from "../utils/redis";
+import { emailNotificationRecipient } from "../services/notifications/emailNotificationService";
 
 export const sendEmailWorker = () => {
   const worker = new Worker(
@@ -15,7 +17,12 @@ export const sendEmailWorker = () => {
         throw new Error(`Job de e-mail inválido: ${job.id ?? "sem-id"}`);
       }
 
-      const { provider: _provider, ...email } = job.data;
+      if (isRetiredEmailJob(job.name, job.data.subject)) return;
+      const { provider: _provider, notification, ...email } = job.data;
+      if (notification) {
+        const recipient = await emailNotificationRecipient(notification.contaId, notification.event);
+        if (!recipient || recipient !== email.to) return;
+      }
       const result = await sendEmail(email);
       if (!result.sent) {
         throw new Error("Resend desabilitado: RESEND_API_KEY ausente");

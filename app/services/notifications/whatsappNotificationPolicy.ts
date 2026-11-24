@@ -93,6 +93,9 @@ export function isWhatsAppNotificationEventEnabled(
   if (!parametros.whatsappNotificacoesAtivo) {
     return false;
   }
+  if (event === "VENCIMENTO_FINANCEIRO" && parametros.financeiroVencimentosNotificacoesAtivo === false) {
+    return false;
+  }
 
   const field = getWhatsAppNotificationEventField(event);
   return parametros[field] ?? !["ESTOQUE_BAIXO", "PRODUTO_ALTERADO", "SANGRIA"].includes(event);

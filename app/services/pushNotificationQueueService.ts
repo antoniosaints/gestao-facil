@@ -1,5 +1,10 @@
 import { pushNotificationQueue } from "../queues/pushNotificationQueue";
 import { prisma } from "../utils/prisma";
+import {
+  isPushNotificationEnabled,
+  pushNotificationSelect,
+  type PushNotificationEvent,
+} from "./notifications/notificationChannelPolicy";
 
 type NotificationPayload = {
   title: string;
@@ -22,8 +27,15 @@ function gerarJobId(prefix: string = "job"): string {
 export async function enqueuePushNotification(
   payload: NotificationPayload,
   contaId: number,
-  adminsOnly: boolean = false
+  adminsOnly: boolean = false,
+  event?: PushNotificationEvent,
 ) {
+  const preferences = await prisma.parametrosConta.findUnique({
+    where: { contaId },
+    select: pushNotificationSelect,
+  });
+  if (!isPushNotificationEnabled(preferences, event)) return false;
+
   const subscriptions = await prisma.subscription.findMany({
     where: {
       Usuarios: {
@@ -35,7 +47,7 @@ export async function enqueuePushNotification(
   });
   if (subscriptions.length === 0) {
     console.log("Nenhuma inscrição encontrada.");
-    return;
+    return false;
   }
 
   await Promise.all(
@@ -43,6 +55,8 @@ export async function enqueuePushNotification(
       pushNotificationQueue.add(
         "send",
         {
+          contaId,
+          event,
           subscription: {
             endpoint: subscription.endpoint,
             keys: {
@@ -65,4 +79,5 @@ export async function enqueuePushNotification(
       )
     )
   );
+  return true;
 }

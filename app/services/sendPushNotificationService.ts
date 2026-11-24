@@ -2,6 +2,7 @@ import webPush from "web-push";
 import { prisma } from "../utils/prisma";
 import { env } from "../utils/dotenv";
 import { Subscription } from "../../generated";
+import { isPushNotificationEnabled } from "./notifications/notificationChannelPolicy";
 
 webPush.setVapidDetails(
   "mailto:costaantonio883@gmail.com",
@@ -19,6 +20,12 @@ export async function sendPushNotification(
   contaId: number,
   adminsOnly: boolean = false
 ) {
+  const preferences = await prisma.parametrosConta.findUnique({
+    where: { contaId },
+    select: { pushNotificacoesAtivo: true },
+  });
+  if (!isPushNotificationEnabled(preferences)) return false;
+
   const subscriptions = await prisma.subscription.findMany({
     where: {
       Usuarios: {
@@ -61,4 +68,5 @@ export async function sendPushNotification(
       where: { endpoint: { in: failedEndpoints } },
     });
   }
+  return true;
 }

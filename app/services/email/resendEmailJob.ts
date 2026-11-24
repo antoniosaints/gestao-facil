@@ -1,3 +1,5 @@
+import type { EmailNotificationEvent } from "../notifications/notificationChannelPolicy";
+
 export interface ResendEmailJobData {
   provider: "resend";
   to: string | string[];
@@ -6,6 +8,11 @@ export interface ResendEmailJobData {
   text?: string;
   from?: string;
   replyTo?: string;
+  notification?: { contaId: number; event: EmailNotificationEvent };
+}
+
+export function isRetiredEmailJob(name: string, subject: string) {
+  return name === "send" && subject === "Produto deletado";
 }
 
 export function createResendEmailJob(

@@ -192,6 +192,7 @@ export async function enqueueWhatsAppNotificationByPreference(
         whatsappNotificationQueue.add(
           "send",
           {
+            kind: "INTERNAL_NOTIFICATION",
             contaId,
             event,
             instanceId: instance.id,

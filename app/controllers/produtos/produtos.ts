@@ -13,7 +13,6 @@ import {
   ReposicaoEstoqueSchema,
   ReposicaoLoteSchema,
 } from "../../schemas/produtos";
-import { emailScheduleService } from "../../services/emailScheduleQueueService";
 import { enqueuePushNotificationByPreference } from "../../services/notifications/notificationPreferenceService";
 import { getCustomRequest } from "../../helpers/getCustomRequest";
 import { mapperErrorSchema } from "../../mappers/schemasErros";
@@ -393,11 +392,6 @@ export const deleteProduto = async (
       }
     }
 
-    await emailScheduleService({
-      to: "costaantonio883@gmail.com",
-      subject: "Produto deletado",
-      text: `O produto ${produto.nome} foi deletado.`,
-    });
     await enqueuePushNotificationByPreference(
       "PRODUTO_ALTERADO",
       {

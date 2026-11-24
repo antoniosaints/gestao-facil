@@ -21,10 +21,15 @@ export const updateParametrosContaSchema = z.object(
       .nullable(),
     emailAvisos: z
       .string({
-        invalid_type_error: "O campo AsaasEnv deve ser uma string",
+        invalid_type_error: "O e-mail para avisos deve ser um texto",
       })
       .optional()
       .nullable(),
+    emailNotificacoesAtivo: z.boolean().optional(),
+    emailEventoEstoqueBaixo: z.boolean().optional(),
+    emailEventoVencimentoFinanceiro: z.boolean().optional(),
+    pushNotificacoesAtivo: z.boolean().optional(),
+    pushEventoVencimentoFinanceiro: z.boolean().optional(),
     eventoEstoqueBaixo: z
       .boolean({
         invalid_type_error: "O campo eventoEstoqueBaixo deve ser um booleano",
@@ -220,6 +225,7 @@ export const updateParametrosContaSchema = z.object(
       .optional()
       .nullable(),
     estiloUi: z.enum(["PADRAO", "CARDS", "SITE", "SIDEV2"]).optional().nullable(),
+    estiloCarregamento: z.enum(["ATUAL", "ANIMADO"]).optional(),
     etiquetaModelos: z
       .array(
         z.object({

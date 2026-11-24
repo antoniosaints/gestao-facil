@@ -18,6 +18,7 @@ import { hasPermission } from "../../helpers/userPermission";
 import { canConfigureWhatsAppNotifications } from "../../services/notifications/whatsappNotificationPolicy";
 import { mergeTemaPersonalizado } from "../../services/site/siteConfigService";
 import { enqueueWhatsAppNotificationByPreference } from "../../services/notifications/whatsappNotificationQueueService";
+import { notificationEmailSchema, pushEventFields } from "../../services/notifications/notificationChannelPolicy";
 
 const WHATSAPP_NOTIFICATION_PARAM_FIELDS = [
   "whatsappNotificacoesAtivo",
@@ -59,7 +60,45 @@ export const saveParametros = async (
     const isUpdatingWhatsAppNotifications = WHATSAPP_NOTIFICATION_PARAM_FIELDS.some((field) =>
       Object.prototype.hasOwnProperty.call(req.body, field)
     );
+    const channelSettings = {
+      emailNotificacoesAtivo: body.data.emailNotificacoesAtivo,
+      emailEventoEstoqueBaixo: body.data.emailEventoEstoqueBaixo,
+      emailEventoVencimentoFinanceiro: body.data.emailEventoVencimentoFinanceiro,
+      pushNotificacoesAtivo: body.data.pushNotificacoesAtivo,
+      pushEventoVencimentoFinanceiro: body.data.pushEventoVencimentoFinanceiro,
+    };
+    const isUpdatingNotifications = isUpdatingWhatsAppNotifications ||
+      Object.values(channelSettings).some((value) => value !== undefined) ||
+      Object.values(pushEventFields).some((field) => body.data[field] !== undefined) ||
+      body.data.emailAvisos !== undefined || body.data.financeiroVencimentosNotificacoesAtivo !== undefined;
     const menusVisiveis = normalizeVisibleMenuKeys(body.data.menusVisiveis);
+
+    if (isUpdatingNotifications && !(await hasPermission(customData, 4))) {
+      return ResponseHandler(res, "Apenas administradores podem alterar as notificações da conta.", null, 403);
+    }
+
+    if (
+      body.data.emailNotificacoesAtivo !== false &&
+      (body.data.emailNotificacoesAtivo === true || body.data.emailAvisos !== undefined)
+    ) {
+      const current = await prisma.parametrosConta.findUnique({
+        where: { contaId: customData.contaId },
+        select: { emailNotificacoesAtivo: true, emailAvisos: true },
+      });
+      const recipient = body.data.emailAvisos === undefined ? current?.emailAvisos : body.data.emailAvisos;
+      if ((body.data.emailNotificacoesAtivo ?? current?.emailNotificacoesAtivo) && !notificationEmailSchema.safeParse(recipient).success) {
+        return ResponseHandler(res, "Informe um e-mail válido para ativar os avisos por e-mail.", null, 400);
+      }
+    }
+
+    if (body.data.estiloCarregamento !== undefined && !(await hasPermission(customData, 4))) {
+      return ResponseHandler(
+        res,
+        "Apenas administradores podem alterar o carregamento entre páginas.",
+        null,
+        403
+      );
+    }
 
     if (isUpdatingMenuVisibility) {
       const usuario = await prisma.usuarios.findFirst({
@@ -83,40 +122,32 @@ export const saveParametros = async (
     }
 
     if (isUpdatingWhatsAppNotifications) {
-      const isAdmin = await hasPermission(customData, 4);
-      if (!isAdmin) {
-        return ResponseHandler(
-          res,
-          "Apenas administradores podem alterar notificacoes por WhatsApp.",
-          null,
-          403
-        );
-      }
-
-      const [moduleActive, selectedInstance] = await Promise.all([
-        contaHasActiveModule(customData.contaId, "whatsapp"),
-        body.data.whatsappNotificacoesInstanciaId
-          ? prisma.whatsAppInstancia.findFirst({
-              where: {
-                id: body.data.whatsappNotificacoesInstanciaId,
-                contaId: customData.contaId,
-                ativo: true,
-              },
-              select: {
-                id: true,
-              },
-            })
-          : Promise.resolve(null),
-      ]);
-
-      const validation = canConfigureWhatsAppNotifications({
-        enabled: Boolean(body.data.whatsappNotificacoesAtivo),
-        moduleActive,
-        hasInstance: Boolean(selectedInstance),
-      });
-
-      if (!validation.ok) {
-        return ResponseHandler(res, validation.reason, null, 400);
+      const { whatsappNotificacoesAtivo: enabled, whatsappNotificacoesInstanciaId: instanceId } = body.data;
+      const current = enabled === undefined || (enabled === true && instanceId === undefined)
+        ? await prisma.parametrosConta.findUnique({
+            where: { contaId: customData.contaId },
+            select: { whatsappNotificacoesAtivo: true, whatsappNotificacoesInstanciaId: true },
+          })
+        : null;
+      if ((enabled === undefined ? current?.whatsappNotificacoesAtivo : enabled) === true) {
+        const selectedId = instanceId === undefined ? current?.whatsappNotificacoesInstanciaId : instanceId;
+        const [moduleActive, selectedInstance] = await Promise.all([
+          contaHasActiveModule(customData.contaId, "whatsapp"),
+          selectedId
+            ? prisma.whatsAppInstancia.findFirst({
+                where: { id: selectedId, contaId: customData.contaId, ativo: true },
+                select: { id: true },
+              })
+            : Promise.resolve(null),
+        ]);
+        const validation = canConfigureWhatsAppNotifications({
+          enabled: true,
+          moduleActive,
+          hasInstance: Boolean(selectedInstance),
+        });
+        if (!validation.ok) {
+          return ResponseHandler(res, validation.reason, null, 400);
+        }
       }
     }
 
@@ -152,6 +183,7 @@ export const saveParametros = async (
       },
       create: {
         contaId: customData.contaId,
+        ...channelSettings,
         AsaasApiKey: body.data.AsaasApiKey,
         AsaasApiSecret: body.data.AsaasApiSecret,
         AsaasEnv: body.data.AsaasEnv,
@@ -179,6 +211,7 @@ export const saveParametros = async (
         } as any),
         temaPersonalizado: temaPersonalizado as any,
         estiloUi: body.data.estiloUi,
+        estiloCarregamento: body.data.estiloCarregamento,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,
@@ -206,6 +239,7 @@ export const saveParametros = async (
         ...(isUpdatingMenuVisibility ? { menusVisiveis } : {} as any),
       },
       update: {
+        ...channelSettings,
         AsaasApiKey: body.data.AsaasApiKey,
         AsaasApiSecret: body.data.AsaasApiSecret,
         AsaasEnv: body.data.AsaasEnv,
@@ -233,6 +267,7 @@ export const saveParametros = async (
         } as any),
         temaPersonalizado: temaPersonalizado as any,
         estiloUi: body.data.estiloUi,
+        estiloCarregamento: body.data.estiloCarregamento,
         MercadoPagoApiKey: body.data.MercadoPagoApiKey,
         MercadoPagoEnv: body.data.MercadoPagoEnv,
         AbacatePayApiKey: body.data.AbacatePayApiKey,

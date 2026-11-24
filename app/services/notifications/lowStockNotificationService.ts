@@ -1,9 +1,10 @@
 import { prisma } from "../../utils/prisma";
 import { enqueuePushNotificationByPreference } from "./notificationPreferenceService";
+import { enqueueEmailNotification } from "./emailNotificationService";
 
 /**
  * Verifica se algum dos produtos informados ficou com estoque igual ou abaixo
- * do minimo e, em caso positivo, dispara a notificacao push do evento
+ * do minimo e, em caso positivo, dispara as notificações do evento
  * ESTOQUE_BAIXO (respeitando a preferencia da conta).
  *
  * Nunca lanca erro: notificacao nao pode quebrar o fluxo de venda.
@@ -54,14 +55,14 @@ export async function checkLowStockAndNotify(
     const extras = emBaixa.length - nomes.length;
     const lista = extras > 0 ? `${nomes.join(", ")} e mais ${extras}` : nomes.join(", ");
 
-    await enqueuePushNotificationByPreference(
-      "ESTOQUE_BAIXO",
-      {
-        title: "Estoque baixo!",
-        body: `Produto(s) no estoque mínimo ou abaixo: ${lista}.`,
-      },
-      contaId,
-    );
+    const payload = {
+      title: "Estoque baixo!",
+      body: `Produto(s) no estoque mínimo ou abaixo: ${lista}.`,
+    };
+    await Promise.all([
+      enqueuePushNotificationByPreference("ESTOQUE_BAIXO", payload, contaId),
+      enqueueEmailNotification("ESTOQUE_BAIXO", payload, contaId),
+    ]);
 
     return true;
   } catch (error) {
