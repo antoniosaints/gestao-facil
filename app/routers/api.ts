@@ -28,10 +28,13 @@ import { routerCombos } from "./combos/router";
 import { routerRestaurante } from "./restaurante/router";
 import { routerNotasFiscais } from "./notasFiscais/router";
 import { routerOurive } from "./ourive/router";
+import { routerEmprestimos, webhookEmprestimos } from "./emprestimos/router";
 
 const RouterMain = Router();
 
 RouterMain.use(routerDefault);
+RouterMain.use("/api/emprestimos", routerEmprestimos);
+RouterMain.post("/mercadopago/webhook/emprestimos/:pagamentoId/:assinatura", webhookEmprestimos);
 RouterMain.use("/api/modofacil", routerModoFacil);
 RouterMain.use("/api/contas", routerContas);
 RouterMain.use("/api/produtos", routerProdutos);

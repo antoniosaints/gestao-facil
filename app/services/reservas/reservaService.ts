@@ -1441,6 +1441,7 @@ export async function getReservationsDashboard(contaId: number, startAt: Date, e
       },
       select: {
         id: true,
+        clienteId: true,
         nomeCliente: true,
         servicoNome: true,
         recursoNome: true,

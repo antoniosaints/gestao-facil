@@ -1233,9 +1233,11 @@ export const getCategoriasProduto = async (
     const search = (req.query.search as string) || "";
     const sortBy = (req.query.sortBy as string) || "nome";
     const order = (req.query.order as Prisma.SortOrder) || "asc";
+    const selectedId = typeof req.query.categoria === "string" ? Number(req.query.categoria) : NaN;
+    const exactMatch = Number.isInteger(selectedId) && selectedId > 0 && selectedId <= 2_147_483_647;
     const where: Prisma.ProdutoCategoriaWhereInput = {
       contaId: customData.contaId,
-      ...(search
+      ...(exactMatch ? { id: selectedId } : search
         ? {
             OR: [{ nome: { contains: search } }, { Uid: { contains: search } }],
           }

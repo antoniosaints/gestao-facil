@@ -83,3 +83,12 @@ export const authLimiter = rateLimit({
     });
   },
 });
+
+export const emprestimoPublicoLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  store: makeStore("rl:emprestimo-publico:"),
+  handler: jsonHandler("Aguarde um instante antes de consultar ou enviar outro pagamento."),
+});

@@ -40,10 +40,14 @@ import {
 } from "../../services/vendas/vendaFinanceiroStatusService";
 import { sendUpdateTable as sendVendasUpdateTable } from "../../hooks/vendas/socket";
 
+import { assertMovimentacaoEditavel } from "../../services/financeiro/lancamentoEmprestimoPolicy";
+import { AppRequirementError } from "../../utils/appRequirementError";
+
 export const updateParcela = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", Number(req.params.id));
     const escopo = ((req.body?.escopo as EscopoAtualizacaoParcela | undefined) || "ATUAL") as EscopoAtualizacaoParcela;
 
     if (!id || isNaN(Number(id))) return res.status(400).json({ message: "Informe o id da parcela!" });
@@ -149,6 +153,7 @@ const formasPagamentoValidas = [
 export const adicionarParcela = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", Number(req.params.id));
     const lancamentoId = Number(req.params.id);
     const valor = new Decimal(req.body?.valor || 0);
     const vencimento = req.body?.vencimento ? startOfDay(new Date(req.body.vencimento)) : null;
@@ -244,6 +249,7 @@ export const adicionarParcela = async (req: Request, res: Response): Promise<any
 export const deletarParcela = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", Number(req.params.id));
     const parcelaId = Number(req.params.id);
 
     if (!Number.isInteger(parcelaId) || parcelaId <= 0) {
@@ -484,6 +490,8 @@ export const getLancamentosMensal = async (
         totalParcelas: parcela.lancamento._count.parcelas,
         descricao: parcela.lancamento.descricao,
         categoria: parcela.lancamento.categoria.nome,
+        categoriaId: parcela.lancamento.categoria.id,
+        clienteId: parcela.lancamento.cliente?.id ?? null,
         cliente: parcela.lancamento.cliente?.nome || null,
         conta: contaFinanceiraId === null ? null : nomesDasContas.get(contaFinanceiraId) ?? null,
         contaFinanceiraId,
@@ -516,7 +524,9 @@ export const getLancamentosMensal = async (
         totalParcelas: number;
         descricao: string;
         categoria: string;
+        categoriaId: number;
         cliente: string | null;
+        clienteId: number | null;
         conta: string | null;
         contaFinanceiraId: number | null;
         valor: number;
@@ -644,6 +654,9 @@ export const getLacamento = async (
         cliente: true,
         ContasFinanceiro: true,
         recorrencia: true,
+        venda: { select: { Uid: true } },
+        emprestimoSaida: { select: { id: true } },
+        emprestimoRecebimento: { select: { emprestimoId: true } },
         assinaturaPagar: {
           select: {
             id: true,
@@ -662,7 +675,12 @@ export const getLacamento = async (
       },
     });
 
-    return ResponseHandler(res, "Lancamento encontrado", lancamento);
+    if (!lancamento) return ResponseHandler(res, "Lancamento encontrado", null);
+    const { emprestimoSaida, emprestimoRecebimento, ...dados } = lancamento;
+    return ResponseHandler(res, "Lancamento encontrado", {
+      ...dados,
+      emprestimoId: emprestimoSaida?.id ?? emprestimoRecebimento?.emprestimoId ?? null,
+    });
   } catch (error) {
     handleError(res, error);
   }
@@ -674,6 +692,7 @@ export const updateLancamentoBasico = async (
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", Number(req.params.id));
     const { id } = req.params;
 
     if (!id || Number.isNaN(Number(id))) {
@@ -829,6 +848,7 @@ export const updateLancamentoBasico = async (
 export const atualizarIgnoradoLancamento = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", Number(req.params.id));
     const lancamentoId = Number(req.params.id);
     const ignorado = Boolean(req.body?.ignorado);
 
@@ -876,6 +896,7 @@ export const atualizarIgnoradoLancamento = async (req: Request, res: Response): 
 export const atualizarIgnoradoParcela = async (req: Request, res: Response): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", Number(req.params.id));
     const parcelaId = Number(req.params.id);
     const ignorado = Boolean(req.body?.ignorado);
 
@@ -901,6 +922,7 @@ export const converterTipoLancamento = async (
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", Number(req.params.id));
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ message: "Informe um lançamento válido." });
@@ -963,6 +985,7 @@ export const atualizarLancamentosEmMassa = async (
       return res.status(400).json({ message: "Informe um cliente válido." });
     }
 
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", ids);
     const [categoria, cliente] = await Promise.all([
       !temCategoria
         ? Promise.resolve(null)
@@ -1026,6 +1049,7 @@ export const updateLancamentoNotificacaoVencimento = async (
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", Number(req.params.id));
     const id = Number(req.params.id);
     const ativo = Boolean(req.body?.ativo);
 
@@ -1069,6 +1093,7 @@ export const updateLancamentoNotificacaoClienteVencimento = async (
 ): Promise<any> => {
   try {
     const customData = getCustomRequest(req).customData;
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", Number(req.params.id));
     const id = Number(req.params.id);
     const ativo = Boolean(req.body?.ativo);
 
@@ -1125,6 +1150,7 @@ export const pagarParcela = async (
   if (!req.body) return res.status(400).json({ message: "Dados obrigatorio!" });
   if (!req.body.metodoPagamento || !req.body.dataPagamento) return res.status(400).json({ message: "Preencha os dados (metodoPagamento, dataPagamento)!" });
   try {
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", parcelaId);
     const parcela = await prisma.parcelaFinanceiro.findFirst({
       where: {
         id: parcelaId,
@@ -1309,6 +1335,7 @@ export const atualizarIgnoradoMultiplasParcelas = async (req: Request, res: Resp
       return res.status(400).json({ message: "Selecione ao menos uma parcela." });
     }
 
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", ids);
     const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
     if (!parcelas.length) return res.status(404).json({ message: "Nenhuma parcela encontrada." });
 
@@ -1366,6 +1393,7 @@ export const pagarMultiplasParcelas = async (
 
     // Erros de política (conta padrão ausente, efetivação futura bloqueada) são
     // acionáveis pelo usuário, então voltam como 400 e não como erro genérico.
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", ids);
     const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
     const contasVinculadas = [...new Set(
       parcelas
@@ -1446,6 +1474,7 @@ export const estornarMultiplasParcelas = async (
   }
 
   try {
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", ids);
     const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
     const { aplicar, ignoradas } = separarParcelasParaEstornar(parcelas);
 
@@ -1493,6 +1522,7 @@ export const deletarMultiplasParcelas = async (
   }
 
   try {
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", ids);
     const parcelas = await carregarParcelasDoLote(ids, customData.contaId);
 
     if (!parcelas.length) {
@@ -1546,6 +1576,7 @@ export const estornarParcela = async (
   const parcelaId = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   try {
+    await assertMovimentacaoEditavel(customData.contaId, "parcela", parcelaId);
     const parcela = await prisma.parcelaFinanceiro.findFirst({
       where: {
         id: parcelaId,
@@ -1585,6 +1616,7 @@ export const estornarParcela = async (
 
     return res.json({ message: "Pagamento estornado com sucesso." });
   } catch (error) {
+    if (error instanceof AppRequirementError) return handleError(res, error);
     return res.status(500).json({ message: "Erro ao estornar parcela." });
   }
 };
@@ -1700,6 +1732,7 @@ export const deletarLancamento = async (
   const id = parseInt(req.params.id);
   const customData = getCustomRequest(req).customData;
   try {
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", id);
     const lancamento = await prisma.lancamentoFinanceiro.findFirst({
       where: { id, contaId: customData.contaId },
       select: {
@@ -1724,6 +1757,7 @@ export const deletarLancamento = async (
 
     return res.json({ message: "Lançamento deletado com sucesso." });
   } catch (error) {
+    if (error instanceof AppRequirementError) return handleError(res, error);
     return res.status(500).json({ erro: "Erro ao deletar o lançamento." });
   }
 };

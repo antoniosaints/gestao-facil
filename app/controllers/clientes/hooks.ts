@@ -11,12 +11,13 @@ export const select2Clientes = async (
     const search = (req.query.search as string) || null;
     const fornecedor = (req.query.fornecedor as string) || null;
     const id = (req.query.id as string) || null;
+    const clienteAtivo = req.query.clienteAtivo === "true";
     const customData = getCustomRequest(req).customData;
 
     if (id) {
       const responseUnique =
         await prisma.clientesFornecedores.findUniqueOrThrow({
-          where: { id: Number(id), contaId: customData.contaId },
+          where: { id: Number(id), contaId: customData.contaId, ...(clienteAtivo && { tipo: "CLIENTE", status: "ATIVO" }) },
         });
 
       if (!responseUnique) {
@@ -41,7 +42,10 @@ export const select2Clientes = async (
       ];
     }
 
-    if (fornecedor) {
+    if (clienteAtivo) {
+      where.tipo = "CLIENTE";
+      where.status = "ATIVO";
+    } else if (fornecedor) {
       where.tipo = 'FORNECEDOR';
     }
 

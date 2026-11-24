@@ -7,6 +7,7 @@ import { handleError } from "../../utils/handleError";
 import { ResponseHandler } from "../../utils/response";
 import { sendFinanceiroUpdated } from "../../hooks/financeiro/socket";
 import { atualizarStatusLancamentos } from "./hooks";
+import { assertMovimentacaoEditavel } from "../../services/financeiro/lancamentoEmprestimoPolicy";
 import {
   avancarDataRecorrencia,
   normalizarConfigRecorrencia,
@@ -65,6 +66,7 @@ export const salvarRecorrenciaLancamento = async (req: Request, res: Response): 
       return res.status(400).json({ message: "Informe um lançamento válido." });
     }
 
+    await assertMovimentacaoEditavel(customData.contaId, "lancamento", id);
     const lancamento = await carregarLancamentoDaConta(id, customData.contaId);
 
     if (!lancamento) {

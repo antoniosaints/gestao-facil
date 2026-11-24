@@ -239,6 +239,8 @@ model Contas {
   ContasFinanceiro                 ContasFinanceiro[]
   CategoriaFinanceiro              CategoriaFinanceiro[]
   LancamentoFinanceiro             LancamentoFinanceiro[]
+  emprestimos                      Emprestimo[]
+  emprestimoConfiguracao           EmprestimoConfiguracao?
   Servicos                         Servicos[]
   OrdensServico                    OrdensServico[]
   ParametrosConta                  ParametrosConta[]
@@ -1141,6 +1143,7 @@ model ClientesFornecedores {
   Vendas               Vendas[]
   MovimentacoesEstoque MovimentacoesEstoque[]
   LancamentoFinanceiro LancamentoFinanceiro[]
+  emprestimos          Emprestimo[]
   Assinatura           Assinatura[]
   assinaturasClientes  AssinaturaCliente[]
   NotaFiscal           NotaFiscal[]
@@ -2987,6 +2990,8 @@ model ContasFinanceiro {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   ParcelaFinanceiro  ParcelaFinanceiro[]
+  emprestimosSaida   Emprestimo[] @relation("EmprestimoContaSaida")
+  emprestimosEntrada Emprestimo[] @relation("EmprestimoContaEntrada")
 }
 
 model CategoriaFinanceiro {
@@ -3003,6 +3008,7 @@ model CategoriaFinanceiro {
   assinaturasCliente  AssinaturaCliente[]
   createdAt           DateTime                  @default(now())
   CategoriaFinanceiro CategoriaFinanceiro[]     @relation("Subcategorias")
+  emprestimos          Emprestimo[]
 }
 
 model CobrancasFinanceiras {
@@ -3084,6 +3090,8 @@ model LancamentoFinanceiro {
   ReservaGeral               ReservaGeral?              @relation(fields: [reservaGeralId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   reservaPagamentoEstornoId  Int?                       @unique
   ReservaPagamentoEstorno    ReservaPagamento?          @relation("ReservaPagamentoEstorno", fields: [reservaPagamentoEstornoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  emprestimoSaida            Emprestimo?                @relation("EmprestimoLancamentoSaida")
+  emprestimoRecebimento      EmprestimoPagamento?
 
   @@unique([assinaturaPagarId, referenciaRecorrencia])
   @@index([contaId, status, dataLancamento])
@@ -3126,6 +3134,114 @@ enum OrigemLancamentoFinanceiro {
   MANUAL
   ASSINATURA_PAGAR
   RESERVA
+  EMPRESTIMO
+}
+
+model EmprestimoConfiguracao {
+  contaId                Int @id
+  conta                  Contas @relation(fields: [contaId], references: [id], onDelete: Cascade)
+  pixManual              Boolean @default(false)
+  mercadoPago            Boolean @default(false)
+  descontoJurosBps       Int @default(0)
+}
+
+model Emprestimo {
+  id                      Int @id @default(autoincrement())
+  contaId                 Int
+  conta                   Contas @relation(fields: [contaId], references: [id], onDelete: Restrict)
+  clienteId               Int
+  cliente                 ClientesFornecedores @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  chaveOperacao           String @db.VarChar(36)
+  tokenPublico            String @unique @db.VarChar(64)
+  principalCentavos       Int
+  jurosBps                Int
+  descontoJurosBps        Int
+  jurosMoraBps            Int @default(0)
+  multaBps                Int @default(0)
+  descontoFixoCentavos    Int @default(0)
+  dataSaida               DateTime
+  formaSaida              MetodoPagamento
+  contaSaidaId            Int?
+  contaSaida              ContasFinanceiro? @relation("EmprestimoContaSaida", fields: [contaSaidaId], references: [id], onDelete: Restrict)
+  contaEntradaId          Int?
+  contaEntrada            ContasFinanceiro? @relation("EmprestimoContaEntrada", fields: [contaEntradaId], references: [id], onDelete: Restrict)
+  categoriaId             Int?
+  categoria               CategoriaFinanceiro? @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  lancamentoAutomatico    Boolean @default(false)
+  lancamentoSaidaId       Int? @unique
+  lancamentoSaida         LancamentoFinanceiro? @relation("EmprestimoLancamentoSaida", fields: [lancamentoSaidaId], references: [id], onDelete: Restrict)
+  parcelas                EmprestimoParcela[]
+  pagamentos              EmprestimoPagamento[]
+  criadoEm                DateTime @default(now())
+
+  @@unique([contaId, chaveOperacao])
+  @@index([contaId, id])
+}
+
+model EmprestimoParcela {
+  id                     Int @id @default(autoincrement())
+  emprestimoId           Int
+  emprestimo             Emprestimo @relation(fields: [emprestimoId], references: [id], onDelete: Cascade)
+  numero                 Int
+  vencimento             DateTime
+  principalCentavos      Int
+  jurosCentavos          Int
+  descontoFixoCentavos   Int @default(0)
+  recebidoCentavos       Int?
+  recebidoEm             DateTime?
+  pagamentoId            String? @db.VarChar(36)
+  pagamento              EmprestimoPagamento? @relation(fields: [pagamentoId], references: [id], onDelete: Restrict)
+
+  @@unique([emprestimoId, numero])
+}
+
+enum MetodoPagamentoEmprestimo {
+  PIX_MANUAL
+  MERCADO_PAGO
+  INTERNO
+}
+
+enum StatusPagamentoEmprestimo {
+  PENDENTE
+  EM_ANALISE
+  PAGO
+  CANCELADO
+}
+
+model EmprestimoPagamento {
+  id                     String @id @db.VarChar(36)
+  emprestimoId           Int
+  emprestimo             Emprestimo @relation(fields: [emprestimoId], references: [id], onDelete: Restrict)
+  emprestimoAtivoId      Int? @unique
+  chaveOperacao          String? @db.VarChar(36)
+  metodo                 MetodoPagamentoEmprestimo
+  status                 StatusPagamentoEmprestimo @default(PENDENTE)
+  itens                  Json
+  totalCentavos          Int
+  pixCopiaCola           String? @db.Text
+  gatewayId              String? @unique
+  gatewaySituacao        String?
+  expiraEm               DateTime?
+  pagadorEmail           String? @db.VarChar(191)
+  pagadorDocumento       String? @db.VarChar(14)
+  recebidoEm             DateTime?
+  formaRecebimento       MetodoPagamento?
+  lancamentoId           Int? @unique
+  lancamento             LancamentoFinanceiro? @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  parcelas               EmprestimoParcela[]
+  comprovante            EmprestimoComprovante?
+  criadoEm               DateTime @default(now())
+
+  @@unique([emprestimoId, chaveOperacao])
+  @@index([emprestimoId, criadoEm])
+}
+
+model EmprestimoComprovante {
+  pagamentoId String @id @db.VarChar(36)
+  pagamento   EmprestimoPagamento @relation(fields: [pagamentoId], references: [id], onDelete: Cascade)
+  tipo        String
+  conteudo    Bytes @db.MediumBlob
+  enviadoEm   DateTime @default(now())
 }
 
 // O modulo Ourive referencia as entidades operacionais existentes por ID. Isso

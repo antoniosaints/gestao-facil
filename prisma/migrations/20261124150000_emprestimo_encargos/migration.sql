@@ -1,0 +1,7 @@
+ALTER TABLE `Emprestimo`
+    ADD COLUMN `jurosMoraBps` INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN `multaBps` INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN `descontoFixoCentavos` INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE `EmprestimoParcela`
+    ADD COLUMN `descontoFixoCentavos` INTEGER NOT NULL DEFAULT 0;
