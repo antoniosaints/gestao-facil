@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { correspondeAoPagamento, cotarParcela, cronograma, dataValida, diaLocal, limiteCotacao, referenciaGateway, resumirClientePublico, tipoComprovante } from "./policy";
-import { criarSchema, filtrosTabelaSchema, pagamentoSchema } from "./schemas";
+import { correspondeAoPagamento, cotarParcela, cronograma, dataFinanceira, dataValida, diaLocal, limiteCotacao, referenciaGateway, resumirClientePublico, simularParcelas, tipoComprovante } from "./policy";
+import { criarSchema, diasSimulacaoSchema, filtrosTabelaSchema, pagamentoSchema, simularCriacaoSchema } from "./schemas";
 
 test("a identificação do cliente no empréstimo público limita a exposição de documento e contato", () => {
   assert.deepEqual(resumirClientePublico({
@@ -51,6 +51,20 @@ test("desconta juros apenas antes do vencimento considerando o dia em São Paulo
   assert.equal(dataValida("2028-02-29"), true);
 });
 
+test("a antecipação em percentual ou valor funciona sem juros e respeita vencimento e desconto do contrato", () => {
+  const [parcela] = cronograma(100_000, 0, 2, "2026-12-01", 20_000);
+  const p = { ...parcela, id: 1 };
+  const semJuros = { descontoJurosBps: 0, jurosMoraBps: 0, multaBps: 0 };
+  const percentual = { ...semJuros, antecipacaoParcelaBps: 1_250 };
+  const fixo = { ...semJuros, antecipacaoParcelaCentavos: 2_000 };
+  assert.equal(cotarParcela(p, percentual, "2026-11-30").totalCentavos, 35_000);
+  assert.equal(cotarParcela(p, fixo, "2026-11-30").totalCentavos, 38_000);
+  assert.equal(cotarParcela(p, percentual, "2026-12-01").totalCentavos, 40_000);
+  assert.equal(cotarParcela(p, fixo, "2026-12-02").totalCentavos, 40_000);
+  assert.equal(cotarParcela(p, { ...percentual, antecipacaoParcelaBps: 10_000 }, "2026-11-30").totalCentavos, 1);
+  assert.equal(cotarParcela(p, { ...fixo, antecipacaoParcelaCentavos: 100_000 }, "2026-11-30").totalCentavos, 1);
+});
+
 test("cobra multa única e juros diários somente após o vencimento, sobre a parcela após desconto fixo", () => {
   const parcelas = cronograma(100_001, 0, 2, "2026-11-30", 10_001);
   assert.deepEqual(parcelas.map((p) => p.descontoFixoCentavos), [5001, 5000]);
@@ -71,6 +85,52 @@ test("cobra multa única e juros diários somente após o vencimento, sobre a pa
   assert.equal(limiteCotacao(p.vencimento, condicoes, "2026-11-30", 0)?.toISOString(), "2026-12-01T02:59:59.999Z");
   assert.equal(limiteCotacao(p.vencimento, condicoes, "2026-12-01", 0)?.toISOString(), "2026-12-02T02:59:59.999Z");
   assert.equal(limiteCotacao(p.vencimento, { ...condicoes, jurosMoraBps: 0 }, "2026-12-01", 0), null);
+});
+
+test("simula cada vencimento com centavos exatos e mantém os recebimentos já registrados", () => {
+  const saida = "2028-01-31";
+  const parcelas = cronograma(100_001, 1_000, 3, saida, 10_001).map((parcela) => ({
+    ...parcela, id: parcela.numero,
+    recebidoEm: parcela.numero === 2 ? dataFinanceira("2028-02-25") : null,
+    recebidoCentavos: parcela.numero === 2 ? 31_666 : null,
+  }));
+  const condicoes = { descontoJurosBps: 5_000, jurosMoraBps: 300, multaBps: 200 };
+  const noPrazo = simularParcelas(parcelas, condicoes, saida, 0).parcelas;
+  assert.deepEqual(noPrazo.map((p) => p.valorNoVencimentoCentavos), [33_333, 33_333, 33_334]);
+  assert.deepEqual(noPrazo.map((p) => p.cotacao?.totalCentavos), [33_333, undefined, 33_334]);
+
+  const [primeira, paga, terceira] = simularParcelas(parcelas, condicoes, saida, 30).parcelas;
+  assert.equal(diaLocal(primeira.dataSimulada!), "2028-03-01");
+  assert.equal(primeira.cotacao?.diasAtraso, 30);
+  assert.equal(primeira.cotacao?.jurosMoraCentavos, 1000);
+  assert.equal(primeira.cotacao?.multaCentavos, 667);
+  assert.equal(primeira.cotacao?.totalCentavos, 35_000);
+  assert.equal(diaLocal(paga.recebidoEm!), "2028-02-25");
+  assert.equal(paga.recebidoCentavos, 31_666);
+  assert.equal(paga.cotacao, null);
+  assert.equal(paga.dataSimulada, null);
+  assert.equal(terceira.cotacao?.totalCentavos, 35_001);
+
+  const antecipadas = simularParcelas(parcelas, condicoes, saida, -30).parcelas;
+  assert.equal(diaLocal(antecipadas[0].dataSimulada!), saida);
+  assert.equal(antecipadas[0].cotacao?.descontoAntecipacaoCentavos, 0);
+  assert.equal(antecipadas[2].cotacao?.descontoAntecipacaoCentavos, 1667);
+});
+
+test("permite simular sem cliente ou dados financeiros e valida o cronograma como no cadastro", () => {
+  const termos = {
+    principalCentavos: 500, dataSaida: "2026-11-24", primeiroVencimento: "2026-12-24",
+    jurosBps: 0, numeroParcelas: 2, dias: 30,
+  };
+  assert.equal(simularCriacaoSchema.safeParse(termos).success, true);
+  assert.equal(simularCriacaoSchema.safeParse({ ...termos, antecipacaoParcelaBps: 1250 }).success, true);
+  assert.equal(simularCriacaoSchema.safeParse({ ...termos, antecipacaoParcelaCentavos: 25 }).success, true);
+  assert.equal(simularCriacaoSchema.safeParse({ ...termos, antecipacaoParcelaBps: 1250, antecipacaoParcelaCentavos: 25 }).success, false);
+  assert.equal(simularCriacaoSchema.safeParse({ ...termos, antecipacaoParcelaBps: 1250, descontoJurosBps: 500 }).success, false);
+  assert.equal(simularCriacaoSchema.safeParse({ ...termos, primeiroVencimento: "2026-11-23" }).success, false);
+  assert.equal(simularCriacaoSchema.safeParse({ ...termos, descontoFixoCentavos: 499 }).success, false);
+  assert.equal(diasSimulacaoSchema.safeParse({ dias: -1.5 }).success, false);
+  assert.equal(diasSimulacaoSchema.safeParse({ dias: 3651 }).success, false);
 });
 
 test("confere a referência, o valor, a moeda e o identificador do Mercado Pago", () => {

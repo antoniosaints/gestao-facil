@@ -8,8 +8,8 @@ import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { QrCodePix } from "../qrcodeGenerator";
 import { getTenantMercadoPagoService } from "../financeiro/tenantMercadoPagoService";
-import { correspondeAoPagamento, cotarParcela, cronograma, dataFinanceira, diaLocal, fimDiaFinanceiro, inicioDiaFinanceiro, limiteCotacao, referenciaGateway, resumirClientePublico, tipoComprovante } from "./policy";
-import { valorMaximoPagamento, type AbrirPagamento, type BaixaEmprestimo, type ConfigEmprestimo, type ConfirmacaoEmprestimo, type CotacaoBaixa, type CriarEmprestimo, type FiltrosTabelaEmprestimos } from "./schemas";
+import { correspondeAoPagamento, cotarParcela, cronograma, dataFinanceira, diaLocal, fimDiaFinanceiro, inicioDiaFinanceiro, limiteCotacao, referenciaGateway, resumirClientePublico, simularParcelas, tipoComprovante } from "./policy";
+import { valorMaximoPagamento, type AbrirPagamento, type BaixaEmprestimo, type ConfigEmprestimo, type ConfirmacaoEmprestimo, type CotacaoBaixa, type CriarEmprestimo, type FiltrosTabelaEmprestimos, type SimularCriacao } from "./schemas";
 
 const configPadrao = { pixManual: false, mercadoPago: false, descontoJurosBps: 0 };
 const parcelasOrdenadas = { orderBy: { numero: "asc" } } as const;
@@ -100,8 +100,45 @@ async function lancar(
   });
 }
 
-export async function criarEmprestimo(contaId: number, input: CriarEmprestimo) {
+function validarDataSaida(input: { dataSaida: string }) {
   if (input.dataSaida > diaLocal()) erro("A data da saída deve ser hoje ou anterior.");
+}
+
+function gerarParcelas(input: Pick<CriarEmprestimo, "principalCentavos" | "jurosBps" | "numeroParcelas" | "primeiroVencimento" | "descontoFixoCentavos">) {
+  return cronograma(input.principalCentavos, input.jurosBps, input.numeroParcelas, input.primeiroVencimento, input.descontoFixoCentavos);
+}
+
+async function descontoPorAntecipacao(
+  db: Pick<Prisma.TransactionClient, "emprestimoConfiguracao">, contaId: number,
+  termos: Pick<CriarEmprestimo, "descontoJurosBps" | "antecipacaoParcelaBps" | "antecipacaoParcelaCentavos">,
+) {
+  if (termos.antecipacaoParcelaBps || termos.antecipacaoParcelaCentavos) return 0;
+  return termos.descontoJurosBps ?? (await db.emprestimoConfiguracao.findUnique({
+    where: { contaId }, select: { descontoJurosBps: true },
+  }))?.descontoJurosBps ?? 0;
+}
+
+export async function simularCriacaoEmprestimo(contaId: number, input: SimularCriacao) {
+  validarDataSaida(input);
+  const descontoJurosBps = await descontoPorAntecipacao(prisma, contaId, input);
+  const parcelas = gerarParcelas(input).map((parcela) => ({ ...parcela, id: parcela.numero }));
+  return simularParcelas(parcelas, { ...input, descontoJurosBps }, input.dataSaida, input.dias);
+}
+
+export async function simularEmprestimo(contaId: number, id: number, dias: number) {
+  const emprestimo = await prisma.emprestimo.findFirst({
+    where: { id, contaId },
+    select: {
+      dataSaida: true, descontoJurosBps: true, antecipacaoParcelaBps: true, antecipacaoParcelaCentavos: true,
+      jurosMoraBps: true, multaBps: true, parcelas: parcelasOrdenadas,
+    },
+  });
+  if (!emprestimo) erro("Empréstimo não encontrado.", 404);
+  return simularParcelas(emprestimo.parcelas, emprestimo, diaLocal(emprestimo.dataSaida), dias);
+}
+
+export async function criarEmprestimo(contaId: number, input: CriarEmprestimo) {
+  validarDataSaida(input);
   let resultado;
   try {
     resultado = await prisma.$transaction(async (tx) => {
@@ -114,18 +151,18 @@ export async function criarEmprestimo(contaId: number, input: CriarEmprestimo) {
       if (!cliente) erro("Selecione um cliente ativo desta conta.");
       const contas = [input.contaSaidaId, input.contaEntradaId].filter((id): id is number => id !== null);
       await validarContaCategoria(tx, contaId, contas, input.categoriaId);
-      const config = input.descontoJurosBps == null
-        ? await tx.emprestimoConfiguracao.findUnique({ where: { contaId }, select: { descontoJurosBps: true } })
-        : null;
+      const descontoJurosBps = await descontoPorAntecipacao(tx, contaId, input);
       const dataSaida = dataFinanceira(input.dataSaida);
       const { principalCentavos, jurosBps, jurosMoraBps = 0, multaBps = 0, descontoFixoCentavos = 0 } = input;
-      const itens = cronograma(principalCentavos, jurosBps, input.numeroParcelas, input.primeiroVencimento, descontoFixoCentavos);
+      const itens = gerarParcelas(input);
       const emprestimo = await tx.emprestimo.create({
         data: {
           contaId, clienteId: cliente.id, chaveOperacao: input.chaveOperacao,
           tokenPublico: randomBytes(32).toString("hex"), principalCentavos,
           jurosBps, jurosMoraBps, multaBps, descontoFixoCentavos,
-          descontoJurosBps: input.descontoJurosBps ?? config?.descontoJurosBps ?? 0,
+          descontoJurosBps,
+          antecipacaoParcelaBps: input.antecipacaoParcelaBps,
+          antecipacaoParcelaCentavos: input.antecipacaoParcelaCentavos,
           dataSaida, formaSaida: input.formaSaida, contaSaidaId: input.contaSaidaId,
           contaEntradaId: input.contaEntradaId, categoriaId: input.categoriaId,
           lancamentoAutomatico: input.lancamentoAutomatico, parcelas: { create: itens },
@@ -369,6 +406,7 @@ export async function estadoPublico(token: string) {
     referencia: `#EMP-${String(loan.id).padStart(4, "0")}`,
     dataContratacao: loan.dataSaida, principalCentavos: loan.principalCentavos, jurosBps: loan.jurosBps,
     descontoJurosBps: loan.descontoJurosBps, jurosMoraBps: loan.jurosMoraBps, multaBps: loan.multaBps,
+    antecipacaoParcelaBps: loan.antecipacaoParcelaBps, antecipacaoParcelaCentavos: loan.antecipacaoParcelaCentavos,
     descontoFixoCentavos: loan.descontoFixoCentavos,
     pixManual: dados.config.pixManual && !!dados.chavePix,
     mercadoPago: dados.config.mercadoPago && dados.gatewayDisponivel,

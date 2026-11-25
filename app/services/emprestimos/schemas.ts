@@ -26,9 +26,7 @@ export const filtrosTabelaSchema = z.object({
 
 export type FiltrosTabelaEmprestimos = z.infer<typeof filtrosTabelaSchema>;
 
-export const criarSchema = z.object({
-  chaveOperacao: chave,
-  clienteId: id,
+const termosEmprestimo = z.object({
   principalCentavos: id.max(100_000_000),
   dataSaida: data,
   primeiroVencimento: data,
@@ -37,7 +35,34 @@ export const criarSchema = z.object({
   multaBps: percentual.default(0),
   descontoFixoCentavos: z.number().int().min(0).max(100_000_000).default(0),
   descontoJurosBps: percentual.nullable().optional(),
+  antecipacaoParcelaBps: percentual.default(0),
+  antecipacaoParcelaCentavos: z.number().int().min(0).max(100_000_000).default(0),
   numeroParcelas: id.max(120),
+});
+
+function validarTermos(input: z.infer<typeof termosEmprestimo>, ctx: z.RefinementCtx) {
+  if (input.primeiroVencimento < input.dataSaida) {
+    ctx.addIssue({ code: "custom", path: ["primeiroVencimento"], message: "O vencimento deve ser a partir da data da saída." });
+  }
+  if (input.principalCentavos < input.numeroParcelas) {
+    ctx.addIssue({ code: "custom", path: ["numeroParcelas"], message: "O principal deve ter pelo menos um centavo por parcela." });
+  }
+  if (input.descontoFixoCentavos > 0 && input.principalCentavos - input.descontoFixoCentavos < input.numeroParcelas) {
+    ctx.addIssue({ code: "custom", path: ["descontoFixoCentavos"], message: "O desconto deve deixar pelo menos um centavo de principal por parcela." });
+  }
+  if ([input.descontoJurosBps, input.antecipacaoParcelaBps, input.antecipacaoParcelaCentavos].filter(Boolean).length > 1) {
+    ctx.addIssue({ code: "custom", path: ["antecipacaoParcelaBps"], message: "Escolha uma única regra de desconto por antecipação." });
+  }
+}
+
+export const diasSimulacaoSchema = z.object({
+  dias: z.number().int().min(-3650).max(3650),
+});
+export const simularCriacaoSchema = termosEmprestimo.merge(diasSimulacaoSchema).superRefine(validarTermos);
+
+export const criarSchema = termosEmprestimo.extend({
+  chaveOperacao: chave,
+  clienteId: id,
   formaSaida: forma,
   contaSaidaId: id.nullable(),
   contaEntradaId: id.nullable(),
@@ -47,11 +72,7 @@ export const criarSchema = z.object({
   function erro(path: string, message: string) {
     ctx.addIssue({ code: "custom", path: [path], message });
   }
-  if (input.primeiroVencimento < input.dataSaida) erro("primeiroVencimento", "O vencimento deve ser a partir da data da saída.");
-  if (input.principalCentavos < input.numeroParcelas) erro("numeroParcelas", "O principal deve ter pelo menos um centavo por parcela.");
-  if (input.descontoFixoCentavos > 0 && input.principalCentavos - input.descontoFixoCentavos < input.numeroParcelas) {
-    erro("descontoFixoCentavos", "O desconto deve deixar pelo menos um centavo de principal por parcela.");
-  }
+  validarTermos(input, ctx);
   if (input.lancamentoAutomatico && !input.contaEntradaId) erro("contaEntradaId", "Selecione a conta dos recebimentos.");
   if ((input.contaSaidaId || input.lancamentoAutomatico) && !input.categoriaId) erro("categoriaId", "Selecione a categoria do lançamento.");
 });
@@ -91,6 +112,7 @@ export const pagamentoSchema = z.object({ parcelas, totalCentavos: id.max(valorM
 ]));
 
 export type CriarEmprestimo = z.infer<typeof criarSchema>;
+export type SimularCriacao = z.infer<typeof simularCriacaoSchema>;
 export type ConfigEmprestimo = z.infer<typeof configSchema>;
 export type BaixaEmprestimo = z.infer<typeof baixaSchema>;
 export type CotacaoBaixa = z.infer<typeof cotacaoSchema>;

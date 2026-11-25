@@ -8,11 +8,11 @@ import { emprestimoPublicoLimiter } from "../../middlewares/rateLimit";
 import { AppRequirementError } from "../../utils/appRequirementError";
 import { handleError } from "../../utils/handleError";
 import { clampPageSize, parsePage, sanitizeOrder } from "../../utils/pagination";
-import { aprovarSchema, baixaSchema, configSchema, cotacaoSchema, criarSchema, filtrosTabelaSchema, pagamentoSchema } from "../../services/emprestimos/schemas";
+import { aprovarSchema, baixaSchema, configSchema, cotacaoSchema, criarSchema, diasSimulacaoSchema, filtrosTabelaSchema, pagamentoSchema, simularCriacaoSchema } from "../../services/emprestimos/schemas";
 import {
   abrirPagamento, aprovarComprovante, cancelarPixManual, consultarPagamento, consultarPagamentoAdmin, cotarBaixa, criarEmprestimo,
   detalheEmprestimo, enviarComprovante, estadoPublico, excluirEmprestimo, lerComprovante, lerConfig, listarEmprestimos,
-  registrarBaixa, salvarConfig, tabelaEmprestimos, validarWebhook, webhookGateway,
+  registrarBaixa, salvarConfig, simularCriacaoEmprestimo, simularEmprestimo, tabelaEmprestimos, validarWebhook, webhookGateway,
 } from "../../services/emprestimos/service";
 
 export const routerEmprestimos = Router();
@@ -82,8 +82,11 @@ routerEmprestimos.get("/", admin(3, (req, res, contaId) => {
   );
 }));
 routerEmprestimos.get("/getDataTable", admin(3, responderTabela));
+routerEmprestimos.post("/simulacao", admin(3, (req, _res, contaId) => simularCriacaoEmprestimo(contaId, simularCriacaoSchema.parse(req.body))));
 routerEmprestimos.post("/", admin(3, (req, _res, contaId) => criarEmprestimo(contaId, criarSchema.parse(req.body))));
 routerEmprestimos.get("/:id", admin(3, (req, _res, contaId) => detalheEmprestimo(contaId, id.parse(req.params.id))));
+routerEmprestimos.post("/:id/simulacao", admin(3, (req, _res, contaId) =>
+  simularEmprestimo(contaId, id.parse(req.params.id), diasSimulacaoSchema.parse(req.body).dias)));
 routerEmprestimos.delete("/:id", admin(4, (req, _res, contaId) =>
   excluirEmprestimo(contaId, id.parse(req.params.id))));
 routerEmprestimos.post("/:id/cotacao", admin(3, (req, _res, contaId) =>

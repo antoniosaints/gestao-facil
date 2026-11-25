@@ -71,10 +71,17 @@ export function cronograma(principal: number, jurosBps: number, parcelas: number
   });
 }
 
-type CondicoesPagamento = { descontoJurosBps: number; jurosMoraBps: number; multaBps: number };
+type CondicoesPagamento = {
+  descontoJurosBps: number; jurosMoraBps: number; multaBps: number;
+  antecipacaoParcelaBps?: number; antecipacaoParcelaCentavos?: number;
+};
+type ParcelaCotavel = {
+  id: number; numero: number; vencimento: Date; principalCentavos: number;
+  jurosCentavos: number; descontoFixoCentavos: number;
+};
 
 export function cotarParcela(
-  parcela: { id: number; numero: number; vencimento: Date; principalCentavos: number; jurosCentavos: number; descontoFixoCentavos: number },
+  parcela: ParcelaCotavel,
   condicoes: CondicoesPagamento, diaPagamento: string,
 ) {
   const vencimento = diaLocal(parcela.vencimento);
@@ -82,9 +89,14 @@ export function cotarParcela(
   const nominalCentavos = parcela.principalCentavos + parcela.jurosCentavos;
   const { descontoFixoCentavos } = parcela;
   const base = nominalCentavos - descontoFixoCentavos;
-  const descontoAntecipacaoCentavos = diaPagamento < vencimento
-    ? Math.min(base - 1, Math.round(parcela.jurosCentavos * condicoes.descontoJurosBps / 10_000))
-    : 0;
+  let descontoAntecipacaoCentavos = 0;
+  if (diaPagamento < vencimento) {
+    const { antecipacaoParcelaBps, antecipacaoParcelaCentavos, descontoJurosBps } = condicoes;
+    const abatimento = antecipacaoParcelaCentavos || (antecipacaoParcelaBps
+      ? Math.round(base * antecipacaoParcelaBps / 10_000)
+      : Math.round(parcela.jurosCentavos * descontoJurosBps / 10_000));
+    descontoAntecipacaoCentavos = Math.max(0, Math.min(base - 1, abatimento));
+  }
   const multaCentavos = diasAtraso ? Math.round(base * condicoes.multaBps / 10_000) : 0;
   const jurosMoraCentavos = Number((BigInt(base) * BigInt(condicoes.jurosMoraBps) * BigInt(diasAtraso) + 150_000n) / 300_000n);
   const descontoCentavos = descontoFixoCentavos + descontoAntecipacaoCentavos;
@@ -92,6 +104,32 @@ export function cotarParcela(
     id: parcela.id, numero: parcela.numero, nominalCentavos, diasAtraso,
     descontoFixoCentavos, descontoAntecipacaoCentavos, descontoCentavos, multaCentavos, jurosMoraCentavos,
     totalCentavos: nominalCentavos - descontoCentavos + multaCentavos + jurosMoraCentavos,
+  };
+}
+
+export function simularParcelas(
+  parcelas: (ParcelaCotavel & { recebidoEm?: Date | null; recebidoCentavos?: number | null })[],
+  condicoes: CondicoesPagamento, dataSaida: string, dias: number,
+) {
+  const saida = Date.parse(dataSaida);
+  const ultimaData = Date.parse("9999-12-31");
+  return {
+    descontoJurosBps: condicoes.descontoJurosBps,
+    antecipacaoParcelaBps: condicoes.antecipacaoParcelaBps ?? 0,
+    antecipacaoParcelaCentavos: condicoes.antecipacaoParcelaCentavos ?? 0,
+    parcelas: parcelas.map((parcela) => {
+      const { numero, vencimento, principalCentavos, jurosCentavos, descontoFixoCentavos } = parcela;
+      const base = principalCentavos + jurosCentavos - descontoFixoCentavos;
+      const recebidoEm = parcela.recebidoEm ?? null;
+      const dataAlvo = Date.parse(diaLocal(vencimento)) + dias * 86_400_000;
+      const diaSimulado = new Date(Math.min(ultimaData, Math.max(saida, dataAlvo))).toISOString().slice(0, 10);
+      return {
+        numero, vencimento, principalCentavos, jurosCentavos, descontoFixoCentavos,
+        valorNoVencimentoCentavos: base, recebidoEm, recebidoCentavos: parcela.recebidoCentavos ?? null,
+        dataSimulada: recebidoEm ? null : dataFinanceira(diaSimulado),
+        cotacao: recebidoEm ? null : cotarParcela(parcela, condicoes, diaSimulado),
+      };
+    }),
   };
 }
 

@@ -3156,6 +3156,8 @@ model Emprestimo {
   principalCentavos       Int
   jurosBps                Int
   descontoJurosBps        Int
+  antecipacaoParcelaBps   Int @default(0)
+  antecipacaoParcelaCentavos Int @default(0)
   jurosMoraBps            Int @default(0)
   multaBps                Int @default(0)
   descontoFixoCentavos    Int @default(0)
