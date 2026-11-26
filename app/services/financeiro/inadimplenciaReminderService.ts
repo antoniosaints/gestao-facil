@@ -121,7 +121,7 @@ export function buildMensagemInadimplencia(args: {
 }
 
 /** Defaults de lembrete por conta (hora, ativo, dias e mensagem padrão) das contas informadas. */
-async function getContaDefaults(contaIds: number[]): Promise<Map<number, ContaLembreteDefaults>> {
+export async function getContaDefaults(contaIds: number[]): Promise<Map<number, ContaLembreteDefaults>> {
   const rows = contaIds.length
     ? await prisma.parametrosConta.findMany({
         where: { contaId: { in: contaIds } },
@@ -147,7 +147,7 @@ async function getContaDefaults(contaIds: number[]): Promise<Map<number, ContaLe
   return map;
 }
 
-function resolveContaDefaults(map: Map<number, ContaLembreteDefaults>, contaId: number): ContaLembreteDefaults {
+export function resolveContaDefaults(map: Map<number, ContaLembreteDefaults>, contaId: number): ContaLembreteDefaults {
   // Conta sem ParametrosConta → habilitada, hora padrão e sem template custom.
   return (
     map.get(contaId) ?? {

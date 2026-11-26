@@ -3174,6 +3174,7 @@ model Emprestimo {
   lancamentoSaida         LancamentoFinanceiro? @relation("EmprestimoLancamentoSaida", fields: [lancamentoSaidaId], references: [id], onDelete: Restrict)
   parcelas                EmprestimoParcela[]
   pagamentos              EmprestimoPagamento[]
+  lembrete                EmprestimoLembrete?
   criadoEm                DateTime @default(now())
 
   @@unique([contaId, chaveOperacao])
@@ -3193,8 +3194,34 @@ model EmprestimoParcela {
   recebidoEm             DateTime?
   pagamentoId            String? @db.VarChar(36)
   pagamento              EmprestimoPagamento? @relation(fields: [pagamentoId], references: [id], onDelete: Restrict)
+  lembretesEnviados       EmprestimoLembreteEnviado[]
 
   @@unique([emprestimoId, numero])
+}
+
+model EmprestimoLembrete {
+  emprestimoId   Int @id
+  emprestimo     Emprestimo @relation(fields: [emprestimoId], references: [id], onDelete: Cascade)
+  instanciaId    Int?
+  instancia      WhatsAppInstancia? @relation(fields: [instanciaId], references: [id], onDelete: SetNull)
+  ativo          Boolean @default(false)
+  diasLembrete   Json
+  mensagemCustom String? @db.Text
+  updatedAt      DateTime @updatedAt
+
+  @@index([instanciaId], map: "emprestimo_lembrete_instancia_idx")
+  @@index([ativo], map: "emprestimo_lembrete_ativo_idx")
+}
+
+model EmprestimoLembreteEnviado {
+  id             Int @id @default(autoincrement())
+  parcelaId      Int
+  parcela        EmprestimoParcela @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  diaOffset      Int
+  dataReferencia DateTime
+  enviadoEm      DateTime @default(now())
+
+  @@unique([parcelaId, diaOffset, dataReferencia], map: "emprestimo_lembrete_enviado_unique")
 }
 
 enum MetodoPagamentoEmprestimo {
@@ -4198,6 +4225,7 @@ model WhatsAppInstancia {
   webhookEventos         WhatsAppWebhookEvento[]
   pagamentos             WhatsAppInstanciaPagamento[]
   agentes                WhatsAppAgenteInstancia[]
+  lembretesEmprestimos   EmprestimoLembrete[]
 
   @@unique([contaId, instanceId])
   @@index([contaId, status])

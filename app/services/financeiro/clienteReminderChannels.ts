@@ -19,12 +19,14 @@ export type DispatchReminderArgs = {
   contaId: number;
   clienteId: number;
   mensagem: string;
+  instanciaId?: number;
 };
 
 async function sendViaWhatsapp(args: DispatchReminderArgs): Promise<void> {
   await sendClienteWhatsappMessage(args.contaId, args.clienteId, {
     tipo: "MENSAGEM",
     mensagem: args.mensagem,
+    instanciaId: args.instanciaId,
   });
 }
 

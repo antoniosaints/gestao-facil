@@ -8,6 +8,7 @@ import { env } from "../../utils/dotenv";
 import { prisma } from "../../utils/prisma";
 import { QrCodePix } from "../qrcodeGenerator";
 import { getTenantMercadoPagoService } from "../financeiro/tenantMercadoPagoService";
+import { resumoLembreteSelect } from "./lembretes";
 import { correspondeAoPagamento, cotarParcela, cronograma, dataFinanceira, diaLocal, fimDiaFinanceiro, inicioDiaFinanceiro, limiteCotacao, referenciaGateway, resumirClientePublico, simularParcelas, tipoComprovante } from "./policy";
 import { valorMaximoPagamento, type AbrirPagamento, type BaixaEmprestimo, type ConfigEmprestimo, type ConfirmacaoEmprestimo, type CotacaoBaixa, type CriarEmprestimo, type FiltrosTabelaEmprestimos, type SimularCriacao } from "./schemas";
 
@@ -294,6 +295,7 @@ export async function detalheEmprestimo(contaId: number, id: number) {
     where: { id, contaId },
     include: {
       cliente: { select: { id: true, nome: true } }, parcelas: parcelasOrdenadas,
+      lembrete: { select: resumoLembreteSelect },
       pagamentos: {
         orderBy: { criadoEm: "desc" }, take: 150, select: {
           id: true, metodo: true, status: true, itens: true, totalCentavos: true,

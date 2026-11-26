@@ -8,6 +8,7 @@ import { emprestimoPublicoLimiter } from "../../middlewares/rateLimit";
 import { AppRequirementError } from "../../utils/appRequirementError";
 import { handleError } from "../../utils/handleError";
 import { clampPageSize, parsePage, sanitizeOrder } from "../../utils/pagination";
+import { lembreteEmprestimoSchema, lerLembreteEmprestimo, salvarLembreteEmprestimo } from "../../services/emprestimos/lembretes";
 import { aprovarSchema, baixaSchema, configSchema, cotacaoSchema, criarSchema, diasSimulacaoSchema, filtrosTabelaSchema, pagamentoSchema, simularCriacaoSchema } from "../../services/emprestimos/schemas";
 import {
   abrirPagamento, aprovarComprovante, cancelarPixManual, consultarPagamento, consultarPagamentoAdmin, cotarBaixa, criarEmprestimo,
@@ -85,6 +86,10 @@ routerEmprestimos.get("/getDataTable", admin(3, responderTabela));
 routerEmprestimos.post("/simulacao", admin(3, (req, _res, contaId) => simularCriacaoEmprestimo(contaId, simularCriacaoSchema.parse(req.body))));
 routerEmprestimos.post("/", admin(3, (req, _res, contaId) => criarEmprestimo(contaId, criarSchema.parse(req.body))));
 routerEmprestimos.get("/:id", admin(3, (req, _res, contaId) => detalheEmprestimo(contaId, id.parse(req.params.id))));
+routerEmprestimos.get("/:id/lembrete", admin(3, (req, _res, contaId) =>
+  lerLembreteEmprestimo(contaId, id.parse(req.params.id))));
+routerEmprestimos.put("/:id/lembrete", admin(3, (req, _res, contaId) =>
+  salvarLembreteEmprestimo(contaId, id.parse(req.params.id), lembreteEmprestimoSchema.parse(req.body))));
 routerEmprestimos.post("/:id/simulacao", admin(3, (req, _res, contaId) =>
   simularEmprestimo(contaId, id.parse(req.params.id), diasSimulacaoSchema.parse(req.body).dias)));
 routerEmprestimos.delete("/:id", admin(4, (req, _res, contaId) =>

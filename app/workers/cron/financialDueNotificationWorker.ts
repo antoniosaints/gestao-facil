@@ -6,6 +6,7 @@ import {
 } from "../../queues/financialDueNotificationQueue";
 import { processFinancialDueNotifications } from "../../services/financeiro/financialDueNotificationService";
 import { processInadimplenciaReminders } from "../../services/financeiro/inadimplenciaReminderService";
+import { processEmprestimoReminders } from "../../services/emprestimos/lembretes";
 import { DEFAULT_LEMBRETE_HORA } from "../../services/financeiro/inadimplenciaLembretePolicy";
 import { redisConnecion } from "../../utils/redis";
 
@@ -52,7 +53,10 @@ export const financialDueNotificationWorker = () => {
       }
 
       // Lembretes ao cliente: rodam toda hora, mas cada conta só na sua hora configurada.
-      const inadimplencia = await processInadimplenciaReminders(agora);
+      const [inadimplencia, emprestimos] = await Promise.all([
+        processInadimplenciaReminders(agora),
+        processEmprestimoReminders(agora),
+      ]);
       if (inadimplencia.checked > 0 || inadimplencia.sent > 0) {
         console.log(
           `[inadimplenciaReminders] job=${job.id} checked=${inadimplencia.checked} sent=${inadimplencia.sent} skipped=${inadimplencia.skipped} failed=${inadimplencia.failed}`,
@@ -62,7 +66,16 @@ export const financialDueNotificationWorker = () => {
         console.error("[inadimplenciaReminders] errors:", inadimplencia.errors);
       }
 
-      return { interno, inadimplencia };
+      if (emprestimos.checked > 0) {
+        console.log(
+          `[emprestimoReminders] job=${job.id} checked=${emprestimos.checked} sent=${emprestimos.sent} skipped=${emprestimos.skipped} failed=${emprestimos.failed}`,
+        );
+      }
+      if (emprestimos.errors.length) {
+        console.error("[emprestimoReminders] errors:", emprestimos.errors);
+      }
+
+      return { interno, inadimplencia, emprestimos };
     },
     {
       connection: redisConnecion,
